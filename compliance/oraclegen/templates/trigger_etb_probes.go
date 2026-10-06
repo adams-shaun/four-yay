@@ -71,14 +71,31 @@ var etbCastProbes = []string{
 // etbAuraProbes are the cast probes that need a bearer on the battlefield.
 var etbAuraProbes = map[string]bool{"Rancor": true, "Pacifism": true}
 
-// etbUnservableFilter reports the qualifier in filter that no cast or played
-// probe can satisfy, or "". token means a TOKEN must enter (a cast card is
-// never a token), faceDown a face-down permanent, ChosenType a permanent of a
-// type chosen earlier, and OppCtrl an opponent's permanent. A negated
+// etbUnservableFilter reports the qualifier that makes filter unservable by
+// any cast or played probe, or "". The filter's comma-separated alternatives
+// are each tested, and only a filter every alternative of which is
+// unservable is reported: "Creature.YouCtrl,Land.OppCtrl" is still served by
+// a creature. In one alternative, token means a TOKEN must enter (a cast card
+// is never a token), faceDown a face-down permanent, ChosenType a permanent
+// of a type chosen earlier, and OppCtrl an opponent's permanent. A negated
 // qualifier (!token) is satisfied by an ordinary non-token probe, so it is
 // stripped before the test.
 func etbUnservableFilter(filter string) string {
-	rest := strings.ReplaceAll(strings.ToLower(filter), "!token", "")
+	bad := ""
+	for _, alt := range strings.Split(filter, ",") {
+		b := etbUnservableAlternative(alt)
+		if b == "" {
+			return ""
+		}
+		if bad == "" {
+			bad = b
+		}
+	}
+	return bad
+}
+
+func etbUnservableAlternative(alt string) string {
+	rest := strings.ReplaceAll(strings.ToLower(alt), "!token", "")
 	switch {
 	case strings.Contains(rest, "token"):
 		return "token"

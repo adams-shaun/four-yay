@@ -3,8 +3,10 @@ package rules
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -75,6 +77,12 @@ type OracleSnapStack struct {
 	Kind       string `json:"kind"`   // "spell" or "ability"
 	Source     string `json:"source"` // ref of the spell, or of the ability's source
 	Controller int    `json:"controller"`
+	// Trigger is the index into the source face's Triggers of the printed
+	// trigger that put this ability on the stack ("" for a spell, an
+	// activated ability, or a trigger that is not one of the face's own).
+	// It lets the generator tell which of a card's triggers fired. The
+	// comparator does not read it.
+	Trigger string `json:"trigger,omitempty"`
 }
 
 // OracleDecision is one non-priority decision the scenario answered.
@@ -254,11 +262,31 @@ func (r *oracleRun) snapshot(checkpoint string) OracleSnapshot {
 		if o.Ability != nil {
 			it.Kind = "ability"
 			src = g.Obj(o.Source)
+			it.Trigger = stackTriggerSlot(src, o.Ability)
 		}
 		it.Source = r.objRef(src)
 		s.Stack = append(s.Stack, it)
 	}
 	return s
+}
+
+// stackTriggerSlot is the index of the face trigger whose compiled effect is
+// sa (the pointer TriggerPush mints, as findTriggerForAbilityFace matches it),
+// or "" when sa is not one of src's face triggers.
+func stackTriggerSlot(src *state.Object, sa *cards.SA) string {
+	if src == nil {
+		return ""
+	}
+	f := src.Face()
+	if f == nil {
+		return ""
+	}
+	for i := range f.Triggers {
+		if f.Triggers[i].Effect == sa {
+			return strconv.Itoa(i)
+		}
+	}
+	return ""
 }
 
 // objRef names o by the ref resolve maps back to o right now, so a snapshot

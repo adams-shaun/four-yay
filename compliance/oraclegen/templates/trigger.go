@@ -158,7 +158,7 @@ func triggerWithFixture(reg *cards.Registry, f *cards.Face, name string, req lev
 	// the spell resolves and the trigger it caused is on the stack.
 	passes := []oraclegen.Step{{Op: "pass", Seat: 0}, {Op: "pass", Seat: 1}}
 	for _, steps := range [][]oraclegen.Step{probe, append(append([]oraclegen.Step(nil), probe...), passes...)} {
-		if _, res, ok := oraclegen.Settle(reg, triggerScenario(f, name, c, req, steps, fx)); ok && abilityOnStack(res.Snapshots, name) {
+		if _, res, ok := oraclegen.Settle(reg, triggerScenario(f, name, c, req, steps, fx)); ok && abilityOnStack(res.Snapshots, name, req.Slot) {
 			fired = true
 			break
 		}
@@ -207,12 +207,14 @@ func triggerFromGraveyard(f *cards.Face, req levelb.Requirement) bool {
 }
 
 // abilityOnStack reports whether any snapshot shows an ability stack entry
-// whose source is the named card.
-func abilityOnStack(snaps []rules.OracleSnapshot, name string) bool {
+// whose source is the named card and that the card's trigger at slot put
+// there: a card with several triggers (Kolodin's Mount and Vehicle ETBs) is
+// not served by a probe that fires only a different one.
+func abilityOnStack(snaps []rules.OracleSnapshot, name, slot string) bool {
 	want := strings.ToLower(name)
 	for _, s := range snaps {
 		for _, e := range s.Stack {
-			if e.Kind == "ability" && strings.Contains(strings.ToLower(e.Source), want) {
+			if e.Kind == "ability" && e.Trigger == slot && strings.Contains(strings.ToLower(e.Source), want) {
 				return true
 			}
 		}

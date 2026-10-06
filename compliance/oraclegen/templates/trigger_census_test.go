@@ -41,7 +41,6 @@ var wantTriggerCensus = map[string]map[string]int{
 	},
 	"FDN": {
 		"served:trigger.attacks":                                                           21,
-		"served:trigger.becomes-target":                                                    1,
 		"served:trigger.combat-damage":                                                     8,
 		"served:trigger.dies":                                                              13,
 		"served:trigger.dies-other":                                                        5,
@@ -52,7 +51,7 @@ var wantTriggerCensus = map[string]map[string]int{
 		"served:trigger.phase":                                                             14,
 		"served:trigger.spell-cast":                                                        17,
 		"skip:trigger.attacks: trigger did not fire":                                       5,
-		"skip:trigger.becomes-target: trigger did not fire":                                5,
+		"skip:trigger.becomes-target: trigger did not fire":                                6,
 		"skip:trigger.dies: trigger did not fire":                                          1,
 		"skip:trigger.drawn: trigger did not fire":                                         1,
 		"skip:trigger.etb-other: trigger covered by level A":                               80,
@@ -65,7 +64,6 @@ var wantTriggerCensus = map[string]map[string]int{
 	"FRA": {
 		"served:trigger.attacks":                                   5,
 		"served:trigger.attacks-one-target":                        2,
-		"served:trigger.becomes-target":                            1,
 		"served:trigger.combat-damage":                             2,
 		"served:trigger.combat-damage-all":                         1,
 		"served:trigger.dies":                                      5,
@@ -80,7 +78,7 @@ var wantTriggerCensus = map[string]map[string]int{
 		"served:trigger.spell-cast":                                17,
 		"served:trigger.surveil":                                   5,
 		"skip:trigger.attacks: trigger did not fire":               1,
-		"skip:trigger.becomes-target: trigger did not fire":        5,
+		"skip:trigger.becomes-target: trigger did not fire":        6,
 		"skip:trigger.etb-other: trigger covered by level A":       65,
 		"skip:trigger.etb-other: trigger did not fire":             1,
 		"skip:trigger.phase: trigger did not fire":                 6,
