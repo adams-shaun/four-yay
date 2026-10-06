@@ -1160,10 +1160,22 @@ const (
 	// line, so games without one keep their chains. Appended after the
 	// keyword-action kinds so every earlier ordinal is unchanged.
 	AbilityTriggered
+	// CastBattlefield freezes the battlefield a spell found as it was cast
+	// (CR 601.2a, as the spell reaches the stack): Obj is the spell, Player
+	// its caster, IDs the battlefield permanents in controller-then-zone
+	// order and Pairs[i] the layer-derived {power, toughness} of IDs[i] (each
+	// int32 carried as its uint32 bit pattern in an ObjID slot). The fold
+	// deep-copies those permanents from the live game into Object.
+	// CastBattlefield, which Count$LastStateBattlefieldWithFallback reads in
+	// place of the resolution-time battlefield. An event with no IDs freezes
+	// an authoritative EMPTY battlefield. Emitted only for a spell whose
+	// script reads that head, so every other game keeps its chain. Appended
+	// after AbilityTriggered so every earlier ordinal is unchanged.
+	CastBattlefield
 	// NumKinds is the explicit upper bound for the append-only event kind
 	// registry below. New kinds must be appended above this line: inserting or
 	// reordering a kind renumbers the hash-chained event stream and breaks replay.
-	NumKinds = int(AbilityTriggered) + 1
+	NumKinds = int(CastBattlefield) + 1
 )
 
 // PlanarWalkDontPlaneswalkAway is PlanarWalk's Amount flag: the resolving

@@ -18,7 +18,7 @@ func TestScenarioReplayEndTurnSnapshotsAreConditionalAndComplete(t *testing.T) {
 		"for (Ability sub : ability.getSubAbilities())",
 		// Generated scenarios omit xmage_name when the two card names match (e.g. FIN Ultima).
 		"xmageName = str(sc, \"xmage_name\");", "gorgeName = str(sc, \"card\");",
-		"setStopAt(endTurnScenario ? TURN + 1 : TURN,",
+		"setStopAt(endTurnScenario ? turn + 1 : turn,",
 		"endTurnScenario ? PhaseStep.UPKEEP : PhaseStep.END_TURN);",
 		"unusedActionCount(msg) >= 0",
 		"skippedActionsMatch(completedSteps, queuedA, queuedB)",

@@ -43,6 +43,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -644,6 +645,13 @@ func runRule(dir, card, status, ruling, shapeID, template string, confirm bool) 
 	if skip != nil {
 		return fmt.Errorf("%s: %s", card, skip.Reason)
 	}
+	// Stamp XMage's spelling exactly as the pass and the gate do
+	// (gate.go's xmageSpelling), or a split or Room card's ItemSHA never
+	// matches its row ("Restricted Office" vs XMage's "Restricted Office //
+	// Lecture Hall").
+	if xm, ok := xmageSpelling(reg, card); ok && xm != card {
+		it.XMageName = xm
+	}
 	r, ok := all[card][it.Template]
 	if !ok {
 		return fmt.Errorf("%s: no %s verdict to rule on", card, it.Template)
@@ -696,4 +704,36 @@ func runShow(dir, scen, card string) error {
 		}
 		return nil
 	})
+}
+
+// xmageSpelling returns XMage's own spelling of the printed card that card
+// (a corpus name or a split/Room face name) belongs to, read from the
+// committed set manifests, as gate.Check's xmageSpelling does per set.
+func xmageSpelling(reg *cards.Registry, card string) (string, bool) {
+	want := map[string]bool{compliance.FoldName(card): true}
+	if c, ok := reg.Lookup(card); ok && len(c.Faces) > 1 {
+		names := make([]string, 0, len(c.Faces))
+		for _, f := range c.Faces {
+			names = append(names, f.Name)
+		}
+		want[compliance.FoldName(strings.Join(names, " // "))] = true
+	}
+	paths, _ := filepath.Glob(filepath.Join("compliance", "manifests", "*.json"))
+	sort.Strings(paths)
+	for _, p := range paths {
+		raw, err := os.ReadFile(p)
+		if err != nil {
+			continue
+		}
+		var m compliance.Manifest
+		if json.Unmarshal(raw, &m) != nil {
+			continue
+		}
+		for _, mc := range m.Cards {
+			if want[compliance.FoldName(mc.Name)] {
+				return mc.Name, true
+			}
+		}
+	}
+	return "", false
 }

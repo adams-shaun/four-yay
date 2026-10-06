@@ -107,8 +107,8 @@ func TestShadowPredicatesMatch(t *testing.T) {
 		t.Fatalf("precondition: shadow=%v plain=%v", h.g.Obj(shadow.ID).Face().HasKeyword("Shadow"), h.g.Obj(plain.ID).Face().HasKeyword("Shadow"))
 	}
 
-	shadowCtx := SpecContext{You: 0, ExtraKeywords: []string{"Shadow"}}
-	plainCtx := SpecContext{You: 0, ExtraKeywords: []string{"Flying"}}
+	shadowCtx := SpecContext{You: 0, ExtraKeywords: []string{"Shadow"}, ExtraKeywordsOwner: shadow.ID}
+	plainCtx := SpecContext{You: 0, ExtraKeywords: []string{"Flying"}, ExtraKeywordsOwner: plain.ID}
 	if !MatchesSpecCtx(h.g, "Creature.withShadow", shadow.ID, shadowCtx) {
 		t.Fatal("a shadow creature did not match Creature.withShadow with the derived keyword bound")
 	}
@@ -126,7 +126,7 @@ func TestShadowPredicatesMatch(t *testing.T) {
 		t.Fatal("a non-shadow creature matched Creature.withShadow through choiceMatches")
 	}
 
-	chosenShadow := SpecContext{You: 0, ExtraKeywords: []string{"Shadow"}, Chosen: []state.Target{{Obj: shadow.ID}}, ChosenValid: true}
+	chosenShadow := SpecContext{You: 0, ExtraKeywords: []string{"Shadow"}, ExtraKeywordsOwner: shadow.ID, Chosen: []state.Target{{Obj: shadow.ID}}, ChosenValid: true}
 	if !MatchesSpecCtx(h.g, "Card.ChosenCardStrict+withShadow", shadow.ID, chosenShadow) {
 		t.Fatal("the chosen shadow creature did not match Card.ChosenCardStrict+withShadow")
 	}
@@ -135,7 +135,7 @@ func TestShadowPredicatesMatch(t *testing.T) {
 		t.Fatal("a chosen non-shadow creature matched Card.ChosenCardStrict+withShadow")
 	}
 	// A shadow creature that was NOT chosen: the chosen half must fail.
-	chosenPlain := SpecContext{You: 0, ExtraKeywords: []string{"Shadow"}, Chosen: []state.Target{{Obj: plain.ID}}, ChosenValid: true}
+	chosenPlain := SpecContext{You: 0, ExtraKeywords: []string{"Shadow"}, ExtraKeywordsOwner: shadow.ID, Chosen: []state.Target{{Obj: plain.ID}}, ChosenValid: true}
 	if MatchesSpecCtx(h.g, "Card.ChosenCardStrict+withShadow", shadow.ID, chosenPlain) {
 		t.Fatal("a non-chosen shadow creature matched Card.ChosenCardStrict+withShadow")
 	}

@@ -161,14 +161,15 @@ func contextsFor(g *state.Game) []effects.SpecContext {
 		Remembered:        []state.Target{{Obj: at(5)}, {IsPlayer: true, Player: 1}},
 		ResolutionTargets: []state.Target{{Obj: at(7)}},
 		Chosen:            []state.Target{{Obj: at(5)}}, ChosenValid: true,
-		ExtraKeywords: []string{"Flying", "Trample"},
+		ExtraKeywords: []string{"Flying", "Trample"}, ExtraKeywordsOwner: at(2),
 	}
 	rich.TriggerCard = at(9)
 	rich.TriggerPlayer = state.Target{IsPlayer: true, Player: 1}
 	rich.DefendingPlayer = state.Target{IsPlayer: true, Player: 0}
 	rich.TriggerTarget = state.Target{Obj: at(11)}
 	layer := effects.SpecContext{You: 1, Source: at(13),
-		ExtraTypes: []string{"Goblin", "Creature"},
+		ExtraTypes:      []string{"Goblin", "Creature"},
+		ExtraTypesOwner: at(2),
 		Layers: effects.LayerTables{
 			DerivedTypes:   []effects.ObjectTypes{{ID: at(2), Types: []string{"Creature", "Elf"}}},
 			EffectiveNames: []effects.ObjectName{{ID: at(4), Name: "Grizzly Bears"}},

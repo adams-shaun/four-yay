@@ -24,6 +24,7 @@ package rules
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -90,6 +91,36 @@ type oracleSeat struct {
 	// so the scenario still replays from its log like every other setup op.
 	Mana string `json:"mana,omitempty"`
 	Life *int32 `json:"life,omitempty"`
+	// Counters puts counters on this seat's battlefield placements at setup:
+	// card name -> counter kind (gorge spelling: LOYALTY, P1P1) -> how many,
+	// ADDED to whatever the card enters with (a planeswalker's printed
+	// loyalty). Like Tapped it applies to every placement of that name. It
+	// stands in for an unspecified outside effect, as logged CounterChange
+	// events, so the scenario still replays from its log.
+	Counters map[string]map[string]int32 `json:"counters,omitempty"`
+}
+
+// setupCounters lists the counters a seat's setup puts on a battlefield
+// placement named name, kinds sorted so the emitted events are deterministic.
+func setupCounters(s oracleSeat, name string) []events.Event {
+	var out []events.Event
+	for card, kinds := range s.Counters {
+		if cards.NormalizeName(card) != cards.NormalizeName(name) {
+			continue
+		}
+		for kind, n := range kinds {
+			if n != 0 {
+				out = append(out, events.Event{Kind: events.CounterChange, Counter: normCounter(kind), Amount: n})
+			}
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].Counter != out[j].Counter {
+			return out[i].Counter < out[j].Counter
+		}
+		return out[i].Amount < out[j].Amount
+	})
+	return out
 }
 
 type oracleStep struct {
@@ -490,6 +521,12 @@ func (r *oracleRun) build(sc oracleScenario) error {
 				if cards.NormalizeName(tapped) == cards.NormalizeName(pl.name) {
 					e.emit(events.Event{Kind: events.Tap, Obj: id})
 					break
+				}
+			}
+			if pl.zone == state.ZBattlefield {
+				for _, ev := range setupCounters(sc.Setup[fmt.Sprintf("p%d", p)], pl.name) {
+					ev.Obj = id
+					e.emit(ev)
 				}
 			}
 			if pl.top {

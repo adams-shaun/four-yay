@@ -34,13 +34,11 @@ import (
 //     read. Zero when nothing bound one -- Forge's default remembered amount.
 //   - LastStateBattlefieldWithFallback is Forge's battlefield count read from
 //     the last known-state snapshot (castSA.getLastStateBattlefield) with a
-//     current-battlefield fallback. This build carries no last-state
-//     snapshot, so the read is the CURRENT battlefield -- the fallback arm --
-//     through the ordinary Valid zone scan, which is exact for every carrier
-//     whose count is not frozen at cast time and correct for the common
-//     "as you cast this spell" case whenever nothing entered or left in the
-//     cast-to-resolution window. (See the commit message: the snapshot is
-//     tracked as follow-up work, not in the frozen approximations table.)
+//     current-battlefield fallback. The snapshot is the source spell's frozen
+//     as-cast battlefield (state.Object.CastBattlefield, folded from the
+//     events.CastBattlefield event the cast flow emits); only a source with
+//     no snapshot (a bare context, an uncast source) reads the CURRENT
+//     battlefield through the ordinary Valid zone scan.
 //
 // Both register in effects.modelledValueHeads so the coverage gate stops
 // calling their carriers unsupported.
@@ -131,17 +129,9 @@ func evalCountBodySimple(h Host, c *Ctx, g *state.Game, head, arg string, depth 
 		}
 		return c.TriggerRememberedAmount, true, true
 	case evalCountBodyCostLastStateBattlefieldWithFallback:
-		// Forge's last-state battlefield count with a current-battlefield
-		// fallback. No last-state snapshot exists in this build, so the
-		// current battlefield is the whole read -- the fallback arm --
-		// delegated to the one Valid zone scan so the filter grammar,
-		// $Property folds and distinct/extreme reductions cannot drift from
-		// Count$Valid. An empty filter is not a body this build can count, so
-		// fail the head's own verdict.
-		if arg == "" {
-			return 0, false, true
-		}
-		return evalCountBodyZone(h, c, g, "Valid", arg, depth)
+		// The battlefield as the spell was cast, from its frozen snapshot,
+		// else the live battlefield (see evalCastBattlefieldCount).
+		return evalCastBattlefieldCount(h, c, g, arg, depth)
 	}
 	return 0, false, false
 }
