@@ -233,9 +233,10 @@ func costFaceComplexity(f *cards.Face) int {
 }
 
 // probeNameUsable keeps the probe to names a deck list and XMage's card
-// database both hold: Alchemy rebalances and quoted names are not.
+// database both hold (oraclegen.XMageKnown): Alchemy rebalances, quoted names
+// and the Un-set, Alchemy-only and Commander-only cards the manifests lack.
 func probeNameUsable(name string) bool {
-	return name != "" && !strings.HasPrefix(name, "A-") && !strings.Contains(name, `"`)
+	return oraclegen.XMageKnown(name)
 }
 
 // spellCostProbes picks single-faced spells satisfying the static's filter
