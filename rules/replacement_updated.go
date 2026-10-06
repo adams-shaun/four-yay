@@ -112,7 +112,7 @@ func (e *Engine) composeUpdatedReplacements(ev events.Event, matches []replMatch
 	}
 	departing, link, controller := e.captureSourceLifelinkLKI(ev)
 	stored := ev
-	absorbed := e.foldEntryMove(&stored)
+	absorbed := e.foldEntryMove(&stored, false)
 	e.loop.observeFrom(&stored, e.damaging, len(e.G.Objs))
 	// The move-driven Effect lifetimes, replayed inline exactly as the
 	// single-match Updated branch does (the raw events.Emit above bypasses
@@ -244,7 +244,7 @@ func (e *Engine) resumeUpdatedComposition(rc replChoice, selected int) {
 		// Updated arm does, and never re-runs the replacement dispatch (so
 		// the just-answered competition cannot re-pose).
 		stored := rc.ev
-		absorbed := e.foldEntryMove(&stored)
+		absorbed := e.foldEntryMove(&stored, false)
 		rc.absorbed = absorbed
 		e.loop.observeFrom(&stored, e.damaging, len(e.G.Objs))
 		// The move-driven Effect lifetimes, replayed inline exactly as the

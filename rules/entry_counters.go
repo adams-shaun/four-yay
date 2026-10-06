@@ -766,7 +766,20 @@ func (e *Engine) resumeEntryCounterOrder(rc replChoice, idx int) {
 // payload (MoveZone, TokenCreate or CardToken): events.Apply installs them IN
 // the entry, before any observer runs. CounterChange records after the entry
 // are notification-only: they do not place counters twice on replay.
-func (e *Engine) foldEntryMove(ev *events.Event) []string {
+//
+// *ev is folded in place -- on return it IS the stored event -- so a caller
+// passes a copy it owns, never an event it still needs. tally (the ordinary
+// emit tail only) brackets a Damage fold with the excess-damage tally: the
+// recipient's pre-fold threshold read before, the folded amount after. Both
+// tally steps are no-ops for every other kind, and a Damage event is never an
+// entry (no stage, grant or preview matches it), so it folds directly.
+func (e *Engine) foldEntryMove(ev *events.Event, tally bool) []string {
+	if tally && ev.Kind == events.Damage {
+		noteExcessHit(&e.excessBatch, e, e.damageSourceLKI, ev, e.damageBatchOpen)
+		events.EmitPtr(e.G, e.L, ev)
+		e.excessBatch.add(ev)
+		return nil
+	}
 	if st := e.entryStageDone; st != nil && st.complete && st.sameEntryMove(ev) {
 		e.entryStageDone = nil
 		e.foldEntryWithPlaced(ev, st.placed)

@@ -164,14 +164,3 @@ func flushExcessBatch(t *excessTally, emit func(events.Event) events.Event) {
 	}
 }
 
-// foldTallyingExcess folds *ev (Engine.foldEntryMove) between the excess
-// tally's pre-fold threshold read and its post-fold amount add. *ev is
-// folded in place: on return it IS the stored event, so the caller passes a
-// copy it owns, never an event it still needs unmodified. h is the concrete
-// *Engine (not an interface) so escape analysis keeps the caller's copy on
-// the stack.
-func foldTallyingExcess(h *Engine, t *excessTally, lki map[state.ObjID]map[state.ObjID]effects.DamageSourceLKI, batchOpen bool, ev *events.Event) {
-	noteExcessHit(t, h, lki, ev, batchOpen)
-	h.foldEntryMove(ev)
-	t.add(ev)
-}
