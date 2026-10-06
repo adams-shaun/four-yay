@@ -1,0 +1,3234 @@
+{
+  "viewer": 0,
+  "own_deck": {
+    "name": "rakdos-muscle-scam-exe",
+    "archetype": "turbo-aristocrats",
+    "main": [
+      {
+        "name": "\"Name Sticker\" Goblin",
+        "count": 1
+      },
+      {
+        "name": "Ancient Tomb",
+        "count": 1,
+        "land": true
+      },
+      {
+        "name": "Arcane Signet",
+        "count": 1
+      },
+      {
+        "name": "Arid Mesa",
+        "count": 1,
+        "land": true
+      },
+      {
+        "name": "Ashnod's Altar",
+        "count": 1
+      },
+      {
+        "name": "Atsushi, the Blazing Sky",
+        "count": 1
+      },
+      {
+        "name": "Badlands",
+        "count": 1,
+        "land": true
+      },
+      {
+        "name": "Blazemire Verge",
+        "count": 1,
+        "land": true
+      },
+      {
+        "name": "Blood Crypt",
+        "count": 1,
+        "land": true
+      },
+      {
+        "name": "Blood Pet",
+        "count": 1
+      },
+      {
+        "name": "Bloodstained Mire",
+        "count": 1,
+        "land": true
+      },
+      {
+        "name": "Boggart Trawler",
+        "count": 1
+      },
+      {
+        "name": "Buried Alive",
+        "count": 1
+      },
+      {
+        "name": "Burnt Offering",
+        "count": 1
+      },
+      {
+        "name": "Cabal Ritual",
+        "count": 1
+      },
+      {
+        "name": "Cabal Therapy",
+        "count": 1
+      },
+      {
+        "name": "Cavern of Souls",
+        "count": 1,
+        "land": true
+      },
+      {
+        "name": "Charming Scoundrel",
+        "count": 1
+      },
+      {
+        "name": "Chrome Mox",
+        "count": 1
+      },
+      {
+        "name": "Chthonian Nightmare",
+        "count": 1
+      },
+      {
+        "name": "City of Brass",
+        "count": 1,
+        "land": true
+      },
+      {
+        "name": "Command Tower",
+        "count": 1,
+        "land": true
+      },
+      {
+        "name": "Crystal Vein",
+        "count": 1,
+        "land": true
+      },
+      {
+        "name": "Culling the Weak",
+        "count": 1
+      },
+      {
+        "name": "Dargo, the Shipwrecker",
+        "count": 1
+      },
+      {
+        "name": "Dark Ritual",
+        "count": 1
+      },
+      {
+        "name": "Deflecting Swat",
+        "count": 1
+      },
+      {
+        "name": "Demonic Tutor",
+        "count": 1
+      },
+      {
+        "name": "Diabolic Intent",
+        "count": 1
+      },
+      {
+        "name": "Entomb",
+        "count": 1
+      },
+      {
+        "name": "Flamekin Harbinger",
+        "count": 1
+      },
+      {
+        "name": "Flare of Duplication",
+        "count": 1
+      },
+      {
+        "name": "Forsaken Miner",
+        "count": 1
+      },
+      {
+        "name": "Fury",
+        "count": 1
+      },
+      {
+        "name": "Gamble",
+        "count": 1
+      },
+      {
+        "name": "Gleaming Barrier",
+        "count": 1
+      },
+      {
+        "name": "Goblin Recruiter",
+        "count": 1
+      },
+      {
+        "name": "Golgari Thug",
+        "count": 1
+      },
+      {
+        "name": "Greedy Freebooter",
+        "count": 1
+      },
+      {
+        "name": "Grief",
+        "count": 1
+      },
+      {
+        "name": "Grim Monolith",
+        "count": 1
+      },
+      {
+        "name": "Hexing Squelcher",
+        "count": 1
+      },
+      {
+        "name": "Imperial Seal",
+        "count": 1
+      },
+      {
+        "name": "Impulsive Pilferer",
+        "count": 1
+      },
+      {
+        "name": "Infernal Plunge",
+        "count": 1
+      },
+      {
+        "name": "Ingot Chewer",
+        "count": 1
+      },
+      {
+        "name": "Jet Medallion",
+        "count": 1
+      },
+      {
+        "name": "K'rrik, Son of Yawgmoth",
+        "count": 1
+      },
+      {
+        "name": "Lion's Eye Diamond",
+        "count": 1
+      },
+      {
+        "name": "Lotus Petal",
+        "count": 1
+      },
+      {
+        "name": "Luxury Suite",
+        "count": 1,
+        "land": true
+      },
+      {
+        "name": "Mana Confluence",
+        "count": 1,
+        "land": true
+      },
+      {
+        "name": "Mana Vault",
+        "count": 1
+      },
+      {
+        "name": "Marsh Flats",
+        "count": 1,
+        "land": true
+      },
+      {
+        "name": "Master of Dark Rites",
+        "count": 1
+      },
+      {
+        "name": "Mount Doom",
+        "count": 1,
+        "land": true
+      },
+      {
+        "name": "Mountain",
+        "count": 1,
+        "land": true
+      },
+      {
+        "name": "Myr Moonvessel",
+        "count": 1
+      },
+      {
+        "name": "Opposition Agent",
+        "count": 1
+      },
+      {
+        "name": "Orcish Bowmasters",
+        "count": 1
+      },
+      {
+        "name": "Party Thrasher",
+        "count": 1
+      },
+      {
+        "name": "Phyrexian Altar",
+        "count": 1
+      },
+      {
+        "name": "Phyrexian Tower",
+        "count": 1,
+        "land": true
+      },
+      {
+        "name": "Pinnacle Monk",
+        "count": 1
+      },
+      {
+        "name": "Polluted Delta",
+        "count": 1,
+        "land": true
+      },
+      {
+        "name": "Poxwalkers",
+        "count": 1
+      },
+      {
+        "name": "Priest of Gix",
+        "count": 1
+      },
+      {
+        "name": "Priest of Urabrask",
+        "count": 1
+      },
+      {
+        "name": "Pyroblast",
+        "count": 1
+      },
+      {
+        "name": "Ragavan, Nimble Pilferer",
+        "count": 1
+      },
+      {
+        "name": "Rakdos, the Muscle",
+        "count": 1
+      },
+      {
+        "name": "Reanimate",
+        "count": 1
+      },
+      {
+        "name": "Reckless Barbarian",
+        "count": 1
+      },
+      {
+        "name": "Red Elemental Blast",
+        "count": 1
+      },
+      {
+        "name": "Redirect Lightning",
+        "count": 1
+      },
+      {
+        "name": "Sacrifice",
+        "count": 1
+      },
+      {
+        "name": "Scalding Tarn",
+        "count": 1,
+        "land": true
+      },
+      {
+        "name": "Sephiroth, Fabled SOLDIER",
+        "count": 1
+      },
+      {
+        "name": "Shambling Ghast",
+        "count": 1
+      },
+      {
+        "name": "Shriekmaw",
+        "count": 1
+      },
+      {
+        "name": "Simian Spirit Guide",
+        "count": 1
+      },
+      {
+        "name": "Skirk Prospector",
+        "count": 1
+      },
+      {
+        "name": "Skittering Precursor",
+        "count": 1
+      },
+      {
+        "name": "Sol Ring",
+        "count": 1
+      },
+      {
+        "name": "Songs of the Damned",
+        "count": 1
+      },
+      {
+        "name": "Spider-Punk",
+        "count": 1
+      },
+      {
+        "name": "Starting Town",
+        "count": 1,
+        "land": true
+      },
+      {
+        "name": "Sulfurous Springs",
+        "count": 1,
+        "land": true
+      },
+      {
+        "name": "Swamp",
+        "count": 1,
+        "land": true
+      },
+      {
+        "name": "Talisman of Indulgence",
+        "count": 1
+      },
+      {
+        "name": "Timeline Culler",
+        "count": 1
+      },
+      {
+        "name": "Treasonous Ogre",
+        "count": 1
+      },
+      {
+        "name": "Umbral Collar Zealot",
+        "count": 1
+      },
+      {
+        "name": "Underworld Breach",
+        "count": 1
+      },
+      {
+        "name": "Vampiric Tutor",
+        "count": 1
+      },
+      {
+        "name": "Verdant Catacombs",
+        "count": 1,
+        "land": true
+      },
+      {
+        "name": "Viscera Seer",
+        "count": 1
+      },
+      {
+        "name": "Warren Soultrader",
+        "count": 1
+      },
+      {
+        "name": "Wishclaw Talisman",
+        "count": 1
+      },
+      {
+        "name": "Wooded Foothills",
+        "count": 1,
+        "land": true
+      }
+    ],
+    "commanders": [
+      "Rakdos, the Muscle"
+    ],
+    "curve": [
+      {
+        "cmc": 0,
+        "count": 26
+      },
+      {
+        "cmc": 1,
+        "count": 28
+      },
+      {
+        "cmc": 2,
+        "count": 21
+      },
+      {
+        "cmc": 3,
+        "count": 15
+      },
+      {
+        "cmc": 4,
+        "count": 3
+      },
+      {
+        "cmc": 5,
+        "count": 5
+      },
+      {
+        "cmc": 7,
+        "count": 2
+      }
+    ]
+  },
+  "visibility": "seat",
+  "turn": 9,
+  "round": 5,
+  "step": "main1",
+  "phase": "main1",
+  "active": 0,
+  "priority": 0,
+  "over": false,
+  "draw": false,
+  "winner": null,
+  "players": [
+    {
+      "seat": 0,
+      "name": "You",
+      "life": 39,
+      "lost": false,
+      "library_size": 86,
+      "hand_size": 4,
+      "graveyard_size": 2,
+      "library": [
+        {
+          "id": 51,
+          "name": "Ancient Tomb",
+          "types": "Land",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Ancient Tomb"
+          },
+          "token": "#51",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              2
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 95,
+          "name": "Arcane Signet",
+          "types": "Artifact",
+          "mana_cost": "2",
+          "printing": {
+            "name": "Arcane Signet"
+          },
+          "token": "#95",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "any": true
+          }
+        },
+        {
+          "id": 65,
+          "name": "Arid Mesa",
+          "types": "Land",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Arid Mesa"
+          },
+          "token": "#65",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 72,
+          "name": "Ashnod's Altar",
+          "types": "Artifact",
+          "mana_cost": "3",
+          "printing": {
+            "name": "Ashnod's Altar"
+          },
+          "token": "#72",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              2
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 12,
+          "name": "Atsushi, the Blazing Sky",
+          "types": "Legendary Creature Dragon Spirit",
+          "mana_cost": "2 R R",
+          "printing": {
+            "name": "Atsushi, the Blazing Sky"
+          },
+          "token": "#12",
+          "tapped": false,
+          "power": 4,
+          "toughness": 4,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "Flying",
+            "Trample"
+          ],
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 42,
+          "name": "Blazemire Verge",
+          "types": "Land",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Blazemire Verge"
+          },
+          "token": "#42",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              0,
+              0,
+              1,
+              1,
+              0,
+              0
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 75,
+          "name": "Blood Crypt",
+          "types": "Land Swamp Mountain",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Blood Crypt"
+          },
+          "token": "#75",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              0,
+              0,
+              1,
+              1,
+              0,
+              0
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 52,
+          "name": "Blood Pet",
+          "types": "Creature Thrull",
+          "mana_cost": "B",
+          "printing": {
+            "name": "Blood Pet"
+          },
+          "token": "#52",
+          "tapped": false,
+          "power": 1,
+          "toughness": 1,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              0,
+              0,
+              1,
+              0,
+              0,
+              0
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 36,
+          "name": "Boggart Trawler",
+          "types": "Creature Goblin",
+          "mana_cost": "2 B",
+          "printing": {
+            "name": "Boggart Trawler"
+          },
+          "token": "#36",
+          "tapped": false,
+          "power": 3,
+          "toughness": 1,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 40,
+          "name": "Buried Alive",
+          "types": "Sorcery",
+          "mana_cost": "2 B",
+          "spell_api": "ChangeZone",
+          "printing": {
+            "name": "Buried Alive"
+          },
+          "token": "#40",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 58,
+          "name": "Burnt Offering",
+          "types": "Instant",
+          "mana_cost": "B",
+          "spell_api": "Mana",
+          "printing": {
+            "name": "Burnt Offering"
+          },
+          "token": "#58",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 84,
+          "name": "Cabal Ritual",
+          "types": "Instant",
+          "mana_cost": "1 B",
+          "spell_api": "Mana",
+          "printing": {
+            "name": "Cabal Ritual"
+          },
+          "token": "#84",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 5,
+          "name": "Cabal Therapy",
+          "types": "Sorcery",
+          "mana_cost": "B",
+          "spell_api": "NameCard",
+          "printing": {
+            "name": "Cabal Therapy"
+          },
+          "token": "#5",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "Flashback:Sac\u003c1/Creature\u003e"
+          ],
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 20,
+          "name": "Cavern of Souls",
+          "types": "Land",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Cavern of Souls"
+          },
+          "token": "#20",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "ETBReplacement:Other:ChooseCT"
+          ],
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              1
+            ],
+            "any": true
+          }
+        },
+        {
+          "id": 43,
+          "name": "Charming Scoundrel",
+          "types": "Creature Human Rogue",
+          "mana_cost": "1 R",
+          "printing": {
+            "name": "Charming Scoundrel"
+          },
+          "token": "#43",
+          "tapped": false,
+          "power": 1,
+          "toughness": 1,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "Haste"
+          ],
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 71,
+          "name": "Chrome Mox",
+          "types": "Artifact",
+          "mana_cost": "0",
+          "printing": {
+            "name": "Chrome Mox"
+          },
+          "token": "#71",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              1
+            ],
+            "any": true
+          }
+        },
+        {
+          "id": 97,
+          "name": "City of Brass",
+          "types": "Land",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "City of Brass"
+          },
+          "token": "#97",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              0
+            ],
+            "any": true
+          }
+        },
+        {
+          "id": 86,
+          "name": "Crystal Vein",
+          "types": "Land",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Crystal Vein"
+          },
+          "token": "#86",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              3
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 25,
+          "name": "Culling the Weak",
+          "types": "Instant",
+          "mana_cost": "B",
+          "spell_api": "Mana",
+          "printing": {
+            "name": "Culling the Weak"
+          },
+          "token": "#25",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 23,
+          "name": "Dargo, the Shipwrecker",
+          "types": "Legendary Creature Giant Pirate",
+          "mana_cost": "6 R",
+          "spell_api": "PermanentCreature",
+          "printing": {
+            "name": "Dargo, the Shipwrecker"
+          },
+          "token": "#23",
+          "tapped": false,
+          "power": 7,
+          "toughness": 5,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "Trample",
+            "Partner"
+          ],
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 11,
+          "name": "Dark Ritual",
+          "types": "Instant",
+          "mana_cost": "B",
+          "spell_api": "Mana",
+          "printing": {
+            "name": "Dark Ritual"
+          },
+          "token": "#11",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 21,
+          "name": "Deflecting Swat",
+          "types": "Instant",
+          "mana_cost": "2 R",
+          "spell_api": "ChangeTargets",
+          "printing": {
+            "name": "Deflecting Swat"
+          },
+          "token": "#21",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 22,
+          "name": "Demonic Tutor",
+          "types": "Sorcery",
+          "mana_cost": "1 B",
+          "spell_api": "ChangeZone",
+          "printing": {
+            "name": "Demonic Tutor"
+          },
+          "token": "#22",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 3,
+          "name": "Diabolic Intent",
+          "types": "Sorcery",
+          "mana_cost": "1 B",
+          "spell_api": "ChangeZone",
+          "printing": {
+            "name": "Diabolic Intent"
+          },
+          "token": "#3",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 56,
+          "name": "Flamekin Harbinger",
+          "types": "Creature Elemental Shaman",
+          "mana_cost": "R",
+          "printing": {
+            "name": "Flamekin Harbinger"
+          },
+          "token": "#56",
+          "tapped": false,
+          "power": 1,
+          "toughness": 1,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 35,
+          "name": "Flare of Duplication",
+          "types": "Instant",
+          "mana_cost": "1 R R",
+          "spell_api": "CopySpellAbility",
+          "printing": {
+            "name": "Flare of Duplication"
+          },
+          "token": "#35",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 29,
+          "name": "Forsaken Miner",
+          "types": "Creature Skeleton Rogue",
+          "mana_cost": "B",
+          "printing": {
+            "name": "Forsaken Miner"
+          },
+          "token": "#29",
+          "tapped": false,
+          "power": 2,
+          "toughness": 2,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 33,
+          "name": "Fury",
+          "types": "Creature Elemental Incarnation",
+          "mana_cost": "3 R R",
+          "printing": {
+            "name": "Fury"
+          },
+          "token": "#33",
+          "tapped": false,
+          "power": 3,
+          "toughness": 3,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "Double Strike",
+            "Evoke:ExileFromHand\u003c1/Card.Red+Other/red card\u003e"
+          ],
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 16,
+          "name": "Gamble",
+          "types": "Sorcery",
+          "mana_cost": "R",
+          "spell_api": "ChangeZone",
+          "printing": {
+            "name": "Gamble"
+          },
+          "token": "#16",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 62,
+          "name": "Gleaming Barrier",
+          "types": "Artifact Creature Wall",
+          "mana_cost": "2",
+          "printing": {
+            "name": "Gleaming Barrier"
+          },
+          "token": "#62",
+          "tapped": false,
+          "power": 0,
+          "toughness": 4,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "Defender"
+          ],
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 48,
+          "name": "Golgari Thug",
+          "types": "Creature Human Warrior",
+          "mana_cost": "1 B",
+          "printing": {
+            "name": "Golgari Thug"
+          },
+          "token": "#48",
+          "tapped": false,
+          "power": 1,
+          "toughness": 1,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "Dredge:4"
+          ],
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 79,
+          "name": "Greedy Freebooter",
+          "types": "Creature Human Pirate",
+          "mana_cost": "B",
+          "printing": {
+            "name": "Greedy Freebooter"
+          },
+          "token": "#79",
+          "tapped": false,
+          "power": 1,
+          "toughness": 1,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 30,
+          "name": "Grief",
+          "types": "Creature Elemental Incarnation",
+          "mana_cost": "2 B B",
+          "printing": {
+            "name": "Grief"
+          },
+          "token": "#30",
+          "tapped": false,
+          "power": 3,
+          "toughness": 2,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "Menace",
+            "Evoke:ExileFromHand\u003c1/Card.Black+Other/black card\u003e"
+          ],
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 53,
+          "name": "Grim Monolith",
+          "types": "Artifact",
+          "mana_cost": "2",
+          "printing": {
+            "name": "Grim Monolith"
+          },
+          "token": "#53",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              3
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 92,
+          "name": "Hexing Squelcher",
+          "types": "Creature Goblin Sorcerer",
+          "mana_cost": "1 R",
+          "printing": {
+            "name": "Hexing Squelcher"
+          },
+          "token": "#92",
+          "tapped": false,
+          "power": 2,
+          "toughness": 2,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "Ward:PayLife\u003c2\u003e"
+          ],
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 69,
+          "name": "Imperial Seal",
+          "types": "Sorcery",
+          "mana_cost": "B",
+          "spell_api": "ChangeZone",
+          "printing": {
+            "name": "Imperial Seal"
+          },
+          "token": "#69",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 81,
+          "name": "Impulsive Pilferer",
+          "types": "Creature Goblin Pirate",
+          "mana_cost": "R",
+          "printing": {
+            "name": "Impulsive Pilferer"
+          },
+          "token": "#81",
+          "tapped": false,
+          "power": 1,
+          "toughness": 1,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "Encore:3 R"
+          ],
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 9,
+          "name": "Infernal Plunge",
+          "types": "Sorcery",
+          "mana_cost": "R",
+          "spell_api": "Mana",
+          "printing": {
+            "name": "Infernal Plunge"
+          },
+          "token": "#9",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 93,
+          "name": "Ingot Chewer",
+          "types": "Creature Elemental",
+          "mana_cost": "4 R",
+          "printing": {
+            "name": "Ingot Chewer"
+          },
+          "token": "#93",
+          "tapped": false,
+          "power": 3,
+          "toughness": 3,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "Evoke:R"
+          ],
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 32,
+          "name": "K'rrik, Son of Yawgmoth",
+          "types": "Legendary Creature Phyrexian Horror Minion",
+          "mana_cost": "4 BP BP BP",
+          "printing": {
+            "name": "K'rrik, Son of Yawgmoth"
+          },
+          "token": "#32",
+          "tapped": false,
+          "power": 2,
+          "toughness": 2,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "Lifelink"
+          ],
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 57,
+          "name": "Lion's Eye Diamond",
+          "types": "Artifact",
+          "mana_cost": "0",
+          "printing": {
+            "name": "Lion's Eye Diamond"
+          },
+          "token": "#57",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              3,
+              3,
+              3,
+              3,
+              3,
+              0
+            ],
+            "any": true
+          }
+        },
+        {
+          "id": 99,
+          "name": "Lotus Petal",
+          "types": "Artifact",
+          "mana_cost": "0",
+          "printing": {
+            "name": "Lotus Petal"
+          },
+          "token": "#99",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              0
+            ],
+            "any": true
+          }
+        },
+        {
+          "id": 63,
+          "name": "Luxury Suite",
+          "types": "Land",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Luxury Suite"
+          },
+          "token": "#63",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              0,
+              0,
+              1,
+              1,
+              0,
+              0
+            ],
+            "any": true
+          }
+        },
+        {
+          "id": 10,
+          "name": "Mana Confluence",
+          "types": "Land",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Mana Confluence"
+          },
+          "token": "#10",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              0
+            ],
+            "any": true
+          }
+        },
+        {
+          "id": 60,
+          "name": "Mana Vault",
+          "types": "Artifact",
+          "mana_cost": "1",
+          "printing": {
+            "name": "Mana Vault"
+          },
+          "token": "#60",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              3
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 67,
+          "name": "Marsh Flats",
+          "types": "Land",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Marsh Flats"
+          },
+          "token": "#67",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 78,
+          "name": "Master of Dark Rites",
+          "types": "Creature Vampire Cleric",
+          "mana_cost": "B",
+          "printing": {
+            "name": "Master of Dark Rites"
+          },
+          "token": "#78",
+          "tapped": false,
+          "power": 1,
+          "toughness": 1,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              0,
+              0,
+              3,
+              0,
+              0,
+              0
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 19,
+          "name": "Mount Doom",
+          "types": "Legendary Land",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Mount Doom"
+          },
+          "token": "#19",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              0,
+              0,
+              1,
+              1,
+              0,
+              0
+            ],
+            "any": true
+          }
+        },
+        {
+          "id": 17,
+          "name": "Mountain",
+          "types": "Basic Land Mountain",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Mountain"
+          },
+          "token": "#17",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              0,
+              0,
+              0,
+              1,
+              0,
+              0
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 50,
+          "name": "Myr Moonvessel",
+          "types": "Artifact Creature Myr",
+          "mana_cost": "1",
+          "printing": {
+            "name": "Myr Moonvessel"
+          },
+          "token": "#50",
+          "tapped": false,
+          "power": 1,
+          "toughness": 1,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 91,
+          "name": "Opposition Agent",
+          "types": "Creature Human Rogue",
+          "mana_cost": "2 B",
+          "printing": {
+            "name": "Opposition Agent"
+          },
+          "token": "#91",
+          "tapped": false,
+          "power": 3,
+          "toughness": 2,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "Flash"
+          ],
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 96,
+          "name": "Phyrexian Altar",
+          "types": "Artifact",
+          "mana_cost": "3",
+          "printing": {
+            "name": "Phyrexian Altar"
+          },
+          "token": "#96",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              0
+            ],
+            "any": true
+          }
+        },
+        {
+          "id": 34,
+          "name": "Phyrexian Tower",
+          "types": "Legendary Land",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Phyrexian Tower"
+          },
+          "token": "#34",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              0,
+              0,
+              2,
+              0,
+              0,
+              1
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 39,
+          "name": "Pinnacle Monk",
+          "types": "Creature Djinn Monk",
+          "mana_cost": "3 R R",
+          "printing": {
+            "name": "Pinnacle Monk"
+          },
+          "token": "#39",
+          "tapped": false,
+          "power": 2,
+          "toughness": 2,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "Prowess"
+          ],
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 27,
+          "name": "Polluted Delta",
+          "types": "Land",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Polluted Delta"
+          },
+          "token": "#27",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 14,
+          "name": "Poxwalkers",
+          "types": "Creature Zombie",
+          "mana_cost": "2 B",
+          "printing": {
+            "name": "Poxwalkers"
+          },
+          "token": "#14",
+          "tapped": false,
+          "power": 3,
+          "toughness": 1,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "Deathtouch"
+          ],
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 61,
+          "name": "Priest of Gix",
+          "types": "Creature Phyrexian Human Cleric Minion",
+          "mana_cost": "2 B",
+          "printing": {
+            "name": "Priest of Gix"
+          },
+          "token": "#61",
+          "tapped": false,
+          "power": 2,
+          "toughness": 1,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 49,
+          "name": "Priest of Urabrask",
+          "types": "Creature Phyrexian Human Cleric",
+          "mana_cost": "2 R",
+          "printing": {
+            "name": "Priest of Urabrask"
+          },
+          "token": "#49",
+          "tapped": false,
+          "power": 2,
+          "toughness": 1,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 74,
+          "name": "Pyroblast",
+          "types": "Instant",
+          "mana_cost": "R",
+          "spell_api": "Charm",
+          "printing": {
+            "name": "Pyroblast"
+          },
+          "token": "#74",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 2,
+          "name": "Reanimate",
+          "types": "Sorcery",
+          "mana_cost": "B",
+          "spell_api": "ChangeZone",
+          "printing": {
+            "name": "Reanimate"
+          },
+          "token": "#2",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 13,
+          "name": "Reckless Barbarian",
+          "types": "Creature Dragon Barbarian",
+          "mana_cost": "1 R",
+          "printing": {
+            "name": "Reckless Barbarian"
+          },
+          "token": "#13",
+          "tapped": false,
+          "power": 2,
+          "toughness": 2,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              0,
+              0,
+              0,
+              2,
+              0,
+              0
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 55,
+          "name": "Red Elemental Blast",
+          "types": "Instant",
+          "mana_cost": "R",
+          "spell_api": "Charm",
+          "printing": {
+            "name": "Red Elemental Blast"
+          },
+          "token": "#55",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 47,
+          "name": "Redirect Lightning",
+          "types": "Instant Lesson",
+          "mana_cost": "R",
+          "spell_api": "ChangeTargets",
+          "printing": {
+            "name": "Redirect Lightning"
+          },
+          "token": "#47",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "AlternateAdditionalCost:PayLife\u003c5\u003e:2"
+          ],
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 87,
+          "name": "Sacrifice",
+          "types": "Instant",
+          "mana_cost": "B",
+          "spell_api": "Mana",
+          "printing": {
+            "name": "Sacrifice"
+          },
+          "token": "#87",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 64,
+          "name": "Scalding Tarn",
+          "types": "Land",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Scalding Tarn"
+          },
+          "token": "#64",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 44,
+          "name": "Sephiroth, Fabled SOLDIER",
+          "types": "Legendary Creature Human Avatar Soldier",
+          "mana_cost": "2 B",
+          "printing": {
+            "name": "Sephiroth, Fabled SOLDIER"
+          },
+          "token": "#44",
+          "tapped": false,
+          "power": 3,
+          "toughness": 3,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 68,
+          "name": "Shambling Ghast",
+          "types": "Creature Zombie",
+          "mana_cost": "B",
+          "printing": {
+            "name": "Shambling Ghast"
+          },
+          "token": "#68",
+          "tapped": false,
+          "power": 1,
+          "toughness": 1,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 94,
+          "name": "Shriekmaw",
+          "types": "Creature Elemental",
+          "mana_cost": "4 B",
+          "printing": {
+            "name": "Shriekmaw"
+          },
+          "token": "#94",
+          "tapped": false,
+          "power": 3,
+          "toughness": 2,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "Fear",
+            "Evoke:1 B"
+          ],
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 85,
+          "name": "Simian Spirit Guide",
+          "types": "Creature Ape Spirit",
+          "mana_cost": "2 R",
+          "printing": {
+            "name": "Simian Spirit Guide"
+          },
+          "token": "#85",
+          "tapped": false,
+          "power": 2,
+          "toughness": 2,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              0,
+              0,
+              0,
+              1,
+              0,
+              0
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 8,
+          "name": "Skirk Prospector",
+          "types": "Creature Goblin",
+          "mana_cost": "R",
+          "printing": {
+            "name": "Skirk Prospector"
+          },
+          "token": "#8",
+          "tapped": false,
+          "power": 1,
+          "toughness": 1,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              0,
+              0,
+              0,
+              1,
+              0,
+              0
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 38,
+          "name": "Skittering Precursor",
+          "types": "Creature Eldrazi Drone",
+          "mana_cost": "2 R",
+          "printing": {
+            "name": "Skittering Precursor"
+          },
+          "token": "#38",
+          "tapped": false,
+          "power": 3,
+          "toughness": 3,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "Devoid",
+            "Menace"
+          ],
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 26,
+          "name": "Sol Ring",
+          "types": "Artifact",
+          "mana_cost": "1",
+          "printing": {
+            "name": "Sol Ring"
+          },
+          "token": "#26",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              2
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 90,
+          "name": "Spider-Punk",
+          "types": "Legendary Creature Spider Human Hero",
+          "mana_cost": "1 R",
+          "printing": {
+            "name": "Spider-Punk"
+          },
+          "token": "#90",
+          "tapped": false,
+          "power": 2,
+          "toughness": 1,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "Riot"
+          ],
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 45,
+          "name": "Starting Town",
+          "types": "Land Town",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Starting Town"
+          },
+          "token": "#45",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              1
+            ],
+            "any": true
+          }
+        },
+        {
+          "id": 70,
+          "name": "Sulfurous Springs",
+          "types": "Land",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Sulfurous Springs"
+          },
+          "token": "#70",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              0,
+              0,
+              1,
+              1,
+              0,
+              1
+            ],
+            "any": true
+          }
+        },
+        {
+          "id": 18,
+          "name": "Swamp",
+          "types": "Basic Land Swamp",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Swamp"
+          },
+          "token": "#18",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              0,
+              0,
+              1,
+              0,
+              0,
+              0
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 77,
+          "name": "Talisman of Indulgence",
+          "types": "Artifact",
+          "mana_cost": "2",
+          "printing": {
+            "name": "Talisman of Indulgence"
+          },
+          "token": "#77",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              0,
+              0,
+              1,
+              1,
+              0,
+              1
+            ],
+            "any": true
+          }
+        },
+        {
+          "id": 89,
+          "name": "Timeline Culler",
+          "types": "Creature Drix Warlock",
+          "mana_cost": "B B",
+          "printing": {
+            "name": "Timeline Culler"
+          },
+          "token": "#89",
+          "tapped": false,
+          "power": 2,
+          "toughness": 2,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "Haste",
+            "Warp:B PayLife\u003c2\u003e"
+          ],
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 46,
+          "name": "Umbral Collar Zealot",
+          "types": "Creature Human Cleric",
+          "mana_cost": "1 B",
+          "printing": {
+            "name": "Umbral Collar Zealot"
+          },
+          "token": "#46",
+          "tapped": false,
+          "power": 3,
+          "toughness": 2,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 6,
+          "name": "Underworld Breach",
+          "types": "Enchantment",
+          "mana_cost": "1 R",
+          "printing": {
+            "name": "Underworld Breach"
+          },
+          "token": "#6",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 15,
+          "name": "Vampiric Tutor",
+          "types": "Instant",
+          "mana_cost": "B",
+          "spell_api": "ChangeZone",
+          "printing": {
+            "name": "Vampiric Tutor"
+          },
+          "token": "#15",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 88,
+          "name": "Verdant Catacombs",
+          "types": "Land",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Verdant Catacombs"
+          },
+          "token": "#88",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 66,
+          "name": "Viscera Seer",
+          "types": "Creature Vampire Wizard",
+          "mana_cost": "B",
+          "printing": {
+            "name": "Viscera Seer"
+          },
+          "token": "#66",
+          "tapped": false,
+          "power": 1,
+          "toughness": 1,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 83,
+          "name": "Warren Soultrader",
+          "types": "Creature Zombie Goblin Wizard",
+          "mana_cost": "2 B",
+          "printing": {
+            "name": "Warren Soultrader"
+          },
+          "token": "#83",
+          "tapped": false,
+          "power": 3,
+          "toughness": 3,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 1,
+          "name": "Wishclaw Talisman",
+          "types": "Artifact",
+          "mana_cost": "1 B",
+          "printing": {
+            "name": "Wishclaw Talisman"
+          },
+          "token": "#1",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "etbCounter:WISH:3"
+          ],
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 28,
+          "name": "Wooded Foothills",
+          "types": "Land",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Wooded Foothills"
+          },
+          "token": "#28",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        }
+      ],
+      "hand": [
+        {
+          "id": 7,
+          "name": "Treasonous Ogre",
+          "types": "Creature Ogre Shaman",
+          "mana_cost": "3 R",
+          "printing": {
+            "name": "Treasonous Ogre"
+          },
+          "token": "#7",
+          "tapped": false,
+          "power": 2,
+          "toughness": 3,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "Dethrone"
+          ],
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              0,
+              0,
+              0,
+              1,
+              0,
+              0
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 82,
+          "name": "Chthonian Nightmare",
+          "types": "Enchantment",
+          "mana_cost": "1 B",
+          "printing": {
+            "name": "Chthonian Nightmare"
+          },
+          "token": "#82",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "ability_costs": [
+            "PayEnergy\u003cX\u003e Sac\u003c1/Creature\u003e Return\u003c1/CARDNAME\u003e PayEnergy\u003c0/X\u003e"
+          ]
+        },
+        {
+          "id": 59,
+          "name": "Songs of the Damned",
+          "types": "Instant",
+          "mana_cost": "B",
+          "spell_api": "Mana",
+          "printing": {
+            "name": "Songs of the Damned"
+          },
+          "token": "#59",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 76,
+          "name": "\"Name Sticker\" Goblin",
+          "types": "Creature Goblin Guest",
+          "mana_cost": "2 R",
+          "printing": {
+            "name": "\"Name Sticker\" Goblin"
+          },
+          "token": "#76",
+          "tapped": false,
+          "power": 2,
+          "toughness": 2,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        }
+      ],
+      "battlefield": [
+        {
+          "id": 54,
+          "name": "Badlands",
+          "types": "Land Swamp Mountain",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Badlands"
+          },
+          "token": "#54",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              0,
+              0,
+              1,
+              1,
+              0,
+              0
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 24,
+          "name": "Command Tower",
+          "types": "Land",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Command Tower"
+          },
+          "token": "#24",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "any": true
+          }
+        },
+        {
+          "id": 31,
+          "name": "Jet Medallion",
+          "types": "Artifact",
+          "mana_cost": "2",
+          "printing": {
+            "name": "Jet Medallion"
+          },
+          "token": "#31",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 37,
+          "name": "Party Thrasher",
+          "types": "Creature Lizard Wizard",
+          "mana_cost": "1 R",
+          "printing": {
+            "name": "Party Thrasher"
+          },
+          "token": "#37",
+          "tapped": false,
+          "power": 1,
+          "toughness": 4,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 41,
+          "name": "Goblin Recruiter",
+          "types": "Creature Goblin",
+          "mana_cost": "1 R",
+          "printing": {
+            "name": "Goblin Recruiter"
+          },
+          "token": "#41",
+          "tapped": false,
+          "power": 1,
+          "toughness": 1,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        }
+      ],
+      "graveyard": [
+        {
+          "id": 80,
+          "name": "Bloodstained Mire",
+          "types": "Land",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Bloodstained Mire"
+          },
+          "token": "#80",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": true
+        },
+        {
+          "id": 4,
+          "name": "Entomb",
+          "types": "Instant",
+          "mana_cost": "B",
+          "spell_api": "ChangeZone",
+          "printing": {
+            "name": "Entomb"
+          },
+          "token": "#4",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        }
+      ],
+      "exile": [
+        {
+          "id": 98,
+          "name": "Ragavan, Nimble Pilferer",
+          "types": "Legendary Creature Monkey Pirate",
+          "mana_cost": "R",
+          "printing": {
+            "name": "Ragavan, Nimble Pilferer"
+          },
+          "token": "#98",
+          "tapped": false,
+          "power": 2,
+          "toughness": 1,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "Dash:1 R"
+          ],
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 73,
+          "name": "Orcish Bowmasters",
+          "types": "Creature Orc Archer",
+          "mana_cost": "1 B",
+          "printing": {
+            "name": "Orcish Bowmasters"
+          },
+          "token": "#73",
+          "tapped": false,
+          "power": 1,
+          "toughness": 1,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "Flash"
+          ],
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        }
+      ],
+      "pool": {},
+      "potential_actions": [
+        {
+          "kind": "cast",
+          "obj": 7,
+          "label": "Cast Treasonous Ogre"
+        },
+        {
+          "kind": "cast",
+          "obj": 82,
+          "label": "Cast Chthonian Nightmare"
+        },
+        {
+          "kind": "cast",
+          "obj": 59,
+          "label": "Cast Songs of the Damned"
+        },
+        {
+          "kind": "cast",
+          "obj": 76,
+          "label": "Cast \"Name Sticker\" Goblin"
+        },
+        {
+          "kind": "cast",
+          "obj": 100,
+          "label": "Cast Rakdos, the Muscle"
+        }
+      ],
+      "command": [
+        {
+          "id": 100,
+          "name": "Rakdos, the Muscle",
+          "types": "Legendary Creature Demon Mercenary",
+          "mana_cost": "2 B B R",
+          "printing": {
+            "name": "Rakdos, the Muscle"
+          },
+          "token": "#100",
+          "tapped": false,
+          "power": 6,
+          "toughness": 5,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "Flying",
+            "Trample"
+          ],
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        }
+      ],
+      "commanders": [
+        {
+          "id": 100,
+          "name": "Rakdos, the Muscle",
+          "types": "Legendary Creature Demon Mercenary",
+          "mana_cost": "2 B B R",
+          "printing": {
+            "name": "Rakdos, the Muscle"
+          },
+          "token": "#100",
+          "tapped": false,
+          "power": 6,
+          "toughness": 5,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "Flying",
+            "Trample"
+          ],
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        }
+      ],
+      "completed_dungeons": 0,
+      "commander_casts": [
+        0
+      ]
+    },
+    {
+      "seat": 1,
+      "name": "Bot",
+      "life": 40,
+      "lost": false,
+      "library_size": 87,
+      "hand_size": 5,
+      "graveyard_size": 1,
+      "hand": null,
+      "battlefield": [
+        {
+          "id": 176,
+          "name": "Island",
+          "types": "Basic Land Island",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Island"
+          },
+          "token": "#176",
+          "tapped": true,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 1,
+          "owner": 1,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              0,
+              1,
+              0,
+              0,
+              0,
+              0
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 179,
+          "name": "Island",
+          "types": "Basic Land Island",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Island"
+          },
+          "token": "#179",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 1,
+          "owner": 1,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              0,
+              1,
+              0,
+              0,
+              0,
+              0
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 140,
+          "name": "Winged Boots",
+          "types": "Artifact Equipment",
+          "mana_cost": "1 U",
+          "printing": {
+            "name": "Winged Boots"
+          },
+          "token": "#140",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "Equip:1"
+          ],
+          "controller": 1,
+          "owner": 1,
+          "summon_sick": false,
+          "ability_costs": [
+            "1"
+          ]
+        },
+        {
+          "id": 167,
+          "name": "Island",
+          "types": "Basic Land Island",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Island"
+          },
+          "token": "#167",
+          "tapped": true,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 1,
+          "owner": 1,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              0,
+              1,
+              0,
+              0,
+              0,
+              0
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 109,
+          "name": "Trinket Mage",
+          "types": "Creature Human Wizard",
+          "mana_cost": "2 U",
+          "printing": {
+            "name": "Trinket Mage"
+          },
+          "token": "#109",
+          "tapped": false,
+          "power": 2,
+          "toughness": 2,
+          "damage": 0,
+          "attacking": false,
+          "controller": 1,
+          "owner": 1,
+          "summon_sick": false
+        },
+        {
+          "id": 181,
+          "name": "Island",
+          "types": "Basic Land Island",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Island"
+          },
+          "token": "#181",
+          "tapped": true,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 1,
+          "owner": 1,
+          "summon_sick": true,
+          "produces": {
+            "colour": [
+              0,
+              1,
+              0,
+              0,
+              0,
+              0
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 101,
+          "name": "Sai, Master Thopterist",
+          "types": "Legendary Creature Human Artificer",
+          "mana_cost": "2 U",
+          "printing": {
+            "name": "Sai, Master Thopterist"
+          },
+          "token": "#101",
+          "tapped": false,
+          "power": 1,
+          "toughness": 4,
+          "damage": 0,
+          "attacking": false,
+          "controller": 1,
+          "owner": 1,
+          "summon_sick": true,
+          "ability_costs": [
+            "1 U Sac\u003c2/Artifact\u003e"
+          ]
+        }
+      ],
+      "graveyard": [
+        {
+          "id": 108,
+          "name": "Hangarback Walker",
+          "types": "Artifact Creature Construct",
+          "mana_cost": "X X",
+          "printing": {
+            "name": "Hangarback Walker"
+          },
+          "token": "#108",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "etbCounter:P1P1:X"
+          ],
+          "controller": 1,
+          "owner": 1,
+          "summon_sick": true
+        }
+      ],
+      "exile": [],
+      "pool": {},
+      "available": {
+        "U": 1
+      },
+      "command": [],
+      "commanders": [
+        {
+          "id": 101,
+          "name": "Sai, Master Thopterist",
+          "types": "Legendary Creature Human Artificer",
+          "mana_cost": "2 U",
+          "printing": {
+            "name": "Sai, Master Thopterist"
+          },
+          "token": "#101",
+          "tapped": false,
+          "power": 1,
+          "toughness": 4,
+          "damage": 0,
+          "attacking": false,
+          "controller": 1,
+          "owner": 1,
+          "summon_sick": true
+        }
+      ],
+      "completed_dungeons": 0,
+      "commander_casts": [
+        1
+      ],
+      "archetype": {
+        "known": true,
+        "seen": 8,
+        "top": "ramp",
+        "top_score": 0.6444444444444444,
+        "scores": {
+          "aggro": 0,
+          "burn": 0,
+          "control": 0.1111111111111111,
+          "go-wide": 0.08888888888888889,
+          "midrange": 0.044444444444444446,
+          "ramp": 0.6444444444444444,
+          "tempo": 0.1111111111111111
+        }
+      }
+    }
+  ],
+  "stack": [],
+  "pending": [],
+  "decision": {
+    "seq": 979,
+    "player": 0,
+    "kind": "priority",
+    "prompt": "turn 9, main1 — You has priority",
+    "min": 1,
+    "max": 1,
+    "options": [
+      {
+        "index": 0,
+        "kind": "activate",
+        "label": "Activate Badlands for mana",
+        "obj": 54,
+        "player": 0
+      },
+      {
+        "index": 1,
+        "kind": "activate",
+        "label": "Activate Command Tower for mana",
+        "obj": 24,
+        "player": 0
+      },
+      {
+        "index": 2,
+        "kind": "pass",
+        "label": "Pass priority",
+        "player": 0
+      },
+      {
+        "index": 3,
+        "kind": "concede",
+        "label": "Concede",
+        "player": 0
+      }
+    ],
+    "payment_actions": [
+      {
+        "id": "42c6f048505e72216aecd1e30fac5433917e78e0a1c1d7f1d9a447d957f17f72",
+        "cast": {
+          "object": 82,
+          "face": 0,
+          "origin": "hand"
+        },
+        "label": "Cast Chthonian Nightmare",
+        "plans": [
+          {
+            "version": 1,
+            "id": "5ff72d6df08a04ffd1a2989da1f98b0c9546a73eab49d9fbcb75fc1edf1e1517",
+            "cost": {
+              "generic": 0,
+              "mana": [
+                0,
+                0,
+                1,
+                0,
+                0,
+                0
+              ]
+            },
+            "activations": [
+              {
+                "source": 24,
+                "source_zone_seq": 265,
+                "ability": {
+                  "kind": "printed"
+                },
+                "produces": [
+                  0,
+                  0,
+                  1,
+                  0,
+                  0,
+                  0
+                ]
+              }
+            ],
+            "pool_spend": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "pool_after": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          }
+        ]
+      },
+      {
+        "id": "518375e27d497474c8c18a3730d07e976d51c74664d9233fac953cab494d1078",
+        "cast": {
+          "object": 59,
+          "face": 0,
+          "origin": "hand"
+        },
+        "label": "Cast Songs of the Damned",
+        "plans": [
+          {
+            "version": 1,
+            "id": "07ba8550869b8844b65e6c4cf736c7a951742d23c9c55f4805eb045c31ee40be",
+            "cost": {
+              "generic": 0,
+              "mana": [
+                0,
+                0,
+                1,
+                0,
+                0,
+                0
+              ]
+            },
+            "activations": [
+              {
+                "source": 24,
+                "source_zone_seq": 265,
+                "ability": {
+                  "kind": "printed"
+                },
+                "produces": [
+                  0,
+                  0,
+                  1,
+                  0,
+                  0,
+                  0
+                ]
+              }
+            ],
+            "pool_spend": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "pool_after": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
