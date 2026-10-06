@@ -361,6 +361,14 @@ public class ScenarioReplay extends CardTestPlayerBase {
             }
         }
 
+        /** XMage represents attach prompts either with a "to attach" hint or,
+         * as One Last Job does, an unhinted non-targeting TargetPermanent ask. */
+        static boolean isAttachmentChoice(mage.target.Target target) {
+            return target.getChooseHint() != null && target.getChooseHint().startsWith("to attach ")
+                    || target instanceof mage.target.TargetPermanent && target.isNotTarget()
+                    && target.getTargetName().contains("can be attached to");
+        }
+
         /** The candidate an XMage attach ask should take, or null when the ask
          * must fall through to the base player. A scripted answer at the queue
          * front is honored first and consumed, so an attachment ask never
@@ -409,7 +417,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
             // unused and fail assertAllCommandsUsed.
             closeAskedAgain(getTargets(), owner.isAdjustedSpellAsk(source, game));
             mage.target.Target orig = target.getOriginalTarget();
-            if (target.getChooseHint() != null && target.getChooseHint().startsWith("to attach ")) {
+            if (isAttachmentChoice(target)) {
                 UUID abilityControllerId = target.getAffectedAbilityControllerId(this.getId());
                 List<UUID> candidates = new ArrayList<>(target.possibleTargets(abilityControllerId, source, game));
                 UUID chosen = attachmentChoice(getTargets(), candidates,

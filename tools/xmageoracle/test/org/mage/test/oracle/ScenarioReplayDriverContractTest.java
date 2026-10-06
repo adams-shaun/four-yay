@@ -43,7 +43,27 @@ public final class ScenarioReplayDriverContractTest {
         return (UUID) method.invoke(null, queue, candidates, matches);
     }
 
+    private static boolean isAttachmentChoice(mage.target.Target target) throws Exception {
+        Class<?> adapter = Class.forName("org.mage.test.oracle.ScenarioReplay$ScriptedChoicePlayer");
+        Method method = adapter.getDeclaredMethod("isAttachmentChoice", mage.target.Target.class);
+        method.setAccessible(true);
+        return (Boolean) method.invoke(null, target);
+    }
+
     private static void attachments() throws Exception {
+        mage.target.TargetPermanent ordinary = new mage.target.TargetPermanent();
+        mage.target.TargetPermanent unrelatedChoice = new mage.target.TargetPermanent();
+        unrelatedChoice.withNotTarget(true);
+        mage.target.TargetPermanent attachAsk = new mage.target.TargetPermanent(
+                new mage.filter.FilterPermanent("a creature you control that Abduction can be attached to"));
+        attachAsk.withNotTarget(true);
+        check(!isAttachmentChoice(ordinary),
+                "ordinary targeted permanent ask was classified as attachment choice");
+        check(!isAttachmentChoice(unrelatedChoice),
+                "unrelated non-targeting permanent ask was classified as attachment choice");
+        check(isAttachmentChoice(attachAsk),
+                "unhinted non-targeting permanent attach ask was not recognized");
+
         UUID bears = id(1), elves = id(2);
         BiPredicate<UUID, String> byId = (candidate, answer) -> answer.equals(candidate.toString());
         List<UUID> both = Arrays.asList(bears, elves);

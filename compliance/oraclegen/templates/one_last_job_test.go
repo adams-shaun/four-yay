@@ -31,6 +31,25 @@ func TestOneLastJobAuraEquipmentModeFixture(t *testing.T) {
 	if len(cast.Targets) == 0 {
 		t.Fatalf("One Last Job AuraEquipment mode has no graveyard target")
 	}
+	resolveStep := -1
+	for i, step := range it.Steps {
+		if step.Op == "resolve" {
+			resolveStep = i
+			break
+		}
+	}
+	if resolveStep < 0 || resolveStep >= len(it.XAnswers) {
+		t.Fatalf("One Last Job has no XMage answers for its resolve step: step=%d answers=%v", resolveStep, it.XAnswers)
+	}
+	foundAttachAnswer := false
+	for _, answer := range it.XAnswers[resolveStep] {
+		if answer.Seat == 0 && answer.Kind == "target" && answer.Value == "p0:Llanowar Elves" {
+			foundAttachAnswer = true
+		}
+	}
+	if !foundAttachAnswer {
+		t.Fatalf("One Last Job resolve answers %v omit the scripted attachment creature", it.XAnswers[resolveStep])
+	}
 	res, ok := oraclegen.PlaysThrough(reg, it.Scenario)
 	if !ok || len(res.Fails) != 0 {
 		t.Fatalf("One Last Job AuraEquipment scenario did not resolve cleanly: ok=%v failures=%v", ok, res.Fails)

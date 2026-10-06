@@ -201,6 +201,7 @@ func castWithProbes(reg *cards.Registry, f *cards.Face, name, mana string, slots
 					}
 					it.Scenario = sc
 					it.XAnswers = oraclegen.XAnswersForScenario(res, sc, oraclegen.ModeNumbers(f), castSteps)
+					addAttachmentChoiceAnswer(&it)
 					if len(stackIdx) == 0 {
 						// A stack slot shifts the fixture's slot indices, so the
 						// explicit-skip plan covers plain slot lists only.
@@ -394,4 +395,44 @@ func precastFitsSlots(slots []oraclegen.Slot, stackIdx []int, p precast) bool {
 		}
 	}
 	return true
+}
+
+// addAttachmentChoiceAnswer scripts the resolving-time creature choice for a
+// selected mode that returns an Aura or Equipment attached to a creature. The
+// fixture supplies Llanowar Elves for the mana activation, a legal bearer.
+func addAttachmentChoiceAnswer(it *oraclegen.Item) {
+	selected := false
+	for _, st := range it.Steps {
+		if st.Op != "cast" {
+			continue
+		}
+		for _, answer := range st.Answers {
+			if answer.Kind != "modes" {
+				continue
+			}
+			for _, mode := range answer.Pick {
+				if strings.Contains(mode, "Aura or Equipment") {
+					selected = true
+				}
+			}
+		}
+		if selected {
+			break
+		}
+	}
+	if !selected {
+		return
+	}
+	for i, st := range it.Steps {
+		if st.Op != "resolve" {
+			continue
+		}
+		for len(it.XAnswers) <= i {
+			it.XAnswers = append(it.XAnswers, nil)
+		}
+		it.XAnswers[i] = append(it.XAnswers[i], oraclegen.XAnswer{
+			Seat: 0, Kind: "target", Value: "p0:Llanowar Elves",
+		})
+		return
+	}
 }
