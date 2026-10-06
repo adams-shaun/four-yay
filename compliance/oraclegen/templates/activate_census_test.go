@@ -42,6 +42,12 @@ var activateCensusSets = []string{"BIG", "EOE", "FDN", "FRA"}
 // main pinned as a coarse Sac<...> gap are now cellable from the shared
 // fixture table, so EOE and FDN battlefield counts rise (EOE +2, FDN +5) and
 // the Sac gap bucket names its own cause (Sac<token>).
+//
+// Re-measured for the XMage loyalty/duplicate-cost/intrinsic-mana text ticket
+// (cli-20261006T035108Z-9e077b0e): the activate requirements formerly skipped
+// as "xmage text ambiguous" (planeswalkers, the shared-cost Chandras, the
+// Theorist's Sanctum intrinsic mana) are now served; FRA gains one
+// SubCounter<...> cost gap from a newly served planeswalker row.
 var wantActivateCensus = map[string]map[string]int{
 	"BIG": {
 		"served:activate.battlefield":             10,
@@ -52,33 +58,32 @@ var wantActivateCensus = map[string]map[string]int{
 		"skip:activate no fixture":                1,
 	},
 	"EOE": {
-		"served:activate.battlefield":                 33,
-		"served:activate.mana":                        4,
+		"served:activate.battlefield":                 35,
+		"served:activate.mana":                        16,
 		"skip:activate cost gap: ExileFromGrave<...>": 1,
 		"skip:activate cost gap: Sac<token>":          1,
 		"skip:activate cost gap: SubCounter<...>":     1,
 		"skip:activate cost gap: tapXType<X>":         1,
 		"skip:activate no fixture":                    1,
-		"skip:activate xmage text ambiguous":          20,
+		"skip:activate xmage text ambiguous":          6,
 	},
 	"FDN": {
 		"served:activate.battlefield":                          78,
 		"served:activate.graveyard":                            2,
-		"served:activate.mana":                                 50,
+		"served:activate.mana":                                 52,
 		"skip:activate cost gap: AddCounter<...>":              2,
 		"skip:activate cost gap: Return<...>":                  1,
 		"skip:activate cost gap: SubCounter<...>":              4,
 		"skip:activate cost gap: tapXType<unsupported-filter>": 1,
 		"skip:activate no fixture":                             6,
-		"skip:activate xmage text ambiguous":                   2,
 	},
 	"FRA": {
-		"served:activate.battlefield":        65,
-		"served:activate.graveyard":          7,
-		"served:activate.hand":               8,
-		"served:activate.mana":               24,
-		"skip:activate no fixture":           4,
-		"skip:activate xmage text ambiguous": 10,
+		"served:activate.battlefield":             71,
+		"served:activate.graveyard":               7,
+		"served:activate.hand":                    8,
+		"served:activate.mana":                    27,
+		"skip:activate cost gap: SubCounter<...>": 1,
+		"skip:activate no fixture":                4,
 		"skip:activate target gap: attackedThisTurn needs a combat prelude (Creature.attackedThisTurn)": 1,
 	},
 }
