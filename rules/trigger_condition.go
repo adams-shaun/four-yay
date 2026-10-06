@@ -513,7 +513,7 @@ func (e *Engine) presentZoneCountCtx(zone state.Zone, spec string, source state.
 	n := 0
 	for _, p := range e.G.AliveFrom(0) {
 		for _, id := range e.G.Zone(zone, p) {
-			if e.matchesSpec(spec, id, sc) {
+			if e.matchesSpec(presentSpecForZone(spec, zone), id, sc) {
 				n++
 			}
 		}
