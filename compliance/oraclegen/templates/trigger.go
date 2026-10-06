@@ -166,7 +166,7 @@ func triggerScenario(f *cards.Face, name string, c triggerCause, req levelb.Requ
 		sort.Strings(counterKinds)
 		for _, kind := range counterKinds {
 			count := kinds[kind]
-			p0 = oraclegen.WithCounters(p0, card, kind, count)
+			p0 = oraclegen.WithCounters(p0, card, kind, int32(count))
 		}
 	}
 	scenarioSteps := triggerSteps(f, name, c, steps, fx)
