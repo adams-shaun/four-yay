@@ -385,9 +385,11 @@ known_flaky() {
   return 1
 }
 
-# touches_generator <ticket>: 0 iff that branch changes the scenario generator.
-touches_generator() {
-  git diff --name-only "$MAIN"..."${BR[$1]}" -- compliance/oraclegen cmd/oraclediff 2>/dev/null | /usr/bin/grep -q .
+# touches_gorge <ticket>: 0 iff that branch changes gorge-generated scenarios
+# or the code that computes gorge's side of the comparison. Driver-only Java
+# changes remain on the XMage replay path.
+touches_gorge() {
+  git diff --name-only "$MAIN"..."${BR[$1]}" -- compliance/oraclegen cmd/oraclediff compliance/manifests '*.go' ':!tools/xmageoracle/**' 2>/dev/null | /usr/bin/grep -q .
 }
 
 # regen_row <probe> <id> <outfile>: regenerate the scenario row <id> on <probe>'s
@@ -398,10 +400,11 @@ regen_row() {
   set=$(basename "$(dirname "$f")")
   gen="$out.gen.jsonl"
   rm -f -- "$gen" "$out"
+  local genlog="$gen.log"
   if [ "${#GEN_CMD[@]}" -gt 0 ]; then
-    (cd "$dir" && "${GEN_CMD[@]}" "$set" "$gen") >/dev/null 2>&1 || return 1
+    (cd "$dir" && "${GEN_CMD[@]}" "$set" "$gen" "$repo/.cards") >"$genlog" 2>&1 || { say "ATTRIBUTE generator failed for $id: $(head -n1 "$genlog")"; return 1; }
   else
-    (cd "$dir" && capped go run ./cmd/oraclediff gen -level "${ORACLE_LEVEL:-B}" -manifest "compliance/manifests/$set.json" -out "$gen") >/dev/null 2>&1 || return 1
+    (cd "$dir" && capped go run ./cmd/oraclediff gen -cards "$repo/.cards" -level "${ORACLE_LEVEL:-B}" -manifest "compliance/manifests/$set.json" -out "$gen") >"$genlog" 2>&1 || { say "ATTRIBUTE generator failed for $id: $(head -n1 "$genlog")"; return 1; }
   fi
   py row "$id" "$gen" >"$out" || return 1
   [ -s "$out" ]
@@ -456,19 +459,33 @@ attribute() {
     done
     [ "$ok" = 1 ] || { say "ATTRIBUTE cannot build the batch without $cand (conflict); skipping it as a candidate"; continue; }
     local -a left=()
-    local gen=0
-    touches_generator "$cand" && gen=1
+    local gorge=0
+    touches_gorge "$cand" && gorge=1
     for r in "${todo[@]}"; do
       local tag src=""
       tag=$(echo "$r" | tr -c 'A-Za-z0-9\n' _)
-      if [ "$gen" = 1 ]; then
-        # The branch changes the scenario itself: replaying the batch's row
-        # without it can never clear, so regenerate the row without it.
+      if [ "$gorge" = 1 ]; then
+        # Recompute gorge's result on the probe without this branch.
         src="$d/regen-$cand-$tag.jsonl"
         regen_row "$probe" "$r" "$src" || { say "ATTRIBUTE cannot regenerate row $r without $cand; skipping it as a candidate"; left+=("$r"); continue; }
       fi
-      if one_scenario "$probe" "$r" "$d/without-$cand-$tag.jsonl" "$src" &&
-        cleared "$r" "$d/without-$cand-$tag.jsonl" "$d/without-$cand-$tag.jsonl.in.jsonl"; then
+      local candidate="$d/without-$cand-$tag.jsonl" xm
+      xm="$candidate"
+      if [ "$gorge" = 1 ]; then
+        local rowfile setname
+        rowfile=$(py rowfile "$r" "$SCEN_ROOT"/*/scen.jsonl) || { left+=("$r"); continue; }
+        setname=$(basename "$(dirname "$rowfile")")
+        xm="$SCEN_ROOT/$setname/xmage.jsonl"
+        if [ ! -s "$xm" ]; then
+          # Older replay layouts may not retain the batch XMage snapshot.
+          one_scenario "$probe" "$r" "$candidate" "$src" || { left+=("$r"); continue; }
+          xm="$candidate"
+        fi
+      else
+        one_scenario "$probe" "$r" "$candidate" || { left+=("$r"); continue; }
+        src="$candidate.in.jsonl"
+      fi
+      if cleared "$r" "$xm" "$src"; then
         CULPRIT[$r]=$cand
       else
         left+=("$r")
