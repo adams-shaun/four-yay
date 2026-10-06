@@ -207,10 +207,6 @@ func NewStartingPlayerChoice(cfg Config) *Engine {
 }
 
 func newWithRNG(cfg Config, random *rng, tossAsk bool) *Engine {
-	// Config token definitions may be shared (for example, CorpusRegistry's
-	// immutable registry). The game owns its map before genesis scans it or
-	// exposes it through G.Tokens, since runtime token registrations mutate it.
-	cfg.Tokens = maps.Clone(cfg.Tokens)
 	e := newEngineShell(cfg, random)
 	e.emit(events.Event{Kind: events.GameStart, Amount: int32(len(cfg.Names))})
 	return e.genesisDeal(cfg, tossAsk)
@@ -220,6 +216,10 @@ func newWithRNG(cfg Config, random *rng, tossAsk bool) *Engine {
 // empty board: no GameStart, no toss, no deal. newWithRNG deals a game onto
 // it; NewStaged (rules/staging.go) places a described position instead.
 func newEngineShell(cfg Config, random *rng) *Engine {
+	// Config token definitions may be shared (for example, CorpusRegistry's
+	// immutable registry). The game owns its map before genesis scans it or
+	// exposes it through G.Tokens, since runtime token registrations mutate it.
+	cfg.Tokens = maps.Clone(cfg.Tokens)
 	life := int32(20)
 	if cfg.StartingLife > 0 {
 		life = cfg.StartingLife
