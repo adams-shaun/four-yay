@@ -687,7 +687,7 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParam
 				}
 			}
 		}
-		if !preserveDeferredRest {
+		if !preserveDeferredRest && !cz.DefinedLibraryPosition {
 			shuffleLibrary(h, cz, f.owner)
 		}
 		placeLibraryObjects(h, c, cz, f.owner, moved, to)

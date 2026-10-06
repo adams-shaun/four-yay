@@ -200,8 +200,9 @@ type changeZoneTargeting struct {
 	TargetMin ParamText
 	TargetMax ParamText
 	// Derived selector facts.
-	DefinedImprinted  bool // Defined$ Imprinted
-	DefinedRemembered bool // Defined$ Remembered
+	DefinedImprinted       bool // Defined$ Imprinted
+	DefinedRemembered      bool // Defined$ Remembered
+	DefinedLibraryPosition bool // Defined$ TopOfLibrary / BottomOfLibrary
 }
 
 // changeZoneKnownKeys is every parameter key a ChangeZone ability's
@@ -545,6 +546,7 @@ func compileChangeZoneTargeting(tp *TargetParams, dp *DefinedParams) changeZoneT
 	t.Defined = dp.Defined.Text
 	t.DefinedImprinted = dp.Defined.Is(RefImprinted)
 	t.DefinedRemembered = dp.Defined.Is(RefRemembered)
+	t.DefinedLibraryPosition = definedSpecCodes.Code(dp.Defined.Text) == definedSpecTopOrBottomOfLibrary
 	t.ValidTgts = ParamText{Text: tp.ValidTgts, Present: tp.Has(TgtValidPresent)}
 	t.TargetMin = paramText(tp.Min.Text, tp.Min.Present)
 	t.TargetMax = paramText(tp.Max.Text, tp.Max.Present)
