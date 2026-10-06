@@ -50,7 +50,11 @@ func activationCostIn(cost, zone string) (pool, gap string) {
 				continue
 			}
 		case "ExileFromGrave":
-			if (zone == "graveyard" && selfZoneCost(tok)) || graveyardCreatureCost(tok) || graveyardCostFixtures(tok) != nil {
+			if selfZoneCost(tok) {
+				if zone == "graveyard" {
+					continue
+				}
+			} else if graveyardCreatureCost(tok) || graveyardCostFixtures(tok) != nil {
 				continue
 			}
 		case "ExileCtrlOrGrave":
@@ -197,12 +201,10 @@ func activationCostFixtures(tok string) []string {
 	case "ExileCtrlOrGrave":
 		return craftCostFixtures(tok)
 	case "ExileFromGrave":
-		if names := graveyardCostFixtures(tok); names != nil {
-			return names
-		}
 		if graveyardCreatureCost(tok) {
 			return []string{"Grizzly Bears"}
 		}
+		return graveyardCostFixtures(tok)
 	case "CollectEvidence":
 		return evidenceCostFixtures(tok)
 	case "Exile":
