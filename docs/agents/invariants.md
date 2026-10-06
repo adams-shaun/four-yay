@@ -266,9 +266,10 @@ alloc-gate`) and `make gc-gate`, both run by hand. Otherwise convention.
    tests that share fixtures, never cut coverage, and never run it whole "for
    a baseline". Tests load the corpus only via
    `internal/testutil.CorpusRegistry`, never `cards.LoadRegistry` (~600 MB per
-   fresh registry, kept live by rules memos). TEMPORARY until `wt/tmpl-mem`
-   and the templates split land: never run `./compliance/oraclegen/templates`
-   whole. The box has been OOMed several times.
+   fresh registry, kept live by rules memos). TEMPORARY until the templates
+   split lands (`wt/tmpl-mem` landed at 72bd90f9e): never run
+   `./compliance/oraclegen/templates` whole or with
+   `GORGE_ORACLEGEN_FULL_TARGET_AUDIT=1` (154 s, post-merge only). The box has been OOMed several times.
 5. **Red on `main` is yours.** A failing test that is committed on `main` is
    bisected and fixed now, not labelled "pre-existing". A red run in a
    *shared* checkout may be a peer's half-written file: check `git status` and
