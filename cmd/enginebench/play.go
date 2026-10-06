@@ -37,7 +37,12 @@ var syncAnswerBuild string
 type randomStats struct {
 	Games, Turns, Decisions, Rejected, Fallbacks, Stalls int
 	StallKinds                                           map[string]int
+	// Panics names the first maxPanics recovered panics by seed and turn, so
+	// a stall of kind "panic" can be replayed (playRandom with that seed).
+	Panics []string `json:",omitempty"`
 }
+
+const maxPanics = 8
 
 // randomIntent draws uniformly: a choice count uniform in [Min, Max] (capped
 // at the option count), then that many distinct options uniformly, in random
@@ -89,6 +94,9 @@ func playRandom(cfg rules.Config, st *randomStats) {
 		defer func() {
 			if x := recover(); x != nil {
 				stall = "panic"
+				if len(st.Panics) < maxPanics {
+					st.Panics = append(st.Panics, fmt.Sprintf("seed=%d turn=%d: %v", cfg.Seed, e.G.Turn, x))
+				}
 			}
 		}()
 		if syncAnswer {
