@@ -266,7 +266,7 @@ func affinityFixtures(reg *cards.Registry, typ string, count int) []string {
 	})
 	var fixtures []string
 	for _, c := range cardsInOrder {
-		if strings.HasPrefix(firstName(c), "A-") || strings.Contains(firstName(c), "\"") || strings.Contains(firstName(c), "'") {
+		if !oraclegen.XMageKnown(firstName(c)) || strings.Contains(firstName(c), "'") {
 			continue
 		}
 		if len(c.Faces) == 0 {

@@ -47,7 +47,7 @@ var etbCastProbes = []string{
 	"Extremis Elite", "Dragon Hatchling", "Go-Shintai of Boundless Vigor",
 	"Expedition Envoy", "Carrion Feeder", "Canopy Spider", "Bog Rats",
 	"Inkrise Infiltrator", "Bulwark Ox", "Cloud Sprite", "Air Elemental",
-	"Boreal Druid", "Snubhorn Sentry", "Disguise Agent", "Bruce Banner",
+	"Boreal Druid", "Snubhorn Sentry", "Bruce Banner",
 	"Aven Skirmisher", "Spore Frog", "Zodiac Rabbit", "Cabaretti Initiate",
 	"Bonecache Overseer", "Assassin Initiate",
 	// Conjunction and qualifier probes: a legendary Elf (Elf.Legendary), a
@@ -136,7 +136,7 @@ func etbProbeCauses(reg *cards.Registry, name string, t *cards.Trigger) ([]trigg
 	// old vanilla Bear remains last so it can still serve broad creature filters.
 	var out []triggerCause
 	for _, p := range etbLandProbes {
-		if p == name {
+		if p == name || !oraclegen.XMageKnown(p) {
 			continue
 		}
 		if _, ok := reg.Lookup(p); !ok {
@@ -148,7 +148,7 @@ func etbProbeCauses(reg *cards.Registry, name string, t *cards.Trigger) ([]trigg
 		})
 	}
 	for _, p := range etbCastProbes {
-		if p == name {
+		if p == name || !oraclegen.XMageKnown(p) {
 			continue
 		}
 		if etbAuraProbes[p] {

@@ -215,6 +215,7 @@ func runGen(dir, manifest, out, level string) error {
 // genManifest generates from an already loaded registry, so deterministic
 // fixtures can exercise the manifest/name boundary without an external corpus.
 func genManifest(reg *cards.Registry, m compliance.Manifest, out, level string) error {
+	installXMageKnown()
 	sup := effects.Supported()
 	has := func(n string) bool { _, ok := reg.Lookup(n); return ok }
 	folded := compliance.FoldedNames(reg)
@@ -746,4 +747,29 @@ func xmageSpelling(reg *cards.Registry, card string) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+// installXMageKnown hands the generator the names XMage's database holds, the
+// union of the committed set manifests, so no probe or fixture picker places a
+// card XMage's addCard cannot find. Without the manifests (the working
+// directory is not the repository root) nothing is installed and
+// oraclegen.XMageKnown falls back to its name heuristic.
+func installXMageKnown() {
+	paths, _ := filepath.Glob(filepath.Join("compliance", "manifests", "*.json"))
+	sort.Strings(paths)
+	var names []string
+	for _, p := range paths {
+		raw, err := os.ReadFile(p)
+		if err != nil {
+			continue
+		}
+		var m compliance.Manifest
+		if json.Unmarshal(raw, &m) != nil {
+			continue
+		}
+		for _, mc := range m.Cards {
+			names = append(names, mc.Name)
+		}
+	}
+	oraclegen.SetXMageKnown(names)
 }
