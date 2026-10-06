@@ -1535,11 +1535,11 @@ type Object struct {
 	// DoorLock/DoorUnlock events alone update this per-face lock bitset.
 	LockedDoors uint8
 
-	// _ pads the Object to 1216 bytes (19 64-byte cache lines), so in the
+	// _ pads the Object to 1280 bytes (20 64-byte cache lines), so in the
 	// page-aligned Objs arena every object's hot head (the fields declared
 	// first) starts on a line of its own. Purely layout: it is never read or
 	// written. A field added above must re-pad it (TestObjectCacheLinePadded).
-	_ [67]byte
+	_ [123]byte
 }
 
 // DoorUnlocked reports the designation of a printed Room face. The cast
