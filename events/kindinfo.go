@@ -88,135 +88,138 @@ type KindInfo struct {
 // entry still compiles but leaves a zero entry, which the descriptor test
 // rejects by name.
 var kindInfo = [NumKinds]KindInfo{
-	GameStart:            {Name: "game_start", Trigger: TriggerNone, Describe: "Game starts with {amount} players"},
-	Shuffle:              {Name: "shuffle", Trigger: TriggerNone, Describe: "{player} shuffles their library"},
-	MoveZone:             {Name: "move_zone", Trigger: TriggerZoneChange},
-	Draw:                 {Name: "draw", Trigger: TriggerDraw},
-	LifeChange:           {Name: "life", Trigger: TriggerLifeChange},
-	Damage:               {Name: "damage", Trigger: TriggerDamage},
-	Tap:                  {Name: "tap", Trigger: TriggerTap, Describe: "{obj} taps"},
-	Untap:                {Name: "untap", Trigger: TriggerNone, Describe: "{obj} untaps"},
-	StepChange:           {Name: "step", Trigger: TriggerStepChange},
-	TurnChange:           {Name: "turn", Trigger: TriggerNone, Describe: "Turn {amount}: {player}"},
-	Priority:             {Name: "priority", Trigger: TriggerNone, Describe: "{player} has priority"},
-	PutOnStack:           {Name: "stack_push", Trigger: TriggerStackPut, Describe: "{player} casts {obj}"},
-	Resolve:              {Name: "stack_resolve", Trigger: TriggerNone, Describe: "{obj} resolves"},
-	ManaAdd:              {Name: "mana_add", Trigger: TriggerNone},
-	ManaClear:            {Name: "mana_clear", Trigger: TriggerNone, Describe: "{player}'s mana pool empties"},
-	CounterChange:        {Name: "counter", Trigger: TriggerNone},
-	DeclareAttackers:     {Name: "declare_attackers", Trigger: TriggerAttackDeclaration},
-	DeclareBlockers:      {Name: "declare_blockers", Trigger: TriggerAttackDeclaration},
-	PlayerLost:           {Name: "player_lost", Trigger: TriggerNone, Describe: "{player} loses the game"},
-	GameOver:             {Name: "game_over", Trigger: TriggerNone},
-	DecisionAsk:          {Name: "decision_ask", Trigger: TriggerNone, Describe: "{player} is asked: {text}"},
-	DecisionMade:         {Name: "decision_made", Trigger: TriggerNone, Describe: "{player} answers {text}"},
-	Note:                 {Name: "note", Trigger: TriggerNone},
-	LandPlayed:           {Name: "land_played", Trigger: TriggerNone, Describe: "{player} plays a land"},
-	TargetsChosen:        {Name: "targets_chosen", Trigger: TriggerTargetsChosen},
-	FlipFace:             {Name: "flip_face", Trigger: TriggerNone, Describe: "{obj} turns to face {amount}"},
-	ClockTick:            {Name: "clock_tick", Trigger: TriggerNone},
-	TriggerPush:          {Name: "trigger_push", Trigger: TriggerNone, Describe: "{obj} triggers"},
-	EndCombatReset:       {Name: "end_combat_reset", Trigger: TriggerNone, Describe: "Combat ends"},
-	CastInfo:             {Name: "cast_info", Trigger: TriggerCastInfo}, // trig:ManaExpend reads the pay-time CastInfo
-	Choose:               {Name: "choose", Trigger: TriggerNone},
-	TokenCreate:          {Name: "token_create", Trigger: TriggerZoneChange}, // a token is minted straight onto the battlefield, a zone change ChangesZone sees
-	StackCopy:            {Name: "stack_copy", Trigger: TriggerNone},
-	Attach:               {Name: "attach", Trigger: TriggerAttach},
-	AbilityPush:          {Name: "ability_push", Trigger: TriggerAbilityPush},
-	ModeChosen:           {Name: "mode_chosen", Trigger: TriggerNone},
-	CmdDamage:            {Name: "commander_damage", Trigger: TriggerNone},
-	DelayedRegister:      {Name: "delayed_register", Trigger: TriggerNone},
-	DelayedPush:          {Name: "delayed_push", Trigger: TriggerNone},
-	LibraryOrder:         {Name: "library_order", Trigger: TriggerNone, Describe: "{player} rearranges the top of their library"},
-	ExtraTurn:            {Name: "extra_turn", Trigger: TriggerNone},
-	DoorUnlock:           {Name: "door_unlock", Trigger: TriggerNone, Describe: "{obj}'s locked door is unlocked"},
-	SpeedChange:          {Name: "speed_change", Trigger: TriggerNone},
-	MonarchChange:        {Name: "monarch_change", Trigger: TriggerMonarch, Describe: "{player} becomes the monarch"}, // trig:BecomeMonarch
-	ControlChange:        {Name: "control_change", Trigger: TriggerNone, Describe: "{player} gains control of {obj}"},
-	CardToken:            {Name: "card_token", Trigger: TriggerZoneChange}, // as TokenCreate; CopyToken is not: its entry is the separate MoveZone that follows
-	KeywordTriggerPush:   {Name: "keyword_trigger_push", Trigger: TriggerNone},
-	Goad:                 {Name: "goad", Trigger: TriggerNone, Describe: "{obj} is goaded by {player}"},
-	PlayerCounterChange:  {Name: "player_counter", Trigger: TriggerNone},
-	Imprint:              {Name: "imprint", Trigger: TriggerNone},
-	StartingPlayerChange: {Name: "starting_player_change", Trigger: TriggerNone, Describe: "{player} becomes the starting player"},
-	Pair:                 {Name: "pair", Trigger: TriggerNone},
-	MyriadCopy:           {Name: "myriad_copy", Trigger: TriggerNone},
-	MyriadCleanup:        {Name: "myriad_cleanup", Trigger: TriggerNone, Describe: "Myriad tokens are exiled at end of combat"},
-	GrantTriggerPush:     {Name: "grant_trigger_push", Trigger: TriggerNone},
-	ManaActivate:         {Name: "mana_activate", Trigger: TriggerNone},
-	TokenAttacks:         {Name: "token_attacks", Trigger: TriggerNone},
-	XChange:              {Name: "x_change", Trigger: TriggerNone},
-	NoteNumber:           {Name: "note_number", Trigger: TriggerNone, Describe: "{obj} notes {amount}"},
-	ExtraPhase:           {Name: "extra_phase", Trigger: TriggerNone},
-	CopyToken:            {Name: "copy_token", Trigger: TriggerNone}, // the copy is created in the library; the following MoveZone is the entry (admitting it would double-fire)
-	Exert:                {Name: "exert", Trigger: TriggerNone},
-	PlanarRoll:           {Name: "planar_roll", Trigger: TriggerNone},
-	Explore:              {Name: "explore", Trigger: TriggerExplore},
-	CombatRetarget:       {Name: "combat_retarget", Trigger: TriggerNone},
-	RingTemptsYou:        {Name: "ring_tempts_you", Trigger: TriggerNone},
-	RingEmblemPush:       {Name: "ring_emblem_push", Trigger: TriggerNone},
-	GrantAbilityPush:     {Name: "grant_ability_push", Trigger: TriggerNone},
-	Investigate:          {Name: "investigate", Trigger: TriggerFullMatch},
-	BlessingChange:       {Name: "blessing_change", Trigger: TriggerNone, Describe: "{player} gets the city's blessing"},
-	ClonePermanent:       {Name: "clone_permanent", Trigger: TriggerNone}, // a characteristic change, not an event a mode fires on
-	Mutate:               {Name: "mutate", Trigger: TriggerNone},          // trig:Mutates matches through the full matcher via the past-the-mask fail-open path
-	MergedTriggerPush:    {Name: "merged_trigger_push", Trigger: TriggerNone},
-	Discover:             {Name: "discover", Trigger: TriggerFullMatch},
-	Seek:                 {Name: "seek", Trigger: TriggerFullMatch},
-	Connive:              {Name: "connive", Trigger: TriggerFullMatch},
-	Enlist:               {Name: "enlist", Trigger: TriggerNone}, // trig:Enlisted matches through the full matcher via the past-the-mask fail-open path
-	Exploit:              {Name: "exploit", Trigger: TriggerFullMatch},
-	AlterAttribute:       {Name: "alter_attribute", Trigger: TriggerNone}, // read through filter predicates (Creature.IsSuspected), never a mode
-	GainedAbilityPush:    {Name: "gained_ability_push", Trigger: TriggerNone},
-	GainedTriggerPush:    {Name: "gained_trigger_push", Trigger: TriggerNone},
-	Surveil:              {Name: "surveil", Trigger: TriggerFullMatch},
-	Unattached:           {Name: "unattached", Trigger: TriggerNone},
-	PlayerNoted:          {Name: "player_noted", Trigger: TriggerNone, Describe: "{player} is noted for {text}"},
-	PlayerNoteCleared:    {Name: "player_note_cleared", Trigger: TriggerNone, Describe: "{player} is no longer noted for {text}"},
-	DelayedRemove:        {Name: "delayed_remove", Trigger: TriggerNone, Describe: "delayed trigger registration removed"},
-	TurnFaceUp:           {Name: "turn_face_up", Trigger: TriggerFullMatch},
-	SearchedLibrary:      {Name: "searched_library", Trigger: TriggerFullMatch},
-	KeywordAbilityPush:   {Name: "keyword_ability_push", Trigger: TriggerAbilityPush},
-	Scry:                 {Name: "scry", Trigger: TriggerFullMatch}, // not a trigger-interest class yet, so it keeps the conservative catch-all
-	StoreSVar:            {Name: "store_svar", Trigger: TriggerNone},
-	TurnFaceDown:         {Name: "turn_face_down", Trigger: TriggerNone, Describe: "{obj} is turned face down"},
-	CloneStatic:          {Name: "clone_static", Trigger: TriggerNone, Describe: "{obj} gains a copy static ability"},
-	DamageProvenance:     {Name: "damage_provenance", Trigger: TriggerNone}, // bookkeeping beside a landed Damage; damage predicates read it from state
-	EnduringStoryChange:  {Name: "enduring_story_change", Trigger: TriggerNone, Describe: "{player} has an enduring story"},
-	PhaseOut:             {Name: "phase_out", Trigger: TriggerNone}, // trig:PhaseOutAll matches through the full matcher via the past-the-mask fail-open path
-	GiftPromise:          {Name: "gift_promise", Trigger: TriggerNone},
-	GiveGift:             {Name: "give_gift", Trigger: TriggerNone}, // trig:GiveGift matches through the full matcher via the past-the-mask fail-open path
-	RollDice:             {Name: "roll_dice", Trigger: TriggerNone}, // a never-emitted replacement proposal
-	Proliferate:          {Name: "proliferate", Trigger: TriggerFullMatch},
-	Evolved:              {Name: "evolved", Trigger: TriggerFullMatch},
-	DelayedForget:        {Name: "delayed_forget", Trigger: TriggerNone},
-	CardNoted:            {Name: "card_noted", Trigger: TriggerNone},
-	Cascade:              {Name: "cascade", Trigger: TriggerNone}, // a never-emitted replacement proposal: nothing can observe it
-	Clash:                {Name: "clash", Trigger: TriggerNone},   // trig:Clashed matches through the full matcher via the past-the-mask fail-open path
-	PlanarDeckShuffle:    {Name: "planar_deck_shuffle", Trigger: TriggerNone, Describe: "{player} shuffles the planar deck"},
-	PlanarReveal:         {Name: "planar_reveal", Trigger: TriggerNone, Describe: "{obj} is revealed as the current plane"},
-	PlanarWalk:           {Name: "planar_walk", Trigger: TriggerNone, Describe: "Planeswalk to the next plane"}, // trig:PlaneswalkedTo/From match it through the synthetic plane scan, not the per-face prefilter
-	Specialize:           {Name: "specialize", Trigger: TriggerFullMatch},
-	ChaosEnsues:          {Name: "chaos_ensues", Trigger: TriggerNone},
-	ManaUndo:             {Name: "mana_undo", Trigger: TriggerNone}, // a CR 733.1 reversal: nothing triggers from an undone action
-	EndTurn:              {Name: "end_turn", Trigger: TriggerNone, Describe: "The turn ends"},
-	DungeonCreate:        {Name: "dungeon_create", Trigger: TriggerNone},
-	DungeonRoom:          {Name: "dungeon_room", Trigger: TriggerNone},
-	DungeonComplete:      {Name: "dungeon_complete", Trigger: TriggerNone},
-	DungeonRemove:        {Name: "dungeon_remove", Trigger: TriggerNone, Describe: "{obj} is removed from the command zone"},
-	InitiativeChange:     {Name: "initiative_change", Trigger: TriggerNone, Describe: "{player} takes the initiative"}, // read through IsInitiative intervening-if predicates
-	SkipTurn:             {Name: "skip_turn", Trigger: TriggerNone},                                                    // CR 500.9 bookkeeping read back through state.Game.SkipTurns
-	ControlPlayerChange:  {Name: "control_player_change", Trigger: TriggerNone},                                        // CR 720 bookkeeping read back through state.Game.ControlledBy
-	Crew:                 {Name: "crew", Trigger: TriggerNone},                                                         // read through Creature.CrewedThisTurn, never a mode
-	ElementalBend:        {Name: "elemental_bend", Trigger: TriggerFullMatch},
-	SetupEntered:         {Name: "setup_entered", Trigger: TriggerNone, Describe: "{obj} counts as having entered this turn"}, // compliance fixture provenance; no ETB trigger
-	DoorLock:             {Name: "door_lock", Trigger: TriggerNone, Describe: "{obj}'s door is locked"},
-	Saddle:               {Name: "saddle", Trigger: TriggerFullMatch}, // trig:Saddled reads the crewer-to-Mount pairing; the designation itself is AlterAttribute "Saddled"
-	ClassLevelChange:     {Name: "class_level", Trigger: TriggerNone, Describe: "{obj} gains a Class level"},
-	MillProposal:         {Name: "mill_proposal", Trigger: TriggerNone, Describe: "{player} would mill {amount} cards"},
-	Meld:                 {Name: "meld", Trigger: TriggerNone, Describe: "{obj}: {text}"},
-	ExcessDamage:         {Name: "excess_damage", Trigger: TriggerNone, Describe: "{obj} was dealt excess damage"},
-	AbilityTriggered:     {Name: "ability_triggered", Trigger: TriggerFullMatch},
+	GameStart:             {Name: "game_start", Trigger: TriggerNone, Describe: "Game starts with {amount} players"},
+	Shuffle:               {Name: "shuffle", Trigger: TriggerNone, Describe: "{player} shuffles their library"},
+	MoveZone:              {Name: "move_zone", Trigger: TriggerZoneChange},
+	Draw:                  {Name: "draw", Trigger: TriggerDraw},
+	LifeChange:            {Name: "life", Trigger: TriggerLifeChange},
+	Damage:                {Name: "damage", Trigger: TriggerDamage},
+	Tap:                   {Name: "tap", Trigger: TriggerTap, Describe: "{obj} taps"},
+	Untap:                 {Name: "untap", Trigger: TriggerNone, Describe: "{obj} untaps"},
+	StepChange:            {Name: "step", Trigger: TriggerStepChange},
+	TurnChange:            {Name: "turn", Trigger: TriggerNone, Describe: "Turn {amount}: {player}"},
+	Priority:              {Name: "priority", Trigger: TriggerNone, Describe: "{player} has priority"},
+	PutOnStack:            {Name: "stack_push", Trigger: TriggerStackPut, Describe: "{player} casts {obj}"},
+	Resolve:               {Name: "stack_resolve", Trigger: TriggerNone, Describe: "{obj} resolves"},
+	ManaAdd:               {Name: "mana_add", Trigger: TriggerNone},
+	ManaClear:             {Name: "mana_clear", Trigger: TriggerNone, Describe: "{player}'s mana pool empties"},
+	CounterChange:         {Name: "counter", Trigger: TriggerNone},
+	DeclareAttackers:      {Name: "declare_attackers", Trigger: TriggerAttackDeclaration},
+	DeclareBlockers:       {Name: "declare_blockers", Trigger: TriggerAttackDeclaration},
+	PlayerLost:            {Name: "player_lost", Trigger: TriggerNone, Describe: "{player} loses the game"},
+	GameOver:              {Name: "game_over", Trigger: TriggerNone},
+	DecisionAsk:           {Name: "decision_ask", Trigger: TriggerNone, Describe: "{player} is asked: {text}"},
+	DecisionMade:          {Name: "decision_made", Trigger: TriggerNone, Describe: "{player} answers {text}"},
+	Note:                  {Name: "note", Trigger: TriggerNone},
+	LandPlayed:            {Name: "land_played", Trigger: TriggerNone, Describe: "{player} plays a land"},
+	TargetsChosen:         {Name: "targets_chosen", Trigger: TriggerTargetsChosen},
+	FlipFace:              {Name: "flip_face", Trigger: TriggerNone, Describe: "{obj} turns to face {amount}"},
+	ClockTick:             {Name: "clock_tick", Trigger: TriggerNone},
+	TriggerPush:           {Name: "trigger_push", Trigger: TriggerNone, Describe: "{obj} triggers"},
+	EndCombatReset:        {Name: "end_combat_reset", Trigger: TriggerNone, Describe: "Combat ends"},
+	CastInfo:              {Name: "cast_info", Trigger: TriggerCastInfo}, // trig:ManaExpend reads the pay-time CastInfo
+	Choose:                {Name: "choose", Trigger: TriggerNone},
+	TokenCreate:           {Name: "token_create", Trigger: TriggerZoneChange}, // a token is minted straight onto the battlefield, a zone change ChangesZone sees
+	StackCopy:             {Name: "stack_copy", Trigger: TriggerNone},
+	Attach:                {Name: "attach", Trigger: TriggerAttach},
+	AbilityPush:           {Name: "ability_push", Trigger: TriggerAbilityPush},
+	ModeChosen:            {Name: "mode_chosen", Trigger: TriggerNone},
+	CmdDamage:             {Name: "commander_damage", Trigger: TriggerNone},
+	DelayedRegister:       {Name: "delayed_register", Trigger: TriggerNone},
+	DelayedPush:           {Name: "delayed_push", Trigger: TriggerNone},
+	LibraryOrder:          {Name: "library_order", Trigger: TriggerNone, Describe: "{player} rearranges the top of their library"},
+	ExtraTurn:             {Name: "extra_turn", Trigger: TriggerNone},
+	DoorUnlock:            {Name: "door_unlock", Trigger: TriggerNone, Describe: "{obj}'s locked door is unlocked"},
+	SpeedChange:           {Name: "speed_change", Trigger: TriggerNone},
+	MonarchChange:         {Name: "monarch_change", Trigger: TriggerMonarch, Describe: "{player} becomes the monarch"}, // trig:BecomeMonarch
+	ControlChange:         {Name: "control_change", Trigger: TriggerNone, Describe: "{player} gains control of {obj}"},
+	CardToken:             {Name: "card_token", Trigger: TriggerZoneChange}, // as TokenCreate; CopyToken is not: its entry is the separate MoveZone that follows
+	KeywordTriggerPush:    {Name: "keyword_trigger_push", Trigger: TriggerNone},
+	Goad:                  {Name: "goad", Trigger: TriggerNone, Describe: "{obj} is goaded by {player}"},
+	PlayerCounterChange:   {Name: "player_counter", Trigger: TriggerNone},
+	Imprint:               {Name: "imprint", Trigger: TriggerNone},
+	StartingPlayerChange:  {Name: "starting_player_change", Trigger: TriggerNone, Describe: "{player} becomes the starting player"},
+	Pair:                  {Name: "pair", Trigger: TriggerNone},
+	MyriadCopy:            {Name: "myriad_copy", Trigger: TriggerNone},
+	MyriadCleanup:         {Name: "myriad_cleanup", Trigger: TriggerNone, Describe: "Myriad tokens are exiled at end of combat"},
+	GrantTriggerPush:      {Name: "grant_trigger_push", Trigger: TriggerNone},
+	ManaActivate:          {Name: "mana_activate", Trigger: TriggerNone},
+	TokenAttacks:          {Name: "token_attacks", Trigger: TriggerNone},
+	XChange:               {Name: "x_change", Trigger: TriggerNone},
+	NoteNumber:            {Name: "note_number", Trigger: TriggerNone, Describe: "{obj} notes {amount}"},
+	ExtraPhase:            {Name: "extra_phase", Trigger: TriggerNone},
+	CopyToken:             {Name: "copy_token", Trigger: TriggerNone}, // the copy is created in the library; the following MoveZone is the entry (admitting it would double-fire)
+	Exert:                 {Name: "exert", Trigger: TriggerNone},
+	PlanarRoll:            {Name: "planar_roll", Trigger: TriggerNone},
+	Explore:               {Name: "explore", Trigger: TriggerExplore},
+	CombatRetarget:        {Name: "combat_retarget", Trigger: TriggerNone},
+	RingTemptsYou:         {Name: "ring_tempts_you", Trigger: TriggerNone},
+	RingEmblemPush:        {Name: "ring_emblem_push", Trigger: TriggerNone},
+	GrantAbilityPush:      {Name: "grant_ability_push", Trigger: TriggerNone},
+	Investigate:           {Name: "investigate", Trigger: TriggerFullMatch},
+	BlessingChange:        {Name: "blessing_change", Trigger: TriggerNone, Describe: "{player} gets the city's blessing"},
+	ClonePermanent:        {Name: "clone_permanent", Trigger: TriggerNone}, // a characteristic change, not an event a mode fires on
+	Mutate:                {Name: "mutate", Trigger: TriggerNone},          // trig:Mutates matches through the full matcher via the past-the-mask fail-open path
+	MergedTriggerPush:     {Name: "merged_trigger_push", Trigger: TriggerNone},
+	Discover:              {Name: "discover", Trigger: TriggerFullMatch},
+	Seek:                  {Name: "seek", Trigger: TriggerFullMatch},
+	Connive:               {Name: "connive", Trigger: TriggerFullMatch},
+	Enlist:                {Name: "enlist", Trigger: TriggerNone}, // trig:Enlisted matches through the full matcher via the past-the-mask fail-open path
+	Exploit:               {Name: "exploit", Trigger: TriggerFullMatch},
+	AlterAttribute:        {Name: "alter_attribute", Trigger: TriggerNone}, // read through filter predicates (Creature.IsSuspected), never a mode
+	GainedAbilityPush:     {Name: "gained_ability_push", Trigger: TriggerNone},
+	GainedTriggerPush:     {Name: "gained_trigger_push", Trigger: TriggerNone},
+	Surveil:               {Name: "surveil", Trigger: TriggerFullMatch},
+	Unattached:            {Name: "unattached", Trigger: TriggerNone},
+	PlayerNoted:           {Name: "player_noted", Trigger: TriggerNone, Describe: "{player} is noted for {text}"},
+	PlayerNoteCleared:     {Name: "player_note_cleared", Trigger: TriggerNone, Describe: "{player} is no longer noted for {text}"},
+	DelayedRemove:         {Name: "delayed_remove", Trigger: TriggerNone, Describe: "delayed trigger registration removed"},
+	TurnFaceUp:            {Name: "turn_face_up", Trigger: TriggerFullMatch},
+	SearchedLibrary:       {Name: "searched_library", Trigger: TriggerFullMatch},
+	KeywordAbilityPush:    {Name: "keyword_ability_push", Trigger: TriggerAbilityPush},
+	Scry:                  {Name: "scry", Trigger: TriggerFullMatch}, // not a trigger-interest class yet, so it keeps the conservative catch-all
+	StoreSVar:             {Name: "store_svar", Trigger: TriggerNone},
+	TurnFaceDown:          {Name: "turn_face_down", Trigger: TriggerNone, Describe: "{obj} is turned face down"},
+	CloneStatic:           {Name: "clone_static", Trigger: TriggerNone, Describe: "{obj} gains a copy static ability"},
+	DamageProvenance:      {Name: "damage_provenance", Trigger: TriggerNone}, // bookkeeping beside a landed Damage; damage predicates read it from state
+	EnduringStoryChange:   {Name: "enduring_story_change", Trigger: TriggerNone, Describe: "{player} has an enduring story"},
+	PhaseOut:              {Name: "phase_out", Trigger: TriggerNone}, // trig:PhaseOutAll matches through the full matcher via the past-the-mask fail-open path
+	GiftPromise:           {Name: "gift_promise", Trigger: TriggerNone},
+	GiveGift:              {Name: "give_gift", Trigger: TriggerNone}, // trig:GiveGift matches through the full matcher via the past-the-mask fail-open path
+	RollDice:              {Name: "roll_dice", Trigger: TriggerNone}, // a never-emitted replacement proposal
+	Proliferate:           {Name: "proliferate", Trigger: TriggerFullMatch},
+	Evolved:               {Name: "evolved", Trigger: TriggerFullMatch},
+	DelayedForget:         {Name: "delayed_forget", Trigger: TriggerNone},
+	CardNoted:             {Name: "card_noted", Trigger: TriggerNone},
+	Cascade:               {Name: "cascade", Trigger: TriggerNone}, // a never-emitted replacement proposal: nothing can observe it
+	Clash:                 {Name: "clash", Trigger: TriggerNone},   // trig:Clashed matches through the full matcher via the past-the-mask fail-open path
+	PlanarDeckShuffle:     {Name: "planar_deck_shuffle", Trigger: TriggerNone, Describe: "{player} shuffles the planar deck"},
+	PlanarReveal:          {Name: "planar_reveal", Trigger: TriggerNone, Describe: "{obj} is revealed as the current plane"},
+	PlanarWalk:            {Name: "planar_walk", Trigger: TriggerNone, Describe: "Planeswalk to the next plane"}, // trig:PlaneswalkedTo/From match it through the synthetic plane scan, not the per-face prefilter
+	Specialize:            {Name: "specialize", Trigger: TriggerFullMatch},
+	ChaosEnsues:           {Name: "chaos_ensues", Trigger: TriggerNone},
+	ManaUndo:              {Name: "mana_undo", Trigger: TriggerNone}, // a CR 733.1 reversal: nothing triggers from an undone action
+	EndTurn:               {Name: "end_turn", Trigger: TriggerNone, Describe: "The turn ends"},
+	DungeonCreate:         {Name: "dungeon_create", Trigger: TriggerNone},
+	DungeonRoom:           {Name: "dungeon_room", Trigger: TriggerNone},
+	DungeonComplete:       {Name: "dungeon_complete", Trigger: TriggerNone},
+	DungeonRemove:         {Name: "dungeon_remove", Trigger: TriggerNone, Describe: "{obj} is removed from the command zone"},
+	InitiativeChange:      {Name: "initiative_change", Trigger: TriggerNone, Describe: "{player} takes the initiative"}, // read through IsInitiative intervening-if predicates
+	SkipTurn:              {Name: "skip_turn", Trigger: TriggerNone},                                                    // CR 500.9 bookkeeping read back through state.Game.SkipTurns
+	ControlPlayerChange:   {Name: "control_player_change", Trigger: TriggerNone},                                        // CR 720 bookkeeping read back through state.Game.ControlledBy
+	Crew:                  {Name: "crew", Trigger: TriggerNone},                                                         // read through Creature.CrewedThisTurn, never a mode
+	ElementalBend:         {Name: "elemental_bend", Trigger: TriggerFullMatch},
+	SetupEntered:          {Name: "setup_entered", Trigger: TriggerNone, Describe: "{obj} counts as having entered this turn"}, // compliance fixture provenance; no ETB trigger
+	DoorLock:              {Name: "door_lock", Trigger: TriggerNone, Describe: "{obj}'s door is locked"},
+	Saddle:                {Name: "saddle", Trigger: TriggerFullMatch}, // trig:Saddled reads the crewer-to-Mount pairing; the designation itself is AlterAttribute "Saddled"
+	ClassLevelChange:      {Name: "class_level", Trigger: TriggerNone, Describe: "{obj} gains a Class level"},
+	MillProposal:          {Name: "mill_proposal", Trigger: TriggerNone, Describe: "{player} would mill {amount} cards"},
+	Meld:                  {Name: "meld", Trigger: TriggerNone, Describe: "{obj}: {text}"},
+	ExcessDamage:          {Name: "excess_damage", Trigger: TriggerNone, Describe: "{obj} was dealt excess damage"},
+	ForageAction:          {Name: "forage_action", Trigger: TriggerFullMatch, Describe: "{player} forages"},
+	ManifestDreadAction:   {Name: "manifest_dread_action", Trigger: TriggerFullMatch, Describe: "{player} manifests dread"},
+	CollectEvidenceAction: {Name: "collect_evidence_action", Trigger: TriggerFullMatch, Describe: "{player} collects evidence"},
+	AbilityTriggered:      {Name: "ability_triggered", Trigger: TriggerFullMatch},
 }
 
 // Info returns k's descriptor; ok is false for a value past the enum.

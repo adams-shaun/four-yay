@@ -320,7 +320,7 @@ func TestRequirementsClassificationTable(t *testing.T) {
 			c:    cardOf(&cards.Face{Types: []string{"Creature"}, Statics: []cards.Static{stat("ReduceCost", nil)}}),
 			want: []Requirement{{
 				Key: "static#0.0", Family: "static", Face: 0, Slot: "0",
-				Sub: "static.cost", Gap: "cost static",
+				Sub: "static.cost",
 			}},
 		},
 		{
@@ -328,8 +328,30 @@ func TestRequirementsClassificationTable(t *testing.T) {
 			c:    cardOf(&cards.Face{Types: []string{"Creature"}, Statics: []cards.Static{stat("RaiseCost", nil)}}),
 			want: []Requirement{{
 				Key: "static#0.0", Family: "static", Face: 0, Slot: "0",
-				Sub: "static.cost", Gap: "cost static",
+				Sub: "static.cost", Gap: "opponent-cast cost static",
 			}},
+		},
+		{
+			name: "static disable triggers is served",
+			c:    cardOf(&cards.Face{Types: []string{"Creature"}, Statics: []cards.Static{stat("DisableTriggers", nil)}}),
+			want: []Requirement{{
+				Key: "static#0.0", Family: "static", Face: 0, Slot: "0",
+				Sub: "static.disable-triggers",
+			}},
+		},
+		{
+			name: "static combat damage toughness is served",
+			c: cardOf(&cards.Face{Types: []string{"Creature"}, Statics: []cards.Static{
+				stat("CombatDamageToughness", nil),
+			}}),
+			want: []Requirement{
+				{
+					Key: "static#0.0", Family: "static", Face: 0, Slot: "0",
+					Sub: "static.combat-damage-toughness",
+				},
+				{Key: "combat#0.attack", Family: "combat", Face: 0, Slot: "attack", Sub: "combat.attack"},
+				{Key: "combat#0.block", Family: "combat", Face: 0, Slot: "block", Sub: "combat.block"},
+			},
 		},
 		{
 			name: "static combat legality both requirement and gap",

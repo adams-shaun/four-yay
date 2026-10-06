@@ -48,6 +48,16 @@ var combatKeywords = []string{
 	"Melee", "Rampage", "Provoke", "Toxic", "Infect", "Wither",
 }
 
+// servableStaticModes are static modes a v1 template serves directly (they
+// need no "offered" observation): DisableTriggers is observed through the
+// stack and CombatDamageToughness through combat damage. Every other combat
+// mode stays static.combat (a legality gap). The table is the single home for
+// the mapping so a second mode of the same shape is one row.
+var servableStaticModes = []struct{ mode, sub string }{
+	{"DisableTriggers", "static.disable-triggers"},
+	{"CombatDamageToughness", "static.combat-damage-toughness"},
+}
+
 // combatStaticModes are the combat-legality statics whose presence on a face
 // gives it level-B attack/block requirements (spec section 1, section 2.3).
 var combatStaticModes = []string{
@@ -201,9 +211,9 @@ func classifyTrigger(f *cards.Face, t *cards.Trigger) (sub, gap string, covered 
 		return gapMode()
 
 	case cards.TriggerPhase:
-		// The phase recipe scripts only p0's phases, so a ValidPlayer$
-		// naming another player is a gap.
-		if vp := t.ParamStr(cards.PKValidPlayer); vp != "" && !strings.EqualFold(vp, "You") {
+		// Phase recipes cover p0's own steps and the first opponent step for
+		// player-wide triggers. Other explicit player filters remain gaps.
+		if vp := t.ParamStr(cards.PKValidPlayer); vp != "" && !strings.EqualFold(vp, "You") && !strings.EqualFold(vp, "Player") {
 			return gapMode()
 		}
 		switch t.ParamStr(cards.PKPhase) {
@@ -222,8 +232,17 @@ func classifyStatic(st *cards.Static) (sub, gap string) {
 	switch st.ModeKind() {
 	case cards.StaticContinuous:
 		return "static.continuous", ""
-	case cards.StaticReduceCost, cards.StaticRaiseCost:
-		return "static.cost", "cost static"
+	case cards.StaticReduceCost:
+		return "static.cost", ""
+	case cards.StaticRaiseCost:
+		// v1 can only probe our own cast. Opponent-cast taxation needs a
+		// p1 turn, which the level-B cast recipes do not yet provide.
+		return "static.cost", "opponent-cast cost static"
+	}
+	for _, s := range servableStaticModes {
+		if strings.EqualFold(st.Mode, s.mode) {
+			return s.sub, ""
+		}
 	}
 	if isCombatStaticMode(st.Mode) {
 		return "static.combat", "legality static"

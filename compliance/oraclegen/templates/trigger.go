@@ -21,15 +21,32 @@ import (
 // bumping it stales only this family's level-B rows.
 var TriggerFires = Template{ID: "trigger", Version: 1}
 
-// triggerSubs are the level-B sub-families this template serves; trigger.phase
-// and every trigger.gap:* still skip.
+// triggerSubs are the level-B sub-families this template serves; every
+// trigger.gap:* still skips.
 func triggerSubs(sub string) bool {
 	switch sub {
 	case "trigger.etb-other", "trigger.dies", "trigger.attacks", "trigger.combat-damage",
-		"trigger.spell-cast", "trigger.becomes-target", "trigger.life-gained", "trigger.drawn":
+		"trigger.spell-cast", "trigger.becomes-target", "trigger.life-gained", "trigger.drawn", "trigger.phase":
 		return true
 	}
 	return false
+}
+
+// PassToSteps returns the exact pass_to checkpoints emitted by current
+// level-B templates. Entries are step names; when active is required, the
+// entry is "step@pN". Player-wide upkeep/draw recipes stop at p1 on turn 2,
+// while You-only recipes wait for p0 on turn 3.
+func PassToSteps() []string {
+	return []string{
+		"begin-combat",
+		"draw@p0",
+		"draw@p1",
+		"end",
+		"end-combat",
+		"main2",
+		"upkeep@p0",
+		"upkeep@p1",
+	}
 }
 
 // triggerFires builds the scenario serving one trigger requirement.

@@ -128,6 +128,21 @@ func (c noPotentialChars) PotentialActions(p state.PlayerID) []decision.Potentia
 
 func (noPotentialChars) OwnDeck(state.PlayerID) *deck.Manifest { return nil }
 
+// BeginDerivedReads/EndDerivedReads pass the engine's pure-read memo scope
+// through the wrapper (view.projectInto opens it), which the embedded
+// view.Chars interface would otherwise hide.
+func (c noPotentialChars) BeginDerivedReads() {
+	if e, ok := c.Chars.(*rules.Engine); ok {
+		e.BeginDerivedReads()
+	}
+}
+
+func (c noPotentialChars) EndDerivedReads() {
+	if e, ok := c.Chars.(*rules.Engine); ok {
+		e.EndDerivedReads()
+	}
+}
+
 // viewCharacteristics is view's optional one-call characteristics read
 // (rules.Engine.ViewCharacteristics).
 type viewCharacteristics interface {

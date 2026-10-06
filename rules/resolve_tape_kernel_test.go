@@ -8,7 +8,9 @@ package rules
 import (
 	"fmt"
 	"math/rand/v2"
+	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/adams-shaun/gorge/decision"
@@ -289,10 +291,14 @@ func TestKr8HeadsCheckpointAll(t *testing.T) {
 	tapeCheckpointAll = true
 	defer func() { tapeCheckpointAll = false }()
 	before := resolve.ReadStats()
+	// One sequential subtest per seat count, so each game is its own
+	// measurable (and -run selectable) chunk; the flag above spans them all.
 	for _, seats := range AcceptanceSeatCounts() {
-		if got, want := acceptanceHead(t, reg, seats), pinnedHead(t, seats); got != want {
-			t.Errorf("%d seats: checkpoint-all head %s, golden %s", seats, got, want)
-		}
+		t.Run(fmt.Sprintf("%dseats", seats), func(t *testing.T) {
+			if got, want := acceptanceHead(t, reg, seats), pinnedHead(t, seats); got != want {
+				t.Errorf("%d seats: checkpoint-all head %s, golden %s", seats, got, want)
+			}
+		})
 	}
 	st := resolve.ReadStats().Sub(before)
 	if st.Checkpoints == 0 {
@@ -309,7 +315,11 @@ func TestKr8WorldsInFuzzGames(t *testing.T) {
 		t.Skip("long")
 	}
 	reg := testutil.CorpusRegistry(t)
-	var worlds, steps int
+	// The games run as parallel subtests (TestCloneFidelityShort's shape):
+	// the counters are atomic, each call's engine and rand are its own game's,
+	// and the "games" group returns only after every game, so the hook stays
+	// installed for all of them.
+	var worlds, steps atomic.Int64
 	cloneFuzzTapeWorldHook = func(t *testing.T, e *Engine, r *rand.Rand) {
 		if !TapePosed(e) {
 			return
@@ -321,12 +331,12 @@ func TestKr8WorldsInFuzzGames(t *testing.T) {
 				tapeTestRedeal(w, state.PlayerID(p), r.Uint64())
 			}
 		}
-		worlds++
+		worlds.Add(1)
 		for i := 0; i < 6 && !w.G.Over && w.Pending() != nil; i++ {
 			wd := w.Pending()
 			for try := 0; try < 8; try++ {
 				if err := w.SubmitHypothetical(cloneFuzzRandomIntent(wd, r)); err == nil {
-					steps++
+					steps.Add(1)
 					break
 				}
 			}
@@ -336,12 +346,17 @@ func TestKr8WorldsInFuzzGames(t *testing.T) {
 	var st cloneFuzzStats
 	o := cloneFuzzOpts{every: 4, lockstep: 4, diverge: 4, randomPct: 10}
 	games := cloneFuzzEnvInt("GORGE_TAPE_WORLD_GAMES", 6)
-	for g := 0; g < games; g++ {
-		cfg, label := cloneFuzzConfig(t, reg, g)
-		playCloneFuzzGame(t, cfg, label, o, &st)
-	}
-	if worlds == 0 {
+	t.Run("games", func(t *testing.T) {
+		for g := 0; g < games; g++ {
+			t.Run(strconv.Itoa(g), func(t *testing.T) {
+				t.Parallel()
+				cfg, label := cloneFuzzConfig(t, reg, g)
+				playCloneFuzzGame(t, cfg, label, o, &st)
+			})
+		}
+	})
+	if worlds.Load() == 0 {
 		t.Fatal("no posed tape decision was reached: the world probe measured nothing")
 	}
-	t.Logf("%d games, %d intents; %d tape worlds, %d world intents", st.games.Load(), st.intents.Load(), worlds, steps)
+	t.Logf("%d games, %d intents; %d tape worlds, %d world intents", st.games.Load(), st.intents.Load(), worlds.Load(), steps.Load())
 }

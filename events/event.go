@@ -1143,6 +1143,13 @@ const (
 	// 2 planeswalker, 4 battle). Appended after Meld so every earlier
 	// ordinal, hash chain and golden replay is unchanged.
 	ExcessDamage
+	// Forage, ManifestDread and CollectEvidence are completed keyword-action
+	// markers. Player is the acting player; ManifestDread carries the cards it
+	// put into the graveyard in IDs. Appended after ExcessDamage (main's
+	// CR 120.4a kind) to preserve every earlier ordinal.
+	ForageAction
+	ManifestDreadAction
+	CollectEvidenceAction
 	// AbilityTriggered records that a triggered ability was put on the stack
 	// (Forge Mode$ AbilityTriggered), carrying the provenance TriggerPush does
 	// not: Obj is the ability's source permanent, Player its controller,
@@ -1150,8 +1157,8 @@ const (
 	// is itself the object whose event caused the trigger (its "own"
 	// ability), else 0. A pure marker, emitted right after the TriggerPush
 	// and only while a battlefield permanent carries a Mode$ AbilityTriggered
-	// line, so games without one keep their chains. Appended after
-	// ExcessDamage so every earlier ordinal is unchanged.
+	// line, so games without one keep their chains. Appended after the
+	// keyword-action kinds so every earlier ordinal is unchanged.
 	AbilityTriggered
 	// NumKinds is the explicit upper bound for the append-only event kind
 	// registry below. New kinds must be appended above this line: inserting or

@@ -33,6 +33,9 @@ GO_SRC     := $(shell $(GO_FILES) 2>/dev/null) go.mod
 #
 # Both ?= so a caller can raise them for a deliberate one-off measurement.
 export GOMEMLIMIT ?= 5GiB
+# -trimpath (operator, 2026-10-05): without it each worktree's absolute path
+# keys every compile, so no worktree reuses another's build cache.
+export GOFLAGS ?= -p=2 -trimpath
 GO_TEST_FLAGS ?= -p=2
 
 # Where forgec puts the fetched corpus and the IR compiled from it. Never
@@ -54,6 +57,9 @@ help:
 	@echo "  make fetch-cards    — fetch Forge cardsfolder + tokenscripts at FORGE_REF into $(CARDS_DIR)"
 	@echo "  make compile-cards  — compile the fetched corpus into the IR cache"
 	@echo "  make report         — print card coverage against implemented primitives"
+	@echo "  make enginebench-pair BASE=main CAND=. — paired engine-speed comparison (cmd/enginebench)"
+	@echo "  make enginebench-profile [REV=.]       — CPU/alloc profiles of the bench rows, tops printed"
+	@echo "  make enginebench-verify [REV=.]        — memo-verify-mode smoke over the bench rows"
 	@echo "  make compliance-manifests — regenerate compliance/manifests from XMage set classes at XMAGE_REF"
 	@echo "  make xmage-oracle-setup — build XMage at XMAGE_REF out of tree (heavy; run alone)"
 	@echo "  make compliance-pass SETS='FRA BLB' — XMage compliance pass over the sets (default: every printed list); reruns only stale verdicts, under the heavy-job lock"
@@ -284,6 +290,27 @@ test-time:
 .PHONY: alloc-gate
 alloc-gate:
 	go run ./cmd/allocgate -all
+
+# Engine-speed benchmarking (cmd/enginebench; scripts in cmd/enginebench/scripts,
+# workload decks committed in cmd/enginebench/testdata/decks). Every run is
+# capped in a systemd scope and serialised on HEAVY_LOCK; binaries, results
+# and profiles go to BENCH_DIR (rebuildable scratch). Throughput is per
+# CPU-second so a loaded box still compares.
+#   make enginebench-pair BASE=main CAND=.     paired base-vs-candidate rows
+#   make enginebench-profile [REV=.]           CPU + allocation profiles, tops printed
+#   make enginebench-verify [REV=.]            memo-verify-mode smoke (cache changes)
+# Knobs: ROWS="-row random -pair A;-row sampler" REPS=3 SECS=10 GOGC=...
+# BENCH_DIR HEAVY_LOCK (see cmd/enginebench/scripts/lib.sh).
+BASE ?= main
+CAND ?= .
+REV  ?= .
+.PHONY: enginebench-pair enginebench-profile enginebench-verify
+enginebench-pair:
+	cmd/enginebench/scripts/pair.sh $(BASE) $(CAND)
+enginebench-profile:
+	cmd/enginebench/scripts/profile.sh $(REV)
+enginebench-verify:
+	cmd/enginebench/scripts/verify.sh $(REV)
 
 COVER_OUT  ?= coverage.out
 COVER_HTML ?= coverage.html

@@ -22,6 +22,7 @@ import "embed"
 //go:embed ability_class.go
 //go:embed affected_defined.go
 //go:embed breakdown.go
+//go:embed card_probes.go
 //go:embed compiled_catalog.go
 //go:embed compiled_codes.go
 //go:embed control_static_probe.go

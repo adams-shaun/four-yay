@@ -36,11 +36,10 @@ func readLinesBytes(t *testing.T, path string) [][]byte {
 	return out
 }
 
-// TestGenLevelBAddsRequirementKeySkips: -level A is byte-identical to the
+// TestGenLevelBAddsRequirementRows: -level A is byte-identical to the
 // generated level-A item per manifest card (today's output), and -level B
-// writes those same items plus, for a requirement no template serves yet,
-// one skip line naming its key.
-func TestGenLevelBAddsRequirementKeySkips(t *testing.T) {
+// writes those same items plus a scenario for a newly served activated ability.
+func TestGenLevelBAddsRequirementRows(t *testing.T) {
 	dir := filepath.Join("..", "..", ".cards")
 	m := compliance.Manifest{Code: "TINY", Cards: []compliance.ManifestCard{
 		{Name: "Shock"}, {Name: "Forest"}, {Name: "Prodigal Sorcerer"}, {Name: "Wild Mongrel"},
@@ -121,14 +120,23 @@ func TestGenLevelBAddsRequirementKeySkips(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Wild Mongrel's Discard cost is outside v1's whitelist, so it must be a
-	// key-named skip -- proving the level-B skip path still reports unserved
-	// requirements.
-	if !strings.Contains(string(bSkips), "activate#0.0") {
-		t.Errorf("-level B skips do not carry the requirement key:\n%s", bSkips)
+	// Wild Mongrel's Discard<1/Card> is served by the v1 activate template;
+	// pin the new row rather than the obsolete cost-gap skip.
+	foundWildMongrel := false
+	for _, line := range gotB {
+		var it oraclegen.Item
+		if err := json.Unmarshal(line, &it); err != nil {
+			t.Fatalf("decode level-B line: %v", err)
+		}
+		if it.Card == "Wild Mongrel" && it.Template == "activate#0.0" {
+			foundWildMongrel = true
+		}
 	}
-	if !strings.Contains(string(bSkips), "activate cost gap") {
-		t.Errorf("-level B skip is not the cost-gap reason:\n%s", bSkips)
+	if !foundWildMongrel {
+		t.Errorf("-level B omitted Wild Mongrel/activate#0.0")
+	}
+	if strings.Contains(string(bSkips), `"card":"Wild Mongrel"`) {
+		t.Errorf("Wild Mongrel still has a level-B skip:\n%s", bSkips)
 	}
 }
 

@@ -54,6 +54,7 @@ type Step struct {
 	// Step/Decision are the pass_to op's stop conditions (a phase step name
 	// or a pending decision kind).
 	Step     string   `json:"step,omitempty"`
+	Active   string   `json:"active,omitempty"`
 	Decision string   `json:"decision,omitempty"`
 	Answers  []Answer `json:"answers,omitempty"`
 	// AbilityIndex selects an activated ability by its IR index (the index
@@ -68,6 +69,24 @@ type Step struct {
 	To string `json:"to,omitempty"`
 	// AttachedTo is the bearer ref for an attach setup operation.
 	AttachedTo string `json:"attached_to,omitempty"`
+	// Expect asserts an observation at this step (the runner's oracleExpect
+	// vocabulary, rules/oracle_run.go). Nil or empty on every level-A step,
+	// so level-A items are byte-identical. A generated scenario uses it to
+	// hold gorge to a "nothing happens" static: with no state change, the
+	// frozen snapshot has no field to compare, so the claim rides an
+	// explicit expectation instead.
+	Expect []Expect `json:"expect,omitempty"`
+}
+
+// Expect is one assertion attached to a Step. It is the subset of the
+// runner's oracleExpect vocabulary a generated level-B scenario emits.
+// TriggerOnStack names a source ref whose trigger must (Want true, the
+// default) or must not (Want false) be a stack entry; StackSize pins the
+// stack length. Both read as rules/oracle_run.go's oracleExpect fields do.
+type Expect struct {
+	TriggerOnStack string `json:"trigger_on_stack,omitempty"`
+	StackSize      *int   `json:"stack_size,omitempty"`
+	Want           *bool  `json:"want,omitempty"`
 }
 
 // Answer is a queued answer for gorge's runner (kind = decision kind).
@@ -452,6 +471,13 @@ func baseline(setup map[string]Seat, f *cards.Face) {
 
 func searchesLibrary(f *cards.Face) bool {
 	for _, sa := range f.Abilities {
+		if sa.Kind == "SP" && sa.API == "Discover" {
+			// Discover (CR 701.57) exiles from the top of the library until a
+			// nonland card is found, so the scenario must seed a discoverable
+			// card; otherwise gorge finds none and no Treasures are made while
+			// XMage, whose library is not empty, creates them.
+			return true
+		}
 		if strings.Contains(sa.Line, "Origin$ Library") {
 			return true
 		}

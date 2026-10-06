@@ -762,6 +762,11 @@ const (
 	// Meld-specific operands. Appended: earlier parameter ordinals are stable.
 	PKPrimary
 	PKSecondaryType
+	// ImmediateTrigger's RememberSVarAmount$ rider (New Way Forward): the
+	// per-trigger remembered Integer the reflexive ability's
+	// Count$TriggerRememberAmount reads. Appended so earlier ordinals stay
+	// stable and a pre-compiled IR cache stays valid.
+	PKRememberSVarAmount
 	// Mode$ AbilityTriggered operands (append-only).
 	PKTriggeredOwnAbility
 	PKValidDestination
@@ -974,6 +979,7 @@ var paramKeyNames = [paramKeyCount]string{
 	PKRememberOwnLoss:                  "RememberOwnLoss",
 	PKRememberPumped:                   "RememberPumped",
 	PKRememberPut:                      "RememberPut",
+	PKRememberSVarAmount:               "RememberSVarAmount",
 	PKRememberTargets:                  "RememberTargets",
 	PKRemoveAllAbilities:               "RemoveAllAbilities",
 	PKRemoveCardTypes:                  "RemoveCardTypes",

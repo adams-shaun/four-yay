@@ -37,11 +37,15 @@ func TestDecisionTextHasNoEngineSyntaxKernel(t *testing.T) {
 	for _, g := range promptTextGames(t, reg) {
 		t.Run(g.label, func(t *testing.T) {
 			t.Parallel()
-			check := func(where, text string) {
+			e := New(g.cfg)
+			// where is built only for a violation: formatting it for every
+			// decision and option label was most of this checker's own cost.
+			check := func(d *decision.Decision, suffix, optKind, text string) {
 				p := engineSyntaxIn(text)
 				if p == "" {
 					return
 				}
+				where := fmt.Sprintf("%s: turn %d, %s decision", g.label, e.G.Turn, d.Kind) + suffix + optKind
 				mu.Lock()
 				// Keep the lexicographically first place for a repeated text so
 				// the report is deterministic however the games interleave.
@@ -50,7 +54,6 @@ func TestDecisionTextHasNoEngineSyntaxKernel(t *testing.T) {
 				}
 				mu.Unlock()
 			}
-			e := New(g.cfg)
 			b := newTestBot(g.bot)
 			e.Advance()
 			n := 0
@@ -60,11 +63,10 @@ func TestDecisionTextHasNoEngineSyntaxKernel(t *testing.T) {
 				d := e.Pending()
 				gameDecisions++
 				gameKinds[d.Kind]++
-				where := fmt.Sprintf("%s: turn %d, %s decision", g.label, e.G.Turn, d.Kind)
-				check(where+" prompt", d.Prompt)
+				check(d, " prompt", "", d.Prompt)
 				for _, o := range d.Options {
 					gameLabels++
-					check(where+" option "+o.Kind, o.Label)
+					check(d, " option ", o.Kind, o.Label)
 				}
 				if err := e.Submit(b.answer(e, d)); err != nil {
 					t.Fatalf("%s, intent %d: %v", g.label, n, err)

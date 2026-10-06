@@ -247,6 +247,7 @@ func foldMoveZone(g *state.Game, e *Event) {
 			o.Suspected = false
 			o.SaddledTurn = 0
 			o.Monstrous = false
+			o.Solved = false
 			o.Renowned = false
 			o.PlottedTurn = 0
 			// CR 722.3a: the prepared designation lives on a battlefield

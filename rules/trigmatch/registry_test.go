@@ -283,6 +283,10 @@ var addedAfterTheSplit = []string{
 	// express. None of the five names existed in the pre-split switch, so no
 	// arm there could have dispatched them.
 	"Crewed", "Saddled", "BecomesSaddled", "BecomesPlotted", "SacrificedOnce",
+	// cli-20261006T024353Z-ce4a0d59: these keyword-action markers carry the
+	// acting player (and ManifestDread's graveyard objects); the old switch
+	// had no dispatch for their modes.
+	"Forage", "ManifestDread", "CollectEvidence",
 	// cli-20261005T075020Z-05241a06: the aggregate tap trigger modes, the
 	// "whenever one or more ... become tapped/untapped" batch siblings of
 	// Taps/Untaps (MSH Rewrite History and LCI Deeproot Pilgrimage on TapAll,
@@ -297,6 +301,12 @@ var addedAfterTheSplit = []string{
 	// dispatcher (TurnChange, PlayerLost, ControlChange, MoveZone), plus
 	// ChangesController which had vocabulary but no matcher.
 	"TurnBegin", "LosesGame", "ChangesController", "Exiled",
+	// cli-20261006T024354Z-e5dc4abb: "whenever you solve a Case" (MKM Case
+	// File Auditor). It matches the AlterAttribute "Solved" grant, which the
+	// effect only began emitting when the Case's solved designation was
+	// modelled -- before that the attribute was a Note -- so the pre-split
+	// switch had nothing to dispatch it on.
+	"CaseSolved",
 }
 
 func allRegisteredModeNames() []string {

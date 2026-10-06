@@ -94,6 +94,20 @@ func effImmediateTrigger(h Host, c *Ctx, sa *cards.SA) {
 	if amount < 0 {
 		amount = 0
 	}
+	// RememberSVarAmount$ (New Way Forward, wolf_in_clothing, phyrexian_
+	// vindicator, the adversary cycle, ...): Forge's ImmediateTriggerEffect
+	// addRemembered()s this value -- the named SVar evaluated in the spawning
+	// resolution's own context -- onto the ability it mints, and the reflexive
+	// half reads it back through Count$TriggerRememberAmount. It is a distinct
+	// channel from TriggerAmount$ (the triggering event's magnitude): the
+	// spawning resolution seeds it here and it rides this instance's
+	// TriggerContext through QueueReflexiveTrigger (or the inline Resolve) to
+	// the head's read. An absent or unparsable body binds 0, Forge's default.
+	// Deliberately read from PKRememberSVarAmount; the evaluator test and the
+	// param census both key off the constant's name.
+	rememberedAmount, _ := numResolvedText(h, &amountCtx, ParamText{
+		Text:    strings.TrimSpace(sa.ParamStr(cards.PKRememberSVarAmount)),
+		Present: sa.HasParam(cards.PKRememberSVarAmount)}, 0)
 	remember := strings.TrimSpace(sa.ParamStr(cards.PKRememberObjects))
 	each := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberEach)), "True")
 	// wholeSet is the set every non-RememberEach instance's Ctx.Remembered sees
@@ -158,8 +172,12 @@ func effImmediateTrigger(h Host, c *Ctx, sa *cards.SA) {
 		} else {
 			cc.Remembered = copyTargets(wholeSet)
 		}
+		// Both paths carry the rider: the inline Resolve reads it off cc, and
+		// QueueReflexiveTrigger copies cc's TriggerContext onto the minted
+		// ability's context.
+		cc.TriggerContext.TriggerRememberedAmount = rememberedAmount
 		if queue {
-			if h.QueueReflexiveTrigger(c, execName, sub, cc.Remembered) {
+			if h.QueueReflexiveTrigger(&cc, execName, sub, cc.Remembered) {
 				continue
 			}
 			queue = false

@@ -14,7 +14,9 @@ import "strings"
 //
 // A SUPERSET probe like ChangesTypes and SetsName: a false positive costs
 // only the reconcile scan the engine ran before.
-func (c *Card) MayCarryControlStatic() bool {
+func (c *Card) MayCarryControlStatic() bool { return c.probe().controlStatic }
+
+func (c *Card) mayCarryControlStaticScan() bool {
 	if c == nil {
 		return false
 	}

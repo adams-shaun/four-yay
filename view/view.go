@@ -534,6 +534,18 @@ func projectInto(dst *View, g *state.Game, ch Chars, viewer state.PlayerID, d *d
 		}
 		return
 	}
+	// A Chars that memoises derived characteristics for a pure read
+	// (*rules.Engine's BeginDerivedReads, botpolicy's derivedReadScoper) gets
+	// the whole projection as one read: every per-card mana, cost and
+	// characteristic query then shares one board-statics walk instead of
+	// rescanning per card. The projection copies every slice it keeps.
+	if sc, ok := ch.(interface {
+		BeginDerivedReads()
+		EndDerivedReads()
+	}); ok {
+		sc.BeginDerivedReads()
+		defer sc.EndDerivedReads()
+	}
 	v := dst
 	v.Turn = g.Turn
 	v.Round = roundOf(g)

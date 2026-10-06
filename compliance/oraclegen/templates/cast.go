@@ -132,6 +132,21 @@ func castWith(reg *cards.Registry, f *cards.Face, name, mana string, slots []ora
 			break
 		}
 	}
+	// An additional cost that sacrifices a creature whose damage provenance
+	// the board must already carry (Treacherous Greed: "sacrifice a creature
+	// that dealt damage this turn"). Setup cannot stamp dealt-damage
+	// provenance, so the fixture puts a creature under the caster and has it
+	// attack unblocked, passing to end of combat so the combat damage lands
+	// before the cast in the post-combat main phase.
+	if sacrificesDamageDealtCreature(f) {
+		extras = append(extras, func(fx *oraclegen.Fixture) {
+			fx.P0().Battlefield = appendFixtureUnique(fx.P0().Battlefield, "Grizzly Bears")
+			fx.AddPrelude(
+				oraclegen.Step{Op: "attack", Seat: 0, Defender: "p1", Attackers: []string{"p0:Grizzly Bears"}},
+				oraclegen.Step{Op: "pass_to", Step: "end-combat"},
+			)
+		})
+	}
 	stackIdx := stackSlotIndexes(slots)
 	plain := nonStackSlots(slots)
 	pres := []precast{{}}
@@ -205,6 +220,18 @@ func requiredBeholdType(f *cards.Face) string {
 		}
 	}
 	return ""
+}
+
+// sacrificesDamageDealtCreature reports whether the spell's additional cost
+// sacrifices a creature whose damage provenance the board must carry, e.g.
+// Treacherous Greed's `Sac<1/Creature.dealtDamageThisTurn/...>`.
+func sacrificesDamageDealtCreature(f *cards.Face) bool {
+	for _, sa := range f.Abilities {
+		if sa.Kind == "SP" && strings.Contains(sa.Params["Cost"], "dealtDamageThisTurn") {
+			return true
+		}
+	}
+	return false
 }
 
 func requiredTapCount(f *cards.Face) int {

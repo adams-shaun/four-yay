@@ -2352,6 +2352,17 @@ func triggerRemembered(ev events.Event, source state.ObjID) []state.Target {
 	if (ev.Kind == events.Crew || ev.Kind == events.Saddle) && len(ev.IDs) > 0 {
 		return []state.Target{{Obj: ev.IDs[0]}}
 	}
+	// Mode$ ManifestDread's body names "a card you put into your graveyard
+	// this way" (Paranormal Analyst: ChooseFromDefined$ TriggeredCards): the
+	// cards the action milled, carried in the marker's IDs. An empty list
+	// stays empty rather than falling back to the source.
+	if ev.Kind == events.ManifestDreadAction {
+		out := make([]state.Target, 0, len(ev.IDs))
+		for _, id := range ev.IDs {
+			out = append(out, state.Target{Obj: id})
+		}
+		return out
+	}
 	if ev.Obj != 0 {
 		return []state.Target{{Obj: ev.Obj}}
 	}
