@@ -60,7 +60,7 @@ func TestStaticConditionalFixtureExamples(t *testing.T) {
 			if tc.name == "Omenport Vigilante" {
 				foundCrime := false
 				for _, step := range item.Scenario.Steps {
-					if step.Op == "cast" && step.Card == "Shock" && hasCard(step.Targets, "p1") {
+					if step.Op == "cast" && step.Card == "p0:Shock" && hasCard(step.Targets, "p1") {
 						foundCrime = true
 					}
 				}
