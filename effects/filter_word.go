@@ -374,6 +374,9 @@ func wordPredicate(p string) (wordKind, string) {
 			return wordCanReceiveCounters, kind
 		}
 	}
+	if kind, ok := targetedPredicateWord(p); ok {
+		return kind, ""
+	}
 	switch wordPredicateWordCodes.Code(string(p)) {
 	case wordPredicateWordColorless:
 		return wordColorless, ""
@@ -446,10 +449,6 @@ func wordPredicate(p string) (wordKind, string) {
 		return wordDefenderCtrl, ""
 	case wordPredicateWordEnchantedControllerCtrl:
 		return wordEnchantedControllerCtrl, ""
-	case wordPredicateWordNotDefinedTargeted:
-		return wordNotDefinedTargeted, ""
-	case wordPredicateWordTargetedBy:
-		return wordTargetedBy, ""
 	case wordPredicateWordOpponent:
 		return wordOpponentCtrl, ""
 	case wordPredicateWordOppProtect:
@@ -627,6 +626,19 @@ func wordColorCountMatches(kind wordKind, o *state.Object, sc SpecContext) bool 
 		return colorMaskCtx(o, &sc) == 0
 	default:
 		return false
+	}
+}
+
+// targetedPredicateWord keeps the resolution-target predicates together while
+// dispatching their spellings through the shared StrCodes registry.
+func targetedPredicateWord(p string) (wordKind, bool) {
+	switch wordPredicateWordCodes.Code(p) {
+	case wordPredicateWordNotDefinedTargeted:
+		return wordNotDefinedTargeted, true
+	case wordPredicateWordTargetedBy:
+		return wordTargetedBy, true
+	default:
+		return wordUnknown, false
 	}
 }
 
@@ -971,34 +983,13 @@ func wordMatches(kind wordKind, key string, g *state.Game, o *state.Object, sc S
 		// (contextPredicateBound).
 		return o.Controller == sc.DefendingPlayer.Player
 	case wordTargetedBy:
-		// Forge's targetedBy: the candidate is among the resolving ability's
-		// object targets. Player targets are distinct referents and never match.
+		// Player targets are distinct referents and never match objects.
 		bound, ok := sc.TargetBinding()
-		if !ok {
-			return false
-		}
-		for _, target := range bound {
-			if !target.IsPlayer && target.Obj == o.ID {
-				return true
-			}
-		}
-		return false
+		return ok && targetBindingContains(bound, o)
 	case wordNotDefinedTargeted:
-		// Forge's NotDefinedTargeted: the candidate is NOT one of the
-		// resolving ability's targets (SpecContext.ResolutionTargets, the
-		// resolving object's recorded Targets). A resolving ability with no
-		// targets (an empty, non-nil list) admits every candidate --
-		// correctly, since nothing was targeted. The resolving gate is
-		// contextPredicateBound's: outside a resolution the predicate is
-		// unbound and refused beneath '!' rather than inverting an absence
-		// into an always-true match.
+		// The context gate refuses an absent binding, including beneath '!'.
 		bound, _ := sc.TargetBinding()
-		for _, t := range bound {
-			if !t.IsPlayer && t.Obj == o.ID {
-				return false
-			}
-		}
-		return true
+		return !targetBindingContains(bound, o)
 	case wordOpponentCtrl:
 		// The bare Opponent object predicate: the candidate is controlled
 		// by an opponent of the evaluating controller -- the object-side
@@ -1180,6 +1171,17 @@ func damageThisTurnPredicate(kind wordKind, o *state.Object) bool {
 // that function's frozen line budget does not grow.
 func attachedToBearerQualifier(g *state.Game, key string, a *state.Object, sc SpecContext) bool {
 	return MatchesObjectCtx(g, key, a, sc)
+}
+
+// targetBindingContains reports whether the candidate is one of the bound
+// ability's object targets; player targets are a separate referent.
+func targetBindingContains(bound []state.Target, o *state.Object) bool {
+	for _, target := range bound {
+		if !target.IsPlayer && target.Obj == o.ID {
+			return true
+		}
+	}
+	return false
 }
 
 // contextPredicateBound reports whether a context-bound classifier word has
