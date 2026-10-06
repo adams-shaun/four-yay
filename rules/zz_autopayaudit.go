@@ -9,6 +9,7 @@ package rules
 
 import (
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -47,14 +48,14 @@ func (e *Engine) auditUnits(p state.PlayerID, exclude map[state.ObjID]bool) []au
 	units := e.paymentPlanManaUnits(p)
 	out := make([]auditUnit, 0, len(units))
 	for _, u := range units {
-		if exclude[u.id] {
+		if exclude[u.ID] {
 			continue
 		}
 		var au auditUnit
-		au.id = u.id
-		for _, a := range e.paymentPlanUnitAlternatives(u) {
-			au.alts = append(au.alts, a.mana)
-			if t := a.mana.Total(); t > au.max {
+		au.id = u.ID
+		for _, a := range pay.PaymentPlanQueryAlternatives(asPayer(e), u) {
+			au.alts = append(au.alts, a.Mana)
+			if t := a.Mana.Total(); t > au.max {
 				au.max = t
 			}
 		}
@@ -77,8 +78,8 @@ func (e *Engine) AuditV1SourceIDs(p state.PlayerID) map[state.ObjID]bool {
 // auditCost is the composed cost a V1 plan pays for an ordinary hand cast,
 // and whether it is inside the V1 cost subset.
 func (e *Engine) auditCost(p state.PlayerID, id state.ObjID) (Cost, bool) {
-	c := e.offerCostFor(p, id, e.rawBaseCost(p, id), spellScope(""))
-	return c, paymentPlanCostOK(c)
+	c := e.offerCostFor(p, id, pay.RawBaseCost(asPayer(e), p, id), spellScope(""))
+	return c, pay.PlanCostOK(c)
 }
 
 func auditNeed(c Cost) int32 { return c.Generic + c.Colored.Total() }
@@ -100,7 +101,7 @@ func (e *Engine) auditPayable(p state.PlayerID, c Cost, pool state.Mana, units [
 			return false
 		}
 		*budget--
-		have := manaAdd(pool, produced)
+		have := pay.ManaAdd(pool, produced)
 		if have.Total() >= need {
 			if _, ok := resolveManaWith(c, have, state.Mana{}, [7]state.Mana{}, life, false, pipRider{}, nil); ok {
 				return true
@@ -110,7 +111,7 @@ func (e *Engine) auditPayable(p state.PlayerID, c Cost, pool state.Mana, units [
 			return false
 		}
 		for _, m := range units[at].alts {
-			if walk(at+1, manaAdd(produced, m)) {
+			if walk(at+1, pay.ManaAdd(produced, m)) {
 				return true
 			}
 		}
@@ -171,7 +172,7 @@ func (e *Engine) AuditAfterPoolCast(p state.PlayerID, a, b state.ObjID) (after, 
 		return false, false
 	}
 	budget := auditNodeBudget
-	return e.auditPayable(p, cb, pay.pool, e.auditUnits(p, nil), &budget)
+	return e.auditPayable(p, cb, pay.Pool, e.auditUnits(p, nil), &budget)
 }
 
 // auditJoint asks whether A and B, cast in the same step, can both be paid:
