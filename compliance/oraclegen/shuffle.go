@@ -21,8 +21,9 @@ var intoLibraryText = regexp.MustCompile(`\binto (?:\S+ ){0,3}?library`)
 // and gorge deterministically, so only then does the library order after the
 // shuffle differ by luck. A search-and-shuffle only removes a card from a
 // uniform library, so it is not marked. It inspects linked APIs, SVar bodies
-// and the prose fallback so every template for a face gets the same
-// structural opt-in.
+// and the prose fallback so every level-B template for a face gets the same
+// structural opt-in (templates.GenerateB). Level-A items stay unmarked so their
+// scenario shas, and the verdicts frozen against them, do not move.
 func CanShuffleLibrary(f *cards.Face) bool {
 	if f == nil {
 		return false

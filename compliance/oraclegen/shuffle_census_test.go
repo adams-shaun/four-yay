@@ -54,12 +54,6 @@ func TestShuffleCompareCensus(t *testing.T) {
 			for fi := range card.Faces {
 				if CanShuffleLibrary(card.Faces[fi]) {
 					got[set] = append(got[set], card.Faces[fi].Name)
-					if card.Faces[fi].Name == "Fblthp, Impossibly Lost" {
-						item := NewItem(card.Faces[fi], card.Faces[fi].Name, "trigger#0.0", 1, Scenario{})
-						if len(item.Compare) != 1 || item.Compare[0] != CompareNoLibraryOrder {
-							t.Errorf("generated Fblthp item missing comparison mark: %v", item.Compare)
-						}
-					}
 					break
 				}
 			}
