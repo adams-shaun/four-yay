@@ -7,7 +7,8 @@
 # recorded panic. Run it after a change that adds or widens a cache.
 # Verify mode is slow (the sampler manages ~30 games in 90s).
 #
-#   ROWS  ';'-separated rows (default: sampler 90s, random A/B and bot A 20s)
+#   ROWS  ';'-separated rows (default: sampler, random A/B, bot A)
+#   SECS  -secs for every row (default: BUDGET split over the rows, lib.sh)
 set -euo pipefail
 . "$(dirname "$0")/lib.sh"
 rev=${1:-.}
@@ -15,11 +16,15 @@ bin=$("$(dirname "$0")/build.sh" "$rev" -ldflags "-X github.com/adams-shaun/gorg
 out=$BENCH_DIR/results/verify-$(date +%Y%m%dT%H%M%S).jsonl
 mkdir -p "$BENCH_DIR/results"
 echo "verify binary $bin -> $out"
-IFS=';' read -r -a rows <<<"${ROWS:--row sampler -secs 90;-row random -pair A -secs 20;-row random -pair B -secs 20;-row bot -pair A -secs 20}"
+IFS=';' read -r -a rows <<<"${ROWS:--row sampler;-row random -pair A;-row random -pair B;-row bot -pair A}"
+secs=${SECS:-$(budget_secs ${#rows[@]})}
+echo "budget ${BUDGET}s: -secs $secs per row"
+budget_start
 for row in "${rows[@]}"; do
+	budget_left || break
 	read -r -a args <<<"$row"
 	# shellcheck disable=SC2046
-	heavy "$bin" "${args[@]}" $(workload_args) -label verify -out "$out" >/dev/null 2>>"$out.stderr" || true
+	heavy "$bin" "${args[@]}" -secs "$secs" $(workload_args) -label verify -out "$out" >/dev/null 2>>"$out.stderr" || true
 done
 python3 - "$out" "$out.stderr" <<'EOF'
 import json, sys

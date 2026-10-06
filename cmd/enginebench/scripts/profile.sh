@@ -11,12 +11,11 @@
 # Dig further with the printed `go tool pprof` commands.
 #
 #   ROWS  ';'-separated enginebench argument strings (default: lib.sh DEFAULT_ROWS)
-#   SECS  -secs for every timed row (default 15)
+#   SECS  -secs for every timed row (default: BUDGET split over the rows, lib.sh)
 #   TOP   lines per table (default 25)
 set -euo pipefail
 . "$(dirname "$0")/lib.sh"
 rev=${1:-.}
-secs=${SECS:-15}
 top=${TOP:-25}
 bin=$("$(dirname "$0")/build.sh" "$rev")
 dir=$BENCH_DIR/prof/$(date +%Y%m%dT%H%M%S)
@@ -24,7 +23,11 @@ mkdir -p "$dir"
 cp "$bin" "$dir/enginebench"
 echo "binary $bin -> $dir/enginebench"
 IFS=';' read -r -a rows <<<"${ROWS:-$DEFAULT_ROWS}"
+secs=${SECS:-$(budget_secs ${#rows[@]})}
+echo "budget ${BUDGET}s: -secs $secs per row"
+budget_start
 for row in "${rows[@]}"; do
+	budget_left || break
 	read -r -a args <<<"$row"
 	name=$(echo "$row" | sed -E 's/-row //; s/-pair //; s/ -?/-/g')
 	# shellcheck disable=SC2046
