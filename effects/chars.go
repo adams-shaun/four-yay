@@ -32,6 +32,9 @@ type Chars struct {
 	BasePower, BaseToughness int32
 	Keywords                 []string
 	Types                    []string
+	// AllCreatureTypes records the layer-4 semantic grant independently of
+	// the materialized subtype vocabulary in Types.
+	AllCreatureTypes bool
 	// Name is the current layer-3 name. SetName$ overwrites the printed name.
 	Name string
 	// Text is the object's current CR 613.1d text: its printed Oracle text
