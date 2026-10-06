@@ -1895,6 +1895,7 @@ func copyTargets(s []state.Target) []state.Target {
 	return append([]state.Target(nil), s...)
 }
 
+// Contract: docs/superpowers/specs/2026-09-22-engine-contracts.md, “Trigger remembered readers intentionally differ.”
 // resolvedRemembered removes trigger-captured referents that Forge's source
 // card remembered list does not contain. Forge's Defined$ Remembered reads the
 // host card's remembered list; this engine seeds the trigger REFERENT into
