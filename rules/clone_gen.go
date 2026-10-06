@@ -998,6 +998,22 @@ func cloneFieldsEngineParked2(c, e *Engine, sp *Spare, remap *cloneRemap) {
 				c.replChoices[i0].stage = &p1
 			}
 			c.replChoices[i0].resumeAtPose = remap.resume(e.replChoices[i0].resumeAtPose)
+			if e.replChoices[i0].manaBoundary != nil {
+				p1 := *e.replChoices[i0].manaBoundary
+				if e.replChoices[i0].manaBoundary.phase != nil {
+					p2 := *e.replChoices[i0].manaBoundary.phase
+					if e.replChoices[i0].manaBoundary.phase.cands != nil {
+						p2.cands = make([]replMatch, len(e.replChoices[i0].manaBoundary.phase.cands))
+						for i3 := range e.replChoices[i0].manaBoundary.phase.cands {
+							p2.cands[i3] = e.replChoices[i0].manaBoundary.phase.cands[i3]
+							p2.cands[i3].remembered = append([]state.ObjID(nil), e.replChoices[i0].manaBoundary.phase.cands[i3].remembered...)
+							p2.cands[i3].rememberedPlayers = append([]state.PlayerID(nil), e.replChoices[i0].manaBoundary.phase.cands[i3].rememberedPlayers...)
+						}
+					}
+					p1.phase = &p2
+				}
+				c.replChoices[i0].manaBoundary = &p1
+			}
 		}
 	}
 }

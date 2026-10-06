@@ -29,7 +29,28 @@ func finishTeamworkAnnouncement(t *testing.T, e *Engine) {
 			return
 		}
 		if len(d.Options) > 0 && (d.Kind == decision.KTarget || d.Kind == decision.KModes || d.Kind == decision.KChoose) {
-			submitChoices(t, e, d.Options[0].Index)
+			need := d.Min
+			if need < 1 {
+				need = 1
+			}
+			choices := make([]int, 0, need)
+			groups := map[string]bool{}
+			for _, option := range d.Options {
+				if option.Group != "" && groups[option.Group] {
+					continue
+				}
+				choices = append(choices, option.Index)
+				if option.Group != "" {
+					groups[option.Group] = true
+				}
+				if len(choices) == need {
+					break
+				}
+			}
+			if len(choices) < d.Min {
+				t.Fatalf("precondition: not enough distinct options for decision: %+v", d)
+			}
+			submitChoices(t, e, choices...)
 			continue
 		}
 		return
@@ -74,7 +95,7 @@ func teamworkOption(t *testing.T, d *decision.Decision, id state.ObjID) int {
 // This cast pays with both two-power creatures, leaving a third untapped.
 func TestTeamworkCastCostAndPaidProvenance(t *testing.T) {
 	t.Parallel()
-	e, cfg, reg := conspireEngine(t, "Go Nuts!")
+	e, cfg, reg := conspireEngine(t, "Go Nuts!", "Grizzly Bears")
 	a := seedBattlefield(t, e, reg, "Goblin Piker")
 	b := seedBattlefield(t, e, reg, "Grizzly Bears")
 	spare := seedBattlefield(t, e, reg, "Grizzly Bears")

@@ -15,7 +15,9 @@ import (
 //     "adventure_alt" (the Room alternate-cast shape, rules/legal.go's hand
 //     walk), gated on the ADVENTURE face's own timing, targets and cost;
 //     beginCast flips the card to the spell face, and the resolution exiles
-//     it into the adventure zone via spellRestZone's FlagAdventure branch.
+//     it into the adventure zone via spellRestZone's FlagAdventure branch,
+//     where it is its main face again (CR 715.4: events.Apply's MoveZone
+//     fold resets an Adventure card's face on every stack exit).
 //   - from exile -- the adventure zone, where the resolving Adventure spell
 //     rests -- the main face is offered as Mode "adventure_recast" (the Warp
 //     recast shape, rules/legal.go's exile walk), gated on a log-derived
@@ -56,7 +58,7 @@ func adventureSpellFace(o *state.Object) *cards.Face {
 }
 
 // adventureZoneAvailable reports whether id -- which the caller has
-// established is in exile at its Adventure spell face -- got there by
+// established is in exile (as its main face, CR 715.4) -- got there by
 // RESOLVING an adventure_alt cast. That is the only adventure-zone entry this
 // engine implements (CR 714.3b's exiled-by-some-other-effect shape is out of
 // scope), so the gate is the provenance itself, derived from the log exactly

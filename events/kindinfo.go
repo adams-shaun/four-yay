@@ -214,6 +214,7 @@ var kindInfo = [NumKinds]KindInfo{
 	Saddle:               {Name: "saddle", Trigger: TriggerFullMatch}, // trig:Saddled reads the crewer-to-Mount pairing; the designation itself is AlterAttribute "Saddled"
 	ClassLevelChange:     {Name: "class_level", Trigger: TriggerNone, Describe: "{obj} gains a Class level"},
 	MillProposal:         {Name: "mill_proposal", Trigger: TriggerNone, Describe: "{player} would mill {amount} cards"},
+	Meld:                 {Name: "meld", Trigger: TriggerNone, Describe: "{obj}: {text}"},
 }
 
 // Info returns k's descriptor; ok is false for a value past the enum.

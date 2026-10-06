@@ -19,7 +19,7 @@ import (
 // Per explorer and per Num$ (default 1):
 //
 //   - The replacement tier is consulted FIRST (CR 614.4's window is before
-//     the process): ExploreReplaced runs any R:Event$ Explore replacement's
+//     the process): ActionReplaced runs any R:Event$ Explore replacement's
 //     ReplaceWith$ body in place and this explorer's own process is skipped
 //     entirely — "instead it explores, then it explores again" replaces the
 //     whole reveal/counter/move process with the body's own fresh explores.
@@ -76,7 +76,7 @@ func exploreOnce(h Host, c *Ctx, sa *cards.SA, explorer state.ObjID) {
 	// CR 614.4: the replacement window is before the process. A matching
 	// R:Event$ Explore replacement's body has now run (inside the host call)
 	// and this explorer's own process is replaced whole.
-	if h.ExploreReplaced(explorer) {
+	if h.ActionReplaced(events.Event{Kind: events.Explore, Obj: explorer, Player: o.Controller}) {
 		return
 	}
 	ctrl := o.Controller

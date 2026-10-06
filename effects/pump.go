@@ -92,6 +92,16 @@ func effPump(h Host, c *Ctx, sa *cards.SA) {
 			}
 		}
 	}
+	// RememberObjects$ (Stolen Uniform's ThisTargetedCard, Heroism's
+	// Imprinted, Master of Ceremonies' You): the named objects and players
+	// join both halves of the remembered state -- the chain's Ctx.Remembered
+	// and the source's event-backed list -- before the pump itself, exactly
+	// once (after any KWChoice$ ask, so an answered re-entry does not repeat
+	// it). A selector the shared resolver does not know is one loud Note and
+	// remembers nothing.
+	if p.RememberObjects.Set() {
+		rememberDefinedObjects(h, c, p.RememberObjects, "Pump")
+	}
 	zone := p.PumpZone
 	var ateotIDs []state.ObjID
 	// pumpedTargets collects the objects this Pump actually affected, for the

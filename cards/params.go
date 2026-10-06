@@ -758,6 +758,9 @@ const (
 	PKImprintRest
 	PKChangeLater
 	PKChooseAmount
+	// Meld-specific operands. Appended: earlier parameter ordinals are stable.
+	PKPrimary
+	PKSecondaryType
 	paramKeyCount
 )
 
@@ -1512,6 +1515,8 @@ var paramKeyNames = [paramKeyCount]string{
 	PKImprintRest:                      "ImprintRest",
 	PKChangeLater:                      "ChangeLater",
 	PKChooseAmount:                     "ChooseAmount",
+	PKPrimary:                          "Primary",
+	PKSecondaryType:                    "SecondaryType",
 }
 
 // String is the key's Forge text.
