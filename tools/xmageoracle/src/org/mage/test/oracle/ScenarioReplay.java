@@ -387,6 +387,22 @@ public class ScenarioReplay extends CardTestPlayerBase {
             // unused and fail assertAllCommandsUsed.
             closeAskedAgain(getTargets(), owner.isAdjustedSpellAsk(source, game));
             mage.target.Target orig = target.getOriginalTarget();
+            if (target.getChooseHint() != null && target.getChooseHint().startsWith("to attach ")) {
+                UUID abilityControllerId = target.getAffectedAbilityControllerId(this.getId());
+                List<UUID> candidates = new ArrayList<>(target.possibleTargets(abilityControllerId, source, game));
+                candidates.sort((left, right) -> {
+                    Permanent a = game.getPermanent(left);
+                    Permanent b = game.getPermanent(right);
+                    String an = a == null ? "" : a.getName();
+                    String bn = b == null ? "" : b.getName();
+                    int byName = an.compareTo(bn);
+                    return byName != 0 ? byName : left.toString().compareTo(right.toString());
+                });
+                if (!candidates.isEmpty()) {
+                    target.addTarget(candidates.get(0), source, game);
+                    return true;
+                }
+            }
             if (orig instanceof mage.target.common.TargetSpellOrPermanent
                     && !getTargets().isEmpty()
                     && !TestPlayer.TARGET_SKIP.equals(getTargets().get(0))) {
@@ -1483,6 +1499,27 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     block(turn, p, combatName(pair.get(0).getAsString()), combatName(pair.get(1).getAsString()));
                 }
                 phase = PhaseStep.DECLARE_BLOCKERS;
+                return;
+            }
+            case "move": {
+                String ref = str(st, "card");
+                String name = xmageSpelling(refName(ref));
+                Zone destination = Zone.valueOf(str(st, "to").toUpperCase(java.util.Locale.ROOT));
+                runCode("move " + ref + " to " + destination, turn, phase, p, (info, pl, g) -> {
+                    Card moving = null;
+                    for (Card candidate : pl.getHand().getCards(g)) {
+                        if (candidate.getName().equals(name)) {
+                            moving = candidate;
+                            break;
+                        }
+                    }
+                    if (moving == null) {
+                        throw new IllegalArgumentException("move card " + ref + " is not in " + pl.getName() + "'s hand");
+                    }
+                    if (!pl.moveCards(moving, destination, null, g)) {
+                        throw new IllegalStateException("move " + ref + " to " + destination + " refused");
+                    }
+                });
                 return;
             }
             case "attach": {

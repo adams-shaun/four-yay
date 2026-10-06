@@ -55,20 +55,11 @@ func castResolveWith(reg *cards.Registry, f *cards.Face, name, mana string, prob
 		plans = nil
 		for _, combo := range combos {
 			labels := make([]string, 0, len(combo.Modes))
-			usable := true
 			for _, mode := range combo.Modes {
-				if attachesOnReturn(f, mode.SVar()) {
-					// XMage asks which creature the returned Aura/Equipment
-					// attaches to, an ask the scenario cannot script yet.
-					usable = false
-					break
-				}
 				labels = append(labels, mode.Label())
 			}
-			if usable {
-				answers := append([]oraclegen.Answer{{Kind: "modes", Pick: labels}}, xAns...)
-				plans = append(plans, plan{slots: combo.Slots, answers: answers})
-			}
+			answers := append([]oraclegen.Answer{{Kind: "modes", Pick: labels}}, xAns...)
+			plans = append(plans, plan{slots: combo.Slots, answers: answers})
 		}
 	}
 	manas := []string{mana, mana + "C", mana + "CC", mana + "CCC"}
@@ -403,22 +394,4 @@ func precastFitsSlots(slots []oraclegen.Slot, stackIdx []int, p precast) bool {
 		}
 	}
 	return true
-}
-
-// attachesOnReturn reports whether a charm mode's ability chain puts a card
-// onto the battlefield attached to a chosen object (an AttachedTo$ param).
-func attachesOnReturn(f *cards.Face, svar string) bool {
-	for name := svar; name != ""; {
-		body := f.SVars[name]
-		if strings.Contains(body, "AttachedTo$") {
-			return true
-		}
-		name = ""
-		for _, part := range strings.Split(body, "|") {
-			if k, v, ok := strings.Cut(strings.TrimSpace(part), "$"); ok && strings.TrimSpace(k) == "SubAbility" {
-				name = strings.TrimSpace(v)
-			}
-		}
-	}
-	return false
 }
