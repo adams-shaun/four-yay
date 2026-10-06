@@ -49,11 +49,22 @@ if [ "$rc" -eq 99 ]; then
 	printf 'ledger-lane.sh: could not take %s within %ss\n' "$LOCK" "$WAIT" >&2
 	exit 99
 fi
-# Anything but a test result (0 pass / 1 fail) with an empty lane is a launch
-# failure (scope refused, OOM-kill, build error): do not publish it.
-if [ "$rc" -gt 1 ] && ! grep -q '^\(ok\|FAIL\|---\)' "$TMP"; then
+# Publication is keyed on the lane CONTENT, never the exit code: a launch
+# failure cannot be told apart from a genuine test FAIL by rc alone, because
+# systemd-run exits 1 when the user scope will not start and go test also
+# exits 1 on FAIL. Only a real result line is publishable; anything else
+# (scope refused, OOM-kill, missing go, build error that produced no leaf)
+# exits non-zero and leaves the previous lane untouched, so an empty lane can
+# never be installed and cmd/ledger can never rebuild from nothing.
+if ! grep -q '^\(ok\|FAIL\|---\)' "$TMP"; then
+	case "$rc" in
+	0) rc=2 ;; # no result but a clean exit is still a launch failure
+	esac
 	printf 'ledger-lane.sh: lane run died (exit %s) with no result\n' "$rc" >&2
 	exit "$rc"
 fi
+# `mktemp` makes the lane 0600; the old redirect produced the umask default,
+# and the lane is a shared artifact. Restore that before publishing.
+chmod 0644 "$TMP"
 mv "$TMP" "$OUT"
 trap - EXIT
