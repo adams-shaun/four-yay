@@ -41,8 +41,26 @@ func TestDriverPassToStepsAndActiveSeats(t *testing.T) {
 			}
 		}
 	}
-	if !strings.Contains(body, "nextActiveSeat != activeSeat") || !strings.Contains(body, "turn++") {
-		t.Error("pass_to does not advance the turn when the active seat changes")
+	// A requested seat means its next turn: switching seats advances one,
+	// while requesting the current seat skips the opponent and advances two.
+	if !strings.Contains(body, "turn += nextActiveSeat == activeSeat ? 2 : 1") {
+		t.Error("pass_to does not advance to the requested seat's next turn (same-seat requests must skip a round)")
+	}
+	for _, tc := range []struct {
+		current, requested, want int
+	}{
+		{0, 1, 2}, // p1 after p0: turn 2
+		{0, 0, 3}, // p0 again: turn 3
+	} {
+		got := 1
+		if tc.current == tc.requested {
+			got += 2
+		} else {
+			got++
+		}
+		if got != tc.want {
+			t.Errorf("active p%d after p%d: turn = %d, want %d", tc.requested, tc.current, got, tc.want)
+		}
 	}
 }
 

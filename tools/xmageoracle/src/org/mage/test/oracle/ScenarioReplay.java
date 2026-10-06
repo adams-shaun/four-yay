@@ -955,8 +955,10 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 if (st.has("active")) {
                     String active = str(st, "active");
                     int nextActiveSeat = active.equals("p1") ? 1 : active.equals("p0") ? 0 : -1;
-                    if (nextActiveSeat >= 0 && nextActiveSeat != activeSeat) {
-                        turn++;
+                    if (nextActiveSeat >= 0) {
+                        // pass_to asks for the next turn on this seat, not merely
+                        // the next distinct seat: p0 after p0 skips p1's turn too.
+                        turn += nextActiveSeat == activeSeat ? 2 : 1;
                         activeSeat = nextActiveSeat;
                     }
                 }
