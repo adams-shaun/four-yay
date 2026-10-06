@@ -71,7 +71,8 @@ var wantCensus = map[string]map[string]int{
 		"trigger.dies-other":             3,
 		"trigger.etb-land":               1,
 		"trigger.etb-other":              18,
-		"trigger.gap:ChangesZone":        5,
+		"trigger.ltb-other":              1,
+		"trigger.gap:ChangesZone":        4,
 		"trigger.gap:CounterAddedOnce":   1,
 		"trigger.gap:DamageDone":         2,
 		"trigger.gap:DamageDoneOnce":     4,
@@ -162,7 +163,7 @@ var wantCensus = map[string]map[string]int{
 		"trigger.noncombat-damage":                     3,
 		"trigger.phase":                                17,
 		"trigger.scry":                                 5,
-		"trigger.spell-cast":                           20,
+		"trigger.spell-cast":                           20, // Ruric Thar, Biomagus: main now expands both prowess instances.
 		"trigger.surveil":                              5,
 	},
 }

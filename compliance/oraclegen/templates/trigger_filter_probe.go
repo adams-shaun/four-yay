@@ -18,6 +18,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
+	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -27,6 +28,7 @@ type filterProbe struct {
 	spec    string
 	zone    state.Zone
 	decided bool
+	p1p1    bool // zone-change recipes may supply a counter on the victim
 }
 
 // newFilterProbe prepares the evaluation of spec for a probe sitting in zone
@@ -57,6 +59,9 @@ func (p *filterProbe) accepts(card *cards.Card) bool {
 	sourceID := source.ID
 	subject := p.g.AddObject(card, 0)
 	subject.Zone = p.zone
+	if p.p1p1 {
+		events.Apply(p.g, events.Event{Kind: events.CounterChange, Obj: subject.ID, Counter: "P1P1", Amount: 1})
+	}
 	return effects.MatchesObjectCtx(p.g, p.spec, p.g.Obj(subject.ID), effects.SpecContext{You: 0, Source: sourceID})
 }
 
