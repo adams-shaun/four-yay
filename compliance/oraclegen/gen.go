@@ -42,6 +42,41 @@ type Seat struct {
 	Exile      []string `json:"exile,omitempty"`
 	Library    []string `json:"library,omitempty"`
 	LibraryTop []string `json:"library_top,omitempty"`
+	// Counters puts counters on this seat's battlefield cards at setup:
+	// card name -> counter kind (LOYALTY, P1P1) -> how many, added to what
+	// the card enters with. Like Tapped it names every placement of that
+	// card. A planeswalker's loyalty headroom and a "creature with a +1/+1
+	// counter" target fixture ride it.
+	Counters map[string]map[string]int `json:"counters,omitempty"`
+}
+
+// WithCounters returns s with n more counters of kind on its card name. The
+// map is copied, so a fixture's seat is never mutated through a shared map.
+func WithCounters(s Seat, name, kind string, n int) Seat {
+	s.Counters = cloneCounters(s.Counters)
+	if s.Counters == nil {
+		s.Counters = map[string]map[string]int{}
+	}
+	if s.Counters[name] == nil {
+		s.Counters[name] = map[string]int{}
+	}
+	s.Counters[name][kind] += n
+	return s
+}
+
+func cloneCounters(m map[string]map[string]int) map[string]map[string]int {
+	if m == nil {
+		return nil
+	}
+	out := make(map[string]map[string]int, len(m))
+	for card, kinds := range m {
+		k := make(map[string]int, len(kinds))
+		for kind, n := range kinds {
+			k[kind] = n
+		}
+		out[card] = k
+	}
+	return out
 }
 
 // Step is one scenario step (a subset of the runner's op set).

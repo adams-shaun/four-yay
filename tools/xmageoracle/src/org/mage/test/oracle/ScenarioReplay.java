@@ -12,6 +12,9 @@ import mage.abilities.Ability;
 import mage.abilities.common.SimpleStaticAbility;
 import mage.abilities.mana.ActivatedManaAbilityImpl;
 import mage.abilities.costs.AlternativeSourceCosts;
+import mage.abilities.costs.OptionalAdditionalSourceCosts;
+import mage.abilities.costs.OrCost;
+import mage.abilities.keyword.LeylineAbility;
 import mage.cards.repository.CardInfo;
 import mage.cards.repository.CardRepository;
 import mage.abilities.effects.common.EndTurnEffect;
@@ -24,6 +27,7 @@ import mage.constants.Outcome;
 import mage.constants.PhaseStep;
 import mage.constants.Zone;
 import mage.counters.Counter;
+import mage.counters.CounterType;
 import mage.game.Game;
 import mage.game.events.GameEvent;
 import mage.game.permanent.Permanent;
@@ -66,6 +70,8 @@ public class ScenarioReplay extends CardTestPlayerBase {
 
     private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().serializeNulls().create();
     private int TURN = 1;
+    private int turn = 1;
+    private int activeSeat = 0;
     private static final PhaseStep MAIN = PhaseStep.PRECOMBAT_MAIN;
 
     private final List<JsonObject> snaps = new ArrayList<>();
@@ -86,18 +92,75 @@ public class ScenarioReplay extends CardTestPlayerBase {
     // game never runs and every scenario ends with no snapshots.
     @Override
     protected TestPlayer createPlayer(String name, mage.constants.RangeOfInfluence rangeOfInfluence) {
-        return new ScriptedChoicePlayer(new org.mage.test.player.TestComputerPlayer(name, rangeOfInfluence));
+        return new ScriptedChoicePlayer(new org.mage.test.player.TestComputerPlayer(name, rangeOfInfluence), this);
     }
+
+    // The gorge-side "choose" picks of the cast step being queued (its
+    // recorded answers), so an either-or cost ask XMage poses can be answered
+    // the way gorge answered it. Empty when the step recorded none.
+    private List<String> castCostPicks = new ArrayList<>();
 
     /** TestPlayer normally delegates these library decisions directly to its AI,
      * bypassing the scripted target/choice queues. Route them through this player. */
     private static final class ScriptedChoicePlayer extends TestPlayer {
-        ScriptedChoicePlayer(org.mage.test.player.TestComputerPlayer computerPlayer) {
+        // The replay that built this player: it holds the cast step's recorded
+        // cost picks. Carried through copy(), as XMage copies players freely.
+        private final ScenarioReplay owner;
+
+        ScriptedChoicePlayer(org.mage.test.player.TestComputerPlayer computerPlayer, ScenarioReplay owner) {
             super(computerPlayer);
+            this.owner = owner;
         }
 
         ScriptedChoicePlayer(final ScriptedChoicePlayer player) {
             super(player);
+            this.owner = player.owner;
+        }
+
+        /** Whether the current ask is posed from inside the named method of a
+         * class of the given type (a keyword's cast-time cost hook). */
+        private static boolean askedBy(Class<?> type, String method) {
+            return StackWalker.getInstance(StackWalker.Option.RETAIN_CLASS_REFERENCE).walk(frames ->
+                    frames.anyMatch(f -> f.getMethodName().equals(method) && type.isAssignableFrom(f.getDeclaringClass())));
+        }
+
+        private boolean scriptedYesNoNext() {
+            return !getChoices().isEmpty() && (getChoices().get(0).equals("Yes") || getChoices().get(0).equals("No"));
+        }
+
+        /**
+         * The yes/no asks a plain cast step implies. gorge's cast-resolve
+         * scenario casts for the mana cost only, so each of these is answered
+         * as gorge played it, keyed on the ask's type, not the card:
+         * the opening-hand Leyline ask (LeylineAbility) is No; every optional
+         * additional cost (kicker, offspring, waterbend: the
+         * OptionalAdditionalSourceCosts hook; XMage's mana costs always report
+         * canPay, so it asks even when the pool is short) is No, consuming the
+         * generator's own leading "No" when it scripted one; an either-or
+         * additional cost (OrCost) takes the cost gorge recorded for the step.
+         * Every other ask stays with the scripted queue.
+         */
+        @Override
+        public boolean chooseUse(Outcome outcome, String message, String secondMessage, String trueText, String falseText, Ability source, Game game) {
+            if (source instanceof LeylineAbility) {
+                return false;
+            }
+            if (askedBy(OptionalAdditionalSourceCosts.class, "addOptionalAdditionalCosts")) {
+                if (!getChoices().isEmpty() && getChoices().get(0).equals("No")) {
+                    return super.chooseUse(outcome, message, secondMessage, trueText, falseText, source, game);
+                }
+                return false;
+            }
+            if (askedBy(OrCost.class, "pay") && !scriptedYesNoNext()) {
+                // The generator scripts the boolean itself when two costs were
+                // payable for gorge; with one payable it scripts none, but
+                // XMage still asks, so answer the cost gorge recorded.
+                Boolean first = owner.recordedCostIsFirst(trueText, falseText);
+                if (first != null) {
+                    return first;
+                }
+            }
+            return super.chooseUse(outcome, message, secondMessage, trueText, falseText, source, game);
         }
 
         @Override
@@ -412,8 +475,11 @@ public class ScenarioReplay extends CardTestPlayerBase {
             refAlias.clear();
             phase = MAIN;
             TURN = scenarioTurn(sc);
+            turn = TURN;
+            activeSeat = (TURN - 1) % 2;
             build(sc);
             runCode("setup", TURN, MAIN, playerA, (info, p, g) -> {
+                addSetupCounters(g);
                 registerAliases(g);
                 snaps.add(snapshot(info, g));
             });
@@ -437,7 +503,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 int beforeB = playerB.getActions().size();
                 step(st, op, i);
                 String cp = "step " + i + " (" + op + ")";
-                runCode(cp, TURN, phase, playerA, (info, p, g) -> snaps.add(snapshot(info, g)));
+                runCode(cp, turn, phase, playerA, (info, p, g) -> snaps.add(snapshot(info, g)));
                 queuedA.add(new ArrayList<>(playerA.getActions().subList(beforeA, playerA.getActions().size())));
                 queuedB.add(new ArrayList<>(playerB.getActions().subList(beforeB, playerB.getActions().size())));
                 choicesA.add(new ArrayList<>(playerA.getChoices().subList(beforeChoicesA, playerA.getChoices().size())));
@@ -448,7 +514,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
             // Only EndTurn scenarios need the extended boundary. Ordinary
             // replays retain the original turn-1 stop and cannot encounter
             // unrelated turn-2 upkeep triggers or decisions.
-            setStopAt(endTurnScenario ? TURN + 1 : TURN,
+            setStopAt(endTurnScenario ? turn + 1 : turn,
                     endTurnScenario ? PhaseStep.UPKEEP : PhaseStep.END_TURN);
             execute();
         } catch (Throwable t) {
@@ -457,7 +523,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
             int completedSteps = snaps.size() - 1;
             if (endTurnScenario && unusedActionCount(msg) >= 0
                     && completedSteps >= 0 && completedSteps < stepCount
-                    && currentGame != null && currentGame.getTurnNum() > TURN
+                    && currentGame != null && currentGame.getTurnNum() > turn
                     && skippedActionsMatch(completedSteps, queuedA, queuedB)
                     && skippedAnswersMatch(completedSteps, choicesA, choicesB, targetsA, targetsB)) {
                 // Only the actions for skipped steps remain. An unconsumed
@@ -632,6 +698,57 @@ public class ScenarioReplay extends CardTestPlayerBase {
         return ns.size();
     }
 
+    /** Puts each seat's setup "counters" (card name -> gorge counter kind ->
+     * n) on every battlefield permanent of that name the seat controls,
+     * added to what it entered with, exactly as gorge's runner does at setup
+     * (a planeswalker's loyalty headroom, a +1/+1-counter target fixture). */
+    private void addSetupCounters(Game g) {
+        JsonObject setup = sc0.has("setup") ? sc0.getAsJsonObject("setup") : new JsonObject();
+        for (int i = 0; i < 2; i++) {
+            JsonObject s = setup.has("p" + i) ? setup.getAsJsonObject("p" + i) : new JsonObject();
+            if (!s.has("counters")) {
+                continue;
+            }
+            TestPlayer pl = seat(i);
+            for (Map.Entry<String, JsonElement> card : s.getAsJsonObject("counters").entrySet()) {
+                String name = xmageSpelling(card.getKey());
+                boolean placed = false;
+                for (Permanent perm : g.getBattlefield().getAllPermanents()) {
+                    if (!pl.getId().equals(perm.getControllerId()) || !perm.getName().equals(name)) {
+                        continue;
+                    }
+                    placed = true;
+                    for (Map.Entry<String, JsonElement> c : card.getValue().getAsJsonObject().entrySet()) {
+                        perm.addCounters(xmageCounter(c.getKey()).createInstance(c.getValue().getAsInt()), pl.getId(), null, g);
+                    }
+                }
+                if (!placed) {
+                    throw new IllegalArgumentException("setup counters: p" + i + " controls no " + name);
+                }
+            }
+        }
+    }
+
+    /** Maps a gorge counter kind (P1P1, M1M1, LOYALTY) to XMage's type. */
+    private static CounterType xmageCounter(String kind) {
+        String n;
+        switch (kind) {
+            case "P1P1":
+                n = "+1/+1";
+                break;
+            case "M1M1":
+                n = "-1/-1";
+                break;
+            default:
+                n = kind.toLowerCase();
+        }
+        CounterType t = CounterType.findByName(n);
+        if (t == null) {
+            throw new IllegalArgumentException("setup counters: unknown counter kind " + kind);
+        }
+        return t;
+    }
+
     /** Binds one XMage alias per setup ref (the string build() recorded) to
      * the setup object itself, so a target ref naming two same-name cards
      * ("p0:Grizzly Bears#2") reaches exactly one of them. Counts follow the
@@ -709,6 +826,29 @@ public class ScenarioReplay extends CardTestPlayerBase {
         }
         List<mage.target.Target> ts = c.getSpellAbility().getAllSelectedTargets();
         return ts.size() == 1 && n >= ts.get(0).getMaxNumberOfTargets();
+    }
+
+    /** Normalises a cost label so gorge's pick ("Sacrifice artifact or
+     * creature", "Pay 4") and XMage's button text ("Sacrifice an artifact or
+     * creature", "{4}") compare equal. */
+    private static String costKey(String label) {
+        return label.toLowerCase().replaceAll("[{}]", "").replaceFirst("^pay ", "")
+                .replaceAll("\\b(a|an|the)\\b", "").replaceAll("\\s+", " ").trim();
+    }
+
+    /** Which side of XMage's OrCost ask (true text = first cost) the cast
+     * step's recorded gorge pick names; null when none of them matches. */
+    private Boolean recordedCostIsFirst(String trueText, String falseText) {
+        for (String pick : castCostPicks) {
+            String key = costKey(pick);
+            if (falseText != null && key.equals(costKey(falseText))) {
+                return false;
+            }
+            if (trueText != null && key.equals(costKey(trueText))) {
+                return true;
+            }
+        }
+        return null;
     }
 
     /** Whether the card carries the Gift keyword (CR 702.174). */
@@ -873,7 +1013,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
         switch (op) {
             case "mana": {
                 String mana = str(st, "mana");
-                runCode("mana " + mana, TURN, phase, p, (info, pl, g) -> addPool(pl, g, mana));
+                runCode("mana " + mana, turn, phase, p, (info, pl, g) -> addPool(pl, g, mana));
                 return;
             }
             case "attack": {
@@ -882,7 +1022,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 // command at DECLARE_ATTACKERS; the scenario's later cast and
                 // checkpoint happen in that same step.
                 for (String a : names(st, "attackers")) {
-                    attack(TURN, p, combatName(a), seat(seatOf(str(st, "defender"))));
+                    attack(turn, p, combatName(a), seat(seatOf(str(st, "defender"))));
                 }
                 phase = PhaseStep.DECLARE_ATTACKERS;
                 return;
@@ -895,12 +1035,32 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 // beginStep before any priority), so this is for completeness.
                 String stepName = str(st, "step");
                 String decision = str(st, "decision");
+                if (st.has("active")) {
+                    String active = str(st, "active");
+                    int nextActiveSeat = active.equals("p1") ? 1 : active.equals("p0") ? 0 : -1;
+                    if (nextActiveSeat >= 0) {
+                        // pass_to asks for the next turn on this seat, not merely
+                        // the next distinct seat: p0 after p0 skips p1's turn too.
+                        turn += nextActiveSeat == activeSeat ? 2 : 1;
+                        activeSeat = nextActiveSeat;
+                    }
+                }
                 if (decision.equals("blockers") || stepName.equals("declare-blockers")) {
                     phase = PhaseStep.DECLARE_BLOCKERS;
                 } else if (stepName.equals("declare-attackers")) {
                     phase = PhaseStep.DECLARE_ATTACKERS;
+                } else if (stepName.equals("begin-combat")) {
+                    phase = PhaseStep.BEGIN_COMBAT;
+                } else if (stepName.equals("end-combat")) {
+                    phase = PhaseStep.END_COMBAT;
                 } else if (stepName.equals("main2")) {
                     phase = PhaseStep.POSTCOMBAT_MAIN;
+                } else if (stepName.equals("upkeep")) {
+                    phase = PhaseStep.UPKEEP;
+                } else if (stepName.equals("draw")) {
+                    phase = PhaseStep.DRAW;
+                } else if (stepName.equals("end")) {
+                    phase = PhaseStep.END_TURN;
                 } else if (stepName.equals("main1") || stepName.isEmpty()) {
                     phase = MAIN;
                 }
@@ -911,7 +1071,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 // block() queues a declareBlockers command at DECLARE_BLOCKERS.
                 for (JsonElement e : st.getAsJsonArray("blocks")) {
                     JsonArray pair = e.getAsJsonArray();
-                    block(TURN, p, combatName(pair.get(0).getAsString()), combatName(pair.get(1).getAsString()));
+                    block(turn, p, combatName(pair.get(0).getAsString()), combatName(pair.get(1).getAsString()));
                 }
                 phase = PhaseStep.DECLARE_BLOCKERS;
                 return;
@@ -921,7 +1081,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 String bearer = str(st, "attached_to");
                 // Queued on the active player: a runCode for the non-active seat would
                 // run only when it next gets priority, after this step's snapshot.
-                runCode("attach " + card + " to " + bearer, TURN, phase, playerA, (info, pl, g) -> {
+                runCode("attach " + card + " to " + bearer, turn, phase, playerA, (info, pl, g) -> {
                     Permanent attachment = permanentRef(g, card);
                     Permanent target = permanentRef(g, bearer);
                     // Card.addAttachment links both sides (the bearer's
@@ -936,13 +1096,22 @@ public class ScenarioReplay extends CardTestPlayerBase {
             case "cast": {
                 if (st.has("mana")) {
                     String mana = str(st, "mana");
-                    runCode("mana " + mana, TURN, phase, p, (info, pl, g) -> addPool(pl, g, mana));
+                    runCode("mana " + mana, turn, phase, p, (info, pl, g) -> addPool(pl, g, mana));
                 }
                 if (st.has("kicked") || st.has("cast_mode")) {
                     throw new IllegalArgumentException("kicked/cast_mode unsupported");
                 }
                 if (!sc0.has("xmage_answers")) {
                     answers(st, p);
+                }
+                castCostPicks = new ArrayList<>();
+                if (st.has("answers")) {
+                    for (JsonElement e : st.getAsJsonArray("answers")) {
+                        JsonObject a = e.getAsJsonObject();
+                        if (str(a, "kind").equals("choose")) {
+                            castCostPicks.addAll(names(a, "pick"));
+                        }
+                    }
                 }
                 // The cast command names the SpellAbility, not the card
                 // object: a split/Room half is cast by its half name while
@@ -960,21 +1129,21 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     // The scripted "<ref>^X=<share>" answers name the targets
                     // and gorge's split; a target string here would be a
                     // second, unconsumed set.
-                    castSpell(TURN, phase, p, card);
+                    castSpell(turn, phase, p, card);
                     cast.add(card);
                     return;
                 }
                 if (tg.size() == 1 && isSeatRef(tg.get(0)) && !hasGift(card)) {
-                    castSpell(TURN, phase, p, card, seat(seatOf(tg.get(0))));
+                    castSpell(turn, phase, p, card, seat(seatOf(tg.get(0))));
                 } else if (tg.size() == 1 && isSeatRef(tg.get(0))) {
                     // A Gift spell (Mind Spiral, Sazacap's Brew): the castSpell
                     // player form binds the wrong ask, so queue the spell's
                     // own player target and close the rest.
                     addTarget(p, seat(seatOf(tg.get(0))));
                     addTarget(p, TestPlayer.TARGET_SKIP);
-                    castSpell(TURN, phase, p, card);
+                    castSpell(turn, phase, p, card);
                 } else if (tg.isEmpty()) {
-                    castSpell(TURN, phase, p, card);
+                    castSpell(turn, phase, p, card);
                     cast.add(card);
                     return;
                 } else if (tg.size() == 1 && cast.contains(castSpelling(refName(tg.get(0))))) {
@@ -983,12 +1152,12 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     // target is a scenario ref; the setup alias names the
                     // card in hand, not the spell, so target by name.
                     String spell = castSpelling(refName(tg.get(0)));
-                    castSpell(TURN, phase, p, card, spell, spell);
+                    castSpell(turn, phase, p, card, spell, spell);
                 } else if (tg.size() == 1) {
                     // A single target goes through XMage's own string form, so
                     // a divided-damage target (TargetAmount) still lets XMage
                     // pick the split as it always did.
-                    castSpell(TURN, phase, p, card, targetName(tg.get(0)));
+                    castSpell(turn, phase, p, card, targetName(tg.get(0)));
                 } else {
                     // Two or more targets: queue each through addTarget and
                     // cast with no $target, so an "up to N" slot stays open
@@ -1006,7 +1175,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
                         for (String t : tg) {
                             names.add(xmageSpelling(refName(t)));
                         }
-                        castSpell(TURN, phase, p, card, String.join("^", names));
+                        castSpell(turn, phase, p, card, String.join("^", names));
                         cast.add(card);
                         return;
                     }
@@ -1020,7 +1189,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
                         // is filled is rejected (Pull Through the Weft).
                         addTarget(p, TestPlayer.TARGET_SKIP);
                     }
-                    castSpell(TURN, phase, p, card);
+                    castSpell(turn, phase, p, card);
                 }
                 cast.add(card);
                 return;
@@ -1032,28 +1201,28 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 }
                 if (st.has("mana")) {
                     String mana = str(st, "mana");
-                    runCode("mana " + mana, TURN, phase, p, (info, pl, g) -> addPool(pl, g, mana));
+                    runCode("mana " + mana, turn, phase, p, (info, pl, g) -> addPool(pl, g, mana));
                 }
                 if (!sc0.has("xmage_answers")) {
                     answers(st, p);
                 }
                 String card = xmageSpelling(refName(str(st, "card")));
                 if (isManaAbilityText(card, text)) {
-                    activateManaAbility(TURN, phase, p, text);
+                    activateManaAbility(turn, phase, p, text);
                     return;
                 }
                 for (String t : targets(st)) {
                     queueCastTarget(p, t);
                 }
-                activateAbility(TURN, phase, p, text);
+                activateAbility(turn, phase, p, text);
                 return;
             }
             case "play":
-                playLand(TURN, phase, p, xmageSpelling(refName(str(st, "card"))));
+                playLand(turn, phase, p, xmageSpelling(refName(str(st, "card"))));
                 return;
             case "resolve":
                 // gorge's resolve op passes priority until the stack is empty.
-                waitStackResolved(TURN, phase, p);
+                waitStackResolved(turn, phase, p);
                 return;
             default:
                 throw new IllegalArgumentException("op " + op + " unsupported");

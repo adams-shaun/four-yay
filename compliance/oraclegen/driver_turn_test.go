@@ -34,10 +34,10 @@ func TestScenarioReplayConsumesScenarioTurn(t *testing.T) {
 		"int turn = Integer.parseInt(value.getAsString());",
 		"if (turn >= 1 && turn <= 100) {",
 		"throw new IllegalArgumentException(\"invalid scenario turn \" + value + \" (want integer 1..100)\");",
-		// Both anchors must use TURN: setup establishes the board at the
-		// requested turn, and the stop-at checkpoint snapshots the same one.
+		// Setup establishes the board at the requested scenario turn; the
+		// final stop follows the last pass_to turn.
 		"runCode(\"setup\", TURN, MAIN, playerA, (info, p, g) -> {",
-		"setStopAt(endTurnScenario ? TURN + 1 : TURN,",
+		"setStopAt(endTurnScenario ? turn + 1 : turn,",
 		// A valid upper-bound turn must not exhaust a fixed 40-card library.
 		// Keep turn-1 padding unchanged, and mirror gorge's later draw reserve.
 		"int filler = Math.max(0, 40 - named);",

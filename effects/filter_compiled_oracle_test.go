@@ -168,7 +168,8 @@ func contextsFor(g *state.Game) []effects.SpecContext {
 	rich.DefendingPlayer = state.Target{IsPlayer: true, Player: 0}
 	rich.TriggerTarget = state.Target{Obj: at(11)}
 	layer := effects.SpecContext{You: 1, Source: at(13),
-		ExtraTypes: []string{"Goblin", "Creature"},
+		ExtraTypes:      []string{"Goblin", "Creature"},
+		ExtraTypesOwner: at(2),
 		Layers: effects.LayerTables{
 			DerivedTypes:   []effects.ObjectTypes{{ID: at(2), Types: []string{"Creature", "Elf"}}},
 			EffectiveNames: []effects.ObjectName{{ID: at(4), Name: "Grizzly Bears"}},

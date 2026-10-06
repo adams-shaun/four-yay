@@ -43,8 +43,8 @@ func FaceReadsManaSpent(f *cards.Face) bool {
 // the cast's X) and Sac<All/...> (which never reaches Cost.Sac -- it parses as
 // Unknown) are not admissible, and every other non-mana field declines. The
 // mana half is checked by removing the Sac parts and running the same
-// classifier the gate has always used, so X/hybrid/Phyrexian/snow and the
-// other mana-class shapes still decline here. Returns the decline detail, or
+// classifier the gate has always used, so X/hybrid/snow and the other
+// unsupported mana-class shapes still decline here. Returns the decline detail, or
 // "" when the cost is admissible.
 func PlanNonManaAdmissible(c Cost) string {
 	for _, part := range c.Sac {
@@ -57,6 +57,18 @@ func PlanNonManaAdmissible(c Cost) string {
 	return PlanCostDetail(rest)
 }
 
+// PlanManaHalf is the part of an admitted cast cost the V1 witness funds: c
+// without its Phyrexian pips. A pip's colour face and its two-life face are
+// both answered afterwards by the CR 601.2b pip ask, so the witness neither
+// spends pool mana on a pip nor counts a pip's mana in its after-pool; the
+// plan search and ValidateCastPayment settle this cost, and paymentPlanCheck
+// re-reads the cast's own cost once the pips are announced (a colour-face
+// answer changes that cost and falls back to the manual window).
+func PlanManaHalf(c Cost) Cost {
+	c.Phyrexian = nil
+	return c
+}
+
 func PlanCostDetail(c Cost) string {
 	switch {
 	case c.X != 0 || c.XMin != 0:
@@ -66,7 +78,12 @@ func PlanCostDetail(c Cost) string {
 	case len(c.Hybrid) != 0:
 		return "cost:hybrid"
 	case len(c.Phyrexian) != 0:
-		return "cost:phyrexian"
+		// A Phyrexian pip's colour face is a mana unit the V1 witness can
+		// fund; its life face rides the CR 601.2b pip announce, which the
+		// witness's mana half does not bind. Clear the pips and re-run the
+		// classifier, so a cost carrying Phyrexian AND another unsupported
+		// part still declines with that part's detail.
+		return PlanCostDetail(PlanManaHalf(c))
 	case len(c.Twobrid) != 0:
 		return "cost:twobrid"
 	case len(c.HybridPhyrexian) != 0:

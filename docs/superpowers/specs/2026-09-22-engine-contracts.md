@@ -70,6 +70,42 @@ One decision to honour: a `ClassBand$` band must NOT be folded into
 granted replacement reads no `IsPresent2$` at all, so folding silently
 widens the gate.
 
+## Trigger remembered readers intentionally differ
+
+For a trigger body, `Defined$ Remembered` is a card-selection read: when the
+source has no persistent `Remembered` list, it falls back to the firing
+trigger's event referent carried in `Ctx.Remembered`. Numeric and condition
+readers instead count only explicit memory, excluding the seeded event capture
+through `rememberedExcludingCapture`: this includes
+`Count$RememberedNumber`, `ConditionDefined$ Remembered`,
+`Remembered$Amount`, and `Defined$ RememberedLKI`. This is a deliberate contract,
+not an inconsistency to unify mechanically; the trigger context does not
+structurally distinguish a referent that is useful to a selection effect from
+one that should not count as authored memory.
+
+The selection side is pinned by `rules/trigger_test.go:639`
+(`TestTriggerEffectAppliesToTheRememberedObject`, the Watcher pump) and
+`rules/gains_abilities_test.go:823`
+(`TestGainedTriggerCarriesItsRememberedReferent`). The exclusion side is pinned
+by `effects/remembered_capture_test.go:28`
+(`TestRememberedCaptureExcludedFromPlainReads`),
+`rules/remembered_capture_event_trigger_test.go:39`
+(`TestRememberedEventCaptureExcludedInTriggerBody`), and
+`effects/rememberedlki_capture_test.go:30`
+(`TestDefinedRememberedLKICaptureExcluded`).
+
+Gathering Stone is the player-visible carrier of the split: its empty-reveal
+path previously treated the trigger referent as a library card to move and
+shuffle. The `moveDefinedLibraryObjects` shuffle guard (main `9d0b4216b`) closed
+that symptom: it shuffles only when `Shuffle$ True`, or when a non-position
+fetch moved library cards. That fix does not change the reader contract.
+
+Reopen the separate (B) program only if a real corpus card is found whose
+`Defined$ Remembered` must exclude the capture, or whose numeric/condition
+reader must include it. Such a finding requires separating explicit remembered
+objects from trigger referents throughout trigger context construction and
+readers; it is not a one-line reader change.
+
 ## Regeneration
 
 A permanent with an unused this-turn Shield replaces lethal damage and
