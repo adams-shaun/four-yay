@@ -85,6 +85,11 @@ func CheckTargetSkips(slots []Slot, steps []Step, skips [][]XTargetSkip) error {
 		if steps[i].Op != "cast" {
 			return fmt.Errorf("step %d (%s) carries target skips but is not a cast", i, steps[i].Op)
 		}
+		for j, s := range slots {
+			if !s.Optional || !s.ZeroOrOne {
+				return fmt.Errorf("step %d slot %d (%s) is not an independent optional 0..1 object", i, j, s.Filter)
+			}
+		}
 		prev := -1
 		for j, sk := range list {
 			if sk.Slot < 0 || sk.Slot >= len(slots) {
@@ -94,9 +99,6 @@ func CheckTargetSkips(slots []Slot, steps []Step, skips [][]XTargetSkip) error {
 				return fmt.Errorf("step %d skip %d slot %d does not follow slot %d", i, j, sk.Slot, prev)
 			}
 			prev = sk.Slot
-			if s := slots[sk.Slot]; !s.Optional || !s.ZeroOrOne {
-				return fmt.Errorf("step %d skip %d names slot %d (%s), not an independent optional 0..1 object", i, j, sk.Slot, s.Filter)
-			}
 			if want := sk.Slot - j; sk.At != want {
 				return fmt.Errorf("step %d skip %d at %d, but %d filled targets precede slot %d", i, j, sk.At, want, sk.Slot)
 			}

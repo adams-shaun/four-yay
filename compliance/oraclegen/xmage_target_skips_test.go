@@ -161,6 +161,7 @@ func TestXMageOptionalTargetSkipBoundaries(t *testing.T) {
 	none("a target-less cast", four, []int{1}, sc3, good, map[int]bool{})
 	ranged := []Slot{optSlot("A"), {Filter: "B", Optional: true}, optSlot("C"), optSlot("D")}
 	none("an up-to-N slot omitted", ranged, []int{1}, sc3, good, map[int]bool{0: true})
+	none("a nonliteral filled slot", ranged, []int{0}, sc3, good, map[int]bool{0: true})
 	none("every slot omitted", four[:1], []int{0}, Scenario{Steps: []Step{{Op: "cast"}}}, nil, map[int]bool{0: true})
 	act := sc3
 	act.Steps = []Step{{Op: "activate", Targets: t3}, {Op: "resolve"}}
@@ -177,6 +178,8 @@ func TestXMageOptionalTargetSkipBoundaries(t *testing.T) {
 	}{
 		{"length mismatch", four, step(3), [][]XTargetSkip{{{At: 1, Slot: 1}}}},
 		{"required slot skipped", required, step(2), [][]XTargetSkip{{{At: 1, Slot: 1}}, nil}},
+		{"required slot filled", required, step(2), [][]XTargetSkip{{{At: 0, Slot: 0}}, nil}},
+		{"nonliteral filled slot", ranged, step(3), [][]XTargetSkip{{{At: 0, Slot: 0}}, nil}},
 		{"slot out of range", four, step(3), [][]XTargetSkip{{{At: 1, Slot: 9}}, nil}},
 		{"negative slot", four, step(3), [][]XTargetSkip{{{At: 0, Slot: -1}}, nil}},
 		{"wrong offset", four, step(3), [][]XTargetSkip{{{At: 2, Slot: 1}}, nil}},

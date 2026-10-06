@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/adams-shaun/gorge/compliance/oraclegen"
+	"github.com/adams-shaun/gorge/internal/testutil"
 )
 
 // TestXMageOptionalTargetSkipControls: Rise from the Wreck is the one shape
@@ -15,7 +16,7 @@ import (
 // trailing skip). Rise's gorge-side targets and settling are unchanged, and
 // neither the skip field nor "[target_skip]" reaches gorge's Raw scenario.
 func TestXMageOptionalTargetSkipControls(t *testing.T) {
-	reg := oracleHarnessCorpus(t)
+	reg := testutil.CorpusRegistry(t)
 
 	it, skip := Generate(reg, "Rise from the Wreck")
 	if skip != nil {
@@ -35,8 +36,13 @@ func TestXMageOptionalTargetSkipControls(t *testing.T) {
 		}
 	}
 	cast := castStep(t, it, "Rise from the Wreck")
-	if len(cast.Targets) != 3 {
-		t.Fatalf("cast targets %v, want the three filled slots", cast.Targets)
+	if got := strings.Join(cast.Targets, "|"); got != "p0:Grizzly Bears|p0:Adrestia|p0:Hill Giant" {
+		t.Fatalf("cast targets %v, want Creature, Vehicle, vanilla in order", cast.Targets)
+	}
+	for _, ref := range cast.Targets {
+		if !containsString(it.Setup["p0"].Graveyard, strings.TrimPrefix(ref, "p0:")) {
+			t.Fatalf("precondition: target %s is not in the caster's graveyard", ref)
+		}
 	}
 	var castIdx = -1
 	for i, st := range it.Scenario.Steps {
@@ -76,7 +82,7 @@ func TestXMageOptionalTargetSkipControls(t *testing.T) {
 		card    string
 		targets []string
 	}{
-		{"Pull Through the Weft", nil},
+		{"Pull Through the Weft", []string{"p0:Grizzly Bears", "p0:Serra Angel"}},
 		{"Rhino's Rampage", []string{"p0:Grizzly Bears", "p1:Grizzly Bears"}},
 		{"Allies at Last", []string{"p0:Grizzly Bears", "p1:Grizzly Bears"}},
 		{"Coordinated Clobbering", []string{"p0:Grizzly Bears", "p1:Grizzly Bears"}},

@@ -532,8 +532,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
             splitScripted = xans.toString().contains("^X=");
             xabilities = sc.has("xmage_ability") && sc.get("xmage_ability").isJsonArray()
                     ? sc.getAsJsonArray("xmage_ability") : new JsonArray();
-            xtargetSkips = sc.has("xmage_target_skips") && sc.get("xmage_target_skips").isJsonArray()
-                    ? sc.getAsJsonArray("xmage_target_skips") : new JsonArray();
+            xtargetSkips = readTargetSkips(sc, steps);
             for (int i = 0; i < steps.size(); i++) {
                 JsonObject st = steps.get(i).getAsJsonObject();
                 String op = str(st, "op");
@@ -1133,32 +1132,83 @@ public class ScenarioReplay extends CardTestPlayerBase {
     // empty optional target objects of step i's cast as {"at": n, "slot": k}.
     // "at" is the number of filled targets that precede the object, so the
     // skip is queued before target n (consecutive empty objects repeat n, a
-    // trailing one has n == the target count). "slot" only identifies the
-    // object for the generator's own validation.
+    // trailing one has n == the target count). "slot" identifies the XMage
+    // object too: both engines must have the same independent 0..1 shape.
     private JsonArray xtargetSkips = new JsonArray();
 
     /** The queue offsets of step i's explicit target skips, validated against
      * the cast's target count; empty when the item carries none. A malformed
      * plan fails the replay rather than queueing a speculative skip. */
-    private List<Integer> castTargetSkipsAt(int i, int targetCount) {
-        List<Integer> out = new ArrayList<>();
-        if (i >= xtargetSkips.size() || !xtargetSkips.get(i).isJsonArray()) {
-            return out;
+    static JsonArray readTargetSkips(JsonObject sc, JsonArray steps) {
+        if (!sc.has("xmage_target_skips")) {
+            return new JsonArray();
         }
-        int prev = 0;
-        for (JsonElement e : xtargetSkips.get(i).getAsJsonArray()) {
-            if (!e.isJsonObject() || !e.getAsJsonObject().has("at")) {
-                throw new IllegalArgumentException("step " + i + " xmage_target_skips entry has no \"at\": " + e);
+        JsonElement raw = sc.get("xmage_target_skips");
+        if (!raw.isJsonArray() || raw.getAsJsonArray().size() != steps.size()) {
+            throw new IllegalArgumentException("xmage_target_skips must be parallel to steps");
+        }
+        JsonArray plan = raw.getAsJsonArray();
+        for (int i = 0; i < plan.size(); i++) {
+            JsonElement entry = plan.get(i);
+            if (!entry.isJsonNull() && (!entry.isJsonArray()
+                    || (entry.getAsJsonArray().size() > 0 && !str(steps.get(i).getAsJsonObject(), "op").equals("cast")))) {
+                throw new IllegalArgumentException("step " + i + " has invalid xmage_target_skips");
             }
-            int at = e.getAsJsonObject().get("at").getAsInt();
-            if (at < prev || at > targetCount) {
-                throw new IllegalArgumentException("step " + i + " xmage_target_skips offset " + at
-                        + " is out of order or beyond its " + targetCount + " targets");
+        }
+        return plan;
+    }
+
+    private List<Integer> castTargetSkipsAt(int i, String card, int targetCount) {
+        if (i >= xtargetSkips.size() || xtargetSkips.get(i).isJsonNull()
+                || xtargetSkips.get(i).getAsJsonArray().size() == 0) {
+            return new ArrayList<>();
+        }
+        CardInfo info = CardRepository.instance.findCard(card);
+        Card c = info == null ? null : info.createCard();
+        if (c == null || hasTargetAdjuster(c.getSpellAbility())) {
+            throw new IllegalArgumentException("cannot establish explicit target objects for " + card);
+        }
+        return validateTargetSkips(xtargetSkips.get(i).getAsJsonArray(),
+                c.getSpellAbility().getAllSelectedTargets(), targetCount);
+    }
+
+    /** Check correspondence against XMage itself before closing an object. */
+    static List<Integer> validateTargetSkips(JsonArray plan, List<mage.target.Target> targets, int targetCount) {
+        if (targetCount < 0 || targets.size() != targetCount + plan.size()) {
+            throw new IllegalArgumentException("explicit target plan does not account for every object");
+        }
+        for (mage.target.Target t : targets) {
+            if (t.getMinNumberOfTargets() != 0 || t.getMaxNumberOfTargets() != 1 || t instanceof mage.target.TargetAmount) {
+                throw new IllegalArgumentException("explicit target plan requires independent optional 0..1 objects");
+            }
+        }
+        List<Integer> out = new ArrayList<>();
+        int prev = 0;
+        for (JsonElement e : plan) {
+            if (!e.isJsonObject()) {
+                throw new IllegalArgumentException("invalid target skip: " + e);
+            }
+            int at = targetSkipIndex(e.getAsJsonObject(), "at");
+            int slot = targetSkipIndex(e.getAsJsonObject(), "slot");
+            if (at < prev || at > targetCount || slot != at + out.size()) {
+                throw new IllegalArgumentException("target skip is out of order or beyond its objects: " + e);
             }
             prev = at;
             out.add(at);
         }
         return out;
+    }
+
+    private static int targetSkipIndex(JsonObject skip, String key) {
+        JsonElement value = skip.get(key);
+        if (value == null || !value.isJsonPrimitive() || !value.getAsJsonPrimitive().isNumber()) {
+            throw new IllegalArgumentException("target skip requires integer " + key);
+        }
+        try {
+            return value.getAsBigDecimal().intValueExact();
+        } catch (ArithmeticException ex) {
+            throw new IllegalArgumentException("target skip requires integer " + key, ex);
+        }
     }
 
     /** Queue the cast's targets with one "[target_skip]" before each offset. */
@@ -1318,7 +1368,8 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     // cost" choice, rather than leave it to the AI.
                     setChoice(p, "Cast with no alternative cost");
                 }
-                if (splitScripted && spellTargetsDivided(card)) {
+                List<Integer> skips = castTargetSkipsAt(stepIdx, card, tg.size());
+                if (splitScripted && spellTargetsDivided(card) && skips.isEmpty()) {
                     // The scripted "<ref>^X=<share>" answers name the targets
                     // and gorge's split; a target string here would be a
                     // second, unconsumed set.
@@ -1326,7 +1377,6 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     cast.add(card);
                     return;
                 }
-                List<Integer> skips = castTargetSkipsAt(stepIdx, tg.size());
                 if (!skips.isEmpty()) {
                     // The generator named every empty optional target object
                     // and where it falls between the filled ones, so the queue

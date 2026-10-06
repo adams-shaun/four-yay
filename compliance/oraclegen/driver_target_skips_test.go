@@ -23,7 +23,8 @@ func TestXMageTargetSkipDriverIsPinned(t *testing.T) {
 	java := string(source)
 	for _, required := range []string{
 		`sc.has("xmage_target_skips")`,
-		"castTargetSkipsAt(stepIdx, tg.size())",
+		"castTargetSkipsAt(stepIdx, card, tg.size())",
+		"validateTargetSkips(xtargetSkips.get(i).getAsJsonArray(),",
 		"queueCastTargetsWithSkips(p, tg, skips)",
 		"addTarget(p, TestPlayer.TARGET_SKIP);",
 		"static List<String> hideAfterNextSkip(List<String> queue)",
