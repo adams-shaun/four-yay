@@ -145,12 +145,7 @@ func fields(s rules.OracleSnapshot, xmage bool, compare []string) []field {
 		field{"stack", stackKeys(s.Stack)},
 	)
 	if wantsCompare(compare, CompareOffered) {
-		parts := make([]string, 0, len(s.Offered))
-		for _, o := range s.Offered {
-			parts = append(parts, o.Source+"|"+o.Kind+"|"+o.Label)
-		}
-		sort.Strings(parts)
-		out = append(out, field{"offered", strings.Join(parts, "\n")})
+		out = append(out, field{"offered", offeredKeys(s.Offered)})
 	}
 	return out
 }
@@ -173,7 +168,7 @@ func compareSnap(g, x rules.OracleSnapshot, compare []string, ignore []string) (
 		if ignored(gf[k].name, ignore) {
 			continue
 		}
-		if k >= len(xf) || gf[k].value != xf[k].value {
+		if k >= len(xf) || !fieldEqual(gf[k], xf[k]) {
 			xv := ""
 			if k < len(xf) {
 				xv = xf[k].value

@@ -227,16 +227,7 @@ func (r *oracleRun) snapshot(checkpoint string) OracleSnapshot {
 		s.Permanents = append(s.Permanents, p)
 	}
 	if d := e.Pending(); d != nil && d.Kind == decision.KPriority {
-		for _, o := range d.Options {
-			if o.Obj == 0 {
-				continue
-			}
-			kind := o.Kind
-			if kind == "ability" {
-				kind = "activate"
-			}
-			s.Offered = append(s.Offered, OracleSnapOffered{Source: r.objRef(g.Obj(o.Obj)), Kind: kind, Label: o.Label})
-		}
+		s.Offered = oracleSnapshotOffers(r, d)
 		sort.Slice(s.Offered, func(i, j int) bool {
 			a, b := s.Offered[i], s.Offered[j]
 			if a.Source != b.Source {
