@@ -46,8 +46,9 @@ cat >"$S/replay.sh" <<'EOF'
 rdir=$1; mkdir -p "$rdir/S"
 [ -z "${STUB_REPLAY_RC:-}" ] || exit "$STUB_REPLAY_RC"
 if [ -n "${STUB_MOVE_MAIN:-}" ]; then
-	echo moved >"$STUB_MOVE_MAIN/tools/xmageoracle/shared.txt"
-	git -C "$STUB_MOVE_MAIN" add tools/xmageoracle/shared.txt
+	mf=${STUB_MOVE_FILE:-tools/xmageoracle/shared.txt}
+	echo moved >"$STUB_MOVE_MAIN/$mf"
+	git -C "$STUB_MOVE_MAIN" add "$mf"
 	git -C "$STUB_MOVE_MAIN" commit -q -m "main moved during the replay"
 fi
 python3 - "$rdir/S/scen.jsonl" <<'PY'
@@ -124,6 +125,11 @@ f=$DRB_ISSUES/$2.md
 [ "$1" = merged ] && sed -i 's/^status: .*/status: merged/' "$f"
 printf -- '- 2026-10-06T09:00:00Z %s\n' "$3" >>"$f"
 EOF
+cat >"$S/ticket.sh" <<'EOF'
+#!/usr/bin/env bash
+# ticket.sh TITLE BRIEF: records one filed agentctl ticket.
+printf 'TICKET %s\n%s\n--END--\n' "$1" "$2" >>"$DRB_REPO/tickets.out"
+EOF
 chmod +x "$S"/*.sh
 
 # ---- fixtures ------------------------------------------------------------------
@@ -137,6 +143,11 @@ mkrepo() {
 	: >"$R/compliance/triage/.keep"
 	echo '{}' >"$R/compliance/ratchet.json"
 	echo base >"$R/tools/xmageoracle/base.txt"
+	# every path gen_key and GEN_PATHS name must exist, or a key test cannot see it
+	mkdir -p "$R/compliance/oraclegen" "$R/cmd/oraclediff" "$R/compliance/manifests"
+	echo base >"$R/compliance/oraclegen/base.txt"
+	echo base >"$R/cmd/oraclediff/base.txt"
+	echo base >"$R/compliance/manifests/base.txt"
 	{
 		echo '{"id":"Alpha/cast-resolve/v1","card":"Alpha","status":"agree"}'
 		echo '{"id":"Beta/cast-resolve/v1","card":"Beta","status":"agree"}'
@@ -183,7 +194,7 @@ runpass() {
 			DRB_WORKTREE_CMD=$S/worktree.sh DRB_REPLAY_CMD=$S/replay.sh \
 			DRB_COMPARE_CMD="python3 $ROOT/validation/oracle/verdict-compare.py" \
 			DRB_SCENARIO_CMD=$S/scen.sh DRB_GEN_CMD=$S/gen.sh DRB_DIFF_CMD=$S/diff.sh DRB_CHECK_CMD=$S/check.sh \
-			DRB_RATCHET_CMD=true DRB_ISSUE_TOOL=$S/issue.sh DRB_ISSUES=$R/.ds4/issues \
+			DRB_RATCHET_CMD=true DRB_ISSUE_TOOL=$S/issue.sh DRB_ISSUES=$R/.ds4/issues DRB_TICKET_TOOL=$S/ticket.sh \
 			STUB_ALWAYS=$R/always.txt
 		timeout 120 bash "$SCRIPT" >"$R/pass.out" 2>&1
 	)
@@ -410,6 +421,144 @@ check "I a generator-caused row is not UNATTRIBUTED" $?
 check "I only the generator branch stays parked" $?
 /usr/bin/grep -qE 'LANDED [0-9a-f]{9} t1 t8$' "$L"
 check "I the others land" $?
+
+# ---- J: DRIFT -- the generator moved and no ticket is parked: replay main, land ------
+# mkdrift <name>: a repo whose last replayed main is recorded, then main's generator moves.
+mkdrift() {
+	mkrepo "$1"
+	git -C "$R" rev-parse main >"$R/.ds4/driver-replay-last-main"
+	drift_base=$(git -C "$R" rev-parse main)
+}
+gencommit() { # gencommit <file> <content>: a generator commit on main
+	mkdir -p "$R/compliance/oraclegen"
+	printf '%s\n' "$2" >"$R/compliance/oraclegen/$1"
+	git -C "$R" add -A && git -C "$R" commit -q -m "feat(oraclegen): $1"
+}
+mkdrift J
+gencommit gen.txt changed
+runpass
+has "$L" 'DRIFT-START' && /usr/bin/grep -q 'REPLAY rc=0 .*ids=drift-main' "$L"
+check "J a generator change with no parked ticket runs a DRIFT replay of main" $?
+hasnt "$L" 'MERGED-INTO-BATCH' && hasnt "$L" ' START '
+check "J the DRIFT pass merges no branch" $?
+/usr/bin/grep -qE 'LANDED [0-9a-f]{9} drift-refresh$' "$L" && [ "$(git -C "$R" rev-parse --short=9 main)" = "$(/usr/bin/grep -o 'LANDED [0-9a-f]*' "$L" | awk '{print $2}')" ]
+check "J the refreshed verdicts land on main" $?
+git -C "$R" show main:compliance/verdicts/a.jsonl | /usr/bin/grep -q '"card": "Gamma", "status": "agree"'
+check "J main's verdict row is refreshed" $?
+[ "$(cat "$R/.ds4/driver-replay-last-main")" = "$(git -C "$R" rev-parse main)" ] && [ "$(cat "$R/.ds4/driver-replay-last-main")" != "$drift_base" ]
+check "J the new last-main is recorded (main's head after the landing)" $?
+hasnt "$L" 'DRIFT Alpha' && [ ! -e "$R/tickets.out" ]
+check "J a clean DRIFT replay files no ticket" $?
+git -C "$R" worktree list | /usr/bin/grep -q driver-batch && r=1 || r=0
+check "J the integration worktree is removed" $r
+runpass
+[ "$(/usr/bin/grep -c 'DRIFT-START' "$L")" = 1 ]
+check "J a recorded last-main is not replayed again" $?
+
+# ---- K: nothing the generator reads changed: no pass ---------------------------------
+mkdrift K
+echo driver >"$R/tools/xmageoracle/driver.txt"
+echo '{}' >"$R/compliance/ratchet.json.new"
+git -C "$R" add -A && git -C "$R" commit -q -m "feat(driver): a driver-only change"
+main0=$(git -C "$R" rev-parse main)
+runpass
+hasnt "$L" 'DRIFT' && hasnt "$L" 'REPLAY'
+check "K no generator change: no DRIFT pass" $?
+[ "$(git -C "$R" rev-parse main)" = "$main0" ] && [ "$(cat "$R/.ds4/driver-replay-last-main")" = "$drift_base" ]
+check "K main and last-main are untouched" $?
+mkdrift K2
+gencommit gen.txt changed
+echo "2026-10-06 00:00:00 GREEN abcdef012 pushed (3s)" >"$R/.ds4/postmerge-batch.log"
+echo "2026-10-06 01:00:00 RED fedcba987 (30s): --- FAIL" >>"$R/.ds4/postmerge-batch.log"
+runpass
+hasnt "$L" 'DRIFT-START'
+check "K a red main does not run a DRIFT pass" $?
+mkdrift K3
+gencommit gen.txt changed
+mkdir -p "$R/.ds4/orchestrator" && echo pause >"$R/.ds4/orchestrator/pause"
+runpass
+hasnt "$L" 'DRIFT-START'
+check "K a paused pipeline does not run a DRIFT pass" $?
+mkdrift K4
+gencommit gen.txt changed
+mkticket t1 2026-10-06T03:00:00Z tools/xmageoracle/t1.txt one
+runpass
+hasnt "$L" 'DRIFT-START' && has "$L" 'MERGED-INTO-BATCH t1'
+check "K a parked ticket runs the normal batch, not a DRIFT pass" $?
+[ "$(cat "$R/.ds4/driver-replay-last-main")" = "$(git -C "$R" rev-parse main)" ]
+check "K a batch landing records last-main too" $?
+
+# ---- L: a stable DRIFT regression is logged with its commits and ticketed per class ----
+mkrepo L
+echo '{"id":"Delta/trigger#0.0/v1","card":"Delta","status":"agree"}' >>"$R/compliance/verdicts/a.jsonl"
+git -C "$R" add -A && git -C "$R" commit -q -m "a trigger row"
+git -C "$R" rev-parse main >"$R/.ds4/driver-replay-last-main"
+printf 'Alpha/cast-resolve/v1\nBeta/cast-resolve/v1\nDelta/trigger#0.0/v1\n' >"$R/x.list"
+gencommit x.genregress "$(cat "$R/x.list")"
+gc=$(git -C "$R" rev-parse --short HEAD)
+runpass
+has "$L" "DRIFT Beta/cast-resolve/v1 diverge" && has "$L" "DRIFT Delta/trigger#0.0/v1 diverge" && /usr/bin/grep -qE "DRIFT Alpha/cast-resolve/v1 diverge .*commits=$gc\$" "$L"
+check "L each stable regressed row is logged as DRIFT <row> <detail> commits=<sha>" $?
+hasnt "$L" 'FLAKY' && hasnt "$L" 'CULPRIT' && hasnt "$L" 'UNATTRIBUTED'
+check "L a DRIFT row is neither flaky nor attributed to a branch" $?
+/usr/bin/grep -q 'LANDED' "$L" && git -C "$R" show main:compliance/verdicts/a.jsonl | /usr/bin/grep -q '"card": "Beta", "status": "diverge"'
+check "L the refreshed (regressed) verdicts land so main matches its generator" $?
+[ "$(/usr/bin/grep -c '^TICKET ' "$R/tickets.out")" = 2 ]
+check "L one ticket per regressed template class (two rows of one class: one ticket)" $?
+has "$R/tickets.out" 'cast-resolve' && has "$R/tickets.out" 'trigger' && has "$R/tickets.out" 'Beta/cast-resolve/v1' && has "$R/tickets.out" "$gc"
+check "L the tickets name the rows and the candidate commits" $?
+has "$R/.ds4/driver-drift.log" 'Beta/cast-resolve/v1 | diverge'
+check "L the DRIFT rows are recorded in driver-drift.log" $?
+runpass
+[ "$(/usr/bin/grep -c 'DRIFT-START' "$L")" = 1 ] && [ "$(/usr/bin/grep -c '^TICKET ' "$R/tickets.out")" = 2 ]
+check "L the same drift is neither replayed nor ticketed twice" $?
+
+# ---- M: a batch does not blame a branch for a row the DRIFT replay already regressed --
+mkrepo M
+mkticket t1 2026-10-06T03:00:00Z tools/xmageoracle/t1.txt one
+mkticket t3 2026-10-06T04:00:00Z tools/xmageoracle/t3.txt three
+printf 'Beta/cast-resolve/v1\n' >"$R/always.txt"
+key=$(git -C "$R" ls-tree -d main -- tools/xmageoracle compliance/oraclegen cmd/oraclediff compliance/manifests | sha1sum | cut -c1-12)
+echo "2026-10-06 09:00:00 $key Beta/cast-resolve/v1 | diverge" >"$R/.ds4/driver-drift.log"
+runpass
+has "$L" 'DRIFT-KNOWN Beta/cast-resolve/v1'
+check "M a row regressed on the DRIFT replay of this main is DRIFT-KNOWN in a batch" $?
+hasnt "$L" 'CULPRIT' && hasnt "$L" 'UNATTRIBUTED'
+check "M it is excluded from attribution" $?
+/usr/bin/grep -qE 'LANDED [0-9a-f]{9} t1 t3$' "$L" && [ "$(status_of t1)" = merged ] && [ "$(status_of t3)" = merged ]
+check "M the batch lands" $?
+mkrepo M2
+mkticket t1 2026-10-06T03:00:00Z tools/xmageoracle/t1.txt one
+mkticket t3 2026-10-06T04:00:00Z tools/xmageoracle/t3.txt three
+printf 'Beta/cast-resolve/v1\n' >"$R/always.txt"
+echo "2026-10-06 09:00:00 0123456789ab Beta/cast-resolve/v1 | diverge" >"$R/.ds4/driver-drift.log"
+runpass
+hasnt "$L" 'DRIFT-KNOWN' && has "$L" 'UNATTRIBUTED row Beta/cast-resolve/v1'
+check "M2 a drift record for another driver+generator excludes nothing" $?
+
+# ---- N: a manifests-only change drifts, and its commit is a candidate ------------------
+mkdrift N
+echo changed >"$R/compliance/manifests/m.txt"
+git -C "$R" add -A && git -C "$R" commit -q -m "feat(manifests): m"
+mc=$(git -C "$R" rev-parse --short HEAD)
+printf 'Beta/cast-resolve/v1\n' >"$R/always.txt"
+runpass
+has "$L" 'DRIFT-START' && /usr/bin/grep -qE "DRIFT Beta/cast-resolve/v1 diverge .*commits=$mc\$" "$L"
+check "N a manifests-only drift runs, and the DRIFT row names the manifests commit" $?
+has "$R/tickets.out" "$mc"
+check "N the ticket's candidate commits include the manifests commit" $?
+
+# ---- O: a generator change that reaches main during a batch replay is not marked replayed
+mkrepo O
+mkticket t1 2026-10-06T03:00:00Z tools/xmageoracle/t1.txt one
+o_main0=$(git -C "$R" rev-parse main)
+STUB_MOVE_MAIN=$R STUB_MOVE_FILE=compliance/oraclegen/late.txt runpass
+/usr/bin/grep -qE 'LANDED [0-9a-f]{9} t1$' "$L" && [ "$(git -C "$R" rev-parse main~1 | head -c 9)" != "" ]
+check "O the batch lands despite a non-conflicting generator move on main" $?
+[ -e "$R/compliance/oraclegen/late.txt" ] && [ "$(cat "$R/.ds4/driver-replay-last-main")" != "$(git -C "$R" rev-parse main)" ]
+check "O last-main is not advanced past the unreplayed generator commit" $?
+[ "$(cat "$R/.ds4/driver-replay-last-main")" = "$o_main0" ]
+check "O last-main stays at the replayed main M0" $?
 
 echo
 [ "$fails" = 0 ] && echo "driver_replay_batch smoke: all passed" || echo "driver_replay_batch smoke: $fails FAILED"
