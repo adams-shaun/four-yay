@@ -100,8 +100,23 @@ func appendExileCtrlOrGrave(c *Cost, token string, match groups) {
 	c.Exile = append(c.Exile, part)
 }
 
+// permanentCardBase rewrites a leading `Permanent` base to `PermanentCard`.
+// An ExileCtrlOrGrave part draws from the battlefield AND the graveyard, and
+// the compiled `Permanent` base is battlefield-only, so Craft's "other
+// permanents you control and/or cards from your graveyard" (Sunbird Standard,
+// The Enigma Jewel) never matched a graveyard card. PermanentCard is the
+// permanent-card twin that matches wherever the object sits; on the
+// battlefield it matches exactly what Permanent does.
+func permanentCardBase(spec string) string {
+	rest, ok := strings.CutPrefix(spec, "Permanent")
+	if !ok || (rest != "" && rest[0] != '.' && rest[0] != '+') {
+		return spec
+	}
+	return "PermanentCard" + rest
+}
+
 func parseExileCtrlOrGrave(n, spec, desc string) (CostPart, bool) {
-	part := CostPart{Spec: strings.ReplaceAll(spec, ";", ","), Desc: desc,
+	part := CostPart{Spec: permanentCardBase(strings.ReplaceAll(spec, ";", ",")), Desc: desc,
 		ZoneSet: (1 << state.ZBattlefield) | (1 << state.ZGraveyard)}
 	if n == "X" {
 		part.Announced = true

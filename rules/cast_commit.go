@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 
@@ -67,6 +68,17 @@ func rememberCraftMaterials(e craftMaterialRecorder, source state.ObjID, materia
 type craftMaterialSource interface {
 	Game() *state.Game
 	matchesSpecFrom(string, state.ObjID, state.PlayerID, state.ObjID) bool
+}
+
+// costExileEvent is the MoveZone for one card exiled as a cost. CR 702.167a:
+// a Craft material is "exiled with" the crafted card (Mastercraft Raptor's
+// ExiledWith$CardPower), and MoveZone's IDs payload names the exiling source.
+func costExileEvent(o *state.Object, craftMaterials []state.ObjID, crafted state.ObjID) events.Event {
+	mv := events.Event{Kind: events.MoveZone, Obj: o.ID, From: o.Zone, To: state.ZExile, Text: "exiled as a cost"}
+	if slices.Contains(craftMaterials, o.ID) {
+		mv.IDs = []state.ObjID{crafted}
+	}
+	return mv
 }
 
 func craftExiledMaterials(e craftMaterialSource, pc *pendingCast) []state.ObjID {
@@ -234,7 +246,7 @@ func (e *Engine) payCast() {
 		craftMaterials := craftExiledMaterials(e, pc)
 		for _, id := range pc.Exiles {
 			if o := e.G.Obj(id); o != nil {
-				e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: o.Zone, To: state.ZExile, Text: "exiled as a cost"})
+				e.emit(costExileEvent(o, craftMaterials, pc.card))
 			}
 		}
 		rememberCraftMaterials(e, pc.card, craftMaterials)
