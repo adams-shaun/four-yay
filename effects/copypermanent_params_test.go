@@ -68,9 +68,12 @@ func TestCompileCopyPermanent(t *testing.T) {
 // TestCopyPermanentOfIsAllocationFree: a configured record or a front-cache
 // hit allocates nothing.
 func TestCopyPermanentOfIsAllocationFree(t *testing.T) {
-	bound := &cards.SA{API: "CopyPermanent", Params: map[string]string{"Defined": "Self", "NumCopies": "1"}}
+	bound := slottedSA(t, "CopyPermanent", map[string]string{"Defined": "Self", "NumCopies": "1"})
 	f := NewSAFacts(bound)
 	f.Publish()
+	if LoadSAFacts(bound) != f {
+		t.Fatal("precondition: the configured record is not published on bound's facts slot")
+	}
 	cached := &cards.SA{API: "CopyPermanent", Params: map[string]string{"Defined": "Remembered"}}
 	CopyPermanentOf(cached)
 	if n := allocsPerRun(100, func() {

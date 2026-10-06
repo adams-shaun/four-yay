@@ -87,7 +87,7 @@ func (e *Engine) targetBoundCtx(p state.PlayerID, source state.ObjID) (*effects.
 		// pre-payment gap TimesKicked closes, for the FlagKicked half. The
 		// mode was settled when the cast OPTION was picked, before this ask.
 		ctx.Kicker.PendingKicked = modeIsKicked(pc.mode)
-		ctx.Kicker.PendingTeamwork = pc.teamworkPaid
+		ctx.Kicker.PendingTeamwork = castAnswerCodes.Code(pc.mode) == castAnswerTeamworkMode
 	}
 	if f := o.Face(); f != nil {
 		ctx.Source = source

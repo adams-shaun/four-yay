@@ -51,9 +51,12 @@ func TestCompileDealDamage(t *testing.T) {
 // parameters (a configured record or a front-cache hit) allocates nothing --
 // DealDamage is a hot path in the random-burn bench rows.
 func TestDealDamageOfIsAllocationFree(t *testing.T) {
-	bound := &cards.SA{API: "DealDamage", Params: map[string]string{"NumDmg": "3", "Defined": "Targeted"}}
+	bound := slottedSA(t, "DealDamage", map[string]string{"NumDmg": "3", "Defined": "Targeted"})
 	f := newTestFacts(bound)
 	f.Publish()
+	if LoadFacts(bound) != &f.Facts {
+		t.Fatal("precondition: the configured record is not published on bound's facts slot")
+	}
 	cached := &cards.SA{API: "DealDamage", Params: map[string]string{"NumDmg": "2"}}
 	DealDamageOf(cached)
 	if n := allocsPerRun(100, func() {

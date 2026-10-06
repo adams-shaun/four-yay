@@ -661,22 +661,16 @@ func (w *legalWalk) exileCastsWalk() {
 			continue
 		}
 		// CR 714.3a: the main face of an Adventure card resting in the
-		// adventure zone (exile, at its Adventure spell face) may be cast from
-		// there. Mode adventure_recast is consumed by beginCast, which flips
-		// the card back to its main face before the ordinary cast transaction
-		// -- so everything downstream reads the main face. The provenance (the
-		// card got here by RESOLVING an adventure_alt cast) is log-derived:
-		// adventureZoneAvailable. The cost is built from the MAIN face
-		// explicitly -- rawBaseCost reads o.Face(), which is still the
-		// Adventure face in exile, exactly the reason the Room offer parses its
-		// own face's cost too. The adventure-zone entry from a non-resolution
-		// path (CR 714.3b) is out of scope, and adventureZoneAvailable refuses
-		// it. The prohibition gate probes the MAIN face the recast actually
-		// casts (castRestrictedAsFace), not the Adventure spell face still
-		// displayed in exile: probing the displayed face would withhold an
-		// unrestricted front cast or offer a prohibited one whenever the
-		// restriction distinguishes the two faces.
-		if adventureSpellFace(o) != nil && int(o.FaceIdx) == 1 && e.adventureZoneAvailable(id) &&
+		// adventure zone (exile -- as its main face, CR 715.4) may be cast
+		// from there. Mode adventure_recast is consumed by beginCast as an
+		// ordinary main-face cast. The provenance (the card got here by
+		// RESOLVING an adventure_alt cast) is log-derived:
+		// adventureZoneAvailable. The cost, timing, targets and prohibition
+		// probe (castRestrictedAsFace) all name the MAIN face explicitly, the
+		// face the recast casts. The adventure-zone entry from a
+		// non-resolution path (CR 714.3b) is out of scope, and
+		// adventureZoneAvailable refuses it.
+		if adventureSpellFace(o) != nil && o.FaceIdx == 0 && e.adventureZoneAvailable(id) &&
 			!w.castRestrictedAsFace(p, id, o.Card.Faces[0]) && !e.castSuppressed(p, id) {
 			front := o.Card.Faces[0]
 			if e.spellTimingOK(p, id, front, sorcery) && e.castTargetsAvailable(p, id, front.SpellAbility()) &&

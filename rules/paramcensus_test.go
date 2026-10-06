@@ -2125,8 +2125,10 @@ var handRoots = struct {
 	// r.Params read in it to repl:Moved. handleReplacement is the
 	// parked-repl-choice decision handler (it resumes the parked phase
 	// machinery and reads the parked repl's Optional$ directly), reached
-	// through the decision resume path rather than the pipeline.
-	repl: []string{"Engine.applyReplacements", "Engine.handleReplacement"},
+	// through the decision resume path rather than the pipeline. The optional
+	// phase resume callback is passed as a function value, so the scanner cannot
+	// infer this edge from handleReplacement; declare its read root explicitly.
+	repl: []string{"Engine.applyReplacements", "Engine.handleReplacement", "Engine.resumeParkedPhase"},
 }
 
 // derivedReads is the per-primitive read set the scan attributes.

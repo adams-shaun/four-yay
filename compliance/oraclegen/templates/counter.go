@@ -122,7 +122,7 @@ func counterWith(reg *cards.Registry, f *cards.Face, name, mana string, pre prec
 	p0, p1 := *fx.P0(), *fx.P1()
 	// The counterspell first in hand, the spell it counters second: the
 	// order main's fixture always used, so the scenario stays the same.
-	p0 = oraclegen.WithHand(oraclegen.WithHand(p0, pre.card), name)
+	p0 = oraclegen.WithHand(oraclegen.WithHand(p0, pre.card), physicalName(reg, name))
 	targets := insertStackTargets(slots, stackIdx, fx.Targets(), pre)
 	sc := oraclegen.Scenario{
 		Setup: map[string]oraclegen.Seat{"p0": p0, "p1": p1},

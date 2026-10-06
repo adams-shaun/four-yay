@@ -64,9 +64,12 @@ func TestCompileDigUntil(t *testing.T) {
 // TestDigUntilOfIsAllocationFree: a configured record or a front-cache hit
 // allocates nothing.
 func TestDigUntilOfIsAllocationFree(t *testing.T) {
-	bound := &cards.SA{API: "DigUntil", Params: map[string]string{"Valid": "Creature", "FoundDestination": "Hand"}}
+	bound := slottedSA(t, "DigUntil", map[string]string{"Valid": "Creature", "FoundDestination": "Hand"})
 	f := NewSAFacts(bound)
 	f.Publish()
+	if LoadSAFacts(bound) != f {
+		t.Fatal("precondition: the configured record is not published on bound's facts slot")
+	}
 	cached := &cards.SA{API: "DigUntil", Params: map[string]string{"Valid": "Land"}}
 	DigUntilOf(cached)
 	if n := allocsPerRun(100, func() {

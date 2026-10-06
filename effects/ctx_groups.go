@@ -192,8 +192,9 @@ type KickerInputs struct {
 	// (no pending cast, the flag actually stamped) is unaffected. Zero (false)
 	// everywhere else; it is derived data, never event-encoded.
 	PendingKicked bool
-	// PendingTeamwork is the cast's elected Teamwork payment while target
-	// bounds are announced before payCast stamps TeamworkPaid on the stack object.
+	// PendingTeamwork is the cast's elected intention to pay its optional
+	// Teamwork cost, available during CR 601.2c target announcement before
+	// payCast stamps TeamworkPaid on the stack object (CR 702.194b-c).
 	PendingTeamwork bool
 }
 

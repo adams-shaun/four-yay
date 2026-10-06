@@ -54,9 +54,12 @@ func TestCompileRepeatEach(t *testing.T) {
 // TestRepeatEachOfIsAllocationFree: a configured record or a front-cache hit
 // allocates nothing.
 func TestRepeatEachOfIsAllocationFree(t *testing.T) {
-	bound := &cards.SA{API: "RepeatEach", Params: map[string]string{"RepeatSubAbility": "DBA", "RepeatPlayers": "Player"}}
+	bound := slottedSA(t, "RepeatEach", map[string]string{"RepeatSubAbility": "DBA", "RepeatPlayers": "Player"})
 	f := NewSAFacts(bound)
 	f.Publish()
+	if LoadSAFacts(bound) != f {
+		t.Fatal("precondition: the configured record is not published on bound's facts slot")
+	}
 	cached := &cards.SA{API: "RepeatEach", Params: map[string]string{"RepeatSubAbility": "DBB", "RepeatCards": "Creature"}}
 	RepeatEachOf(cached)
 	if n := allocsPerRun(100, func() {
