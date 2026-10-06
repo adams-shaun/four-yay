@@ -577,6 +577,8 @@ func abilityCastConstraintHolds(b Board, ab *cards.SA, constraint string, abCtrl
 			ok = b.IsLoyaltyAbility(ab)
 		case abilityCastConstraintHoldsLoyaltyX:
 			ok = !b.IsLoyaltyAbility(ab)
+		case abilityCastConstraintHoldsExhaust:
+			ok = ab.ExhaustValue()
 		default:
 			if cmp, found := strings.CutPrefix(term, "CountersRemovedToPay"); found && removed >= 0 {
 				if op, n, valid := SplitCompare(cmp); valid {
@@ -1079,6 +1081,7 @@ const (
 	abilityCastConstraintHoldsOppCtrl
 	abilityCastConstraintHoldsLoyalty
 	abilityCastConstraintHoldsLoyaltyX
+	abilityCastConstraintHoldsExhaust
 )
 
 var abilityCastConstraintHoldsCodes = state.NewStrCodes(
@@ -1088,4 +1091,5 @@ var abilityCastConstraintHoldsCodes = state.NewStrCodes(
 	state.StrEntry[abilityCastConstraintHoldsCode]{Key: "OppCtrl", Val: abilityCastConstraintHoldsOppCtrl},
 	state.StrEntry[abilityCastConstraintHoldsCode]{Key: "Loyalty", Val: abilityCastConstraintHoldsLoyalty},
 	state.StrEntry[abilityCastConstraintHoldsCode]{Key: "!Loyalty", Val: abilityCastConstraintHoldsLoyaltyX},
+	state.StrEntry[abilityCastConstraintHoldsCode]{Key: "Exhaust", Val: abilityCastConstraintHoldsExhaust},
 )

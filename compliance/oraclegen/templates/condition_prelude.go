@@ -121,7 +121,7 @@ func conditionPreludes(reg *cards.Registry, params, svars map[string]string) []c
 		if steps := resolvedCast(card); len(steps) > 0 {
 			add(conditionPrelude{hand: []string{card}, steps: steps})
 		}
-		if contains("count_ge2", "svarcompare:ge2", "celebration", "thisturnentered_battlefield_creature.youctrl", "thisturnentered_battlefield_permanent.nonland") {
+		if contains("count_ge2", conditionParamText("SVarCompare", "GE2"), "celebration", "thisturnentered_battlefield_creature.youctrl", "thisturnentered_battlefield_permanent.nonland") {
 			card2 := "Llanowar Elves"
 			if card == "Plains" {
 				card2 = "Island"
@@ -140,7 +140,7 @@ func conditionPreludes(reg *cards.Registry, params, svars map[string]string) []c
 		if steps := resolvedCast("Divination"); len(steps) > 0 {
 			add(conditionPrelude{hand: []string{"Divination"}, steps: steps})
 		}
-		if contains("svarcompare:ge3", "count$youdrewthisturn/", "count$youdrewthisturn") {
+		if contains(conditionParamText("SVarCompare", "GE3"), "count$youdrewthisturn/", "count$youdrewthisturn") {
 			if a, ok := cast("Divination"); ok {
 				if b, ok := cast("Concentrate"); ok {
 					add(conditionPrelude{hand: []string{"Divination", "Concentrate"}, steps: []oraclegen.Step{a, {Op: "resolve"}, b, {Op: "resolve"}}})
@@ -157,7 +157,7 @@ func conditionPreludes(reg *cards.Registry, params, svars map[string]string) []c
 		if steps := resolvedCast("Grizzly Bears"); len(steps) > 0 {
 			add(conditionPrelude{hand: []string{"Grizzly Bears"}, steps: steps})
 		}
-		if contains("count$thisturncast_card.noncreature", "count$thisturncast_instant", "count$thisturncast_sorcery", "svarcompare:ge2") {
+		if contains("count$thisturncast_card.noncreature", "count$thisturncast_instant", "count$thisturncast_sorcery", conditionParamText("SVarCompare", "GE2")) {
 			if a, ok := cast("Shock"); ok {
 				if b, ok := cast("Shock"); ok {
 					add(conditionPrelude{hand: []string{"Shock", "Shock"}, steps: []oraclegen.Step{a, {Op: "resolve"}, b, {Op: "resolve"}}})
@@ -334,6 +334,11 @@ func scriptPreludeSacrifice(xa [][]oraclegen.XAnswer, prelude []oraclegen.Step, 
 	return xa
 }
 
+// conditionParamText is shared by the emitted text and parameter needles.
+func conditionParamText(key, value string) string {
+	return key + " " + value
+}
+
 func conditionText(params, svars map[string]string) []string {
 	out := make([]string, 0, len(params)+len(svars))
 	keys := make([]string, 0, len(params))
@@ -343,7 +348,7 @@ func conditionText(params, svars map[string]string) []string {
 	sort.Strings(keys)
 	for _, key := range keys {
 		value := params[key]
-		out = append(out, key+" "+value)
+		out = append(out, conditionParamText(key, value))
 		if sv, ok := svars[value]; ok {
 			out = append(out, sv)
 		}

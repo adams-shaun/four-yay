@@ -11,20 +11,15 @@ import (
 
 func kwAffinity(f *Face, i int, k, head, param string, has func(kind, line string) bool) {
 	// CR 702.41a: affinity for <spec> is a cost-reduction static, not an
-	// ability, so its idempotence key cannot use has() (which reads only
-	// Triggers/Repls/Abilities) -- it keys on the minted static itself,
-	// carrying the same KeywordLine tag the other cases set. Without it a
-	// second Link() (cards/registry.go re-runs f.link() on cached faces
-	// that predate a newly added expansion) would append a SECOND
-	// reduction and double the discount, replay-visibly.
-	dup := false
-	for _, st := range f.Statics {
-		if st.Params["KeywordLine"] == k {
-			dup = true
-			break
-		}
-	}
-	if dup {
+	// ability, so its idempotence keys on the minted static itself through
+	// the shared has("S", ...) arm (which reads f.Statics), carrying the
+	// same KeywordLine tag the other cases set. Without it a second Link()
+	// (cards/registry.go re-runs f.link() on cached faces that predate a
+	// newly added expansion) would append a SECOND reduction and double the
+	// discount, replay-visibly; and keying it on the shared has() rather
+	// than a local scan is what lets two identical K:Affinity: lines each
+	// expand, the CR 702.2 instance rule the other keywords follow.
+	if has("S", k) {
 		return
 	}
 	// param is "<spec>", occasionally followed by a human-readable
