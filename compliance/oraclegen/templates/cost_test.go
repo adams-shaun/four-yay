@@ -106,7 +106,8 @@ func TestCostStaticProbesAreFullyScripted(t *testing.T) {
 					continue
 				}
 				casts++
-				if targeted[strings.TrimPrefix(st.Card, "p0:")] {
+				card := strings.TrimPrefix(strings.TrimPrefix(st.Card, "p0:"), "p1:")
+				if targeted[card] {
 					if len(st.Targets) != 1 || st.Targets[0] == "" {
 						t.Errorf("step %d %s targets = %v, want exactly gorge's one pick", i, st.Card, st.Targets)
 					}
@@ -196,6 +197,37 @@ func TestCostStaticProfilesAndOpponentGap(t *testing.T) {
 		}
 		if !castByOpponent {
 			t.Fatalf("%s probe does not cast as p1: %+v", name, it.Steps)
+		}
+		res, ok := oraclegen.PlaysThrough(reg, it.Scenario)
+		if !ok || len(res.Fails) != 0 {
+			t.Fatalf("%s opponent-tax probe does not play through: ok=%v fails=%v", name, ok, res.Fails)
+		}
+		if name == "Thalia, the Survivor" {
+			cast := probeCast(t, it)
+			cast.Mana = "R"
+			for i := range it.Steps {
+				if it.Steps[i].Op == "cast" {
+					it.Steps[i] = cast
+				}
+			}
+			if res := runSteps(t, reg, it.Scenario, it.Steps); len(res.Fails) == 0 {
+				t.Fatal("precondition: Thalia's additional generic mana was not required")
+			}
+			if res := runSteps(t, withoutStatics(reg, name), it.Scenario, it.Steps); len(res.Fails) != 0 {
+				t.Fatalf("Thalia's underpriced cast still failed with the static muted: %v", res.Fails)
+			}
+		} else {
+			p1Life := int32(-1)
+			for _, snap := range res.Snapshots {
+				for _, player := range snap.Players {
+					if player.Seat == 1 {
+						p1Life = player.Life
+					}
+				}
+			}
+			if p1Life != 17 {
+				t.Fatalf("Terror opponent-cast tax left p1 at %d life, want 17", p1Life)
+			}
 		}
 	}
 	c, ok := reg.Lookup("Aven Interrupter")

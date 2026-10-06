@@ -38,8 +38,8 @@ var (
 	// Inspiration are the fallbacks.
 	drawProbes = []string{"Divination", "Concentrate", "Inspiration"}
 	// Shock (instant, {R}, 2 damage to any target) is the instant/sorcery
-	// cast cause and Grizzly Bears ({1}{G}) the creature one; Giant Growth
-	// ({G}) is the becomes-target cause. All three are level-A fixtures.
+	// cast cause; Grizzly Bears ({1}{G}) the creature one; and Giant Growth
+	// ({G}) the self-controlled becomes-target cause. All three are level-A fixtures.
 	shockProbe, bearsProbe, growthProbe = "Shock", "Grizzly Bears", "Giant Growth"
 )
 
@@ -102,8 +102,9 @@ func triggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards.Tri
 		if !creature {
 			return nil, "becomes-target needs a creature"
 		}
-		// Ward and opponent-only target triggers must see an opponent's spell;
-		// p1 casts Shock at the permanent during p0's first main phase.
+		// Keep both controller shapes: YouCtrl target triggers need p0's own
+		// spell, while ward and OppCtrl triggers need p1's spell.
+		cast(growthProbe, "p0:"+name)
 		if st, ok := castProbe(reg, shockProbe, "p0:"+name); ok {
 			st.Seat, st.Card = 1, "p1:"+shockProbe
 			out = append(out, triggerCause{opponentHand: []string{shockProbe}, steps: []oraclegen.Step{{Op: "pass", Seat: 0}, st}})
