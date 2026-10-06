@@ -67,11 +67,16 @@ type oracleScenario struct {
 type oracleSeat struct {
 	Hand        []string `json:"hand,omitempty"`
 	Battlefield []string `json:"battlefield,omitempty"`
-	Tapped      []string `json:"tapped,omitempty"`
-	Graveyard   []string `json:"graveyard,omitempty"`
-	Library     []string `json:"library,omitempty"`
-	Exile       []string `json:"exile,omitempty"`
-	Command     []string `json:"command,omitempty"`
+	// BackFace names battlefield cards setup places on their back face (face
+	// index 1), by emitting an events.FlipFace after the battlefield move. It
+	// lets a permanent start transformed without a transform game action (the
+	// setup shortcut a DoubleFaced/Modal face-1 scenario needs).
+	BackFace  []string `json:"back_face,omitempty"`
+	Tapped    []string `json:"tapped,omitempty"`
+	Graveyard []string `json:"graveyard,omitempty"`
+	Library   []string `json:"library,omitempty"`
+	Exile     []string `json:"exile,omitempty"`
+	Command   []string `json:"command,omitempty"`
 	// LibraryTop puts these cards on top of the library, first = top.
 	LibraryTop []string `json:"library_top,omitempty"`
 	// Sideboard is the seat's cards outside the game (Config.Sideboards),
@@ -470,6 +475,16 @@ func (r *oracleRun) build(sc oracleScenario) error {
 			}
 			if pl.zone == state.ZBattlefield {
 				setupBattlefield = append(setupBattlefield, id)
+				// A back-face battlefield card starts transformed: FlipFace's
+				// Amount is the destination face index (1), applied through
+				// events.Apply like every other setup op, so the replay
+				// reconstructs the same face from the log.
+				for _, back := range sc.Setup[fmt.Sprintf("p%d", p)].BackFace {
+					if cards.NormalizeName(back) == cards.NormalizeName(pl.name) {
+						e.emit(events.Event{Kind: events.FlipFace, Obj: id, Amount: 1})
+						break
+					}
+				}
 			}
 			for _, tapped := range sc.Setup[fmt.Sprintf("p%d", p)].Tapped {
 				if cards.NormalizeName(tapped) == cards.NormalizeName(pl.name) {

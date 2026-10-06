@@ -68,6 +68,7 @@ func activateWith(reg *cards.Registry, f *cards.Face, name string, req levelb.Re
 		p0 := *fx.P0()
 		p0.Battlefield = appendFixtureUnique(p0.Battlefield, name)
 		addActivationCostFixtures(&p0, cost)
+		setupBackFace(&p0, name, req)
 		sc := oraclegen.Scenario{
 			Setup:        map[string]oraclegen.Seat{"p0": p0, "p1": *fx.P1()},
 			SetupAnswers: oraclegen.OpeningHandAnswers(f),
