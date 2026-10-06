@@ -6,7 +6,21 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/compliance/levelb"
+	"github.com/adams-shaun/gorge/rules"
 )
+
+// panharmoniconOnBattlefield reports whether a permanent named name is on the
+// battlefield in snap. The doubling assertion depends on the card under test
+// (or the probe) actually being there, so the test asserts it rather than
+// trusting the setup.
+func panharmoniconOnBattlefield(snap rules.OracleSnapshot, name string) bool {
+	for _, p := range snap.Permanents {
+		if p.Name == name {
+			return true
+		}
+	}
+	return false
+}
 
 // panharmoniconReq finds name's Panharmonicon requirement.
 func panharmoniconReq(t *testing.T, reg *cards.Registry, name string) levelb.Requirement {
@@ -52,6 +66,15 @@ func TestStaticPanharmoniconServed(t *testing.T) {
 			with := runItemScenario(t, reg, it, true)
 			without := runItemScenario(t, reg, it, false)
 			last := with.Snapshots[len(with.Snapshots)-1]
+			// Preconditions: the card under test is on the battlefield in the
+			// observation and gone in the control; otherwise the count below
+			// would be measuring something other than the static.
+			if !panharmoniconOnBattlefield(last, tc.card) {
+				t.Fatalf("precondition: %s is not on the battlefield in the observation", tc.card)
+			}
+			if panharmoniconOnBattlefield(without.Snapshots[len(without.Snapshots)-1], tc.card) {
+				t.Fatalf("precondition: %s is still on the battlefield in the control", tc.card)
+			}
 			if len(last.Stack) == 0 {
 				t.Fatalf("observation stack is empty")
 			}
