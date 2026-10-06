@@ -363,10 +363,9 @@
       picked: [...panel.picked],
       tone: toneOf(d),
       autoOpenObj: autoOpenCardDecision?.seq === d.seq ? autoOpenCardDecision.obj : undefined,
-      // The card's abilities that need mana floated first (fb-20260923T033148Z):
-      // the seat's own potential_actions, regrouped onto the tiles this
-      // priority decision already offers something.
-      later: laterByObj(d, ownPlayer?.potential_actions),
+      // Float-gated actions from the seat's own potential_actions, regrouped
+      // onto their tiles (including eligible hand casts not live or plan-backed).
+      later: laterByObj(d, ownPlayer?.potential_actions, ownPlayer?.hand.map((card) => card.id)),
       post: (index: number, _expectFollowUp = false, holdPriority = false) => {
         // The tile path shares the arm site with the panel: panel.click arms
         // the card-follow-up expectation itself, so this route no longer

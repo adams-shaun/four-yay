@@ -113,10 +113,10 @@ export interface TileOptions {
  * max-speed "granted" ability (Avishkar Raceway's "{3}, {T}, Discard a card:
  * Draw a card." beside its own mana tap is the Mount Doom shape again), a
  * Room "unlock", a morph "turn_face_up" and a "specialize"
- * (aph-web-manual-only-plays widened the projection to them). A cast, a land
- * drop and a station are not: a hand card's potential cast has no live option
- * on the card, and a land drop or station is never mana-gated. An unknown
- * kind is not indexed, so it can never produce a row.
+ * (aph-web-manual-only-plays widened the projection to them). Hand casts are
+ * handled separately for actual hand objects with no live cast option or
+ * payment action; land drops and stations remain excluded. An unknown kind is
+ * not indexed, so it can never produce a row.
  */
 const LATER_KINDS: ReadonlySet<string> = new Set(['ability', 'granted', 'unlock', 'turn_face_up', 'specialize']);
 
@@ -125,7 +125,7 @@ const LATER_KINDS: ReadonlySet<string> = new Set(['ability', 'granted', 'unlock'
  * potential_actions, rules.PotentialActions: the engine's own offer walk
  * priced against the mana the seat could float) by object, for every
  * permanent that carries a LATER_KINDS entry the decision does not already
- * offer live (castable.offersPotential).
+ * offer live (castable.offersPotential), plus eligible plan-less hand casts.
  *
  * fb-20260928T230741Z widened the index from "the objects this decision
  * already offers something" to EVERY permanent with a float-gated
@@ -140,8 +140,8 @@ const LATER_KINDS: ReadonlySet<string> = new Set(['ability', 'granted', 'unlock'
  * appears on the permanent with the disabled "tap other mana first" row,
  * whatever the mana mode (the row is a function of potential_actions, which
  * carries no mana-mode dependence). A cast, a land drop and a station stay
- * out (LATER_KINDS), so a hand card's potential cast is still only the
- * auto-pass stop note.
+ * out (LATER_KINDS), while plan-less hand casts are indexed separately only
+ * when they have no live option and no payment action.
  *
  * Why (fb-20260923T033148Z-877b8f8f, "mount doom -- can only play tap for
  * mana, not the other abilities"): the engine offers a mana-costed ability
@@ -157,18 +157,22 @@ const LATER_KINDS: ReadonlySet<string> = new Set(['ability', 'granted', 'unlock'
  * R-E4-2 holds: nothing is derived here -- the entries are the server's own
  * offer labels and the index is a pure regrouping. They are display-only and
  * carry no wire index, so they can never be posted (R-E4-1). Only a
- * LATER_KINDS entry is indexed: a hand card's potential cast has no live
- * option on the card and is left to the auto-pass stop note as before.
+ * LATER_KINDS entry is indexed, plus hand casts with no live cast option or
+ * payment action, so the float-gated plan-less cast is discoverable.
  */
 export function laterByObj(
   decision: Decision | null,
   potential: readonly PotentialAction[] | undefined,
+  handIds?: readonly number[],
 ): Map<number, PotentialAction[]> | undefined {
   if (decision === null || decision.kind !== 'priority' || !potential?.length) return undefined;
   const live = optionsByObj(decision);
+  const hand = handIds === undefined ? undefined : new Set(handIds);
   let m: Map<number, PotentialAction[]> | undefined;
   for (const a of potential) {
-    if (!LATER_KINDS.has(a.kind) || a.obj === undefined) continue;
+    const handCast = a.kind === 'cast' && a.obj !== undefined && hand?.has(a.obj) === true;
+    if ((!LATER_KINDS.has(a.kind) && !handCast) || a.obj === undefined) continue;
+    if (handCast && decision.payment_actions?.some((action) => action.cast.object === a.obj)) continue;
     // fb-20260928T230741Z: an object with no live option is indexed too —
     // that is the Equipment case. An entry the decision already offers live
     // (its mana floated) is still not repeated (offersPotential).
