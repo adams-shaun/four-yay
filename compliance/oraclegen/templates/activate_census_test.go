@@ -26,29 +26,26 @@ var activateCensusSets = []string{"BIG", "EOE", "FDN", "FRA"}
 // them).
 var wantActivateCensus = map[string]map[string]int{
 	"BIG": {
-		"served:activate.battlefield":             7,
+		"served:activate.battlefield":             10,
 		"served:activate.mana":                    4,
-		"skip:activate cost gap: Discard<...>":    1,
-		"skip:activate cost gap: Exile<...>":      1,
-		"skip:activate cost gap: Sac<...>":        2,
+		"skip:activate cost gap: Sac<...>":        1,
 		"skip:activate cost gap: SubCounter<...>": 1,
 		"skip:activate no fixture":                1,
 	},
 	"EOE": {
-		"served:activate.battlefield":                 29,
+		"served:activate.battlefield":                 30,
 		"served:activate.mana":                        3,
 		"skip:activate cost gap: ExileFromGrave<...>": 1,
-		"skip:activate cost gap: Sac<...>":            4,
+		"skip:activate cost gap: Sac<...>":            3,
 		"skip:activate cost gap: SubCounter<...>":     1,
 		"skip:activate cost gap: tapXType<...>":       2,
 		"skip:activate no fixture":                    2,
 		"skip:activate xmage text ambiguous":          20,
 	},
 	"FDN": {
-		"served:activate.battlefield":             67,
+		"served:activate.battlefield":             68,
 		"served:activate.mana":                    50,
 		"skip:activate cost gap: AddCounter<...>": 2,
-		"skip:activate cost gap: Exile<...>":      1,
 		"skip:activate cost gap: Return<...>":     1,
 		"skip:activate cost gap: Sac<...>":        6,
 		"skip:activate cost gap: SubCounter<...>": 4,
@@ -59,8 +56,7 @@ var wantActivateCensus = map[string]map[string]int{
 	"FRA": {
 		"served:activate.battlefield":        59,
 		"served:activate.mana":               24,
-		"skip:activate cost gap: Sac<...>":   1,
-		"skip:activate no fixture":           7,
+		"skip:activate no fixture":           8,
 		"skip:activate xmage text ambiguous": 10,
 	},
 }
