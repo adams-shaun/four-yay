@@ -89,7 +89,7 @@ var wantTriggerCensus = map[string]map[string]int{
 		"served:trigger.life-gained":                         7,
 		"served:trigger.loyalty-activated":                   3,
 		"served:trigger.noncombat-damage":                    3,
-		"served:trigger.phase":                               11,
+		"served:trigger.phase":                               13,
 		"served:trigger.scry":                                5,
 		"served:trigger.spell-cast":                          18, // Ruric Thar, Biomagus: both prowess instances are served.
 		"served:trigger.spell-cast-opponent":                 1,
@@ -100,7 +100,7 @@ var wantTriggerCensus = map[string]map[string]int{
 		"skip:trigger.etb-other: trigger did not fire":       0,
 		"skip:trigger.phase: trigger condition: SVar gate (Count$ValidSelf Card.!IsPrepared)":                                   0,
 		"skip:trigger.phase: trigger condition: engine predicate unread (!IsPrepared)":                                          3,
-		"skip:trigger.phase: trigger condition: turn history (Count$ThisTurnEntered_Graveyard_from_Battlefield_Creature)":       2,
+		"skip:trigger.phase: trigger condition: turn history (Count$ThisTurnEntered_Graveyard_from_Battlefield_Creature)":       0,
 		"skip:trigger.phase: trigger condition: turn history (PlayerCountOpponents$HasPropertywasDealtNonCombatDamageLastTurn)": 1,
 		"skip:trigger.phase: trigger did not fire":                                                                              0,
 		"skip:trigger.spell-cast-self: trigger covered by level A":                                                              1,
