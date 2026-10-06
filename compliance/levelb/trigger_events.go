@@ -91,17 +91,15 @@ func diesOther(filter string) bool {
 	return false
 }
 
-// selfCastTrigger reports whether t is an unconditional "when you cast this
-// spell" trigger on a spell face: ValidCard `Card.Self` and nothing but the
-// mode, the executed ability and the description (no condition, no optional
-// decider, no zone filter). The level-A cast-resolve scenario casts the card
-// from hand, so the trigger goes on the stack above the spell and the
-// scenario's resolve step resolves it; Emrakul, the Exigent Doom's committed
-// level-A verdict freezes exactly that (stack [ability, spell] after the cast,
-// empty after the resolve). A conditional or optional cast trigger may not
-// fire in that scenario, so it stays a gap.
+// selfCastTrigger reports the narrow self-cast shape that the level-A
+// cast-resolve scenario is known to settle: Emrakul's unconditional
+// TrigUntapAll trigger. Other unconditional self-cast triggers may require a
+// target or choice that the level-A scenario does not supply (for example,
+// Ulamog's TrigChange), so they must remain level-B gaps until that scenario
+// proves their resolution too.
 func selfCastTrigger(f *cards.Face, t *cards.Trigger) bool {
-	if f.IsLand() || !strings.EqualFold(t.ParamStr(cards.PKValidCard), "Card.Self") {
+	if f.IsLand() || !strings.EqualFold(t.ParamStr(cards.PKValidCard), "Card.Self") ||
+		!strings.EqualFold(t.ParamStr(cards.PKExecute), "TrigUntapAll") {
 		return false
 	}
 	for k := range t.Params {
