@@ -9,51 +9,31 @@ import (
 // ability Forge itself expands it to (CardFactoryUtil, in spirit), tagged
 // Params["Keyword"] so nothing downstream needs to know the difference. The
 // SVars it adds start with "__kw" and cannot collide with a script's own.
-// Idempotent: an already-expanded keyword *line* (the full "Head:param:..."
-// text, not just the head) is never added twice, so a face with two
-// distinct K:Equip: lines (different costs or restrictions) still expands
-// both -- ruling FL-13. Keywords whose meaning is a casting option (Kicker,
-// Surge, Flashback, Delve, Flash, Miracle) or a static property (Protection,
-// Indestructible, Devoid) are not expanded: rules reads them directly.
+// Idempotent per keyword LINE INSTANCE, not per line text: a second Link()
+// adds nothing, but a face that prints the same K: line twice expands it
+// twice (CR 702.108b for prowess, and the Oracle text of Scurry of Squirrels,
+// "Myriad, myriad", or Evercoat Ursine, "Hideaway 3, hideaway 3"). Forge
+// expands every K: line independently, so matching it means each instance is
+// its own expansion. Two distinct K:Equip: lines (different costs or
+// restrictions) still expand both -- ruling FL-13. Keywords whose meaning is
+// a casting option (Kicker, Surge, Flashback, Delve, Flash, Miracle) or a
+// static property (Protection, Indestructible, Devoid) are not expanded:
+// rules reads them directly.
 func (f *Face) expandKeywords() {
-	// has reports whether the exact keyword line k (head and every param,
-	// verbatim) already produced a T:/R:/A: entry of the given kind, via
-	// the KeywordLine tag every case below sets alongside the head-only
-	// Keyword tag. Reading f.Triggers/f.Repls/f.Abilities live means a
-	// second Link() call -- or two equal lines in the same pass -- can
-	// never double-add.
-	has := func(kind, k string) bool {
-		switch kind {
-		case "T":
-			for _, t := range f.Triggers {
-				if t.Params["KeywordLine"] == k {
-					return true
-				}
-			}
-		case "R":
-			for _, r := range f.Repls {
-				if r.Params["KeywordLine"] == k {
-					return true
-				}
-			}
-		case "A":
-			for _, a := range f.Abilities {
-				if a.Params["KeywordLine"] == k {
-					return true
-				}
-			}
-		case "S":
-			// A keyword that appends a static directly (kw:Class's level
-			// bands) needs the same idempotence check the trigger/
-			// replacement/ability arms give, or a second Link() of a
-			// cached face would double-append the static.
-			for _, s := range f.Statics {
-				if s.Params["KeywordLine"] == k {
-					return true
-				}
-			}
-		}
-		return false
+	// The idempotence key is (kind, keyword line text). Lines expanded by a
+	// PRIOR Link() pass are recorded in pre before this pass starts; a line
+	// expanded earlier in THIS pass is deliberately NOT recorded, so two
+	// equal lines at different indices each expand. Within one pass every
+	// has() therefore answers false for a line this pass has not yet added,
+	// which is what lets an expander that checks has() and then delegates
+	// to addKeywordTrigger (which checks has() again) append exactly once.
+	pre := f.expandedKeywordKeys()
+	// has reports whether a PREVIOUS pass already produced a T:/R:/A:/S:
+	// entry for tag. It does not consult this pass' own additions, so a
+	// second identical line in the same pass is a second instance (CR
+	// 702.108b) while a repeat Link() adds nothing.
+	has := func(kind, tag string) bool {
+		return pre[kind+"\x00"+tag]
 	}
 	for i, k := range f.Keywords {
 		head := KeywordHead(k)
@@ -68,6 +48,34 @@ func (f *Face) expandKeywords() {
 			fn(f, i, k, head, param, has)
 		}
 	}
+}
+
+// expandedKeywordKeys collects the (kind, KeywordLine) tags of every T:/R:/
+// A:/S: entry already on the face, so expandKeywords can treat a prior Link()
+// pass' expansions as already present while a current pass' own additions do
+// not suppress a second identical line. KeywordLine is the tag every expander
+// sets alongside Keyword; it is never set on printed (hand-written) abilities,
+// so a printed T: line cannot be mistaken for a prior expansion.
+func (f *Face) expandedKeywordKeys() map[string]bool {
+	keys := map[string]bool{}
+	add := func(kind, line string) {
+		if line != "" {
+			keys[kind+"\x00"+line] = true
+		}
+	}
+	for _, t := range f.Triggers {
+		add("T", t.Params["KeywordLine"])
+	}
+	for _, r := range f.Repls {
+		add("R", r.Params["KeywordLine"])
+	}
+	for _, a := range f.Abilities {
+		add("A", a.Params["KeywordLine"])
+	}
+	for _, s := range f.Statics {
+		add("S", s.Params["KeywordLine"])
+	}
+	return keys
 }
 
 // kwExpander expands one keyword line onto the face.

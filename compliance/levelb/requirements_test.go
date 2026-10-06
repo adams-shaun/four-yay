@@ -246,13 +246,13 @@ func TestRequirementsClassificationTable(t *testing.T) {
 			}},
 		},
 		{
-			name: "spell-cast without You is a gap",
+			name: "spell-cast without You is served",
 			c: cardOf(&cards.Face{Types: []string{"Enchantment"}, Triggers: []cards.Trigger{
 				trig("SpellCast", spellCastNoYou),
 			}}),
 			want: []Requirement{{
 				Key: "trigger#0.0", Family: "trigger", Face: 0, Slot: "0",
-				Sub: "trigger.gap:SpellCast", Gap: "trigger mode SpellCast",
+				Sub: "trigger.spell-cast",
 			}},
 		},
 		{

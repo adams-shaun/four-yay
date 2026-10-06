@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"resolve","field":"p0.library_top","diff":"gorge+[$LIB, Jace Beleren] xmage+[Glorious Anthem, Grizzly Bears]"},"key":"activate | resolve | p0.library_top | gorge+[$LIB, Jace Beleren] xmage+[Glorious Anthem, Grizzly Bears]","cards":1}
-{"card":"Hobbit Hole","template":"activate#0.1","status":"diverge","api":"-","sets":["HOB"],"detail":"step 1 (resolve) p0.library_top: gorge \"[Wastes, Jace Beleren, Wastes, Wastes, Forest]\", xmage \"[Grizzly Bears, Forest, Wastes, Wastes, Glorious Anthem]\""}
