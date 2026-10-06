@@ -353,8 +353,9 @@ func play(cfg rules.Config, t tally) (status string, err error) {
 	cfg.Spare = spare
 	e := rules.New(cfg)
 	defer func() {
-		// The replay below is the finished engine's last read; only a clean
-		// finish recycles, so a stalled or errored game's log is dropped.
+		// The replay below is the finished engine's last read. A clean or
+		// capped (stalled) finish recycles -- nothing reads the engine after
+		// this function returns. Only an errored game is dropped.
 		if err == nil {
 			sparePool.Put(spare, e)
 		}

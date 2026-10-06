@@ -74,11 +74,12 @@ func (p *SparePool) Put(sp *rules.Spare, e *rules.Engine) {
 // engine is not returned: a caller whose last read is more than a plain
 // callback should draw a Spare with Get and Put it itself after that read.
 //
-// A game that ERRORED is not recycled: the engine is dropped to the GC
-// rather than returning arrays it still points at. That matches the contract
-// the hand-rolled pools already followed (a game with no trustworthy log
-// shape is skipped), and it is the safe direction -- the cost is one
-// forgone reuse, never a shared array.
+// A game that ERRORED or that ended in an engine-bug ABORT is not recycled:
+// the engine is dropped to the GC rather than returning arrays it still
+// points at. That matches the contract the hand-rolled pools already
+// followed (a game with no trustworthy log shape is skipped -- botbench's
+// pool and spellbench both guard with IsAbort), and it is the safe direction
+// -- the cost is one forgone reuse, never a shared array.
 func (p *SparePool) PlayGameRecycled(cfg rules.Config, seats []seat.Seat, maxTurns, maxIntents int, hooks Hooks, lastUse func(*rules.Engine)) (Outcome, error) {
 	sp := p.Get()
 	cfg.Spare = sp
@@ -88,6 +89,11 @@ func (p *SparePool) PlayGameRecycled(cfg rules.Config, seats []seat.Seat, maxTur
 	}
 	if lastUse != nil {
 		lastUse(e)
+	}
+	// An engine-bug abort (panic/livelock) may have left the engine
+	// mid-mutation; drop it rather than recycle.
+	if IsAbort(o.StallOn) {
+		return o, nil
 	}
 	p.Put(sp, e)
 	return o, nil
