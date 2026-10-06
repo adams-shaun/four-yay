@@ -99,6 +99,59 @@ func TestOracleSetupKeepsPhaseTrigger(t *testing.T) {
 	}
 }
 
+// A back-face (FlipFace) setup placement must also drop the entry trigger of
+// the face it entered on. XMage's addCard(Zone.BATTLEFIELD, transformed)
+// places the permanent without running any of its enters-the-battlefield or
+// chapter triggers, and a mode-keyed drop (ChangesZone -> Battlefield) misses
+// a Saga chapter trigger: it is queued by the battlefield MoveZone, but its
+// Mode$ is not TriggerChangesZone. The Legend of Kyoshi's front face is a Saga
+// whose chapter I ("draw cards equal to the greatest power among creatures you
+// control") fires when the lore counter lands, so the leak is a five-card
+// draw from a back-face Avatar Kyoshi (5/4, greatest power 5).
+func TestOracleSetupBackFacePlacementFiresNoChapterTrigger(t *testing.T) {
+	reg := testutil.CorpusRegistry(t)
+	c, ok := reg.Lookup("The Legend of Kyoshi")
+	if !ok || len(c.Faces) < 2 {
+		t.Fatalf("The Legend of Kyoshi is not a >=2-face card in the corpus (faces=%d)", len(c.Faces))
+	}
+	back := c.Faces[1].Name
+	if back == c.Faces[0].Name {
+		t.Fatalf("face 1 of The Legend of Kyoshi has the same name as face 0 (%q); the test cannot tell the faces apart", back)
+	}
+
+	// A library wide enough that chapter I's draw (X = Avatar Kyoshi's 5 power)
+	// is observable in the hand at the setup checkpoint.
+	res, _ := runFixtureScenario(t, `{"name":"kyoshi","setup":{"p0":{"battlefield":["The Legend of Kyoshi"],"back_face":["The Legend of Kyoshi"],"library":["Wastes","Wastes","Wastes","Wastes","Wastes","Wastes","Wastes","Wastes"]},"p1":{"battlefield":["Grizzly Bears"]}},"steps":[]}`)
+	snap := res.Snapshots[0]
+	// Precondition: the placement is on its back face, so the assertions below
+	// are about the transformed permanent and cannot pass on a front-face Saga
+	// that never flipped (and whose chapter trigger the front face would fire).
+	if setupPermCount(snap, back) != 1 {
+		t.Fatalf("back face %q is not on the battlefield at setup: %+v", back, snap.Permanents)
+	}
+	if setupPermCount(snap, "The Legend of Kyoshi") != 0 {
+		t.Fatalf("front-face The Legend of Kyoshi is still reported at setup: %+v", snap.Permanents)
+	}
+	var perm *OracleSnapPerm
+	for i := range snap.Permanents {
+		if snap.Permanents[i].Name == back {
+			perm = &snap.Permanents[i]
+		}
+	}
+	if perm == nil || !oracleHasFold(perm.Types, "Creature") || perm.Controller != 0 {
+		t.Fatalf("back face %q is not a p0 creature: %+v", back, snap.Permanents)
+	}
+
+	// The chapter I draw must not have happened: XMage's addCard put the card
+	// down without firing it, so p0's hand is empty and life is untouched.
+	if h := snap.Players[0].Hand; len(h) != 0 {
+		t.Errorf("p0 hand = %v after setup, want empty (back-face chapter trigger fired)", h)
+	}
+	if snap.Players[0].Life != 20 {
+		t.Errorf("p0 life = %d after setup, want 20", snap.Players[0].Life)
+	}
+}
+
 // Another permanent's "one or more creatures enter" trigger (ChangesZoneAll)
 // is also caused by the setup placement, so it must not fire either: Welcoming
 // Vampire draws when a small creature enters, and p0's hand must stay empty.
