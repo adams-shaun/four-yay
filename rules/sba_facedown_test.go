@@ -56,9 +56,22 @@ func TestFaceDownPlaneswalkerSurvivesZeroLoyaltySBA(t *testing.T) {
 				t.Fatalf("precondition: printed walker %v, loyalty %d, want printed walker with 0 counters",
 					o.Face().IsPlaneswalker(), o.Counter("LOYALTY"))
 			}
+			// Exercise the sweep directly: the prefilter must not be able to
+			// hide a missing face-down guard in the action itself.
+			if e.planeswalkerZeroLoyalty(&sbaAttempts{}) || o.Zone != state.ZBattlefield {
+				t.Fatalf("direct zero-loyalty sweep acted on face-down walker: zone %v", o.Zone)
+			}
+			facts := e.sbaFacts(&sbaBoardFacts{at: -1})
+			if facts.pw {
+				t.Fatal("prefilter flagged a face-down printed planeswalker")
+			}
 			e.checkStateBased()
 			if o.Zone != state.ZBattlefield {
 				t.Fatalf("face-down planeswalker was swept to %v by the zero-loyalty SBA", o.Zone)
+			}
+			der := e.Derived(id)
+			if der.Power != 2 || der.Toughness != 2 || len(der.Types) != 1 || der.Types[0] != "Creature" {
+				t.Fatalf("face-down planeswalker derived %+v, want a 2/2 [Creature]", der)
 			}
 			if !e.IsCreature(id) {
 				t.Fatal("face-down planeswalker is not a creature")
