@@ -72,8 +72,9 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 	_, _, gated := staticCounterGate(&st)
 	speedGated := staticGatedOnMaxSpeed(&st)
 	plans := []staticProbePlan{{}}
-	if p := staticPlanFor(affected); !p.empty() {
-		plans = append(plans, p)
+	probePlan := staticPlanFor(affected)
+	if !probePlan.empty() {
+		plans = append(plans, probePlan)
 	}
 	for i, plan := range plans {
 		base, why := staticBase(reg, c, f, name, req, plan)
@@ -105,6 +106,9 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 	// evergreen keywords, which a granted ability never moves.
 	if (gated || speedGated) && staticGrantsAbility(&st) {
 		return skip(staticGrantWaits)
+	}
+	if gap := staticProbeCapGap(probePlan); gap != "" {
+		return skip(gap)
 	}
 	if gap := staticGap(st, affected); gap != "" {
 		return skip(gap)
