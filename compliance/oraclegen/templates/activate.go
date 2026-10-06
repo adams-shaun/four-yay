@@ -381,10 +381,7 @@ func addActivationCostAnswers(answers [][]oraclegen.XAnswer, step int, cost stri
 					}
 					observed = true
 					if i < len(d.Picks) {
-						picks = append(picks, d.Picks[i])
-						if i < len(d.ObjectPicks) {
-							picks[len(picks)-1] = xmageTokenName(d.Picks[i], d.ObjectPicks[i])
-						}
+						picks = append(picks, observedCostPick(d, i))
 					}
 				}
 			}

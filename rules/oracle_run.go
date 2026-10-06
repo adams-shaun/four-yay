@@ -249,6 +249,13 @@ type oracleRun struct {
 	// probe and the scenario's game (RunOracleScenarioJSON's pool).
 	spare *Spare
 	step  int // the scenario step being played; -1 during setup
+	// exactRefs marks the setup refs the driver reconstructs from object
+	// identity: a ref bound to a card placed on the BATTLEFIELD at setup.
+	// Battlefield is first in both gorge's setup order and XMage's
+	// registerAliases zone order, so its ordinal agrees; a hand/library/
+	// exile/graveyard ref is rank-derived and unsafe. Tokens are exact by
+	// their live creation order and need no entry here.
+	exactRefs map[string]bool
 }
 
 func (r *oracleRun) logf(format string, a ...any) {
@@ -515,6 +522,9 @@ func (r *oracleRun) build(sc oracleScenario) error {
 				ref = fmt.Sprintf("%s#%d", ref, counts[pl.name])
 			}
 			r.refs[ref] = id
+			if pl.zone == state.ZBattlefield {
+				r.exactRefs[ref] = true
+			}
 			backFace := setupPlacedBackFace(sc.Setup[fmt.Sprintf("p%d", p)], pl.name)
 			if from := e.G.Obj(id).Zone; from != pl.zone {
 				pendingBefore := len(e.pendingTriggers)
@@ -700,22 +710,31 @@ func (r *oracleRun) submit(d *decision.Decision, choices []int, why string) erro
 				od.AltPayable = altPayableCount(r.e.cast, d, r.e.castable)
 			}
 		}
+		for _, option := range d.Options {
+			if option.Obj != 0 {
+				od.OptionRefs = append(od.OptionRefs, r.objRef(r.e.G.Obj(option.Obj)))
+			}
+		}
 		for _, c := range choices {
 			if c < 0 || c >= len(d.Options) {
 				continue
 			}
 			o := d.Options[c]
 			od.PickKinds = append(od.PickKinds, o.Kind)
+			inexact := false
 			switch {
 			case o.Obj != 0:
-				ref := r.objRef(r.e.G.Obj(o.Obj))
+				obj := r.e.G.Obj(o.Obj)
+				ref := r.objRef(obj)
 				od.PickRefs = append(od.PickRefs, ref)
 				od.ObjectPicks = append(od.ObjectPicks, ref)
+				inexact = !obj.IsToken && !r.exactRefs[ref]
 			case strings.Contains(o.Kind, "player"):
 				od.PickRefs = append(od.PickRefs, fmt.Sprintf("p%d", o.Player))
 			default:
 				od.PickRefs = append(od.PickRefs, o.Label)
 			}
+			od.PickRefsInexact = append(od.PickRefsInexact, inexact)
 		}
 		chain = markTrigChain(r.e.trigSub, d)
 		od.LeadingUnposed = chain.leading
@@ -1833,7 +1852,7 @@ func runOracleScenarioWith(reg *cards.Registry, sc oracleScenario, noSnapshot bo
 // runOracleScenarioSpare is runOracleScenarioWith building its engines on
 // sp's recycled storage (see oracleRun.spare).
 func runOracleScenarioSpare(reg *cards.Registry, sc oracleScenario, noSnapshot bool, sp *Spare) (fails []string, transcript []string, run *oracleRun) {
-	r := &oracleRun{reg: reg, refs: map[string]state.ObjID{}, noSnapshot: noSnapshot, step: -1, spare: sp}
+	r := &oracleRun{reg: reg, refs: map[string]state.ObjID{}, exactRefs: map[string]bool{}, noSnapshot: noSnapshot, step: -1, spare: sp}
 	run = r
 	defer func() {
 		if p := recover(); p != nil {
