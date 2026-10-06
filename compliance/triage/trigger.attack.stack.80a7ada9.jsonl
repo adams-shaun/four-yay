@@ -1,2 +1,0 @@
-{"shape":{"template":"trigger","op":"attack","field":"stack","diff":"gorge=[ability:$CARD@p0] xmage=[]"},"key":"trigger | attack | stack | gorge=[ability:$CARD@p0] xmage=[]","cards":1}
-{"card":"Iron Man, Master of Machines","template":"trigger#0.0","status":"diverge","api":"Attacks:Draw","sets":["MSH"],"detail":"step 0 (attack) stack: gorge \"[ability:Iron Man, Master of Machines@p0]\", xmage \"[]\""}

@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"setup","field":"permanents","diff":"$CARD gorge+[5/5] xmage+[4/4]"},"key":"trigger | setup | permanents | $CARD gorge+[5/5] xmage+[4/4]","cards":1}
+{"card":"Byrke, Long Ear of the Law","template":"trigger#0.1","status":"diverge","api":"ChangesZone:PutCounter+Attacks:MultiplyCounter","sets":["BLB"],"detail":"setup permanents: gorge \"c0 o0 Byrke, Long Ear of the Law [creature legendary rabbit soldier] {WG} 5/5 counters=P1P1=1\", xmage \"c0 o0 Byrke, Long Ear of the Law [creature legendary rabbit soldier] {WG} 4/4 counters=P1P1=1\""}

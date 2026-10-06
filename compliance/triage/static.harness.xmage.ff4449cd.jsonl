@@ -1,4 +1,6 @@
-{"shape":{"template":"static","op":"harness","field":"xmage","diff":"IllegalArgumentException: op pass unsupported"},"key":"static | harness | xmage | IllegalArgumentException: op pass unsupported","cards":3}
+{"shape":{"template":"static","op":"harness","field":"xmage","diff":"IllegalArgumentException: op pass unsupported"},"key":"static | harness | xmage | IllegalArgumentException: op pass unsupported","cards":5}
 {"card":"Doorkeeper Thrull","template":"static#0.0","status":"harness","api":"-","sets":["MKM"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
 {"card":"Karn, Argent Defender","template":"static#0.0","status":"harness","api":"-","sets":["FRA"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Terror of the Peaks","template":"static#0.0","status":"harness","api":"ChangesZone:DealDamage","sets":["OTJ"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Thalia, the Survivor","template":"static#0.0","status":"harness","api":"-","sets":["FRA"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
 {"card":"Torpor Orb","template":"static#0.0","status":"harness","api":"-","sets":["BIG"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}

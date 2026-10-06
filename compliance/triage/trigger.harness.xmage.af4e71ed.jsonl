@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: Crew N. Activate only once each turn."},"key":"trigger | harness | xmage | AssertionError: Can't find ability to activate command: Crew N. Activate only once each turn.","cards":1}
+{"card":"Luxurious Locomotive","template":"trigger#0.0","status":"harness","api":"Attacks:Token","sets":["OTJ"],"detail":"xmage: AssertionError: Can't find ability to activate command: Crew 1. Activate only once each turn."}
