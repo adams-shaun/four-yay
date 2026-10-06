@@ -16,8 +16,8 @@ import (
 //     loyalty uses -- placed through a real CounterChange event, so a search
 //     putting a Saga onto the battlefield is covered too and the CR 614
 //     replacement class sees the placement; task addcounter1/2).
-//   - After its controller's draw step (rules/turn.go's draw-step entry) it
-//     adds another.
+//   - Immediately after its controller's precombat main phase begins
+//     (rules/turn.go's finishEnteredStep) it adds another.
 //   - Each lore counter triggers the chapter ability of that number: the
 //     counter-th SVar in the chapter list, queued as a delayed-shape trigger
 //     (the mint path a Mode$ Phase delayed trigger uses -- the ability is an
@@ -44,8 +44,8 @@ func chapterCount(o *state.Object) int {
 	return n
 }
 
-// advanceSagas adds one lore counter to every Saga p controls (CR 702.151a's
-// "after your draw step" half). One CounterChange event per Saga, in
+// advanceSagas adds one lore counter to every Saga p controls (CR 505.4 /
+// 703.4f's precombat-main half). One CounterChange event per Saga, in
 // battlefield order, so the chapter triggers queue in the same deterministic
 // order.
 func (e *Engine) advanceSagas(p state.PlayerID) {
@@ -66,7 +66,7 @@ func (e *Engine) advanceSagas(p state.PlayerID) {
 // checkChapterTriggers queues one chapter trigger per lore counter the event
 // just placed. Every lore-counter placement is a real CounterChange on the
 // LORE kind -- the entry grant (rules' foldEntryMove, task addcounter1/2) and
-// the draw-step counter (advanceSagas) alike -- so this is called for exactly
+// the precombat-main counter (advanceSagas) alike -- so this is called for exactly
 // that one event kind. The MoveZone branch this replaced queued the SAME
 // chapter I twice on an entry (the CounterChange the engine now emits queued
 // it, and then the MoveZone's own tail check queued it again off the live
