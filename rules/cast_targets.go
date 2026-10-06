@@ -674,8 +674,9 @@ func bodyReadsAllTargeted(v string, svars map[string]string, depth int) bool {
 }
 
 // bodyReadsRootTarget reports whether v, or any SVar body it reaches, reads a
-// ROOT-target reference (Targeted$ / ParentTarget$ / ThisTargetedCard$ -- the
-// names refTargets binds to Ctx.Targets, the ability's OWN chosen targets).
+// ROOT-target reference (Targeted$ / ParentTarget$ / ThisTargetedCard$ or a
+// TargetedPlayer/TargetedController count operand -- references to the ability's
+// own chosen targets).
 // The AllTargeted$ union is deliberately excluded: it is the sub-ability
 // pre-ask's shape (alltargeted1), priced only by repriceForTargets, and this
 // predicate arms the offer-time potential-target read for an equip cost
@@ -689,7 +690,9 @@ func bodyReadsRootTarget(v string, svars map[string]string, depth int) bool {
 		}
 		return strings.Contains(s, "Targeted$") ||
 			strings.Contains(s, "ParentTarget$") ||
-			strings.Contains(s, "ThisTargetedCard$")
+			strings.Contains(s, "ThisTargetedCard$") ||
+			strings.Contains(s, "TargetedPlayer") ||
+			strings.Contains(s, "TargetedController")
 	})
 }
 
