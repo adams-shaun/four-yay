@@ -2,7 +2,6 @@ package rules
 
 import (
 	"fmt"
-	"reflect"
 	"slices"
 	"strings"
 
@@ -127,7 +126,7 @@ func (w *legalWalk) verifyGraveyardCandidates(zone, grave []state.ObjID) {
 	w.outHW = max(w.outHW, len(w.out))
 	w.out = w.out[:n]
 	w.graveyardCastsOver(grave)
-	if got := w.out[n:]; !(len(got) == 0 && len(full) == 0) && !reflect.DeepEqual(got, full) {
+	if got := w.out[n:]; !(len(got) == 0 && len(full) == 0) && !optionsEqual(got, full) {
 		panic(fmt.Sprintf("rules: graveyard candidate filter offered %+v, the whole graveyard %+v (kept %v of %v)", got, full, grave, zone))
 	}
 }
