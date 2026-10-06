@@ -307,6 +307,27 @@ func appendFixtureUnique(xs []string, name string) []string {
 	return append(xs, name)
 }
 
+// appendFixtureCounts adds names to xs so that each name appears at least as
+// often as it does in names. A count-aware condition ("six or more lands")
+// needs its repeats, while a name a cause lists twice by accident, or one the
+// zone already holds (the source), is not added again beyond what was asked.
+func appendFixtureCounts(xs, names []string) []string {
+	want := map[string]int{}
+	for _, name := range names {
+		want[name]++
+		have := 0
+		for _, x := range xs {
+			if x == name {
+				have++
+			}
+		}
+		if have < want[name] {
+			xs = append(xs, name)
+		}
+	}
+	return xs
+}
+
 // buildStackScenario builds the scenario for one fixture: the precast spell
 // (if any) is cast first, then the card under test with its targets placed in
 // slot order (a stack slot points at the precast spell on the stack). hand

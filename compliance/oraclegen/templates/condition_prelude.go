@@ -19,6 +19,10 @@ type conditionPrelude struct {
 	graveyard   []string
 	counters    map[string]map[string]int
 	steps       []oraclegen.Step
+	// opponent* are p1's setup, which only a trigger gate that compares the
+	// opponent's hand or lands with p0's offers.
+	opponentHand        []string
+	opponentBattlefield []string
 }
 
 // conditionPreludes offers condition setup candidates in stable order. It
@@ -237,6 +241,9 @@ func triggerConditionSkip(t *cards.Trigger, svars map[string]string) string {
 			return "condition: engine predicate unread (" + strings.Join(unknown, ",") + ")"
 		}
 	}
+	if solvedCaseCondition(t) {
+		return "condition: needs a solved Case"
+	}
 	check := t.ParamStr(cards.PKCheckSVar)
 	if check != "" {
 		body, hasBody := svars[check]
@@ -284,7 +291,7 @@ func triggerConditionSkip(t *cards.Trigger, svars map[string]string) string {
 		present = t.ParamStr(cards.PKIsPresent2)
 	}
 	if present != "" {
-		if strings.Contains(strings.ToLower(present), "card.self") {
+		if strings.Contains(strings.ToLower(present), "card.self") || strings.EqualFold(t.ParamStr(cards.PKPresentDefined), "Self") {
 			return "condition: self state"
 		}
 		return "condition: board presence"

@@ -10,19 +10,20 @@ import (
 // triggerCause is one candidate way of making a trigger's cause happen on
 // turn 1 with ops the XMage driver already has (cast, attack, pass_to).
 type triggerCause struct {
-	hand         []string                  // probe cards added to p0's hand
-	battlefield  []string                  // extra p0 permanents (an attacker for a non-creature card)
-	tapped       []string                  // extra p0 permanents that start tapped
-	graveyard    []string                  // extra p0 graveyard cards
-	counters     map[string]map[string]int // counters on setup permanents
-	prelude      []oraclegen.Step          // steps before the actual trigger cause
-	steps        []oraclegen.Step          // the cause steps emitted into the item
-	probeSteps   []oraclegen.Step          // steps whose snapshots show the trigger on the stack; nil means steps
-	selfInHand   bool                      // the card starts in p0's hand (a "when you discard this card" trigger), not on the battlefield
-	xability     []string                  // XMage rule-text prefix per step (an activate step); nil when no step activates
-	castSelfX    bool                      // the card is cast from hand with X first (an X creature that setup would leave 0/0)
-	opponentHand []string                  // probes held by p1 for opponent-cast causes
-	activateCost string                    // Forge cost of the activate step in steps (Crew/Saddle tap choice); "" when none
+	hand                []string                  // probe cards added to p0's hand
+	battlefield         []string                  // extra p0 permanents (an attacker for a non-creature card)
+	tapped              []string                  // extra p0 permanents that start tapped
+	graveyard           []string                  // extra p0 graveyard cards
+	counters            map[string]map[string]int // counters on setup permanents
+	prelude             []oraclegen.Step          // steps before the actual trigger cause
+	steps               []oraclegen.Step          // the cause steps emitted into the item
+	probeSteps          []oraclegen.Step          // steps whose snapshots show the trigger on the stack; nil means steps
+	selfInHand          bool                      // the card starts in p0's hand (a "when you discard this card" trigger), not on the battlefield
+	xability            []string                  // XMage rule-text prefix per step (an activate step); nil when no step activates
+	castSelfX           bool                      // the card is cast from hand first (an X creature that setup would leave 0/0, or a p0 upkeep/draw trigger whose fixture turn 1 would otherwise spend)
+	opponentHand        []string                  // probes held by p1 for opponent-cast causes
+	opponentBattlefield []string                  // extra p1 permanents (an opponent-comparison gate)
+	activateCost        string                    // Forge cost of the activate step in steps (Crew/Saddle tap choice); "" when none
 }
 
 // Probe cards, each named with why. Spec hypothesis H4: the probe exists in
@@ -160,9 +161,22 @@ func baseTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards
 		}
 		base := triggerCause{steps: steps}
 		out = append(out, base)
-		conditions := append(conditionPreludes(reg, t.Params, f.SVars), triggerConditionFixtures(reg, f, t)...)
-		for _, condition := range conditions {
+		for _, condition := range conditionPreludes(reg, t.Params, f.SVars) {
 			out = append(out, applyPrelude(base, condition))
+		}
+		fixtures := triggerConditionFixtures(reg, f, t)
+		for _, condition := range fixtures {
+			out = append(out, applyPrelude(base, condition))
+		}
+		if active == "p0" && step != "main1" {
+			// Setup passes turn 1's upkeep and draw with the fixture in
+			// place, so a source that acts on it (transforms, makes a token)
+			// has already done so by turn 3: cast the source on turn 1 instead.
+			for _, condition := range fixtures {
+				cast := applyPrelude(base, condition)
+				cast.castSelfX = true
+				out = append(out, cast)
+			}
 		}
 	default:
 		if causes, why, ok := eventTriggerRecipe(reg, f, name, t, sub); ok {

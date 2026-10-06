@@ -150,15 +150,10 @@ func triggerScenario(f *cards.Face, name string, c triggerCause, req levelb.Requ
 	} else if !grave {
 		setupBackFace(&p0, name, req)
 	}
-	for _, b := range c.battlefield {
-		p0.Battlefield = appendFixtureUnique(p0.Battlefield, b)
-	}
-	for _, card := range c.graveyard {
-		p0.Graveyard = appendFixtureUnique(p0.Graveyard, card)
-	}
-	for _, card := range c.opponentHand {
-		p1.Hand = appendFixtureUnique(p1.Hand, card)
-	}
+	p0.Battlefield = appendFixtureCounts(p0.Battlefield, c.battlefield)
+	p0.Graveyard = appendFixtureCounts(p0.Graveyard, c.graveyard)
+	p1.Hand = appendFixtureCounts(p1.Hand, c.opponentHand)
+	p1.Battlefield = appendFixtureCounts(p1.Battlefield, c.opponentBattlefield)
 	for _, card := range c.tapped {
 		if card == "__SOURCE__" {
 			card = name
@@ -224,11 +219,23 @@ func triggerWithFixture(reg *cards.Registry, f *cards.Face, name string, req lev
 	}
 	// A cast cause leaves only the spell on the stack, and resolve clears
 	// triggers as well, so the probe retries with both players passing once:
-	// the spell resolves and the trigger it caused is on the stack.
+	// the spell resolves and the trigger it caused is on the stack. A spell
+	// that itself sets off another trigger (a Repartee creature's counter on
+	// the cast) leaves the spell still on the stack after that pair, so one
+	// more pair is tried then; with an empty stack another pass would only
+	// advance the turn and could show an unrelated firing of the slot.
 	passes := []oraclegen.Step{{Op: "pass", Seat: 0}, {Op: "pass", Seat: 1}}
-	for _, steps := range [][]oraclegen.Step{probe, append(append([]oraclegen.Step(nil), probe...), passes...)} {
-		if _, res, ok := oraclegen.Settle(reg, triggerScenario(f, name, c, req, steps, fx)); ok && abilityOnStack(res.Snapshots, name, req.Slot) {
+	for pairs := 0; pairs <= 2; pairs++ {
+		steps := append([]oraclegen.Step(nil), probe...)
+		for i := 0; i < pairs; i++ {
+			steps = append(steps, passes...)
+		}
+		_, res, ok := oraclegen.Settle(reg, triggerScenario(f, name, c, req, steps, fx))
+		if ok && abilityOnStack(res.Snapshots, name, req.Slot) {
 			fired = true
+			break
+		}
+		if pairs == 1 && (!ok || len(res.Snapshots) == 0 || len(res.Snapshots[len(res.Snapshots)-1].Stack) == 0) {
 			break
 		}
 	}

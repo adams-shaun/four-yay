@@ -121,12 +121,11 @@ var (
 func conditionCauses(reg *cards.Registry, f *cards.Face, name string, t *cards.Trigger, sub string, base []triggerCause) []triggerCause {
 	text := strings.ToLower(strings.Join(conditionText(t.Params, f.SVars), " "))
 	var preludes []conditionPrelude
-	for _, p := range conditionPreludes(reg, t.Params, f.SVars) {
+	for _, p := range append(conditionPreludes(reg, t.Params, f.SVars), triggerConditionFixtures(reg, f, t)...) {
 		if !preludeAttacks(p) {
 			preludes = append(preludes, p)
 		}
 	}
-	preludes = append(preludes, triggerConditionFixtures(reg, f, t)...)
 	var out []triggerCause
 	for _, b := range base {
 		starts := []triggerCause{b}
@@ -162,6 +161,8 @@ func applyPrelude(base triggerCause, p conditionPrelude) triggerCause {
 	c.battlefield = append(append([]string(nil), base.battlefield...), p.battlefield...)
 	c.tapped = append(append([]string(nil), base.tapped...), p.tapped...)
 	c.graveyard = append(append([]string(nil), base.graveyard...), p.graveyard...)
+	c.opponentHand = append(append([]string(nil), base.opponentHand...), p.opponentHand...)
+	c.opponentBattlefield = append(append([]string(nil), base.opponentBattlefield...), p.opponentBattlefield...)
 	c.counters = mergeCounters(base.counters, p.counters)
 	c.prelude = append(append([]oraclegen.Step(nil), base.prelude...), p.steps...)
 	return c
@@ -201,14 +202,20 @@ func conditionShape(reg *cards.Registry, f *cards.Face, name string, t *cards.Tr
 	if creature && sub != "trigger.dies-other" {
 		subject = name
 	}
-	if kind := counterKind(text); kind != "" {
+	counterText := text
+	if kind := counterKind(text); kind != "" && kind != "P1P1" && kind != "M1M1" {
+		// Any other counter kind is the trigger's own filter, not an SVar
+		// elsewhere on the card (Eluge's Y counts flood counters).
+		counterText = strings.ToLower(strings.Join(conditionText(t.Params, nil), " "))
+	}
+	if kind := counterKind(counterText); kind != "" {
 		key := subject
 		if subject == name {
 			key = "__SOURCE__"
 		} else {
 			c.battlefield = appendFixtureUnique(c.battlefield, subject)
 		}
-		c.counters = mergeCounters(base.counters, map[string]map[string]int{key: {kind: counterAmount(text)}})
+		c.counters = mergeCounters(base.counters, map[string]map[string]int{key: {kind: counterAmount(counterText)}})
 		changed = true
 	}
 	if attackTriggerSub(sub) {
@@ -269,6 +276,9 @@ func attackShape(reg *cards.Registry, f *cards.Face, name string, t *cards.Trigg
 	filter := strings.ToLower(t.ParamStr(cards.PKValidCard) + " " + t.ParamStr(cards.PKValidAttackers))
 	if strings.Contains(filter, "powerge4") {
 		add(powerProbe)
+	}
+	for _, card := range powerAttackers(attackPowerNeeded(t, text)) {
+		add(card)
 	}
 	if strings.Contains(filter, "withmenace") {
 		add(menaceProbe)
