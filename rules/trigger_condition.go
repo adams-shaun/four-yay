@@ -286,7 +286,7 @@ func (e *Engine) triggerConditionHoldsWithSVars(t cards.Trigger, source state.Ob
 			return false
 		}
 	}
-	if !e.triggerHellbentHolds(t, you) {
+	if !triggerHellbentHolds(e.G, t, you) {
 		return false
 	}
 	if strings.EqualFold(strings.TrimSpace(t.ParamStr(cards.PKCondition)), "AttackedPlayerWithMostLife") {

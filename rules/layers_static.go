@@ -347,7 +347,7 @@ func (e *Engine) continuousConditionHolds(sv staticView) bool {
 	case condThreshold:
 		return e.thresholdHolds(sv.Controller)
 	case condHellbent:
-		return e.hellbentHolds(sv.Controller)
+		return hellbentHolds(e.G, sv.Controller)
 	case condBlessing:
 		// CR 702.131: the city's blessing is a one-way event-folded latch.
 		if int(sv.Controller) >= len(e.G.Players) {
