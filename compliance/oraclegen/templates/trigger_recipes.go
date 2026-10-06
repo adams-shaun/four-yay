@@ -109,7 +109,9 @@ func triggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards.Tri
 		}
 	case "trigger.drawn":
 		for _, p := range drawProbes {
-			cast(p)
+			if c, ok := castCause(reg, name, p); ok {
+				out = append(out, withDrawCheckpoint(c))
+			}
 		}
 	case "trigger.phase":
 		step, ok := phaseStep(t.ParamStr(cards.PKPhase))
