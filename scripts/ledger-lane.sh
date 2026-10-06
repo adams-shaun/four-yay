@@ -25,11 +25,12 @@
 set -uo pipefail
 
 OUT=${1:?usage: ledger-lane.sh <lane-output-file>}
-ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-LOCK=${GORGE_HEAVY_LOCK:-$ROOT/.ds4/heavy.lock}
+# Same default as scripts/postmerge_batch.sh (/tmp/gorge-heavy.lock): a per-worktree
+# path would never contend with it.
+LOCK=${GORGE_HEAVY_LOCK:-/tmp/gorge-heavy.lock}
 WAIT=${LEDGER_LANE_WAIT:-1800}
 
-mkdir -p "$(dirname "$LOCK")" "$(dirname "$OUT")"
+mkdir -p "$(dirname "$OUT")"
 
 scope=()
 if command -v systemd-run >/dev/null 2>&1; then
