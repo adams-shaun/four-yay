@@ -1,3 +1,0 @@
-{"shape":{"template":"combat","op":"setup","field":"p0.life","diff":"gorge-xmage=1"},"key":"combat | setup | p0.life | gorge-xmage=1","cards":2}
-{"card":"Summon: Anima","template":"combat#0.attack","status":"diverge","api":"-","sets":["FIN"],"detail":"setup p0.life: gorge \"20\", xmage \"19\""}
-{"card":"Summon: Anima","template":"combat#0.block","status":"diverge","api":"-","sets":["FIN"],"detail":"setup p0.life: gorge \"20\", xmage \"19\""}

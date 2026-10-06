@@ -1,3 +1,0 @@
-{"shape":{"template":"activate","op":"resolve","field":"p0.library_top","diff":"gorge+[Forest, Jace Beleren] xmage+[$LIB, Shock]"},"key":"activate | resolve | p0.library_top | gorge+[Forest, Jace Beleren] xmage+[$LIB, Shock]","cards":2}
-{"card":"Cloudbound Moogle","template":"activate#0.0","status":"diverge","api":"ChangesZone:PutCounter","sets":["FIN"],"detail":"step 1 (resolve) p0.library_top: gorge \"[Wastes, Wastes, Jace Beleren, Forest, Wastes]\", xmage \"[Wastes, Wastes, Wastes, Wastes, Shock]\""}
-{"card":"Rabaroo Troop","template":"activate#0.0","status":"diverge","api":"ChangesZone:Pump","sets":["TLA"],"detail":"step 1 (resolve) p0.library_top: gorge \"[Wastes, Wastes, Jace Beleren, Forest, Wastes]\", xmage \"[Wastes, Wastes, Wastes, Wastes, Shock]\""}
