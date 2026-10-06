@@ -273,6 +273,9 @@ func affinityFixtures(reg *cards.Registry, typ string, count int) []string {
 			continue
 		}
 		for _, face := range c.Faces {
+			if !oraclegen.XMageKnown(face.Name) {
+				continue
+			}
 			for _, cardType := range face.Types {
 				if strings.EqualFold(cardType, typ) {
 					fixtures = appendUnique(fixtures, face.Name)
