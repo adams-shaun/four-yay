@@ -164,6 +164,10 @@ func parameterCostProbe(reg *cards.Registry, f *cards.Face, name string, idx int
 				}
 			}
 		}
+		// An additional cost the generator cannot pay (Waterbend, Blight,
+		// ChooseCard, a behold type with no fixture) must not become a probe
+		// whose precondition is false.
+		p.mustReplay = true
 		return p, true
 	}
 	if st.ModeKind() != cards.StaticReduceCost {
