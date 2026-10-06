@@ -68,7 +68,8 @@ type oracleSeat struct {
 	Hand        []string `json:"hand,omitempty"`
 	Battlefield []string `json:"battlefield,omitempty"`
 	// BackFace names battlefield cards setup places on their back face (face
-	// index 1), by emitting an events.FlipFace after the battlefield move. It
+	// index 1), by emitting an events.FlipFace before the battlefield move
+	// (so the entry-counter fold reads the entering face). It
 	// lets a permanent start transformed without a transform game action (the
 	// setup shortcut a DoubleFaced/Modal face-1 scenario needs).
 	BackFace  []string `json:"back_face,omitempty"`
@@ -518,6 +519,15 @@ func (r *oracleRun) build(sc oracleScenario) error {
 			backFace := setupPlacedBackFace(sc.Setup[fmt.Sprintf("p%d", p)], pl.name)
 			if from := e.G.Obj(id).Zone; from != pl.zone {
 				pendingBefore := len(e.pendingTriggers)
+				// A back-face battlefield card starts transformed: FlipFace's
+				// Amount is the destination face index (1), applied through
+				// events.Apply like every other setup op, so the replay
+				// reconstructs the same face from the log. It precedes the
+				// move so the entry-counter fold (a Saga's lore counter) reads
+				// the face that actually enters, not the front face.
+				if backFace && pl.zone == state.ZBattlefield {
+					e.emit(events.Event{Kind: events.FlipFace, Obj: id, Amount: 1})
+				}
 				e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: from, To: pl.zone})
 				if sc.xmageFixture && pl.zone == state.ZBattlefield {
 					// XMage fixture setup places battlefield cards with addCard,
@@ -542,15 +552,6 @@ func (r *oracleRun) build(sc oracleScenario) error {
 					}
 					e.pendingTriggers = kept
 					e.orderedTriggers = ordered
-				}
-			}
-			if pl.zone == state.ZBattlefield {
-				// A back-face battlefield card starts transformed: FlipFace's
-				// Amount is the destination face index (1), applied through
-				// events.Apply like every other setup op, so the replay
-				// reconstructs the same face from the log.
-				if backFace {
-					e.emit(events.Event{Kind: events.FlipFace, Obj: id, Amount: 1})
 				}
 			}
 			for _, tapped := range sc.Setup[fmt.Sprintf("p%d", p)].Tapped {

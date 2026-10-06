@@ -21,14 +21,14 @@ import (
 //     are the entry shapes ("when this enters, ..."; "whenever one or more
 //     creatures enter"). Both are XMage-addCard-silent and are dropped.
 //   - A Saga's synthesized chapter ability (pendingTrigger.Chapter) is dropped
-//   - A Saga's synthesized chapter ability (pendingTrigger.Chapter) is dropped
-//     only for a back-face placement (backFaceChapter): XMage's transformed
-//     permanent carries the back face, which has no Saga ability, so no lore
-//     counter and no chapter I. A front-face Saga placed with addCard DOES
-//     enter with its lore counter and fire chapter I there (Summon: Anima's
-//     life loss, Summon: Titan's mill, Summon: Knights of Round's tokens, and
-//     Summon: Leviathan bouncing Grizzly Bears before the setup checkpoint),
-//     so it stays queued.
+//     only for a back-face placement (backFaceChapter): the flip precedes the
+//     move, so a Saga back face (Crystal Fragments) takes its entry lore
+//     counter and queues chapter I, which is dropped here; a non-Saga back
+//     face (Avatar Kyoshi) queues nothing. A front-face Saga placed with
+//     addCard DOES enter with its lore counter and fire chapter I there
+//     (Summon: Anima's life loss, Summon: Titan's mill, Summon: Knights of
+//     Round's tokens, and Summon: Leviathan bouncing Grizzly Bears before the
+//     setup checkpoint), so it stays queued.
 //   - Everything else stays. In particular a planeswalker's entry loyalty
 //     counters are emitted as CounterChanges inside the same entry fold, so a
 //     CounterAdded / CounterAddedOnce / CounterAddedAll trigger on a permanent
