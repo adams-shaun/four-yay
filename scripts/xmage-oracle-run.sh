@@ -35,11 +35,17 @@ cp="$tests/target/test-classes:$tests/target/classes:$(cat "$cpfile")"
 classes="$root/driver"
 stamp="$classes/.src.sha"
 sum=$(sha256sum "$src" | cut -d' ' -f1)
+# full-replay.sh starts several of these at once: without the lock each saw
+# a stale stamp and rm -rf'd the classes another was compiling or loading.
+# The stamp is re-read under the lock so only the first job compiles.
+exec 9>"$root/driver.lock"
+flock 9
 if [ ! -f "$stamp" ] || [ "$(cat "$stamp")" != "$sum" ]; then
   rm -rf "$classes" && mkdir -p "$classes"
-  javac -nowarn -d "$classes" -cp "$cp" "$src"
+  javac -nowarn -d "$classes" -cp "$cp" "$src" || exit 1
   echo "$sum" > "$stamp"
 fi
+flock -u 9; exec 9>&-
 
 mem=${XMAGE_ORACLE_MEM:-12G}; mem_g=${mem%[Gg]}
 heap=${XMAGE_ORACLE_HEAP:-$(( mem_g > 2 ? mem_g - 1 : 1 ))g}

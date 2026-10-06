@@ -1,2 +1,0 @@
-{"shape":{"template":"trigger","op":"resolve","field":"p0.library_top","diff":"gorge+[$LIB] xmage+[Forest, Glorious Anthem, Ornithopter, Plains]"},"key":"trigger | resolve | p0.library_top | gorge+[$LIB] xmage+[Forest, Glorious Anthem, Ornithopter, Plains]","cards":1}
-{"card":"Part in Friendship","template":"trigger#0.0","status":"diverge","api":"ChangesZone:DigUntil","sets":["HOB"],"detail":"step 1 (resolve) p0.library_top: gorge \"[Wastes, Wastes, Shock, Wastes, Wastes]\", xmage \"[Forest, Glorious Anthem, Shock, Plains, Ornithopter]\""}

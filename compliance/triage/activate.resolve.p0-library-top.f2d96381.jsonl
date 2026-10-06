@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"resolve","field":"p0.library_top","diff":"gorge+[Glorious Anthem, Grizzly Bears] xmage+[$LIB]"},"key":"activate | resolve | p0.library_top | gorge+[Glorious Anthem, Grizzly Bears] xmage+[$LIB]","cards":1}
-{"card":"Cool but Rude","template":"activate#0.1","status":"diverge","api":"AttackersDeclared:Draw+Discarded:DealDamage+ClassLevelGained:ChangeZone","sets":["TMT"],"detail":"step 3 (resolve) p0.library_top: gorge \"[Wastes, Wastes, Grizzly Bears, Glorious Anthem, Wastes]\", xmage \"[Wastes, Wastes, Wastes, Wastes, Wastes]\""}

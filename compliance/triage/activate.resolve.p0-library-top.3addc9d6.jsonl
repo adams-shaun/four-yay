@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"resolve","field":"p0.library_top","diff":"gorge+[Forest, Jace Beleren] xmage+[Plains, Shock]"},"key":"activate | resolve | p0.library_top | gorge+[Forest, Jace Beleren] xmage+[Plains, Shock]","cards":1}
-{"card":"Zog, Triceraton Castaway","template":"activate#0.0","status":"diverge","api":"ChangesZone:Pump","sets":["TMT"],"detail":"step 1 (resolve) p0.library_top: gorge \"[Wastes, Jace Beleren, Wastes, Wastes, Forest]\", xmage \"[Plains, Wastes, Shock, Wastes, Wastes]\""}

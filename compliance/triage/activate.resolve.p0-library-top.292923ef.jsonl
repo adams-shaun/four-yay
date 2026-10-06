@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"resolve","field":"p0.library_top","diff":"gorge+[Glorious Anthem] xmage+[Plains]"},"key":"activate | resolve | p0.library_top | gorge+[Glorious Anthem] xmage+[Plains]","cards":1}
-{"card":"Troop of Ponies","template":"activate#0.0","status":"diverge","api":"-","sets":["HOB"],"detail":"step 1 (resolve) p0.library_top: gorge \"[Wastes, Wastes, Jace Beleren, Glorious Anthem, Wastes]\", xmage \"[Jace Beleren, Wastes, Wastes, Wastes, Plains]\""}
