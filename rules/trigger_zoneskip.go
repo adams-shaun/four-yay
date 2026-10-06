@@ -635,13 +635,19 @@ func (e *Engine) trigHotMerge(buf []state.ObjID, ev *events.Event, cur, hotIDs [
 	kindOnly, step bool, p state.PlayerID, slot int, fn, verify func(id state.ObjID)) []state.ObjID {
 	if !step {
 		if verify == nil && !trigHotMergeVerify {
-			if out, ok := trigHotMergeRefs(e.G, buf, ev, cur, hotIDs, hotSigs, kindOnly, slot); ok {
+			if out, ok := e.trigHotMergeRefs(buf, ev, cur, hotIDs, hotSigs, kindOnly, slot); ok {
 				return out
 			}
 		} else {
-			verifyTrigHotMergeRefs(e.G, ev, cur, hotIDs, hotSigs, kindOnly, p, slot)
+			e.verifyTrigHotMergeRefs(ev, cur, hotIDs, hotSigs, kindOnly, p, slot)
 		}
 	}
+	return e.trigHotMergeScan(buf, ev, cur, hotIDs, hotSigs, kindOnly, step, p, slot, fn, verify)
+}
+
+// trigHotMergeScan is trigHotMerge's full list scan (see trigHotMerge).
+func (e *Engine) trigHotMergeScan(buf []state.ObjID, ev *events.Event, cur, hotIDs []state.ObjID, hotSigs []trigSig,
+	kindOnly, step bool, p state.PlayerID, slot int, fn, verify func(id state.ObjID)) []state.ObjID {
 	if verify != nil {
 		buf = append(buf[:0], cur...)
 		j := 0
