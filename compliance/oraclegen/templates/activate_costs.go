@@ -1,10 +1,12 @@
 package templates
 
 import (
+	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/adams-shaun/gorge/compliance/oraclegen"
+	"github.com/adams-shaun/gorge/rules"
 )
 
 // activationCost classifies one activated ability's Cost$ under the v1 token
@@ -40,6 +42,7 @@ func activationCost(cost string) (pool, gap string) {
 			if tapXTypeFixtureSupported(tok) {
 				continue
 			}
+			return "", tapXTypeGapClass(tok)
 		case "AddCounter", "SubCounter":
 			if loyaltyCounter(tok) {
 				continue
@@ -134,13 +137,12 @@ func tapXTypeFixtures(tok string) ([]string, bool) {
 			}
 		}
 		// Catalogue order is deterministic; use descending power with name tie-break.
-		for i := 0; i < len(creatures); i++ {
-			for j := i + 1; j < len(creatures); j++ {
-				if power[creatures[j]] > power[creatures[i]] || (power[creatures[j]] == power[creatures[i]] && creatures[j] < creatures[i]) {
-					creatures[i], creatures[j] = creatures[j], creatures[i]
-				}
+		sort.Slice(creatures, func(i, j int) bool {
+			if power[creatures[i]] != power[creatures[j]] {
+				return power[creatures[i]] > power[creatures[j]]
 			}
-		}
+			return creatures[i] < creatures[j]
+		})
 		var selected []string
 		total := 0
 		for _, name := range creatures {
@@ -175,8 +177,63 @@ func uniqueFixtureNames(names []string) []string {
 
 func tapXTypeFixtureSupported(tok string) bool { _, ok := tapXTypeFixtures(tok); return ok }
 
-func addTapXTypeAnswers(answers [][]oraclegen.XAnswer, step int, cost string) {
+// tapXTypeGapClass keeps census buckets useful without exposing every raw
+// filter payload. Unsupported X counts and token filters are distinct classes;
+// remaining parser/filter shapes share the unsupported-filter bucket.
+func tapXTypeGapClass(tok string) string {
+	payload, ok := bracketPayload(tok)
+	if !ok {
+		return "tapXType<malformed>"
+	}
+	parts := strings.SplitN(payload, "/", 2)
+	if len(parts) != 2 {
+		return "tapXType<malformed>"
+	}
+	if strings.EqualFold(strings.TrimSpace(parts[0]), "X") {
+		return "tapXType<X>"
+	}
+	if strings.Contains(strings.ToLower(parts[1]), ".token") {
+		return "tapXType<token-filter>"
+	}
+	return "tapXType<unsupported-filter>"
+}
+
+func addTapXTypeAnswers(answers [][]oraclegen.XAnswer, step int, cost string, decisions []rules.OracleDecision) {
 	if step < 0 || step >= len(answers) {
+		return
+	}
+	// XAnswersForScenario already translates gorge's selected permanent
+	// identities into XMage's answers. Never append a catalogue selection on
+	// top of those observed picks: the filter may admit the source itself.
+	for _, d := range decisions {
+		if d.Step != step || d.Seat != 0 || d.Kind != "choose_n" || len(d.ObjectPicks) == 0 {
+			continue
+		}
+		isTapCost := false
+		for _, kind := range d.PickKinds {
+			if kind == "tapcost" {
+				isTapCost = true
+				break
+			}
+		}
+		if !isTapCost {
+			continue
+		}
+		// Preserve gorge's exact choice, rather than selecting the catalogue
+		// defaults. XAnswersForScenario may encode a batch as one compound
+		// answer, while XMage also needs the selected card labels individually.
+		for _, pick := range d.Picks {
+			present := false
+			for _, answer := range answers[step] {
+				if answer.Seat == 0 && answer.Kind == "choice" && strings.EqualFold(answer.Value, pick) {
+					present = true
+					break
+				}
+			}
+			if !present {
+				answers[step] = append(answers[step], oraclegen.XAnswer{Seat: 0, Kind: "choice", Value: pick})
+			}
+		}
 		return
 	}
 	for _, tok := range costTokens(cost) {
@@ -188,7 +245,16 @@ func addTapXTypeAnswers(answers [][]oraclegen.XAnswer, step int, cost string) {
 			continue
 		}
 		for _, pick := range picks {
-			answers[step] = append(answers[step], oraclegen.XAnswer{Seat: 0, Kind: "choice", Value: pick})
+			present := false
+			for _, answer := range answers[step] {
+				if answer.Seat == 0 && answer.Kind == "choice" && strings.EqualFold(answer.Value, pick) {
+					present = true
+					break
+				}
+			}
+			if !present {
+				answers[step] = append(answers[step], oraclegen.XAnswer{Seat: 0, Kind: "choice", Value: pick})
+			}
 		}
 	}
 }

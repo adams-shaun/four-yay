@@ -3,6 +3,8 @@ package templates
 import (
 	"strings"
 	"testing"
+
+	"github.com/adams-shaun/gorge/compliance/oraclegen"
 )
 
 func TestActivateTapXTypeFixtures(t *testing.T) {
@@ -32,23 +34,52 @@ func TestActivateTapXTypeFixtures(t *testing.T) {
 					}
 				}
 				if !found {
-					t.Errorf("cost fixture %q absent from battlefield %v", want, seat.Battlefield)
+					t.Fatalf("precondition: cost fixture %q absent from battlefield %v", want, seat.Battlefield)
 				}
 				for _, name := range seat.Tapped {
 					if name == want {
-						t.Errorf("cost fixture %q starts tapped", want)
+						t.Fatalf("precondition: cost fixture %q starts tapped", want)
 					}
 				}
-				answers := 0
-				for _, step := range it.XAnswers {
-					for _, answer := range step {
-						if answer.Kind == "choice" && strings.EqualFold(answer.Value, want) {
-							answers++
-						}
-					}
+			}
+
+			step := activateStepIndex(it.Steps)
+			answers := map[string]bool{}
+			for _, answer := range it.XAnswers[step] {
+				if answer.Seat != 0 || answer.Kind != "choice" || strings.Contains(answer.Value, "^") {
+					continue
 				}
-				if answers != 1 {
-					t.Errorf("XMage cost answer for %q occurs %d times: %+v", want, answers, it.XAnswers)
+				key := strings.ToLower(answer.Value)
+				if answers[key] {
+					t.Fatalf("conflicting duplicate XMage cost answer %q: %+v", answer.Value, it.XAnswers[step])
+				}
+				answers[key] = true
+			}
+			res, ok := oraclegen.PlaysThrough(reg, it.Scenario)
+			if !ok || len(res.Snapshots) == 0 {
+				t.Fatal("precondition: generated activation must play through to a final snapshot")
+			}
+			before := map[string]bool{}
+			for _, name := range seat.Tapped {
+				before[strings.ToLower(name)] = true
+			}
+			actual := map[string]bool{}
+			for _, permanent := range res.Snapshots[len(res.Snapshots)-1].Permanents {
+				if permanent.Controller == 0 && permanent.Tapped && !before[strings.ToLower(permanent.Name)] {
+					actual[strings.ToLower(permanent.Name)] = true
+				}
+			}
+			if len(actual) != len(answers) {
+				t.Fatalf("cost answers %v do not match gorge's newly tapped permanents %v", answers, actual)
+			}
+			for name := range actual {
+				if !answers[name] {
+					t.Errorf("gorge tapped %q but XMage cost answers do not name it: %v", name, answers)
+				}
+			}
+			for name := range answers {
+				if !actual[name] {
+					t.Errorf("XMage cost answer names %q but gorge did not tap it: %v", name, actual)
 				}
 			}
 		})

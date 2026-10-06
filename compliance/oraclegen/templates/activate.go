@@ -6,8 +6,8 @@
 // resolve for a non-mana ability.
 //
 // v1 cost tokens: mana, T, Q, PayLife<n>, one-card Discard, Sac (self or
-// filtered other permanent), Exile<1/CARDNAME>, tapXType<2/Artifact>, and a
-// source loyalty AddCounter/SubCounter. Anything else is a cost gap. The XMage
+// filtered other permanent), Exile<1/CARDNAME>, supported tapXType fixture
+// shapes, and a source loyalty AddCounter/SubCounter. Anything else is a cost gap. The XMage
 // rule-text prefix rides the Item's XAbility slice (parallel to Steps), so
 // the runner -- which decodes steps strictly -- never sees it.
 package templates
@@ -20,6 +20,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/compliance/levelb"
 	"github.com/adams-shaun/gorge/compliance/oraclegen"
+	"github.com/adams-shaun/gorge/rules"
 )
 
 // ActivateAbility activates one activated ability and resolves it. Its own
@@ -103,7 +104,7 @@ func activateWith(reg *cards.Registry, f *cards.Face, name string, req levelb.Re
 		if len(it.XAnswers) == 0 {
 			it.XAnswers = make([][]oraclegen.XAnswer, len(sc.Steps))
 		}
-		addActivationCostAnswers(it.XAnswers, activateStepIndex(sc.Steps), cost)
+		addActivationCostAnswers(it.XAnswers, activateStepIndex(sc.Steps), cost, res.Decisions)
 		it.XAbility = make([]string, len(sc.Steps))
 		it.XAbility[activateStepIndex(sc.Steps)] = prefix
 		return it, true
@@ -226,7 +227,7 @@ func bracketPayload(tok string) (string, bool) {
 
 // addActivationCostAnswers scripts XMage's cost selector with the same
 // deterministic fixture objects used by the engine-side payment path.
-func addActivationCostAnswers(answers [][]oraclegen.XAnswer, step int, cost string) {
+func addActivationCostAnswers(answers [][]oraclegen.XAnswer, step int, cost string, decisions []rules.OracleDecision) {
 	if step < 0 || step >= len(answers) {
 		return
 	}
@@ -269,7 +270,7 @@ func addActivationCostAnswers(answers [][]oraclegen.XAnswer, step int, cost stri
 			}
 		}
 	}
-	addTapXTypeAnswers(answers, step, cost)
+	addTapXTypeAnswers(answers, step, cost, decisions)
 }
 
 // addActivationCostFixtures supplies the explicit cards needed by supported
