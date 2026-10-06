@@ -15,11 +15,13 @@
 package rules
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
+	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -158,5 +160,57 @@ func TestTriggerRememberAmountOnManaDrainDelayedTrigger(t *testing.T) {
 	}
 	if added != 5 {
 		t.Fatalf("Mana Drain's delayed trigger added %d {C} in the next main phase, want 5", added)
+	}
+}
+
+// TestTriggerRememberAmountCensusEveryCarrier enumerates every corpus card
+// whose SVars read Count$TriggerRememberAmount and asserts the head is
+// supported and every extracted body resolves against a bare context. The
+// two seeds (ImmediateTrigger RememberSVarAmount$ and DelayedTrigger
+// RememberNumber$) feed 22 faces, and a body that silently stops resolving
+// would leave those cards reading Forge's default zero while the coverage
+// check still calls them supported. Scanning every SVar body (not just the
+// ones cards.Face.ValueHeads calls referenced) catches a head read from a DB
+// parameter value (NumDmg$ Count$TriggerRememberAmount), the shape a
+// bare-SVar scan would miss. The pinned count (22 at FORGE_REF
+// 95f04e8a04c8925fa97cb226fc3341cabcc90a53) fails both ways: a body the
+// build newly cannot resolve, and a stale pin after a corpus move.
+func TestTriggerRememberAmountCensusEveryCarrier(t *testing.T) {
+	t.Parallel()
+	e := layerEngine(t)
+	reg := testutil.CorpusRegistry(t)
+	const head = "TriggerRememberAmount"
+	const wantCarriers = 22
+	if !effects.Supported()[cards.ValueHeadPrefix+head] {
+		t.Fatalf("effects.Supported has no count:%s", head)
+	}
+	found := map[string]bool{}
+	for _, c := range reg.Cards {
+		if len(c.Faces) == 0 || c.Faces[0].Name == "" {
+			continue
+		}
+		carrier := false
+		for fi := range c.Faces {
+			f := c.Faces[fi]
+			for _, body := range f.SVars {
+				for _, expr := range carrierBodies(body, head) {
+					carrier = true
+					ctx := &effects.Ctx{Controller: 0, Source: 0, SVars: f.SVars}
+					if _, ok := effects.EvalCountOK(e, ctx, expr); !ok {
+						t.Errorf("carrier %q body %q does not resolve (head unmodelled or malformed)", c.Faces[0].Name, expr)
+					}
+				}
+			}
+		}
+		if !carrier {
+			continue
+		}
+		found[c.Faces[0].Name] = true
+		if miss := reg.Unsupported(c, effects.Supported()); slices.Contains(miss, cards.ValueHeadPrefix+head) {
+			t.Errorf("carrier %q still lists count:%s unsupported", c.Faces[0].Name, head)
+		}
+	}
+	if len(found) != wantCarriers {
+		t.Fatalf("corpus references count:%s on %d cards, want %d: %v", head, len(found), wantCarriers, found)
 	}
 }

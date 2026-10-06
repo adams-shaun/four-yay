@@ -14,9 +14,13 @@
 package rules
 
 import (
+	"slices"
+	"strings"
 	"testing"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
+	"github.com/adams-shaun/gorge/internal/testutil"
 )
 
 // TestLastStateBattlefieldHeadOnSteerClear pins the head against Steer
@@ -66,4 +70,78 @@ func TestLastStateBattlefieldHeadOnSteerClear(t *testing.T) {
 	if n, ok := effects.EvalCountOK(e, ctx, "Count$LastStateBattlefieldWithFallback Faerie.YouCtrl"); !ok || n != 0 {
 		t.Fatalf("LastStateBattlefieldWithFallback (empty Faerie filter) = %d (ok %v), want evaluated 0", n, ok)
 	}
+}
+
+// TestLastStateBattlefieldCensusEveryCarrier enumerates every corpus card
+// whose SVars read Count$LastStateBattlefieldWithFallback and asserts the
+// head is supported and every extracted body resolves against a bare
+// context. It is the ticket's "census every corpus carrier": the head is one
+// primitive name in cards.Registry's coverage check, so registering it marks
+// ALL of these cards supported at once -- this test is what proves each
+// carrier's own read resolves rather than merely being un-listed. The pinned
+// count (8 at FORGE_REF 95f04e8a04c8925fa97cb226fc3341cabcc90a53) fails both
+// ways: a body the build newly cannot resolve, and a stale pin after a
+// corpus move.
+func TestLastStateBattlefieldCensusEveryCarrier(t *testing.T) {
+	t.Parallel()
+	e := layerEngine(t)
+	reg := testutil.CorpusRegistry(t)
+	const head = "LastStateBattlefieldWithFallback"
+	const wantCarriers = 8
+	if !effects.Supported()[cards.ValueHeadPrefix+head] {
+		t.Fatalf("effects.Supported has no count:%s", head)
+	}
+	found := map[string]bool{}
+	for _, c := range reg.Cards {
+		if len(c.Faces) == 0 || c.Faces[0].Name == "" {
+			continue
+		}
+		carrier := false
+		for fi := range c.Faces {
+			f := c.Faces[fi]
+			for _, body := range f.SVars {
+				for _, expr := range carrierBodies(body, head) {
+					carrier = true
+					ctx := &effects.Ctx{Controller: 0, Source: 0, SVars: f.SVars}
+					if _, ok := effects.EvalCountOK(e, ctx, expr); !ok {
+						t.Errorf("carrier %q body %q does not resolve (head unmodelled or malformed)", c.Faces[0].Name, expr)
+					}
+				}
+			}
+		}
+		if !carrier {
+			continue
+		}
+		found[c.Faces[0].Name] = true
+		if miss := reg.Unsupported(c, effects.Supported()); slices.Contains(miss, cards.ValueHeadPrefix+head) {
+			t.Errorf("carrier %q still lists count:%s unsupported", c.Faces[0].Name, head)
+		}
+	}
+	if len(found) != wantCarriers {
+		t.Fatalf("corpus references count:%s on %d cards, want %d: %v", head, len(found), wantCarriers, found)
+	}
+}
+
+// carrierBodies returns the Count$ expressions inside one raw SVar body that
+// name head. A head read from a DB parameter value
+// (`NumDmg$ Count$TriggerRememberAmount`) is not a body cards.ValueHead
+// classifies, so a bare-SVar scan would miss those carriers; the substring
+// branch recovers them with the head's no-arg expression. An operand head
+// (`Count$CardPower/Minus.Count$Foo`) is reached through ValueHeadOperands,
+// the same helper the corpus census uses, so the two cannot disagree.
+func carrierBodies(body, head string) []string {
+	trim := strings.TrimSpace(body)
+	if h, ok := cards.ValueHead(trim); ok {
+		if h == head {
+			return []string{trim}
+		}
+		if slices.Contains(cards.ValueHeadOperands(trim), head) {
+			return []string{"Count$" + head}
+		}
+		return nil
+	}
+	if strings.Contains(trim, "Count$"+head) {
+		return []string{"Count$" + head}
+	}
+	return nil
 }
