@@ -277,6 +277,10 @@ var addedAfterTheSplit = []string{
 	// express. None of the five names existed in the pre-split switch, so no
 	// arm there could have dispatched them.
 	"Crewed", "Saddled", "BecomesSaddled", "BecomesPlotted", "SacrificedOnce",
+	// cli-20261006T024353Z-ce4a0d59: these keyword-action markers carry the
+	// acting player (and ManifestDread's graveyard objects); the old switch
+	// had no dispatch for their modes.
+	"Forage", "ManifestDread", "CollectEvidence",
 	// cli-20261005T075020Z-05241a06: the aggregate tap trigger modes, the
 	// "whenever one or more ... become tapped/untapped" batch siblings of
 	// Taps/Untaps (MSH Rewrite History and LCI Deeproot Pilgrimage on TapAll,
