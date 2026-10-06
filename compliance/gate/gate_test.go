@@ -26,7 +26,15 @@ func TestDeclaredSetsCompliant(t *testing.T) {
 		t.Log("no declared sets")
 		return
 	}
-	reg, err := cards.LoadRegistry(cards.CachePath(filepath.Join(root, ".cards")))
+	// SharedCorpus compiles the corpus when the binary's fingerprint-keyed
+	// IR cache is absent (a branch whose cards/ sources differ from the one
+	// that last compiled it) and caches the result per process. Bare
+	// LoadRegistry would instead fail hard on that absent cache, and the
+	// gate runs this package in parallel with ./rules, the only other
+	// writer: that raced the cache into existence and failed the gate
+	// (cli-20261006T024354Z-e5dc4abb). A genuinely missing corpus still
+	// errors and fails the test.
+	reg, err := cards.SharedCorpus(filepath.Join(root, ".cards"))
 	if err != nil {
 		t.Fatalf("declared sets need the corpus (make fetch-cards compile-cards): %v", err)
 	}
