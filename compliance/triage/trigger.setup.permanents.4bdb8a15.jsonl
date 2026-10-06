@@ -1,3 +1,0 @@
-{"shape":{"template":"trigger","op":"setup","field":"permanents","diff":"gorge+token"},"key":"trigger | setup | permanents | gorge+token","cards":2}
-{"card":"Case of the Filched Falcon","template":"trigger#0.1","status":"diverge","api":"ChangesZone:Investigate+Phase:AlterAttribute","sets":["MKM"],"detail":"setup permanents: gorge \"c0 o0 token [artifact clue] {}\", xmage \"\""}
-{"card":"Palani's Hatcher","template":"trigger#0.1","status":"diverge","api":"ChangesZone:Token+Phase:Sacrifice","sets":["LCI"],"detail":"setup permanents: gorge \"c0 o0 token [creature dinosaur egg] {G} 0/1; c0 o0 token [creature dinosaur egg] {G} 0/1\", xmage \"\""}

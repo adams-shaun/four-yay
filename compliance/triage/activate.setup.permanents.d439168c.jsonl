@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"setup","field":"permanents","diff":"gorge+token"},"key":"activate | setup | permanents | gorge+token","cards":1}
-{"card":"Thousand Moons Smithy","template":"activate#1.0","status":"diverge","api":"ChangesZone:Token+Phase:SetState","sets":["LCI"],"detail":"setup permanents: gorge \"c0 o0 token [artifact creature gnome soldier] {W} 2/2\", xmage \"\""}

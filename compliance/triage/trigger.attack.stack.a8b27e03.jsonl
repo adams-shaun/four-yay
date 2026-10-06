@@ -1,2 +1,0 @@
-{"shape":{"template":"trigger","op":"attack","field":"stack","diff":"gorge=[ability:$CARD@p0] xmage=[ability:Venom, Lethal Protector@p0]"},"key":"trigger | attack | stack | gorge=[ability:$CARD@p0] xmage=[ability:Venom, Lethal Protector@p0]","cards":1}
-{"card":"Eddie Brock","template":"trigger#1.0","status":"diverge","api":"ChangesZone:ChangeZone","sets":["SPM"],"detail":"step 0 (attack) stack: gorge \"[ability:Eddie Brock@p0]\", xmage \"[ability:Venom, Lethal Protector@p0]\""}

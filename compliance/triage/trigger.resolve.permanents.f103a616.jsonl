@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"resolve","field":"permanents","diff":"Grizzly Bears gorge+[] xmage+[blocking]"},"key":"trigger | resolve | permanents | Grizzly Bears gorge+[] xmage+[blocking]","cards":1}
+{"card":"Norin, Swift Survivalist","template":"trigger#0.0","status":"diverge","api":"AttackerBlocked:ChangeZone","sets":["DSK"],"detail":"step 2 (resolve) permanents: gorge \"c1 o1 Grizzly Bears [bear creature] {G} 2/2\", xmage \"c1 o1 Grizzly Bears [bear creature] {G} 2/2 blocking\""}

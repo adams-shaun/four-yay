@@ -1,5 +1,2 @@
-{"shape":{"template":"trigger","op":"setup","field":"p0.library","diff":"placement"},"key":"trigger | setup | p0.library | placement","cards":4}
+{"shape":{"template":"trigger","op":"setup","field":"p0.library","diff":"placement"},"key":"trigger | setup | p0.library | placement","cards":1}
 {"card":"Dictate of Kruphix","template":"trigger#0.0","status":"diverge","api":"Phase:Draw","sets":["FDN"],"detail":"setup p0.hand: gorge \"[Wastes]\", xmage \"[]\""}
-{"card":"The Legend of Kuruk","template":"trigger#1.0","status":"diverge","api":"-","sets":["TLA"],"detail":"setup p0.hand: gorge \"[Shock, Wastes]\", xmage \"[Shock]\""}
-{"card":"The Legend of Roku","template":"trigger#1.0","status":"diverge","api":"-","sets":["TLA"],"detail":"setup p0.exile: gorge \"[Wastes, Wastes, Wastes]\", xmage \"[]\""}
-{"card":"Trystan, Callous Cultivator","template":"trigger#1.1","status":"diverge","api":"ChangesZone:Mill+Transformed:Mill+Phase:SetState","sets":["ECL"],"detail":"setup p0.graveyard: gorge \"[Wastes, Wastes, Wastes]\", xmage \"[]\""}

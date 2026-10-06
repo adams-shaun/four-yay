@@ -1,3 +1,0 @@
-{"shape":{"template":"trigger","op":"harness","field":"xmage","diff":"IllegalArgumentException: […] Couldn't find a card: A-Ochre Jelly"},"key":"trigger | harness | xmage | IllegalArgumentException: […] Couldn't find a card: A-Ochre Jelly","cards":2}
-{"card":"Geometer's Arthropod","template":"trigger#0.0","status":"harness","api":"SpellCast:Dig","sets":["SOS"],"detail":"xmage: IllegalArgumentException: [TEST] Couldn't find a card: A-Ochre Jelly"}
-{"card":"Matterbending Mage","template":"trigger#0.1","status":"harness","api":"ChangesZone:ChangeZone+SpellCast:Effect","sets":["SOS"],"detail":"xmage: IllegalArgumentException: [TEST] Couldn't find a card: A-Ochre Jelly"}

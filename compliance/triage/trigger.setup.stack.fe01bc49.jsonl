@@ -1,2 +1,0 @@
-{"shape":{"template":"trigger","op":"setup","field":"stack","diff":"gorge=[] xmage=[ability:Isilu, Carrier of Twilight@p0]"},"key":"trigger | setup | stack | gorge=[] xmage=[ability:Isilu, Carrier of Twilight@p0]","cards":1}
-{"card":"Eirdu, Carrier of Dawn","template":"trigger#1.0","status":"diverge","api":"Phase:SetState","sets":["ECL"],"detail":"setup stack: gorge \"[]\", xmage \"[ability:Isilu, Carrier of Twilight@p0]\""}
