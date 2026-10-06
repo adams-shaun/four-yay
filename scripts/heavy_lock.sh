@@ -15,9 +15,11 @@
 #   scripts/heavy_lock.sh run [-w SECS] [-s] -- <cmd> [args...]
 #       run <cmd> holding the lock (flock -o: the fd never reaches <cmd>).
 #       -w SECS  wait at most SECS for the lock (default: wait forever)
-#       -s       if the wait runs out, log it and exit 0 (the work is
+#       -s       if the LOCK WAIT runs out, log it and exit 0 (the work is
 #                regenerable, e.g. make ledger) instead of exiting 75
 #       exit 75 = the lock was not obtained in time; <cmd> never ran.
+#       The timeout is distinguished from a command that itself exits 75 by a
+#       start marker the wrapper removes just before it execs <cmd>.
 #
 # A hand session wraps its heavy runs the same way, so it contends with the
 # fleet instead of beside it:
@@ -65,11 +67,24 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
 			exit 2
 		}
 		mkdir -p "$(dirname "$GORGE_HEAVY_LOCK")"
+		# flock -E 75 conflates "lock wait timed out" with "the command itself
+		# exited 75", and the `-s` caller (post_merge `make ledger`) would then
+		# silently swallow a real failure whose status happens to be 75. So the
+		# command runs under a wrapper that removes a START marker just before
+		# exec: a timed-out wait leaves the marker PRESENT, a command that ran
+		# (and exited 75) removes it. The timeout is judged by the marker, never
+		# by rc alone.
+		started=$(mktemp "${TMPDIR:-/tmp}/heavy-lock.started.XXXXXX")
 		flock_args=(-o -E 75)
 		[ -n "$wait_s" ] && flock_args+=(-w "$wait_s")
-		flock "${flock_args[@]}" "$GORGE_HEAVY_LOCK" "$@"
+		flock "${flock_args[@]}" "$GORGE_HEAVY_LOCK" bash -c 'rm -f -- "$1"; shift; exec "$@"' _ "$started" "$@"
 		rc=$?
-		if [ "$rc" = 75 ]; then
+		# The wrapper removes the marker before it execs the command, so the marker
+		# is ABSENT iff <cmd> really ran; a timed-out wait leaves it PRESENT.
+		timed_out=0
+		[ -e "$started" ] && timed_out=1
+		rm -f -- "$started"
+		if [ "$rc" = 75 ] && [ "$timed_out" = 1 ]; then
 			printf 'heavy_lock.sh: %s still held after %ss; not run: %s\n' "$GORGE_HEAVY_LOCK" "${wait_s:-0}" "$1" >&2
 			[ "$skip" = 1 ] && exit 0
 		fi

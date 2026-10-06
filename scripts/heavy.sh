@@ -82,6 +82,10 @@ while [ $# -gt 0 ]; do
 		NAME=$2
 		shift 2
 		;;
+	--print-heavy-lock)
+		printf '%s\n' "${LOCK:-$GORGE_HEAVY_LOCK}"
+		exit 0
+		;;
 	--)
 		shift
 		break
@@ -112,31 +116,16 @@ NAME=${NAME:-$(basename "$1")}
 
 mkdir -p "$LEASES"
 
-# --wait S is ONE budget: the lock wait and the broker wait draw on it together.
+# --wait S is ONE budget: the broker wait and the lock wait draw on it together.
 deadline=$(($(date +%s) + WAIT))
 
-# 1. Serialise the class. The lock lives on fd 9 of THIS shell, never of the
-#    job (it is launched with 9>&-), so a child cannot hold it after we die or
-#    freeze whoever waits on it (an inherited tick.lock froze the daemon here on
-#    2026-09-22). It is held on an fd, not through `flock -o <cmd>`, because the
-#    pause supervisor below must RELEASE it while the job is parked and take it
-#    back before the job continues.
-if [ "$CLASS" = heavy ]; then
-	mkdir -p "$(dirname "$LOCK")"
-	exec 9>"$LOCK" || {
-		printf 'heavy.sh: cannot open lock %s\n' "$LOCK" >&2
-		exit 2
-	}
-	flock -w "$WAIT" -E 3 9
-	rc=$?
-	if [ "$rc" != 0 ]; then
-		printf 'heavy.sh: another %s job holds %s\n' "$CLASS" "$LOCK" >&2
-		exit 3
-	fi
-fi
-
-# 2. Ask the broker. Without --wait a refusal is exit 3, so a caller (a probe
-#    in the seed cycle) can treat "no headroom" as "not now", not as a failure.
+# 1. Ask the broker FIRST, before the lock. A job parked in this wait holds no
+#    lock: the agentctl affected gate (`heavy_lock.sh run -w 1500`) brackets
+#    itself with `broker.sh gate-begin`, which is exactly what keeps `may-i`
+#    refusing here. If this loop held the HEAVY lock, the gate would run out its
+#    whole wait on a holder the bracket itself froze and go red (the l0-CRITICAL
+#    class, observed again 2026-10-06). Without --wait a refusal is exit 3, so a
+#    caller (a probe in the seed cycle) treats "no headroom" as "not now".
 while :; do
 	if reason=$("$BROKER" may-i "$CLASS" 2>/dev/null); then
 		printf 'heavy.sh: %s\n' "$reason"
@@ -146,8 +135,32 @@ while :; do
 		printf 'heavy.sh: refused: %s\n' "$reason" >&2
 		exit 3
 	fi
-	sleep 10 9>&-
+	sleep 10
 done
+
+# 2. Serialise the class ONCE the broker has approved. The lock lives on fd 9
+#    of THIS shell, never of the job (it is launched with 9>&-), so a child
+#    cannot hold it after we die or freeze whoever waits on it (an inherited
+#    tick.lock froze the daemon here on 2026-09-22). It is held on an fd, not
+#    through `flock -o <cmd>`, because the pause supervisor below must RELEASE
+#    it while the job is parked and take it back before the job continues. The
+#    wait draws on what is LEFT of the --wait budget, so `--wait S` stays ONE
+#    budget instead of two S-second waits.
+if [ "$CLASS" = heavy ]; then
+	mkdir -p "$(dirname "$LOCK")"
+	exec 9>"$LOCK" || {
+		printf 'heavy.sh: cannot open lock %s\n' "$LOCK" >&2
+		exit 2
+	}
+	remaining=$((deadline - $(date +%s)))
+	[ "$remaining" -gt 0 ] || remaining=0
+	flock -w "$remaining" -E 3 9
+	rc=$?
+	if [ "$rc" != 0 ]; then
+		printf 'heavy.sh: another %s job holds %s\n' "$CLASS" "$LOCK" >&2
+		exit 3
+	fi
+fi
 
 # 3. The lease. The HEAVY lock (fd 9) is held until this shell exits.
 PAUSE_FILE=$STATE/pause-$$.flag

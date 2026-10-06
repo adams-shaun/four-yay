@@ -17,7 +17,8 @@ REPO=$(cd "$(dirname "$0")/.." && pwd)
 M=${M:-/mnt/sata/gorge-training/spellbench-work/m1b}
 . "$REPO/scripts/heavy_lock.sh"  # the one HEAVY lock definition
 LOCK=${LOCK:-$GORGE_HEAVY_LOCK}
-[ "${1:-}" = --print-heavy-lock ] && { printf '%s\n' "$LOCK"; exit 0; }
+for _a in "$@"; do [ "$_a" = --print-heavy-lock ] && { printf '%s\n' "$LOCK"; exit 0; }; done
+unset _a
 CARDS=$REPO/.cards
 heavy() { flock -o "$LOCK" systemd-run --user --scope -q -p MemoryMax=4G env GOMEMLIMIT=2GiB GOMAXPROCS=8 GOTMPDIR=/mnt/sata/gorge-training/gotmp "$@"; }
 mkdir -p "$M/bin" "$M/clair" "$M/honest" "$M/students" "$M/evals"

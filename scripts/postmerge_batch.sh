@@ -61,7 +61,8 @@ parse_fails() {
     }' "$1"
 }
 
-if [ "${1:-}" = "--print-heavy-lock" ]; then printf '%s\n' "$LOCK"; exit 0; fi
+for _a in "$@"; do [ "$_a" = --print-heavy-lock ] && { printf '%s\n' "$LOCK"; exit 0; }; done
+unset _a
 if [ "${1:-}" = "--parse-fails" ]; then parse_fails "$2"; exit 0; fi
 
 # fails_at <sha> <pkg> <regex>: 0 if the tests FAIL at sha, 1 if they pass.

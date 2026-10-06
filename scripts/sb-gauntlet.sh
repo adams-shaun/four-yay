@@ -71,7 +71,8 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 GDIR=${SB_GAUNTLET_DIR:-/mnt/sata/gorge-training/spellbench-work/gauntlet}
 . "$ROOT/scripts/heavy_lock.sh"  # the one HEAVY lock definition
 LOCK=${LOCK:-$GORGE_HEAVY_LOCK}
-[ "${1:-}" = --print-heavy-lock ] && { printf '%s\n' "$LOCK"; exit 0; }
+for _a in "$@"; do [ "$_a" = --print-heavy-lock ] && { printf '%s\n' "$LOCK"; exit 0; }; done
+unset _a
 SBPY=${SB_GAUNTLET_SBPY:-/mnt/sata/gorge-training/sbvenv/bin}
 WORKERS=${SB_GAUNTLET_WORKERS:-8}
 POOL="Wildfire Rally Affinity Elves Spy Burn CawGates Faeries"

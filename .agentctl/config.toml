@@ -342,15 +342,21 @@ env = { GOMEMLIMIT = "1GiB", GOMAXPROCS = "4", GOFLAGS = "-p=2 -trimpath" }
 # their own processes, ./view, ./internal/codeshape and every package the
 # branch touched. Run from the BASE copy so a branch cannot edit its own gate.
 name = "go test (affected)"
-cmd = ["scripts/heavy_lock.sh", "run", "-w", "1500", "--", "systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=8G", "-p", "CPUQuota=1600%", "bash", "-c", "set -o pipefail; git show {base}:scripts/gate_affected.sh | bash -s {base}"]
+cmd = ["bash", "-c", "set -o pipefail; hl=\"$(git rev-parse --show-toplevel)/.ds4/.gate-heavy-lock.$$.sh\"; mkdir -p \"$(dirname \"$hl\")\"; trap 'rm -f \"$hl\"' EXIT; git show {base}:scripts/heavy_lock.sh >\"$hl\" || exit 1; bash \"$hl\" run -w 1500 -- systemd-run --user --scope -q -p MemoryMax=8G -p CPUQuota=1600% bash -c 'set -o pipefail; git show {base}:scripts/gate_affected.sh | bash -s {base}'"]
 # 2026-10-05 (operator): this gate is HEAVY-class work, so it takes the one
-# repo heavy lock (scripts/heavy_lock.sh) like postmerge_batch.sh and heavy.sh.
-# The wait is BOUNDED: 1500 s (exit 75, command not run, gate red with a
-# "still held" line) on top of the old 600 s run budget. A heavy.sh lease
-# cannot make it wait on a frozen job: the gate-begin bracket above pauses
-# every lease and a parked lease yields the lock (heavy.sh supervisor). What it
-# can wait on is a running post-merge full suite, which holds the lock for its
-# whole length and is never paused.
+# repo heavy lock like postmerge_batch.sh and heavy.sh. The wrapper is the BASE
+# copy of scripts/heavy_lock.sh (`git show {base}:...`), so a branch cannot edit
+# the helper into a no-op and neuter its own gate's serialisation. It is written
+# into the repo's .ds4 (not /tmp) so the helper's own-location derivation
+# (`git -C <dir of BASH_SOURCE> ... --git-common-dir`) still resolves the shared
+# repo lock; a /tmp copy would resolve to /.ds4/heavy.lock. The wait is BOUNDED:
+# 1500 s (exit 75, command not run, gate red with a "still held" line) on top of
+# the old 600 s run budget. A heavy.sh lease cannot make it wait on a frozen job:
+# the gate-begin bracket above pauses every lease and a parked lease yields the
+# lock (heavy.sh supervisor). A heavy.sh job still PARKED in the broker wait
+# (gate active, so `may-i` refuses) holds no lock either: heavy.sh asks the
+# broker BEFORE it takes the lock. What it can wait on is a running post-merge
+# full suite, which holds the lock for its whole length and is never paused.
 timeout = 2100
 env = { GOMEMLIMIT = "4GiB", GOMAXPROCS = "16", GOGC = "200", GOFLAGS = "-p=2 -trimpath" }
 

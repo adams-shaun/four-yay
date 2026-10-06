@@ -61,6 +61,11 @@ check "heavy.sh, broker.sh, postmerge_batch.sh, sb-gauntlet.sh, m1b-distill.sh r
 # no literal lock path may appear in the config.
 ! grep -n 'heavy\.lock' "$ROOT/.agentctl/config.toml" | grep -v '^[0-9]*:#' | grep -q .
 check "config.toml names no literal heavy lock path outside comments" $?
+# The affected gate's wrapper must come from the BASE copy too: if it invoked
+# the branch's scripts/heavy_lock.sh, a branch could edit the helper into a
+# no-op and neuter its own gate's serialisation.
+grep -qF 'git show {base}:scripts/heavy_lock.sh' "$ROOT/.agentctl/config.toml"
+check "config.toml extracts the affected gate's heavy_lock.sh from {base}" $?
 
 # ---- B: two different scripts contend on it ----------------------------------
 export GORGE_ROOT=$ROOT GORGE_REWARD_DIR=$TMP/reward
@@ -141,6 +146,42 @@ check "resumed lease holds the lock again" $? "rc=$rc"
 rc=$?
 [ "$rc" = 0 ] && [ ! -e "$TMP/should-not-exist" ] && grep -q 'not run' "$TMP/skip.err"
 check "heavy_lock.sh run -w 1 -s skips (exit 0, command not run) on a held lock" $? "rc=$rc $(cat "$TMP/skip.err")"
+
+# ---- D: a broker-wait loop holds NO lock -------------------------------------
+# The affected gate's own `gate-begin` is what keeps `may-i` refusing, so a
+# heavy.sh parked in the broker wait must not hold the lock the gate is about to
+# want; otherwise the gate waits out its whole budget on a holder its own bracket
+# froze (the l0-CRITICAL class). Kill the Part B lease first: the tests below
+# need a FREE lock.
+[ -z "${HPID:-}" ] || kill -KILL "$HPID" 2>/dev/null
+[ -z "${JOBPID:-}" ] || kill -KILL -- "-$JOBPID" 2>/dev/null
+for _ in $(seq 100); do "$S/heavy_lock.sh" run -w 0 -- true 2>/dev/null && break; sleep 0.1; done
+"$S/heavy_lock.sh" run -w 0 -- true
+check "precondition: lock is free before the broker-wait test" $?
+
+# A command that itself exits 75 must NOT be read as a lock timeout: without the
+# start marker, `-s` would swallow it as a logged skip (exit 0) and a real
+# failure would vanish. 75 is the one status the wrapper must pass through.
+"$S/heavy_lock.sh" run -w 5 -s -- bash -c 'touch "$1"; exit 75' _ "$TMP/ran75" 2>"$TMP/ran75.err"
+rc=$?
+[ "$rc" = 75 ] && [ -e "$TMP/ran75" ] && ! grep -q 'still held' "$TMP/ran75.err"
+check "a command that exits 75 after running is not misread as a lock timeout" $? "rc=$rc err=$(cat "$TMP/ran75.err")"
+
+: >"$TMP/reward/gate-active"
+"$S/heavy.sh" heavy --wait 30 -- true >"$TMP/brokerwait.log" 2>&1 &
+BWID=$!
+sleep 1
+kill -0 "$BWID" 2>/dev/null
+check "precondition: heavy.sh is parked in the broker wait (gate active)" $? "$(cat "$TMP/brokerwait.log")"
+t0=$(date +%s)
+"$S/heavy_lock.sh" run -w 3 -- bash -c 'echo bw-ran >"$1"' _ "$TMP/bw.out"
+rc=$?
+el=$(($(date +%s) - t0))
+[ "$rc" = 0 ] && [ "$(cat "$TMP/bw.out" 2>/dev/null)" = bw-ran ]
+check "a broker-waiting heavy.sh does not hold the lock (gate got it in ${el}s)" $? "rc=$rc"
+kill -KILL "$BWID" 2>/dev/null
+for _ in $(seq 100); do kill -0 "$BWID" 2>/dev/null || break; sleep 0.1; done
+rm -f "$TMP/reward/gate-active"
 
 printf '\n%s failure(s)\n' "$fails"
 [ "$fails" = 0 ]
