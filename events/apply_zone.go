@@ -544,6 +544,19 @@ func move(g *state.Game, id state.ObjID, from, to state.Zone, countersRemain boo
 		o.Card.Faces[0] != nil && o.Card.Faces[1] != nil {
 		o.SetFaceIdx(0)
 	}
+	// CR 712.8a / CR 712.14: a transforming double-faced card outside the
+	// battlefield has only its front face's characteristics, and one put onto
+	// the battlefield from a zone other than the stack enters front face up
+	// unless the effect says "transformed" (effects.applyTransformed flips it
+	// after this reset, before the entering move). So a DoubleFaced permanent
+	// leaving the battlefield is front face up again; without this a Galian
+	// Beast died into the graveyard and came back as Galian Beast. Same fold
+	// site as the Modal reset above so replay and live play agree. Meld cards
+	// reset in unmeld, not here.
+	if wasBattlefield && to != state.ZBattlefield && o.Card != nil &&
+		o.Card.IsTransformingDFC() && o.FaceIdx != 0 {
+		o.SetFaceIdx(0)
+	}
 	// The incarnation stamp is used by promises tied to a particular
 	// permanent (evoke/dash/warp), so only crossing the battlefield
 	// boundary advances it. A provisional hand->stack->hand CR 733 reversal
