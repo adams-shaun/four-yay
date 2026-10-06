@@ -252,6 +252,24 @@ public final class ScenarioReplayDriverContractTest {
         check(a.getActions().get(2).getAction().equals("waitStackResolved:1"),
                 "the resolution must wait for exactly one stack object");
 
+        // The draw and event recipes append the pair before a pass_to (the
+        // scry/surveil answer), so the pair is not the scenario's tail. Its
+        // classification and queue order must not depend on what follows it.
+        JsonArray pairTail = steps("[{op:'cast',seat:0},{op:'pass',seat:0},{op:'pass',seat:1},{op:'pass_to',decision:'priority'}]");
+        check(ScenarioReplay.passAction(pairTail, 1) == ScenarioReplay.PASS_PAIR_FIRST,
+                "the first pass of a pass_to-suffixed pair");
+        check(ScenarioReplay.passAction(pairTail, 2) == ScenarioReplay.PASS_PAIR_SECOND,
+                "the second pass of a pass_to-suffixed pair");
+        TestPlayer a3 = bare("A");
+        ScenarioReplay r3 = queueingDriver(pairTail, a3, bare("B"));
+        loopStep(r3, a3, pairTail, 1);
+        check(names(a3).equals(Arrays.asList("step 1 (pass)")),
+                "a pass_to-suffixed pair's first pass must queue only its checkpoint; got " + names(a3));
+        loopStep(r3, a3, pairTail, 2);
+        check(names(a3).equals(Arrays.asList("step 1 (pass)", ScenarioReplay.CMD_REQUIRE_STACK,
+                        ScenarioReplay.CMD_WAIT_RESOLVE_ONE, "step 2 (pass)")),
+                "a pass_to-suffixed pair's second pass must queue the one-object resolution before its checkpoint; got " + names(a3));
+
         // Lone p0 pass then p1 cast: p0 yields priority between the pass
         // checkpoint and the opponent's cast checkpoint.
         TestPlayer a2 = bare("A");
