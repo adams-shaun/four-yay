@@ -8,7 +8,7 @@ import (
 func TestUniformShuffleLibrariesFillsASingleNameSeat(t *testing.T) {
 	var fx Fixture
 	fx.P0().Hand = []string{"Turtles in Time"}
-	fx.P1().Graveyard = []string{"Grizzly Bears"}
+	fx.P1().Battlefield = []string{"Grizzly Bears"}
 	UniformShuffleLibraries(&fx, "Turtles in Time")
 	if len(fx.P0().Library) != 0 {
 		t.Fatalf("p0 has nothing to shuffle back; its library must keep the Wastes filler, got %d cards", len(fx.P0().Library))
@@ -18,14 +18,12 @@ func TestUniformShuffleLibrariesFillsASingleNameSeat(t *testing.T) {
 	}
 }
 
-func TestUniformShuffleLibrariesUniformizesOnlyShuffledZones(t *testing.T) {
+func TestUniformShuffleLibrariesLeavesMixedSeatsAlone(t *testing.T) {
 	var fx Fixture
 	fx.P0().Hand = []string{"Turtles in Time", "Forest"}
 	fx.P0().Battlefield = []string{"Llanowar Elves"}
-	if !UniformShuffleLibraries(&fx, "Turtles in Time") {
-		t.Fatal("one shuffled name must admit a uniform library")
-	}
-	if want := Repeat("Forest", fixtureDeckSize-3); !reflect.DeepEqual(fx.P0().Library, want) {
-		t.Fatalf("p0 library = %v, want %d Forests", fx.P0().Library, len(want))
+	UniformShuffleLibraries(&fx, "Turtles in Time")
+	if len(fx.P0().Library) != 0 {
+		t.Fatalf("two distinct names can be shuffled back; the library must be left alone, got %v", fx.P0().Library)
 	}
 }

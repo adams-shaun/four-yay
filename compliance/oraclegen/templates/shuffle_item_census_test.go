@@ -36,7 +36,7 @@ func TestShuffleEmittedItemCensus(t *testing.T) {
 	folded := compliance.FoldedNames(reg)
 	has := func(name string) bool { _, ok := reg.Lookup(name); return ok }
 	got := make(map[string]int, len(sets))
-	shuffleDrawRoutes := make(map[string][2]int, len(sets)) // [uniform fixture, hand-count compare]
+	drawRoutes := make(map[string][3]int, len(sets)) // level-B shuffle-then-draw items by route
 	foundFblthp := false
 	for _, set := range sets {
 		printed, err := compliance.LoadPrinted(filepath.Join(root, "printed"), set)
@@ -44,7 +44,7 @@ func TestShuffleEmittedItemCensus(t *testing.T) {
 			t.Fatal(err)
 		}
 		got[set] = 0
-		shuffleDrawRoutes[set] = [2]int{}
+		drawRoutes[set] = [3]int{}
 		seen := map[string]bool{}
 		for _, name := range printed.Cards {
 			name, ok := compliance.CorpusNameFold(has, folded, name)
@@ -56,18 +56,6 @@ func TestShuffleEmittedItemCensus(t *testing.T) {
 			}
 			seen[name] = true
 			card, _ := reg.Lookup(name)
-			face := requestedFace(card, name)
-			if oraclegen.CanShuffleLibrary(face) && oraclegen.ShufflesThenDraws(face) {
-				if item, skip := Generate(reg, name); skip == nil && item.ID != "" {
-					route := shuffleDrawRoutes[set]
-					if hasCompare(item.Compare, oraclegen.CompareHandCount) {
-						route[1]++
-					} else {
-						route[0]++
-					}
-					shuffleDrawRoutes[set] = route
-				}
-			}
 			for _, req := range levelb.Requirements(card) {
 				if req.Gap != "" || !oraclegen.CanShuffleLibrary(card.Faces[req.Face]) {
 					continue
@@ -88,19 +76,16 @@ func TestShuffleEmittedItemCensus(t *testing.T) {
 				if marks != 1 {
 					t.Fatalf("%s: got %d library-order marks, want exactly one", item.ID, marks)
 				}
-				if item.ID == "Weftwalking/static#0.0/v1" && !hasCompare(item.Compare, oraclegen.CompareHandCount) {
-					t.Fatal("Weftwalking static row must compare hand count, not random hand contents")
-				}
 				if oraclegen.ShufflesThenDraws(card.Faces[req.Face]) {
-					if hasCompare(item.Compare, oraclegen.CompareHandCount) {
-						route := shuffleDrawRoutes[set]
-						route[1]++
-						shuffleDrawRoutes[set] = route
-					} else {
-						route := shuffleDrawRoutes[set]
-						route[0]++
-						shuffleDrawRoutes[set] = route
+					route := shuffleDrawRoute(item)
+					if item.ID == "Weftwalking/static#0.0/v1" && route != routeUniform {
+						t.Fatalf("Weftwalking static row must fix its shuffled zones to one card, got route %d", route)
 					}
+					routes := drawRoutes[set]
+					routes[route]++
+					drawRoutes[set] = routes
+				} else if hasCompare(item.Compare, oraclegen.CompareHandCount) {
+					t.Fatalf("%s: hand-count compare on an item that does not shuffle then draw", item.ID)
 				}
 				got[set]++
 				t.Logf("%s %s", set, item.ID)
@@ -116,15 +101,34 @@ func TestShuffleEmittedItemCensus(t *testing.T) {
 	if !reflect.DeepEqual(got, wantShuffleItemCensus) {
 		t.Fatalf("shuffle emitted-item census changed: got %#v, want %#v", got, wantShuffleItemCensus)
 	}
-	wantShuffleDrawRoutes := map[string][2]int{
-		"BIG": {0, 0}, "BLB": {0, 0}, "DFT": {0, 0}, "DSK": {0, 0}, "ECL": {0, 0},
-		"EOE": {1, 1}, "FDN": {0, 0}, "FIN": {0, 0}, "FRA": {0, 0}, "HOB": {0, 0},
-		"LCI": {0, 0}, "MKM": {0, 0}, "MSH": {0, 0}, "OTJ": {0, 0}, "SOS": {0, 0},
-		"SPM": {0, 0}, "TDM": {0, 0}, "TLA": {0, 0}, "TMT": {1, 0}, "WOE": {0, 0},
+	// [uniform library fixture, hand-count compare, nothing to shuffle]
+	wantDrawRoutes := map[string][3]int{"EOE": {1, 0, 0}}
+	for _, set := range sets {
+		if _, ok := wantDrawRoutes[set]; !ok {
+			wantDrawRoutes[set] = [3]int{}
+		}
 	}
-	if !reflect.DeepEqual(shuffleDrawRoutes, wantShuffleDrawRoutes) {
-		t.Fatalf("shuffle-then-draw route census changed: got %#v, want %#v", shuffleDrawRoutes, wantShuffleDrawRoutes)
+	if !reflect.DeepEqual(drawRoutes, wantDrawRoutes) {
+		t.Fatalf("shuffle-then-draw route census changed: got %#v, want %#v", drawRoutes, wantDrawRoutes)
 	}
+}
+
+const (
+	routeUniform   = iota // a seat's library was filled with its one shuffled card
+	routeHandCount        // several shuffled names: compare the hand by size
+	routeUntouched        // nothing is shuffled back: the Wastes filler is already uniform
+)
+
+func shuffleDrawRoute(it oraclegen.Item) int {
+	if hasCompare(it.Compare, oraclegen.CompareHandCount) {
+		return routeHandCount
+	}
+	for _, seat := range it.Scenario.Setup {
+		if len(seat.Library) > 0 {
+			return routeUniform
+		}
+	}
+	return routeUntouched
 }
 
 func hasCompare(options []string, want string) bool {

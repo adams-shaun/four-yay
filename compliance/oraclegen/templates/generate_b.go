@@ -34,11 +34,14 @@ func GenerateB(reg *cards.Registry, name string, req levelb.Requirement) (item o
 		if !hasCompareOption(item.Compare, oraclegen.CompareNoLibraryOrder) {
 			item.Compare = append(item.Compare, oraclegen.CompareNoLibraryOrder)
 		}
-		// Level-B observations may stop before the shuffle resolves, so their
-		// fixture cannot always make the resulting draw uniform. Preserve the
-		// observable hand size while ignoring random card identity.
-		if oraclegen.ShufflesThenDraws(c.Faces[req.Face]) && !hasCompareOption(item.Compare, oraclegen.CompareHandCount) {
-			item.Compare = append(item.Compare, oraclegen.CompareHandCount)
+		// A shuffle-then-draw draws random cards in XMage. Make the shuffled
+		// zones uniform so the drawn hand is the same whatever the order; only
+		// a setup holding several distinct shuffled names compares the hand by
+		// size instead.
+		if oraclegen.ShufflesThenDraws(c.Faces[req.Face]) {
+			if !oraclegen.UniformShuffledZones(&item.Scenario, name) && !hasCompareOption(item.Compare, oraclegen.CompareHandCount) {
+				item.Compare = append(item.Compare, oraclegen.CompareHandCount)
+			}
 		}
 	}()
 	if req.Gap != "" {

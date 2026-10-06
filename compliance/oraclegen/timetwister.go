@@ -61,16 +61,31 @@ func ShufflesThenDraws(f *cards.Face) bool {
 // hand (it is on the stack, never shuffled). A seat with no such card keeps
 // the Wastes filler (its draws are already uniform); a seat with several
 // distinct names is left alone.
-func UniformShuffleLibraries(fx *Fixture, cast string) bool {
-	return uniformShuffle([]*Seat{fx.P0(), fx.P1()}, cast)
+func UniformShuffleLibraries(fx *Fixture, cast string) {
+	uniformShuffle([]*Seat{fx.P0(), fx.P1()}, cast, true)
 }
 
 // UniformShuffleSetup is UniformShuffleLibraries over a built scenario's
 // setup, after every fixture card (targets, opponents' creatures) is placed.
-func UniformShuffleSetup(sc *Scenario, cast string) bool {
+func UniformShuffleSetup(sc *Scenario, cast string) {
+	uniformShuffleSetup(sc, cast, true)
+}
+
+// UniformShuffledZones makes a "shuffle your hand and graveyard into your
+// library, then draw" face deterministic on both engines, counting only the
+// hand and graveyard as shuffle sources: a permanent on the battlefield is
+// never shuffled back, so it does not make the draw random. It reports whether
+// every seat's drawn cards are now (or already were) uniform; false means the
+// setup holds several distinct shuffled names (or a fixed library) and the
+// caller must compare the hand by count instead.
+func UniformShuffledZones(sc *Scenario, cast string) bool {
+	return uniformShuffleSetup(sc, cast, false)
+}
+
+func uniformShuffleSetup(sc *Scenario, cast string, withBattlefield bool) bool {
 	p0, ok0 := sc.Setup["p0"]
 	p1, ok1 := sc.Setup["p1"]
-	uniform := uniformShuffle([]*Seat{&p0, &p1}, cast)
+	uniform := uniformShuffle([]*Seat{&p0, &p1}, cast, withBattlefield)
 	if ok0 {
 		sc.Setup["p0"] = p0
 	}
@@ -80,13 +95,17 @@ func UniformShuffleSetup(sc *Scenario, cast string) bool {
 	return uniform
 }
 
-func uniformShuffle(seats []*Seat, cast string) bool {
+// uniformShuffle fills each seat's library with its single shuffled card name
+// and reports whether every seat ended uniform. withBattlefield counts the
+// battlefield among the sources (the level-A Timetwister fixtures, whose
+// scenarios are pinned that way); a seat left alone clears the result.
+func uniformShuffle(seats []*Seat, cast string, withBattlefield bool) bool {
 	uniform := true
 	for i, s := range seats {
 		var names []string
-		// Only hand and graveyard cards are returned by Timetwister-style
-		// effects. A different permanent on the battlefield does not make the
-		// random draw non-uniform.
+		if withBattlefield {
+			names = append(names, s.Battlefield...)
+		}
 		names = append(names, s.Graveyard...)
 		skipped := false
 		for _, n := range s.Hand {
@@ -100,7 +119,7 @@ func uniformShuffle(seats []*Seat, cast string) bool {
 		for _, n := range names {
 			distinct[n] = true
 		}
-		if len(distinct) > 1 || len(s.Library) > 0 || len(s.LibraryTop) > 0 {
+		if len(s.Library) > 0 || len(s.LibraryTop) > 0 {
 			uniform = false
 			continue
 		}
@@ -108,7 +127,7 @@ func uniformShuffle(seats []*Seat, cast string) bool {
 			continue
 		}
 		named := len(s.Battlefield) + len(s.Hand) + len(s.Graveyard) + len(s.Exile)
-		if named >= fixtureDeckSize {
+		if len(distinct) != 1 || named >= fixtureDeckSize {
 			uniform = false
 			continue
 		}
