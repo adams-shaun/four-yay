@@ -147,7 +147,7 @@ func (d *Decks) config(spec GameSpec) (rules.Config, error) {
 			cmd = append(cmd, d.cmdIdx[n])
 		}
 	}
-	cfg := rules.Config{Seed: spec.Seed, Names: names, Decks: decks, Tokens: d.Reg.Tokens, NameUniverse: d.Reg.Cards}
+	cfg := rules.Config{Seed: spec.Seed, Names: names, Decks: decks, Tokens: d.Reg.Tokens, NameUniverse: d.Reg.AllCards()}
 	if spec.Commander {
 		cfg.Format = rules.FormatCommander
 		cfg.StartingLife = 40

@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"resolve","field":"permanents","diff":"$CARD colors gorge=R xmage=UR"},"key":"trigger | resolve | permanents | $CARD colors gorge=R xmage=UR","cards":1}
+{"card":"Roaring Furnace","template":"trigger#0.0","status":"diverge","api":"UnlockDoor:DealDamage","detail":"step 1 (resolve) permanents: gorge \"c0 o0 Roaring Furnace [enchantment room] {R}\", xmage \"c0 o0 Roaring Furnace [enchantment room] {UR}\""}

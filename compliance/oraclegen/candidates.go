@@ -304,6 +304,9 @@ type fixture struct {
 	// pre are steps that must run before the card's cast (create a token,
 	// attach an Aura, stamp a this-turn zone change).
 	pre []Step
+	// castMode is the cast option the card's own cast step selects (the
+	// runner's cast_mode); empty is the ordinary cast.
+	castMode string
 }
 
 // combatPlan is the attack/block preamble a fixture needs: attacker is the
@@ -625,8 +628,8 @@ func registryCardType(reg *cards.Registry, cardType string) (string, bool) {
 	if reg == nil {
 		return "", false
 	}
-	for i := range reg.Cards {
-		c := reg.Cards[i]
+	for i := 0; i < reg.Len(); i++ {
+		c := reg.Card(i)
 		for fi := range c.Faces {
 			for _, typ := range c.Faces[fi].Types {
 				if strings.EqualFold(strings.TrimSpace(typ), cardType) && XMageKnown(c.Faces[fi].Name) {
@@ -644,8 +647,8 @@ func registrySubtype(reg *cards.Registry, subtype string) (string, bool) {
 	if reg == nil {
 		return "", false
 	}
-	for i := range reg.Cards {
-		c := reg.Cards[i]
+	for i := 0; i < reg.Len(); i++ {
+		c := reg.Card(i)
 		// Only the front face: setup deals a card by its front name, so a back
 		// face (Tecutlan, the Searing Rift) is "not dealt".
 		if len(c.Faces) > 0 && faceHasSubtype(c.Faces[0], subtype) && XMageKnown(c.Faces[0].Name) {
@@ -672,8 +675,8 @@ func registryQuietSubtype(reg *cards.Registry, subtype string) (string, bool) {
 	if reg == nil {
 		return "", false
 	}
-	for i := range reg.Cards {
-		c := reg.Cards[i]
+	for i := 0; i < reg.Len(); i++ {
+		c := reg.Card(i)
 		if len(c.Faces) != 1 {
 			continue
 		}

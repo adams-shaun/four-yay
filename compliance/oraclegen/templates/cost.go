@@ -249,7 +249,7 @@ func affinityFixtures(reg *cards.Registry, typ string, count int) []string {
 	// Sort by printed name so fixture selection does not depend on corpus
 	// compilation order. Distinct permanents are required: appendUnique removes
 	// duplicate names from setup and each permanent reduces the cost once.
-	cardsInOrder := append([]*cards.Card(nil), reg.Cards...)
+	cardsInOrder := append([]*cards.Card(nil), reg.AllCards()...)
 	firstName := func(c *cards.Card) string {
 		if len(c.Faces) == 0 || c.Faces[0] == nil {
 			return ""

@@ -157,10 +157,13 @@ while true; do
   # The fleet's worktrees each key their own build-cache entries, so
   # GOCACHE grows ~1 TB/day here and Go's own 5-day trim never catches up
   # (2026-10-05: / hit 100% and git could not create worktrees). Drop
-  # entries unused for 6h whenever / passes 80%.
-  if [ "$(df --output=pcent / | tail -n1 | tr -dc 0-9)" -ge 80 ]; then
+  # entries unused for 24h whenever / passes 90%. Not 6h/80%: / sits at
+  # ~79%, so the trim ran nearly every loop and deleted entries a live
+  # build was opening (2026-10-06 false RED b75197f98: vet "could not
+  # import internal/godebug ... no such file").
+  if [ "$(df --output=pcent / | tail -n1 | tr -dc 0-9)" -ge 90 ]; then
     gc=$(go env GOCACHE)
-    nice find "$gc" -type f -mmin +360 -delete 2>/dev/null
+    nice find "$gc" -type f -mmin +1440 -delete 2>/dev/null
     say "GOCACHE trimmed: / now $(df --output=pcent / | tail -n1 | tr -d ' ')"
   fi
   sleep 60

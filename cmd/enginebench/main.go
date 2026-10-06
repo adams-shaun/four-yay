@@ -28,6 +28,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"runtime/metrics"
 	"runtime/pprof"
 	"strings"
 	"syscall"
@@ -45,13 +46,18 @@ type result struct {
 	Load1 float64 `json:"load1"`
 	Procs int     `json:"gomaxprocs"`
 	// HeapMB is the live heap after the corpus is loaded (a forced GC): the
-	// floor every GC cycle of the run marks.
-	HeapMB float64 `json:"heap_live_mb"`
-	Corpus string  `json:"corpus"`   // "full" or "subset"
-	Secs   float64 `json:"secs"`     // wall seconds of the timed region
-	CPU    float64 `json:"cpu_secs"` // process CPU seconds (user+sys) of the timed region
-	Err    string  `json:"err,omitempty"`
-	Detail any     `json:"detail,omitempty"`
+	// floor every GC cycle of the run marks. ScanHeapMB is the pointer-bearing
+	// part of it (/gc/scan/heap:bytes) -- the bytes a GC actually re-marks --
+	// and HeapObjects is the object count, both read by the same census the
+	// internal/corpusheap ratchet pins.
+	HeapMB      float64 `json:"heap_live_mb"`
+	ScanHeapMB  float64 `json:"scan_heap_mb"`
+	HeapObjects int64   `json:"heap_objects"`
+	Corpus      string  `json:"corpus"`   // "full" or "subset"
+	Secs        float64 `json:"secs"`     // wall seconds of the timed region
+	CPU         float64 `json:"cpu_secs"` // process CPU seconds (user+sys) of the timed region
+	Err         string  `json:"err,omitempty"`
+	Detail      any     `json:"detail,omitempty"`
 
 	Games     int     `json:"games,omitempty"`
 	Turns     int     `json:"turns,omitempty"`
@@ -93,7 +99,9 @@ func main() {
 	out := flag.String("out", "", "append the JSON result line here (default stdout)")
 	cpuprof := flag.String("cpuprofile", "", "write a CPU profile of the run (after the corpus loads) here")
 	memprof := flag.String("memprofile", "", "write an allocation profile of the run (after the corpus loads; MemProfileRate 64KiB) here")
+	walkstats := flag.Bool("walkstats", false, "random/bot rows: also print the priority legal-walk reuse table (spec 2026-10-06-legal-walk-design §1.5) to stderr")
 	flag.Parse()
+	walkStatsFlag = *walkstats
 	// Both profiles start once the corpus is loaded, so the one-off gob
 	// decode and catalog build do not crowd the row's own hotspots.
 	if *memprof != "" {
@@ -142,10 +150,15 @@ func main() {
 		var ms runtime.MemStats
 		runtime.ReadMemStats(&ms)
 		r.HeapMB = float64(ms.HeapAlloc) / (1 << 20)
+		samples := []metrics.Sample{{Name: "/gc/scan/heap:bytes"}}
+		metrics.Read(samples)
+		r.ScanHeapMB = float64(samples[0].Value.Uint64()) / (1 << 20)
+		r.HeapObjects = int64(ms.HeapObjects)
 		r.Corpus = corpusMode
 		startProfiles()
 		switch *row {
 		case "random":
+			w.expectedEvents = randomExpectedEvents
 			return runRandom(&r, w, *pair, *seed, *secs)
 		case "bot":
 			return runBot(&r, w, *pair, *seed, *secs, *autopay)
@@ -163,6 +176,9 @@ func main() {
 	}()
 	if err != nil {
 		r.Err = err.Error()
+	}
+	if walkStatsFlag {
+		wm.report()
 	}
 	if st := resolve.ReadStats(); st != (resolve.Stats{}) {
 		// The resolution kernel's counters for this run (a kernel-on

@@ -1484,12 +1484,13 @@ public class ScenarioReplay extends CardTestPlayerBase {
         return c != null && c.getAbilities().stream().anyMatch(a -> a instanceof AlternativeSourceCosts);
     }
 
-    /** Whether a cast step's cast_mode is one this driver elects: Bargain is
-     * the only mode wired, and an absent or empty mode is the ordinary cast.
-     * Any other mode is a scenario the driver cannot replay and must reject
-     * loudly rather than cast at face value. */
+    /** Whether a cast step's cast_mode is one this driver elects: Bargain and
+     * "optionalcost" are wired, and an absent or empty mode is the ordinary
+     * cast. Any other mode is a scenario the driver cannot replay and must
+     * reject loudly rather than cast at face value. */
     static boolean castModeSupported(String mode) {
-        return mode == null || mode.isEmpty() || mode.equals("bargained");
+        return mode == null || mode.isEmpty()
+                || mode.equals("bargained") || mode.equals("optionalcost");
     }
 
     /** The XMage target string for one scenario target ref: its alias when
@@ -2006,11 +2007,14 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     throw new IllegalArgumentException("kicked unsupported");
                 }
                 // cast_mode elects a mode whose cost is a cast-time optional
-                // additional cost. Only Bargain's is wired: its yes/no ask is
+                // additional cost. Bargain's is wired here: its yes/no ask is
                 // answered from bargainedCast and the sacrifice it adds is
-                // matched against this step's recorded choose picks. Any other
-                // mode fails loudly rather than being silently dropped (the
-                // legacy whole-rejection this replaces).
+                // matched against this step's recorded choose picks.
+                // "optionalcost" is a plain cast on this side: XMage poses the
+                // "pay the additional cost?" chooseUse itself, so its yes and
+                // the cost's picks come from xmage_answers. Any other mode
+                // fails loudly rather than being silently dropped (the legacy
+                // whole-rejection this replaces).
                 String castMode = st.has("cast_mode") ? str(st, "cast_mode") : "";
                 if (!castModeSupported(castMode)) {
                     throw new IllegalArgumentException("cast_mode " + castMode + " unsupported");

@@ -127,10 +127,11 @@ func forgeExport(reg *cards.Registry, scen, out string) (int, error) {
 }
 
 // forgeAbilityLines maps each step that names an ability by ability_index to
-// the script line (cards.SA.Line) of Face.Abilities[index] on the step's
-// card, read from the card's first face. A step whose card does not resolve
-// to a corpus card, or whose index is out of range, is left out: the driver
-// then falls back to its own matching rather than trusting a wrong line.
+// the script line (cards.SA.Line) of Face.Abilities[index] on the step's card.
+// It reads face 1 when that card is listed in the owning seat's back_face
+// setup. A step whose card does not resolve to a corpus card, or whose index
+// is out of range, is left out: the driver then falls back to its own matching
+// rather than trusting a wrong line.
 func forgeAbilityLines(reg *cards.Registry, it oraclegen.Item) map[string]string {
 	lines := map[string]string{}
 	for i, st := range it.Steps {
@@ -141,7 +142,19 @@ func forgeAbilityLines(reg *cards.Registry, it oraclegen.Item) map[string]string
 		if !ok || len(c.Faces) == 0 {
 			continue
 		}
-		f := c.Faces[0]
+		face := 0
+		if seat, _, hasSeat := strings.Cut(st.Card, ":"); hasSeat {
+			for _, name := range it.Setup[seat].BackFace {
+				if name == refCardName(st.Card) {
+					face = 1
+					break
+				}
+			}
+		}
+		if face >= len(c.Faces) {
+			continue
+		}
+		f := c.Faces[face]
 		if k := *st.AbilityIndex; k >= 0 && k < len(f.Abilities) && f.Abilities[k] != nil {
 			lines[strconv.Itoa(i)] = f.Abilities[k].Line
 		}

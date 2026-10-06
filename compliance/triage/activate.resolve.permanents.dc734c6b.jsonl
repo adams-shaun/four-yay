@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"resolve","field":"permanents","diff":"Mastercraft Raptor gorge+[0/4] xmage+[6/4]"},"key":"activate | resolve | permanents | Mastercraft Raptor gorge+[0/4] xmage+[6/4]","cards":1}
-{"card":"Saheeli's Lattice","template":"activate#0.0","status":"diverge","api":"ChangesZone:Draw","sets":["LCI"],"detail":"step 1 (resolve) permanents: gorge \"c0 o0 Mastercraft Raptor [artifact creature dinosaur] {R} 0/4\", xmage \"c0 o0 Mastercraft Raptor [artifact creature dinosaur] {R} 6/4\""}

@@ -111,7 +111,8 @@ func (e *Engine) composeUpdatedReplacements(ev events.Event, matches []replMatch
 			Text: "entry awaiting replacement-order choice"}, true
 	}
 	departing, link, controller := e.captureSourceLifelinkLKI(ev)
-	stored, absorbed := e.foldEntryMove(ev)
+	stored := ev
+	absorbed := e.foldEntryMove(&stored, false)
 	e.loop.observeFrom(&stored, e.damaging, len(e.G.Objs))
 	// The move-driven Effect lifetimes, replayed inline exactly as the
 	// single-match Updated branch does (the raw events.Emit above bypasses
@@ -242,7 +243,8 @@ func (e *Engine) resumeUpdatedComposition(rc replChoice, selected int) {
 		// folds the grants with the move exactly as applyReplacement's
 		// Updated arm does, and never re-runs the replacement dispatch (so
 		// the just-answered competition cannot re-pose).
-		stored, absorbed := e.foldEntryMove(rc.ev)
+		stored := rc.ev
+		absorbed := e.foldEntryMove(&stored, false)
 		rc.absorbed = absorbed
 		e.loop.observeFrom(&stored, e.damaging, len(e.G.Objs))
 		// The move-driven Effect lifetimes, replayed inline exactly as the

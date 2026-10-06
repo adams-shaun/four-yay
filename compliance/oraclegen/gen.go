@@ -93,6 +93,12 @@ type Step struct {
 	Card    string   `json:"card,omitempty"`
 	Mana    string   `json:"mana,omitempty"`
 	Targets []string `json:"targets,omitempty"`
+	// CastMode selects a non-default cast option of the cast step by its
+	// decision.Option.Mode (the runner's cast_mode): "optionalcost" pays a
+	// self-spell OptionalCost static, "bargained" elects a Bargain, a Kicker's
+	// "kicked", etc. Empty selects the ordinary cast, and it is empty on every
+	// level-A step, so level-A items are byte-identical.
+	CastMode string `json:"cast_mode,omitempty"`
 	// Attackers/Defender drive the attack op; Blocks the block op. They
 	// carry a creature into combat so a "target attacking or blocking
 	// creature" slot has a legal target.
@@ -111,11 +117,12 @@ type Step struct {
 	// step name an ability without pasting the script's SpellDescription
 	// text. Nil on every level-A step, so level-A items are byte-identical.
 	AbilityIndex *int `json:"ability_index,omitempty"`
-	// CastMode elects a cast option by its decision.Option.Mode ("bargained"
-	// for a Bargain, a Kicker's "kicked", etc.), the same anchor the runner's
-	// oracleCastWantMode reads. Empty selects the ordinary cast. Nil on every
-	// level-A step, so level-A items are byte-identical.
-	CastMode string `json:"cast_mode,omitempty"`
+	// Ability selects an `activate` option by its label (the runner's
+	// oracleStep.Ability): a special action the engine offers under its own
+	// option kind, such as a Room's "Unlock <door name>", has no IR ability
+	// index. Empty on every existing step, so existing items are
+	// byte-identical.
+	Ability string `json:"ability,omitempty"`
 	// A scenario step may move a card into a zone; the move op stamps the
 	// object as having entered this turn (a board-history target such as
 	// ThisTurnEntered@Graveyard needs that).

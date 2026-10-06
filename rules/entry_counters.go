@@ -123,7 +123,7 @@ func (st *entryCounterStage) restage(posed *entryCounterStage) entryCounterStage
 // stage's own completed re-drive is being emitted (redriving, set by
 // resumeEntryCounterOrder around exactly that emit). Any other mint, however
 // equal, is a NEW mint and stages (or folds) on its own.
-func (st *entryCounterStage) sameEntryMove(ev events.Event) bool {
+func (st *entryCounterStage) sameEntryMove(ev *events.Event) bool {
 	if st.move.Kind != ev.Kind {
 		return false
 	}
@@ -138,7 +138,7 @@ func (st *entryCounterStage) sameEntryMove(ev events.Event) bool {
 // reads its object in the origin zone (elections and compleated payment);
 // token mints read the card/face their Apply case will instantiate. A
 // battlefield->battlefield stay is not a new object and grants nothing.
-func (e *Engine) entryCounterGrants(ev events.Event) []events.EntryCounterGrant {
+func (e *Engine) entryCounterGrants(ev *events.Event) []events.EntryCounterGrant {
 	switch ev.Kind {
 	case events.MoveZone:
 		if ev.To != state.ZBattlefield {
@@ -159,7 +159,7 @@ func (e *Engine) entryCounterGrants(ev events.Event) []events.EntryCounterGrant 
 		}
 		return grants
 	case events.TokenCreate:
-		return events.EntryCounterGrants(e.tokenSnapshot(ev), false)
+		return events.EntryCounterGrants(e.tokenSnapshot(*ev), false)
 	case events.CardToken:
 		if src := e.G.Obj(ev.Obj); src != nil {
 			// CardToken copies the card and face, not the source object's
@@ -178,7 +178,7 @@ func (e *Engine) entryCounterGrants(ev events.Event) []events.EntryCounterGrant 
 // state: the entering face's own Replacement lines and the derived keyword
 // list. A battlefield->battlefield stay grants nothing (the same guard
 // entryCounterGrants keeps).
-func (e *Engine) entryBodyCandidates(ev events.Event) bool {
+func (e *Engine) entryBodyCandidates(ev *events.Event) bool {
 	var entrant *state.Object
 	switch ev.Kind {
 	case events.MoveZone:
@@ -190,7 +190,7 @@ func (e *Engine) entryBodyCandidates(ev events.Event) bool {
 			return false
 		}
 	case events.TokenCreate:
-		entrant = e.tokenSnapshot(ev)
+		entrant = e.tokenSnapshot(*ev)
 	case events.CardToken:
 		if src := e.G.Obj(ev.Obj); src != nil {
 			entrant = &state.Object{Card: src.Card, FaceIdx: src.FaceIdx}
@@ -343,7 +343,7 @@ func (e *Engine) entryBodyCounterGrants(ev events.Event, entrant state.ObjID) ([
 // rider-bearing mana. It is the cheap gate the emit pre-pass and foldEntryMove
 // take BEFORE building the costly isolated preview, and it reads only the
 // persisted grant list.
-func (e *Engine) entryRiderCandidates(ev events.Event) bool {
+func (e *Engine) entryRiderCandidates(ev *events.Event) bool {
 	if ev.Kind != events.MoveZone || ev.To != state.ZBattlefield || events.IsFaceDownEntry(ev.Counter) {
 		return false
 	}
@@ -436,7 +436,7 @@ func (e *Engine) riderCounterAmount(amount string, entrant state.ObjID, you stat
 // replIdentity for the Updated dispatch to skip.
 func (e *Engine) entryGrantPlan(ev events.Event, preview *Engine, entrant state.ObjID) ([]entryGrant, []string) {
 	var grants []entryGrant
-	for _, g := range e.entryCounterGrants(ev) {
+	for _, g := range e.entryCounterGrants(&ev) {
 		grants = append(grants, entryGrant{kind: g.Kind, amount: g.Amount})
 	}
 	// AddsCounters$ mana-spend rider (task opalp): the cast's consuming sources,
@@ -627,11 +627,11 @@ func (e *Engine) entryETBChoiceOutstanding(ev events.Event) bool {
 func (e *Engine) entryCounterOrderParks(ev events.Event) bool {
 	for i := range e.replChoices {
 		rc := &e.replChoices[i]
-		if rc.kind == replChoiceEntryOrder && rc.stage != nil && rc.stage.sameEntryMove(ev) {
+		if rc.kind == replChoiceEntryOrder && rc.stage != nil && rc.stage.sameEntryMove(&ev) {
 			return !rc.stage.complete
 		}
 	}
-	if e.entryStageDone != nil && e.entryStageDone.sameEntryMove(ev) {
+	if e.entryStageDone != nil && e.entryStageDone.sameEntryMove(&ev) {
 		return false
 	}
 	// An entry still owing an as-enters election stages nothing yet: the
@@ -643,7 +643,7 @@ func (e *Engine) entryCounterOrderParks(ev events.Event) bool {
 	if e.entryETBChoiceOutstanding(ev) {
 		return false
 	}
-	if len(e.entryCounterGrants(ev)) == 0 && !e.entryBodyCandidates(ev) && !e.entryRiderCandidates(ev) {
+	if len(e.entryCounterGrants(&ev)) == 0 && !e.entryBodyCandidates(&ev) && !e.entryRiderCandidates(&ev) {
 		return false
 	}
 	preview, entrant := e.entryPreview(ev)
@@ -766,21 +766,37 @@ func (e *Engine) resumeEntryCounterOrder(rc replChoice, idx int) {
 // payload (MoveZone, TokenCreate or CardToken): events.Apply installs them IN
 // the entry, before any observer runs. CounterChange records after the entry
 // are notification-only: they do not place counters twice on replay.
-func (e *Engine) foldEntryMove(ev events.Event) (events.Event, []string) {
+//
+// *ev is folded in place -- on return it IS the stored event -- so a caller
+// passes a copy it owns, never an event it still needs. tally (the ordinary
+// emit tail only) brackets a Damage fold with the excess-damage tally: the
+// recipient's pre-fold threshold read before, the folded amount after. Both
+// tally steps are no-ops for every other kind, and a Damage event is never an
+// entry (no stage, grant or preview matches it), so it folds directly.
+func (e *Engine) foldEntryMove(ev *events.Event, tally bool) []string {
+	if tally && ev.Kind == events.Damage {
+		noteExcessHit(&e.excessBatch, e, e.damageSourceLKI, ev, e.damageBatchOpen)
+		events.EmitPtr(e.G, e.L, ev)
+		e.excessBatch.add(ev)
+		return nil
+	}
 	if st := e.entryStageDone; st != nil && st.complete && st.sameEntryMove(ev) {
 		e.entryStageDone = nil
-		return e.foldEntryWithPlaced(ev, st.placed), st.bodyIDs
+		e.foldEntryWithPlaced(ev, st.placed)
+		return st.bodyIDs
 	}
 	intrinsic := e.entryCounterGrants(ev)
 	if len(intrinsic) == 0 && !e.entryBodyCandidates(ev) && !e.entryRiderCandidates(ev) {
-		return events.Emit(e.G, e.L, ev), nil
+		events.EmitPtr(e.G, e.L, ev)
+		return nil
 	}
-	preview, entrant := e.entryPreview(ev)
+	preview, entrant := e.entryPreview(*ev)
 	if o := preview.G.Obj(entrant); o == nil || o.Zone != state.ZBattlefield {
 		e.releaseEntryPreview(preview)
-		return events.Emit(e.G, e.L, ev), nil
+		events.EmitPtr(e.G, e.L, ev)
+		return nil
 	}
-	grants, bodyIDs := e.entryGrantPlan(ev, preview, entrant)
+	grants, bodyIDs := e.entryGrantPlan(*ev, preview, entrant)
 	placed, park := preview.settleEntryGrants(entrant, grants)
 	e.releaseEntryPreview(preview)
 	if park >= 0 {
@@ -790,20 +806,21 @@ func (e *Engine) foldEntryMove(ev events.Event) (events.Event, []string) {
 		// resume, and the placements follow the move (the pre-staging
 		// behaviour this task's pre-pass replaces for ordinary entries).
 		// No body is absorbed here: its own placement run owns the park.
-		stored := events.Emit(e.G, e.L, ev)
+		events.EmitPtr(e.G, e.L, ev)
 		for _, grant := range intrinsic {
 			e.emit(events.Event{Kind: events.CounterChange, Obj: entrant, Counter: grant.Kind, Amount: grant.Amount})
 		}
-		return stored, nil
+		return nil
 	}
-	return e.foldEntryWithPlaced(ev, placed), bodyIDs
+	e.foldEntryWithPlaced(ev, placed)
+	return bodyIDs
 }
 
 // foldEntryWithPlaced folds the entry move with the finalized grant amounts
 // in its Pairs payload, then emits each grant's notification-only
 // CounterChange (EntryCounterNotice) through the ordinary emit path so
 // trig:CounterAdded and the per-turn ledger see the placement exactly once.
-func (e *Engine) foldEntryWithPlaced(ev events.Event, placed []events.EntryCounterGrant) events.Event {
+func (e *Engine) foldEntryWithPlaced(ev *events.Event, placed []events.EntryCounterGrant) {
 	for _, g := range placed {
 		ev.Pairs = append(ev.Pairs, events.EntryCounterPairs(g)...)
 	}
@@ -811,7 +828,7 @@ func (e *Engine) foldEntryWithPlaced(ev events.Event, placed []events.EntryCount
 	if ev.Kind == events.TokenCreate || ev.Kind == events.CardToken {
 		entrant = e.G.NextID
 	}
-	stored := events.Emit(e.G, e.L, ev)
+	events.EmitPtr(e.G, e.L, ev)
 	for _, g := range placed {
 		// Replacement has already settled; the marker only notifies observers.
 		// The entrant's controller is the adder of its entry counters, even
@@ -824,5 +841,4 @@ func (e *Engine) foldEntryWithPlaced(ev events.Event, placed []events.EntryCount
 		e.applyingReplacement, e.counterReplacementFold = savedApplying, savedFold
 		e.SetCounterAdder(savedAdder)
 	}
-	return stored
 }

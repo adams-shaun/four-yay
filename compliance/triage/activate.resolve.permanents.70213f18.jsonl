@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"resolve","field":"permanents","diff":"gorge+token"},"key":"activate | resolve | permanents | gorge+token","cards":1}
-{"card":"Master's Guide-Mural","template":"activate#0.0","status":"diverge","api":"ChangesZone:Token","sets":["LCI"],"detail":"step 1 (resolve) permanents: gorge \"c0 o0 token [artifact creature golem] {WU} 4/4\", xmage \"\""}

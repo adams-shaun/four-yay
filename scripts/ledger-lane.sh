@@ -9,8 +9,11 @@
 #     except the final `ok ... (cached)` line, which cmd/ledger does not read.
 #   - capped: 2 GB / 2 vCPU scope, GOMAXPROCS=2 GOMEMLIMIT=1536MiB, like every
 #     other test run on this box.
-#   - serialised on the shared heavy lock (flock -o so the fd is not inherited
-#     by the test binary), so it does not run beside a post-merge full suite.
+#   - serialised on its OWN lock, <main checkout>/.ds4/ledger.lock (flock -o so
+#     the fd is not inherited by the test binary). Not the shared heavy lock
+#     (operator, 2026-10-06): every landing ran this, and waiting behind
+#     benches and full suites on the heavy lock stalled each merge for minutes.
+#     Two ledger runs never overlap; a capped 2 GB lane needs nothing more.
 #
 # The CR conformance gate's saved log (.ds4/orchestrator/gates/<id>/<tag>/
 # CR-conformance.log) is NOT reused: it is truncated to 20000 bytes, carries no
@@ -25,9 +28,9 @@
 set -uo pipefail
 
 OUT=${1:?usage: ledger-lane.sh <lane-output-file>}
-# Same default as scripts/postmerge_batch.sh (/tmp/gorge-heavy.lock): a per-worktree
-# path would never contend with it.
-LOCK=${GORGE_HEAVY_LOCK:-/tmp/gorge-heavy.lock}
+# Anchored at the MAIN checkout (git common dir), so a worktree's run and the
+# post-merge hook share one lock. LEDGER_LOCK overrides it (tests do).
+LOCK=${LEDGER_LOCK:-$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")/.ds4/ledger.lock}
 WAIT=${LEDGER_LANE_WAIT:-1800}
 
 mkdir -p "$(dirname "$OUT")"
@@ -41,10 +44,7 @@ TMP=$(mktemp "$OUT.XXXXXX") || exit 2
 trap 'rm -f "$TMP"' EXIT
 
 # -E 99: a lock timeout is distinguishable from go test's own exit 1 (FAIL).
-# Under `heavy_lock.sh run` (the post_merge hook) the caller already holds this
-# lock; taking it again would wait on our own ancestor until $WAIT ran out.
 lock=(flock -o -E 99 -w "$WAIT" "$LOCK")
-[ "${GORGE_HEAVY_LOCK_HELD:-}" = "$LOCK" ] && lock=()
 "${lock[@]}" "${scope[@]}" env GOMAXPROCS=2 GOMEMLIMIT=1536MiB \
 	go test -timeout 2m ./rules -run TestCR -v >"$TMP"
 rc=$?

@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"resolve","field":"p0.library","diff":"placement"},"key":"activate | resolve | p0.library | placement","cards":1}
-{"card":"Inverted Iceberg","template":"activate#0.0","status":"diverge","api":"ChangesZone:Mill","sets":["LCI"],"detail":"step 1 (resolve) p0.hand: gorge \"[Wastes]\", xmage \"[]\""}

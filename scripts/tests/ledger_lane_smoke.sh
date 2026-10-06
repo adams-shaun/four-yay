@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ledger_lane_smoke.sh — `make ledger` must not defeat the Go test cache, and its
-# lane run must be capped and serialised on the heavy lock (operator, 2026-10-05).
+# lane run must be capped and serialised on its own ledger lock (operator, 2026-10-05/06).
 #
 #   scripts/tests/ledger_lane_smoke.sh
 set -uo pipefail
@@ -25,10 +25,10 @@ check "ledger-lane.sh caps GOMAXPROCS/GOMEMLIMIT" grep -q 'GOMAXPROCS=2 GOMEMLIM
 
 # Contention: while another process holds the lock, the script gives up with
 # exit 99 and leaves the previous lane file untouched.
-export GORGE_HEAVY_LOCK=$TMP/heavy.lock
+export LEDGER_LOCK=$TMP/ledger.lock
 printf 'previous lane\n' >"$TMP/lane.txt"
 (
-	exec 9>"$GORGE_HEAVY_LOCK"
+	exec 9>"$LEDGER_LOCK"
 	flock -n 9 && sleep 5
 ) &
 holder=$!
@@ -52,7 +52,7 @@ exit 1
 EOS
 chmod +x "$TMP/bin/systemd-run"
 printf 'previous lane\n' >"$TMP/lane.txt"
-PATH="$TMP/bin:$PATH" GORGE_HEAVY_LOCK=$TMP/launch.lock LEDGER_LANE_WAIT=1 \
+PATH="$TMP/bin:$PATH" LEDGER_LOCK=$TMP/launch.lock LEDGER_LANE_WAIT=1 \
 	"$ROOT/scripts/ledger-lane.sh" "$TMP/lane.txt" 2>"$TMP/err2"
 rc=$?
 check "scope launch failure -> non-zero exit (got $rc)" test "$rc" -ne 0
@@ -72,26 +72,26 @@ cat >"$TMP/bin/go" <<'EOS'
 echo 'ok  github.com/adams-shaun/gorge/rules  0.001s'
 EOS
 chmod +x "$TMP/bin/systemd-run" "$TMP/bin/go"
-PATH="$TMP/bin:/usr/bin:/bin" GORGE_HEAVY_LOCK=$TMP/mode.lock LEDGER_LANE_WAIT=1 \
+PATH="$TMP/bin:/usr/bin:/bin" LEDGER_LOCK=$TMP/mode.lock LEDGER_LANE_WAIT=1 \
 	"$ROOT/scripts/ledger-lane.sh" "$TMP/lane.txt" 2>/dev/null || true
 mode=$(stat -c '%a' "$TMP/lane.txt")
 check "published lane is 0644 (got $mode)" test "$mode" = 644
 
-# Nested under the post_merge hook's shape (`heavy_lock.sh run -- make ledger`):
-# the caller already holds the lock, so the lane must run, not wait on its own
-# ancestor until LEDGER_LANE_WAIT expires (2026-10-06: a 30 min stall that held
-# the post-merge suite and paused the pipeline).
+# The lane must NOT take the shared heavy lock (operator, 2026-10-06): a held
+# heavy lock must not delay it.
 printf 'previous lane\n' >"$TMP/lane.txt"
-PATH="$TMP/bin:/usr/bin:/bin" GORGE_HEAVY_LOCK=$TMP/nested.lock LEDGER_LANE_WAIT=2 \
-	"$ROOT/scripts/heavy_lock.sh" run -w 2 -- "$ROOT/scripts/ledger-lane.sh" "$TMP/lane.txt" 2>"$TMP/err3"
+(
+	exec 9>"$TMP/heavy.lock"
+	flock -n 9 && sleep 5
+) &
+holder=$!
+sleep 1
+PATH="$TMP/bin:/usr/bin:/bin" GORGE_HEAVY_LOCK=$TMP/heavy.lock LEDGER_LOCK=$TMP/own.lock LEDGER_LANE_WAIT=1 \
+	"$ROOT/scripts/ledger-lane.sh" "$TMP/lane.txt" 2>"$TMP/err3"
 rc=$?
-check "nested under heavy_lock.sh run -> exit 0, no self-wait (got $rc)" test "$rc" -eq 0
-check "nested run published the lane" grep -q '^ok' "$TMP/lane.txt"
-
-# A nested `heavy_lock.sh run` inside a held lock runs immediately too.
-GORGE_HEAVY_LOCK=$TMP/nested2.lock "$ROOT/scripts/heavy_lock.sh" run -w 2 -- \
-	"$ROOT/scripts/heavy_lock.sh" run -w 2 -- true
-rc=$?
-check "heavy_lock.sh run is re-entrant (got $rc)" test "$rc" -eq 0
+kill "$holder" 2>/dev/null
+wait "$holder" 2>/dev/null
+check "a held heavy lock does not block the lane (got $rc)" test "$rc" -eq 0
+check "the lane published while the heavy lock was held" grep -q '^ok' "$TMP/lane.txt"
 
 exit $fail

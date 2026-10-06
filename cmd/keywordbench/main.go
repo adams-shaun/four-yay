@@ -145,7 +145,7 @@ func corpusReport(w io.Writer, dir string, reg *cards.Registry) error {
 	for _, line := range strings.Split(strings.TrimSpace(string(rawBytes)), "\n") {
 		raw[cards.KeywordHead(strings.TrimSpace(strings.TrimPrefix(line, "K:")))]++
 	}
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		seen := map[string]bool{}
 		for _, f := range c.Faces {
 			for _, line := range f.Keywords {
@@ -186,7 +186,7 @@ func corpusReport(w io.Writer, dir string, reg *cards.Registry) error {
 		}
 		return a < b
 	})
-	fmt.Fprintf(w, "# corpus: %d compiled cards; raw binary=/usr/bin/grep -rhI '^K:' %s/cardsfolder; tokens excluded\n", len(reg.Cards), dir)
+	fmt.Fprintf(w, "# corpus: %d compiled cards; raw binary=/usr/bin/grep -rhI '^K:' %s/cardsfolder; tokens excluded\n", reg.Len(), dir)
 	fmt.Fprintln(w, "keyword\tregistered\traw_K_lines\tcompiled_K_occurrences\tcompiled_cards")
 	for _, k := range order {
 		fmt.Fprintf(w, "%s\t%t\t%d\t%d\t%d\n", k, supported["kw:"+k], raw[k], occurrences[k], reach[k])

@@ -24,10 +24,23 @@ var pairs = map[string][2]string{
 	"B": {"FDN_top_07961_WR", "FDN_top_02581_UR"},
 }
 
+// randomExpectedEvents is the random row's event-log size hint. Uniform-random
+// play runs far longer logs than the bot: measured 2026-10-06 over 400 random
+// pair-A games, final log length was min 2201, p50 6522, p95 8867, p99 9491,
+// max 10299 -- 356 of 400 outgrew the default 4096 and paid a growEvents copy.
+// 12288 (the next multiple of the 4096 preallocation above the observed max)
+// lets a random game run its whole log without a single reallocation. The bot
+// row keeps the default: its games (p50 2546, p95 3964) rarely reach 4096, so
+// presizing there would only allocate more.
+const randomExpectedEvents = 12288
+
 type workload struct {
 	reg     *cards.Registry
 	deckDir string
 	burn    string
+	// expectedEvents is the event-capacity hint the row passes to every game
+	// (rules.Config.ExpectedEvents). 0 keeps the engine default.
+	expectedEvents int
 }
 
 // openCorpus opens the corpus. The default is the whole corpus
@@ -205,9 +218,10 @@ func (w workload) config(decks [2][]*cards.Card, names [2]string, base uint64, g
 		a, b = 1, 0
 	}
 	return rules.Config{
-		Seed:   base + uint64(g),
-		Names:  []string{names[a], names[b]},
-		Decks:  [][]*cards.Card{decks[a], decks[b]},
-		Tokens: w.reg.Tokens,
+		Seed:           base + uint64(g),
+		Names:          []string{names[a], names[b]},
+		Decks:          [][]*cards.Card{decks[a], decks[b]},
+		Tokens:         w.reg.Tokens,
+		ExpectedEvents: w.expectedEvents,
 	}
 }
