@@ -24,6 +24,13 @@ var activateCensusSets = []string{"BIG", "EOE", "FDN", "FRA"}
 // stale pin. activate.zone:* requirements are gaps the level-B classifier
 // owns, so they are not counted here (compliance/levelb/census_test.go pins
 // them).
+//
+// Re-measured for the loyalty-headroom/target-fixture ticket
+// (cli-20261006T035108Z-725d3fdb) on top of the activation-cost fixtures: a
+// loyalty cost above the printed loyalty now gets setup counters and the
+// legendary / +1/+1-counter creature fixtures serve more targets (EOE +1,
+// FDN +4, FRA +6 served); FRA Hexhaven Dueling Arena #0.1 is the named
+// attackedThisTurn skip.
 var wantActivateCensus = map[string]map[string]int{
 	"BIG": {
 		"served:activate.battlefield":             10,
@@ -33,31 +40,32 @@ var wantActivateCensus = map[string]map[string]int{
 		"skip:activate no fixture":                1,
 	},
 	"EOE": {
-		"served:activate.battlefield":                 30,
+		"served:activate.battlefield":                 31,
 		"served:activate.mana":                        3,
 		"skip:activate cost gap: ExileFromGrave<...>": 1,
 		"skip:activate cost gap: Sac<...>":            3,
 		"skip:activate cost gap: SubCounter<...>":     1,
 		"skip:activate cost gap: tapXType<...>":       2,
-		"skip:activate no fixture":                    2,
+		"skip:activate no fixture":                    1,
 		"skip:activate xmage text ambiguous":          20,
 	},
 	"FDN": {
-		"served:activate.battlefield":             68,
+		"served:activate.battlefield":             72,
 		"served:activate.mana":                    50,
 		"skip:activate cost gap: AddCounter<...>": 2,
 		"skip:activate cost gap: Return<...>":     1,
 		"skip:activate cost gap: Sac<...>":        6,
 		"skip:activate cost gap: SubCounter<...>": 4,
 		"skip:activate cost gap: tapXType<...>":   2,
-		"skip:activate no fixture":                9,
+		"skip:activate no fixture":                5,
 		"skip:activate xmage text ambiguous":      2,
 	},
 	"FRA": {
-		"served:activate.battlefield":        59,
+		"served:activate.battlefield":        65,
 		"served:activate.mana":               24,
-		"skip:activate no fixture":           8,
+		"skip:activate no fixture":           1,
 		"skip:activate xmage text ambiguous": 10,
+		"skip:activate target gap: attackedThisTurn needs a combat prelude (Creature.attackedThisTurn)": 1,
 	},
 }
 
