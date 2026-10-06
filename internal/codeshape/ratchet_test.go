@@ -325,7 +325,6 @@ var longFuncCeilings = map[string]int{
 	"rules (*Engine).appendAvailableManaAbilitiesGate":      375,
 	"rules (*Engine).applyReplacementsDispatch":             327,
 	"rules (*Engine).beginCastWith":                         704,
-	"rules (*Engine).checkEventDelayedTriggers":             303,
 	"rules (*Engine).checkFaceTriggers":                     811,
 	"rules (*Engine).emit":                                  704,
 	"rules (*Engine).handleChoose":                          416,
