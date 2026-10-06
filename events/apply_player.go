@@ -306,6 +306,13 @@ func foldAlterAttribute(g *state.Game, e *Event) {
 			// the designation no controller-change end -- the only clear is
 			// the Move fold's leaving-battlefield block below.
 			o.Monstrous = e.Amount >= 1
+		case "Solved":
+			// CR 719.3b: a solved Case stays solved, so only the grant
+			// moves the flag; the Move fold's leaving-battlefield block is
+			// its one clear.
+			if e.Amount >= 1 {
+				o.Solved = true
+			}
 		case "Renowned":
 			// CR 702.112b: renowned persists only for this battlefield
 			// permanent; Amount carries the Renown count for listeners.

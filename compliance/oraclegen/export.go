@@ -65,6 +65,13 @@ func (fx Fixture) CombatSteps() []Step {
 // a token, attach an Aura, stamp a this-turn zone change).
 func (fx Fixture) Prelude() []Step { return fx.pre }
 
+// AddPrelude appends steps that must run before the card's cast. A template
+// uses it for board history the fixture's own setup cannot express, e.g. a
+// creature that must have dealt damage this turn (Treacherous Greed's
+// sacrifice cost), which needs an attack followed by a pass to end of
+// combat.
+func (fx *Fixture) AddPrelude(steps ...Step) { fx.pre = append(fx.pre, steps...) }
+
 // SlotSpec is one target slot: its filter and whether the cast may omit it.
 type SlotSpec = Slot
 

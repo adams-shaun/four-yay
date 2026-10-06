@@ -66,6 +66,18 @@ func foldDelayedRegister(g *state.Game, e *Event) {
 	// name, so every already-logged registration decodes exactly as
 	// before (VP ungated; MaxTurn zero).
 	text := e.Text
+	// RememberNumber$ True (Mana Drain's "add an amount of {C} equal to
+	// that spell's mana value") rides "|RN=<n>", appended LAST by the
+	// Phase registration, so it is stripped first. A registration logged
+	// before this slot existed carries none of the spelling and decodes
+	// with a zero amount, exactly as before.
+	rememberedAmount := int32(0)
+	if i := strings.LastIndex(text, "|RN="); i >= 0 {
+		if n, err := strconv.Atoi(strings.TrimSpace(text[i+4:])); err == nil {
+			rememberedAmount = int32(n)
+		}
+		text = text[:i]
+	}
 	effectRepeat := strings.HasSuffix(text, "|EF")
 	if effectRepeat {
 		text = strings.TrimSuffix(text, "|EF")
@@ -181,6 +193,7 @@ func foldDelayedRegister(g *state.Game, e *Event) {
 		ForgetOnCast:      cast,
 		ImprintOnHost:     imprint,
 		SourceBattlefield: sourceBattlefield,
+		RememberedAmount:  rememberedAmount,
 	})
 	g.DelayedNext++
 }

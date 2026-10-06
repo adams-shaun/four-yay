@@ -48,6 +48,16 @@ var combatKeywords = []string{
 	"Melee", "Rampage", "Provoke", "Toxic", "Infect", "Wither",
 }
 
+// servableStaticModes are static modes a v1 template serves directly (they
+// need no "offered" observation): DisableTriggers is observed through the
+// stack and CombatDamageToughness through combat damage. Every other combat
+// mode stays static.combat (a legality gap). The table is the single home for
+// the mapping so a second mode of the same shape is one row.
+var servableStaticModes = []struct{ mode, sub string }{
+	{"DisableTriggers", "static.disable-triggers"},
+	{"CombatDamageToughness", "static.combat-damage-toughness"},
+}
+
 // combatStaticModes are the combat-legality statics whose presence on a face
 // gives it level-B attack/block requirements (spec section 1, section 2.3).
 var combatStaticModes = []string{
@@ -224,6 +234,11 @@ func classifyStatic(st *cards.Static) (sub, gap string) {
 		return "static.continuous", ""
 	case cards.StaticReduceCost, cards.StaticRaiseCost:
 		return "static.cost", "cost static"
+	}
+	for _, s := range servableStaticModes {
+		if strings.EqualFold(st.Mode, s.mode) {
+			return s.sub, ""
+		}
 	}
 	if isCombatStaticMode(st.Mode) {
 		return "static.combat", "legality static"
