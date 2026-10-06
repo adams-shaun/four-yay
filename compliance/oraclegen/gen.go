@@ -1263,22 +1263,23 @@ func refSeat(ref string) (int, bool) {
 // ask is answered per seat, a DividedAsYouChoose$ ask in XMage's divided
 // "<ref>^X=<share>" form, anything else one answer per pick. Every form is
 // followed by a target skip for each "up to N" chain slot the engine settled
-// without posing it (XMage still asks those).
+// without posing it (XMage still asks those), and preceded by one for each
+// such slot settled BEFORE this ask (leadingUnposedSkips).
 func targetDecisionAnswers(r *answerRouting, i int) []XAnswer {
 	d := r.ds[i]
-	var as []XAnswer
+	as := leadingUnposedSkips(d)
 	switch {
 	case d.PerPlayer:
 		// TargetsForEachPlayer$ (CR 601.2c): XMage asks one target
 		// per player, in seat order starting at seat 0. Answer each
 		// seat with the pick its controller made, or a target skip
 		// when the seat chose none.
-		as = perPlayerTargetAnswers(d)
+		as = append(as, perPlayerTargetAnswers(d)...)
 	case d.Divided > 0 && len(d.PickRefs) > 0:
 		// A TargetAmount slot (distribute counters, divided damage): XMage's
 		// chooseTargetAmount takes one "<ref>^X=<share>" per target and
 		// completes when the allocation is answered.
-		as = dividedTargetAnswers(r, i)
+		as = append(as, dividedTargetAnswers(r, i)...)
 	default:
 		for _, ref := range d.PickRefs {
 			v := ref

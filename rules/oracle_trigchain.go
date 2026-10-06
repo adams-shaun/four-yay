@@ -13,6 +13,9 @@ import (
 type trigChainMark struct {
 	ts   *trigSubAsk
 	from int // index of the first link after the answered decision's own
+	// leading counts the Min-0 slots settled empty before the first ask the
+	// chain posed, when the answered decision is that ask.
+	leading int
 }
 
 // markTrigChain notes the in-flight chain announcement d belongs to. The zero
@@ -25,7 +28,7 @@ func markTrigChain(ts *trigSubAsk, d *decision.Decision) trigChainMark {
 	if d.ResumeKind == "trig_sub" {
 		from++
 	}
-	return trigChainMark{ts: ts, from: from}
+	return trigChainMark{ts: ts, from: from, leading: ts.curLeading}
 }
 
 // unposed counts the Min-0 links between the answered decision and the next
@@ -54,4 +57,35 @@ func (m trigChainMark) unposed(now *trigSubAsk) int {
 func upToOneLink(sa *cards.SA) bool {
 	tp := effects.TargetsOf(sa)
 	return tp.BoundMin == 0 && tp.BoundMax >= 1
+}
+
+// noteRoot records how the root's own target ask stood when the chain opened:
+// posed (a decision is pending), or settled empty without one -- an "up to N"
+// root slot with no legal candidate, which XMage still asks first.
+func (t *trigSubAsk) noteRoot(root *cards.SA, posed bool) {
+	if posed {
+		t.posed = true
+		return
+	}
+	if effects.TargetsOf(root).Targeted() && upToOneLink(root) {
+		t.leading++
+	}
+}
+
+// noteSettledEmpty counts a Min-0 link settled empty before any ask of the
+// chain was posed: XMage asks it ahead of the first posed one.
+func (t *trigSubAsk) noteSettledEmpty(sa *cards.SA) {
+	if !t.posed && upToOneLink(sa) {
+		t.leading++
+	}
+}
+
+// notePosed marks the chain's next ask as posed; the first one carries the
+// leading count, later ones carry none (their gaps are unposed's).
+func (t *trigSubAsk) notePosed() {
+	t.curLeading = 0
+	if !t.posed {
+		t.curLeading = t.leading
+	}
+	t.posed = true
 }
