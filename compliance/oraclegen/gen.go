@@ -31,11 +31,52 @@ const xValue = 2
 type Seat struct {
 	Battlefield []string `json:"battlefield,omitempty"`
 	Tapped      []string `json:"tapped,omitempty"`
-	Hand        []string `json:"hand,omitempty"`
-	Graveyard   []string `json:"graveyard,omitempty"`
-	Exile       []string `json:"exile,omitempty"`
-	Library     []string `json:"library,omitempty"`
-	LibraryTop  []string `json:"library_top,omitempty"`
+	// BackFace names battlefield cards setup places on their back face (face
+	// index 1). It is emitted as a FlipFace event, so the placement replays
+	// from the log like every other setup op. A name that is not also in
+	// Battlefield is an error: only a permanent already on the battlefield can
+	// be flipped.
+	BackFace   []string `json:"back_face,omitempty"`
+	Hand       []string `json:"hand,omitempty"`
+	Graveyard  []string `json:"graveyard,omitempty"`
+	Exile      []string `json:"exile,omitempty"`
+	Library    []string `json:"library,omitempty"`
+	LibraryTop []string `json:"library_top,omitempty"`
+	// Counters puts counters on this seat's battlefield cards at setup:
+	// card name -> counter kind (LOYALTY, P1P1) -> how many, added to what
+	// the card enters with. Like Tapped it names every placement of that
+	// card. A planeswalker's loyalty headroom and a "creature with a +1/+1
+	// counter" target fixture ride it.
+	Counters map[string]map[string]int `json:"counters,omitempty"`
+}
+
+// WithCounters returns s with n more counters of kind on its card name. The
+// map is copied, so a fixture's seat is never mutated through a shared map.
+func WithCounters(s Seat, name, kind string, n int) Seat {
+	s.Counters = cloneCounters(s.Counters)
+	if s.Counters == nil {
+		s.Counters = map[string]map[string]int{}
+	}
+	if s.Counters[name] == nil {
+		s.Counters[name] = map[string]int{}
+	}
+	s.Counters[name][kind] += n
+	return s
+}
+
+func cloneCounters(m map[string]map[string]int) map[string]map[string]int {
+	if m == nil {
+		return nil
+	}
+	out := make(map[string]map[string]int, len(m))
+	for card, kinds := range m {
+		k := make(map[string]int, len(kinds))
+		for kind, n := range kinds {
+			k[kind] = n
+		}
+		out[card] = k
+	}
+	return out
 }
 
 // Step is one scenario step (a subset of the runner's op set).
@@ -259,28 +300,57 @@ func CharmCombinations(f *cards.Face) []CharmCombination {
 	}
 	var out []CharmCombination
 	var selected []CharmMode
-	var visit func(int, int)
-	visit = func(start, count int) {
-		if len(selected) == count {
-			combo := CharmCombination{Modes: append([]CharmMode(nil), selected...)}
-			for _, mode := range selected {
-				combo.Slots = append(combo.Slots, ChainSlotSpecs(f, mode.svar)...)
+	// emit appends the current selection as one combination.
+	emit := func() {
+		combo := CharmCombination{Modes: append([]CharmMode(nil), selected...)}
+		for _, mode := range selected {
+			combo.Slots = append(combo.Slots, ChainSlotSpecs(f, mode.svar)...)
+		}
+		out = append(out, combo)
+	}
+	// allDistinct reports whether the current selection repeats no mode.
+	allDistinct := func() bool {
+		seen := make(map[string]bool, len(selected))
+		for _, mode := range selected {
+			if seen[mode.svar] {
+				return false
 			}
-			out = append(out, combo)
+			seen[mode.svar] = true
+		}
+		return true
+	}
+	// visit enumerates combinations of count modes from start. distinct
+	// constrains the walk to strictly increasing positions (repeat-free
+	// combinations only); otherwise positions may repeat, and the leaf
+	// skips any all-distinct selection so the two walks do not overlap.
+	var visit func(start, count int, distinct bool)
+	visit = func(start, count int, distinct bool) {
+		if len(selected) == count {
+			if !distinct && allDistinct() {
+				return
+			}
+			emit()
 			return
 		}
 		for i := start; i < len(modes); i++ {
 			selected = append(selected, modes[i])
 			next := i
-			if !repeat {
+			if distinct {
 				next++
 			}
-			visit(next, count)
+			visit(next, count, distinct)
 			selected = selected[:len(selected)-1]
 		}
 	}
+	// Within each pick count the repeat-free combinations come first, in
+	// Choices$ order; only a CanRepeatModes$ charm then adds the repeating
+	// ones. A non-repeat charm takes the single distinct walk, so its output
+	// is byte-identical to the historical one.
 	for count := minCount; count <= pickCount; count++ {
-		visit(0, count)
+		visit(0, count, true)
+		if repeat {
+			visit(0, count, false)
+		}
 	}
 	return out
 }
@@ -450,20 +520,34 @@ func SlotIsStack(filter string) bool {
 	return true
 }
 
-// RequiresTurnFour identifies cards whose Oracle cast restriction ends after
-// their controller's third turn.
-func RequiresTurnFour(card string) bool {
-	return card == "Jace Reawakened" || card == "Spider-Man 2099"
+// firstThreeTurnScenarioTurn recognizes the compiled first-three-turns cast
+// lockout. Fixtures cast as seat 0 in a two-seat game, so global turn 2*4-1
+// is that seat's fourth turn (TurnsTaken >= 4), when the lockout ends.
+func firstThreeTurnScenarioTurn(f *cards.Face) (int, bool) {
+	if f == nil {
+		return 0, false
+	}
+	for _, st := range f.Statics {
+		if st.Mode != "CantBeCast" || st.Params["SVarCompare"] != "LE3" {
+			continue
+		}
+		v := st.Params["CheckSVar"]
+		if body, ok := f.SVars[v]; ok {
+			v = body
+		}
+		if v == "Count$YourTurns" {
+			return 7, true
+		}
+	}
+	return 0, false
 }
 
 // NewItem names a template's scenario. The template's version is part of
 // the id and the scenario name, so bumping one template's version stales
 // only that template's verdicts (compliance/oraclegen/templates).
-func NewItem(card, template string, version int, sc Scenario) Item {
-	// These cards explicitly cannot be cast during their controller's first
-	// three turns. Their generated cast fixture must start after that window.
-	if RequiresTurnFour(card) {
-		sc.Turn = 7
+func NewItem(f *cards.Face, card, template string, version int, sc Scenario) Item {
+	if turn, ok := firstThreeTurnScenarioTurn(f); ok {
+		sc.Turn = turn
 	}
 	sc.Name = fmt.Sprintf("gen%d-%s", version, template)
 	sc.CR = []string{"601.2"}

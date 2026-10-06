@@ -70,6 +70,7 @@ func Requirements(c *cards.Card) []Requirement {
 	if c == nil || len(c.Faces) == 0 || isBasicLand(c) {
 		return nil
 	}
+	servable := backFaceServable(c)
 	var out []Requirement
 	// Non-combat requirements: face order, then IR order within a face.
 	for fi, f := range c.Faces {
@@ -78,15 +79,15 @@ func Requirements(c *cards.Card) []Requirement {
 				continue
 			}
 			sub, gap := classifyActivate(sa)
-			out = append(out, newReq("activate", fi, strconv.Itoa(ai), sub, gap, false))
+			out = append(out, newReq("activate", fi, strconv.Itoa(ai), sub, gap, false, servable))
 		}
 		for ti := range f.Triggers {
 			sub, gap, covered := classifyTrigger(f, &f.Triggers[ti])
-			out = append(out, newReq("trigger", fi, strconv.Itoa(ti), sub, gap, covered))
+			out = append(out, newReq("trigger", fi, strconv.Itoa(ti), sub, gap, covered, servable))
 		}
 		for si := range f.Statics {
 			sub, gap := classifyStatic(f, &f.Statics[si])
-			out = append(out, newReq("static", fi, strconv.Itoa(si), sub, gap, false))
+			out = append(out, newReq("static", fi, strconv.Itoa(si), sub, gap, false, servable))
 		}
 	}
 	// Combat requirements last, in face order.
@@ -95,17 +96,35 @@ func Requirements(c *cards.Card) []Requirement {
 			continue
 		}
 		out = append(out,
-			newReq("combat", fi, "attack", "combat.attack", "", false),
-			newReq("combat", fi, "block", "combat.block", "", false),
+			newReq("combat", fi, "attack", "combat.attack", "", false, servable),
+			newReq("combat", fi, "block", "combat.block", "", false, servable),
 		)
 	}
 	return out
 }
 
+// backFaceServable reports whether a face after 0 can be set up on the
+// battlefield in its active (back) face, so the face-0 templates can serve it.
+// Only the two layouts whose back face is a permanent the setup can place
+// directly qualify: transforming double-faced cards (DoubleFaced) and the
+// Modal hero DFCs. Any other layout with a second face (Adventure, Split,
+// Room, ...) keeps the face gap, because its face 1 is not a permanent a
+// back-face setup can put on the battlefield.
+func backFaceServable(c *cards.Card) bool {
+	switch c.AlternateMode {
+	case "DoubleFaced", "Modal":
+		return true
+	}
+	return false
+}
+
 // newReq builds a Requirement, applying the face-after-0 gap: v1 templates
 // serve Faces[0] only, as level A does, so every face > 0 requirement is a
-// gap.
-func newReq(family string, face int, slot, sub, gap string, covered bool) Requirement {
+// gap -- unless the card's layout lets setup place the face-1 permanent on the
+// battlefield (backFaceServable), in which case the face-0 template runs
+// against that face. CoveredByA is always false past face 0: the level-A
+// scenario casts the front face only.
+func newReq(family string, face int, slot, sub, gap string, covered, servable bool) Requirement {
 	r := Requirement{
 		Key:        family + "#" + strconv.Itoa(face) + "." + slot,
 		Family:     family,
@@ -116,9 +135,11 @@ func newReq(family string, face int, slot, sub, gap string, covered bool) Requir
 		Gap:        gap,
 	}
 	if face > 0 {
-		r.Sub = sub + ".face:" + strconv.Itoa(face)
-		r.Gap = "face " + strconv.Itoa(face)
 		r.CoveredByA = false
+		if !servable {
+			r.Sub = sub + ".face:" + strconv.Itoa(face)
+			r.Gap = "face " + strconv.Itoa(face)
+		}
 	}
 	return r
 }
@@ -126,7 +147,12 @@ func newReq(family string, face int, slot, sub, gap string, covered bool) Requir
 // classifyActivate returns the activated-ability sub-family and its gap.
 func classifyActivate(sa *cards.SA) (sub, gap string) {
 	zone, _ := sa.Param(cards.PKActivationZone)
-	if zone != "" && !strings.EqualFold(zone, "Battlefield") {
+	switch {
+	case strings.EqualFold(zone, "Hand"):
+		return "activate.hand", ""
+	case strings.EqualFold(zone, "Graveyard"):
+		return "activate.graveyard", ""
+	case zone != "" && !strings.EqualFold(zone, "Battlefield"):
 		return "activate.zone:" + zone, "activation zone " + zone
 	}
 	if strings.EqualFold(sa.API, "Mana") {

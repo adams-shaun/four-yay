@@ -733,8 +733,8 @@ func typesSharedWith(h Host, c *Ctx, arg string) (int32, bool) {
 // mostProminentCreatureType answers Count$MostProminentCreatureType <spec>
 // (Synchronized Eviction's "at least two creatures that share a creature
 // type"): the size of the largest group of battlefield objects matching spec
-// that share one creature type. A changeling (CR 702.73a: every creature
-// type) joins every group.
+// that share one creature type, read from each object's layer-4 type result.
+// An object with every creature type (CR 702.73a) joins every group.
 func mostProminentCreatureType(h Host, c *Ctx, spec string) int32 {
 	spec = strings.TrimSpace(spec)
 	if spec == "" {
@@ -750,11 +750,21 @@ func mostProminentCreatureType(h Host, c *Ctx, spec string) int32 {
 			if o == nil || o.Face() == nil || !matchesZoneSpecCtx(g, spec, id, sc, state.ZBattlefield) {
 				continue
 			}
-			if h.HasKeyword(id, "Changeling") {
+			// The object's published layer-4 result (a granted subtype, a
+			// stripped Changeling) wins; an object no type-changing effect
+			// touches has no entry and reads its printed face and CDA.
+			types, isAll := o.Face().Types, IntrinsicAllCreatureTypes(o)
+			for _, d := range sc.Layers.DerivedTypes {
+				if d.ID == id {
+					types, isAll = d.Types, d.AllCreatureTypes
+					break
+				}
+			}
+			if isAll {
 				all++
 				continue
 			}
-			for _, t := range o.Face().Types {
+			for _, t := range types {
 				if creatureSubtypeWords[t] {
 					counts[t]++
 				}

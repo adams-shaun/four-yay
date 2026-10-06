@@ -16,6 +16,7 @@ type triggerCause struct {
 	probeSteps  []oraclegen.Step // steps whose snapshots show the trigger on the stack; nil means steps
 	selfInHand  bool             // the card starts in p0's hand (a "when you discard this card" trigger), not on the battlefield
 	xability    []string         // XMage rule-text prefix per step (an activate step); nil when no step activates
+	castSelfX   bool             // the card is cast from hand with X first (an X creature that setup would leave 0/0)
 }
 
 // Probe cards, each named with why. Spec hypothesis H4: the probe exists in
@@ -108,7 +109,9 @@ func triggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards.Tri
 		}
 	case "trigger.drawn":
 		for _, p := range drawProbes {
-			cast(p)
+			if c, ok := castCause(reg, name, p); ok {
+				out = append(out, withDrawCheckpoint(c))
+			}
 		}
 	case "trigger.phase":
 		step, ok := phaseStep(t.ParamStr(cards.PKPhase))

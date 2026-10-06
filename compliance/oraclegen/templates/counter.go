@@ -133,6 +133,8 @@ func counterWith(reg *cards.Registry, f *cards.Face, name, mana string, pre prec
 		},
 	}
 	oraclegen.Baseline(sc.Setup, f)
+	it := CounterSpell.item(f, name, sc)
+	sc = it.Scenario
 	res, ok := oraclegen.ProbeTargets(reg, sc)
 	if !ok {
 		return oraclegen.Item{}, false
@@ -144,7 +146,7 @@ func counterWith(reg *cards.Registry, f *cards.Face, name, mana string, pre prec
 	if !ok {
 		return oraclegen.Item{}, false
 	}
-	it := CounterSpell.item(name, sc)
+	it.Scenario = sc
 	it.XAnswers = oraclegen.XAnswersForScenario(res, sc, oraclegen.ModeNumbers(f), castSteps)
 	return it, true
 }

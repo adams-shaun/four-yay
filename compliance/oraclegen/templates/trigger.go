@@ -68,12 +68,27 @@ func triggerFires(reg *cards.Registry, f *cards.Face, name string, req levelb.Re
 	if why != "" {
 		return skip("no recipe: " + why)
 	}
+	fxs := triggerFixtures(reg, f, &f.Triggers[idx])
 	fired := false
 	for _, c := range causes {
-		it, ok, didFire := triggerWith(reg, f, name, req, c)
+		it, ok, didFire := triggerWith(reg, f, name, req, c, fxs)
 		fired = fired || didFire
 		if ok {
 			return it, nil
+		}
+	}
+	// A creature that setup would leave 0/0 dies as a state-based action
+	// before it can trigger: retry with what keeps it alive.
+	for _, fix := range []func(*cards.Face, *triggerCause) bool{castXCreature, islandsForStarPT} {
+		for _, c := range causes {
+			if c.selfInHand || !fix(f, &c) {
+				continue
+			}
+			it, ok, didFire := triggerWith(reg, f, name, req, c, fxs)
+			fired = fired || didFire
+			if ok {
+				return it, nil
+			}
 		}
 	}
 	if !fired {
@@ -82,18 +97,25 @@ func triggerFires(reg *cards.Registry, f *cards.Face, name string, req levelb.Re
 	return skip("no fixture gorge can play")
 }
 
-func triggerScenario(f *cards.Face, name string, c triggerCause, steps []oraclegen.Step) oraclegen.Scenario {
-	p0 := oraclegen.Seat{Battlefield: []string{name}, Hand: append([]string(nil), c.hand...)}
-	if c.selfInHand {
-		p0.Battlefield = nil
+func triggerScenario(f *cards.Face, name string, c triggerCause, req levelb.Requirement, steps []oraclegen.Step, fx *oraclegen.Fixture) oraclegen.Scenario {
+	p0, p1 := mergedFixtureSeats(fx)
+	p0.Battlefield = appendFixtureUnique(p0.Battlefield, name)
+	p0.Hand = append(p0.Hand, c.hand...)
+	if c.selfInHand || c.castSelfX {
+		p0.Battlefield = removeString(p0.Battlefield, name)
+	} else {
+		setupBackFace(&p0, name, req)
 	}
 	for _, b := range c.battlefield {
 		p0.Battlefield = appendFixtureUnique(p0.Battlefield, b)
 	}
 	sc := oraclegen.Scenario{
-		Setup:        map[string]oraclegen.Seat{"p0": p0, "p1": {}},
+		Setup:        map[string]oraclegen.Seat{"p0": p0, "p1": p1},
 		SetupAnswers: oraclegen.OpeningHandAnswers(f),
-		Steps:        append([]oraclegen.Step(nil), steps...),
+		Steps:        triggerSteps(f, name, c, steps, fx),
+	}
+	if c.castSelfX {
+		sc.Setup["p0"] = oraclegen.WithHand(sc.Setup["p0"], name)
 	}
 	oraclegen.Baseline(sc.Setup, f)
 	return sc
@@ -102,7 +124,19 @@ func triggerScenario(f *cards.Face, name string, c triggerCause, steps []oracleg
 // triggerWith tries one cause. fired reports that gorge put the card's
 // trigger on the stack, so a caller can tell "did not fire" from a replay
 // failure.
-func triggerWith(reg *cards.Registry, f *cards.Face, name string, req levelb.Requirement, c triggerCause) (it oraclegen.Item, ok, fired bool) {
+func triggerWith(reg *cards.Registry, f *cards.Face, name string, req levelb.Requirement, c triggerCause, fxs []oraclegen.Fixture) (it oraclegen.Item, ok, fired bool) {
+	for i := range fxs {
+		it, ok, didFire := triggerWithFixture(reg, f, name, req, c, &fxs[i])
+		fired = fired || didFire
+		if ok {
+			return it, true, fired
+		}
+	}
+	return it, false, fired
+}
+
+// triggerWithFixture tries one cause against one target fixture.
+func triggerWithFixture(reg *cards.Registry, f *cards.Face, name string, req levelb.Requirement, c triggerCause, fx *oraclegen.Fixture) (it oraclegen.Item, ok, fired bool) {
 	probe := c.probeSteps
 	if probe == nil {
 		probe = c.steps
@@ -112,7 +146,7 @@ func triggerWith(reg *cards.Registry, f *cards.Face, name string, req levelb.Req
 	// the spell resolves and the trigger it caused is on the stack.
 	passes := []oraclegen.Step{{Op: "pass", Seat: 0}, {Op: "pass", Seat: 1}}
 	for _, steps := range [][]oraclegen.Step{probe, append(append([]oraclegen.Step(nil), probe...), passes...)} {
-		if _, res, ok := oraclegen.Settle(reg, triggerScenario(f, name, c, steps)); ok && abilityOnStack(res.Snapshots, name) {
+		if _, res, ok := oraclegen.Settle(reg, triggerScenario(f, name, c, req, steps, fx)); ok && abilityOnStack(res.Snapshots, name) {
 			fired = true
 			break
 		}
@@ -120,7 +154,7 @@ func triggerWith(reg *cards.Registry, f *cards.Face, name string, req levelb.Req
 	if !fired {
 		return it, false, false
 	}
-	sc := triggerScenario(f, name, c, c.steps)
+	sc := triggerScenario(f, name, c, req, c.steps, fx)
 	n, res, ok := oraclegen.Settle(reg, sc)
 	if !ok {
 		return it, false, true
@@ -142,7 +176,7 @@ func triggerWith(reg *cards.Registry, f *cards.Face, name string, req levelb.Req
 	it.XAnswers = oraclegen.XAnswersForScenario(res, sc, oraclegen.ModeNumbers(f), castSteps)
 	if c.xability != nil {
 		it.XAbility = make([]string, len(sc.Steps))
-		copy(it.XAbility, c.xability)
+		copy(it.XAbility[len(triggerSteps(f, name, c, nil, fx)):], c.xability)
 	}
 	return it, true, true
 }

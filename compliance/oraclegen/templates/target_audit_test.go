@@ -35,10 +35,12 @@ var representativeTargetCards = []string{"Conduct Electricity", "Repulsive Mutat
 //
 //	GORGE_ORACLEGEN_FULL_TARGET_AUDIT=1 go test -run 'TestTargetAuditChunk' ./compliance/oraclegen/templates/
 //
-// or one chunk with -run 'TestTargetAuditChunk03$'. The chunks are uneven:
-// Unite the Coalition alone costs ~45 s at 2 vCPU (126 repeat-mode charm
-// plans, each failing the runner's one-use-per-label mode matcher), so its
-// chunk is the one to watch.
+// or one chunk with -run 'TestTargetAuditChunk03$'. The chunks are uneven,
+// but no longer lopsided: Unite the Coalition (126 repeat-mode charm plans)
+// once cost ~45 s at 2 vCPU here because every repeating plan failed the
+// runner's one-use-per-label mode matcher; the repeat-free combination now
+// comes first and the runner resubmits a repeated index, so chunk 11 went
+// from 38.6 s to 2.2 s (2026-10-06).
 const targetAuditChunks = 12
 
 // targetAuditChunk returns chunk i's carrier slice.

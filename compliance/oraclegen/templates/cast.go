@@ -178,7 +178,9 @@ func castWithProbes(reg *cards.Registry, f *cards.Face, name, mana string, slots
 				for _, probe := range probes {
 					fx.P0().Battlefield = appendFixtureUnique(fx.P0().Battlefield, probe)
 				}
-				sc := buildStackScenario(f, name, physicalName(reg, name), mana, pre, fx, slots, stackIdx, answers)
+				// Apply face-derived scenario defaults before probing the cast.
+				it := CastResolve.item(f, name, buildStackScenario(f, name, physicalName(reg, name), mana, pre, fx, slots, stackIdx, answers))
+				sc := it.Scenario
 				if oraclegen.ShufflesBackAndDraws(f) {
 					oraclegen.UniformShuffleSetup(&sc, name)
 				}
@@ -200,7 +202,7 @@ func castWithProbes(reg *cards.Registry, f *cards.Face, name, mana string, slots
 							sc, res = yes, res2
 						}
 					}
-					it := CastResolve.item(name, sc)
+					it.Scenario = sc
 					it.XAnswers = oraclegen.XAnswersForScenario(res, sc, oraclegen.ModeNumbers(f), castSteps)
 					if n := oraclegen.OptionalCostCastNo(f, mana); n > 0 {
 						// XMage asks "pay the additional cost?" at the head of the
@@ -295,13 +297,8 @@ func appendFixtureUnique(xs []string, name string) []string {
 // is the physical card setup deals (physicalName).
 func buildStackScenario(f *cards.Face, name, hand, mana string, pre precast, fx oraclegen.Fixture, slots []oraclegen.Slot, stackIdx []int, answers []oraclegen.Answer) oraclegen.Scenario {
 	targets := insertStackTargets(slots, stackIdx, fx.Targets(), pre)
-	turn := 0
-	if oraclegen.RequiresTurnFour(name) {
-		turn = 7
-	}
 	sc := oraclegen.Scenario{
 		Setup:        map[string]oraclegen.Seat{"p0": *fx.P0(), "p1": *fx.P1()},
-		Turn:         turn,
 		SetupAnswers: oraclegen.OpeningHandAnswers(f),
 		Steps:        []oraclegen.Step{{Op: "cast", Seat: 0, Card: "p0:" + name, Mana: mana, Targets: targets, Answers: answers}},
 	}

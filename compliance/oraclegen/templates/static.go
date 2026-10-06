@@ -152,6 +152,9 @@ func disableTriggersItem(reg *cards.Registry, f *cards.Face, name string, req le
 	steps := append([]oraclegen.Step{cast}, pass...)
 	steps[len(steps)-1].Expect = []oraclegen.Expect{{TriggerOnStack: "p0:" + disableTriggerProbe, Want: &want}}
 	sc := staticScenario(f, name, []string{name}, []string{disableTriggerProbe}, steps)
+	p0 := sc.Setup["p0"]
+	setupBackFace(&p0, name, req)
+	sc.Setup["p0"] = p0
 	res, ok := runStatic(reg, sc)
 	if !ok || len(res.Fails) != 0 {
 		return skip("the expectation does not hold")
@@ -192,6 +195,9 @@ func combatDamageToughnessItem(reg *cards.Registry, f *cards.Face, name string, 
 	}
 	// Observation: the card on the battlefield raises the damage to toughness.
 	sc := staticScenario(f, name, []string{name, toughnessAttacker}, nil, steps)
+	p0 := sc.Setup["p0"]
+	setupBackFace(&p0, name, req)
+	sc.Setup["p0"] = p0
 	res, ok := runStatic(reg, sc)
 	if !ok || len(res.Fails) != 0 {
 		return skip("observation scenario does not replay")
