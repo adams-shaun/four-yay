@@ -509,6 +509,14 @@ func move(g *state.Game, id state.ObjID, from, to state.Zone, countersRemain boo
 			o.SetFaceIdx(0)
 		}
 	}
+	// CR 715.4: off the stack an adventurer card has only its normal (main
+	// face) characteristics, so an Adventure spell leaving the stack --
+	// resolved into the adventure zone, countered, or reversed to hand -- is
+	// its main face again. The adventure-zone recast reads the log, not the face.
+	if wasStack && to != state.ZBattlefield && o.Card != nil &&
+		o.Card.AlternateMode == "Adventure" && o.FaceIdx != 0 {
+		o.SetFaceIdx(0)
+	}
 	// CR 712.4d: a Modal DFC is front-face up in every non-battlefield
 	// zone. Its back face remains active while it is a permanent, but leaving
 	// the battlefield creates a new object whose characteristics are the

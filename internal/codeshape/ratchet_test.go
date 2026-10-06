@@ -324,7 +324,7 @@ var longFuncCeilings = map[string]int{
 	"effects wordMatches":                                   505,
 	"rules (*Engine).appendAvailableManaAbilitiesGate":      375,
 	"rules (*Engine).applyReplacementsDispatch":             327,
-	"rules (*Engine).beginCastWith":                         706,
+	"rules (*Engine).beginCastWith":                         704,
 	"rules (*Engine).checkEventDelayedTriggers":             303,
 	"rules (*Engine).checkFaceTriggers":                     811,
 	"rules (*Engine).emit":                                  704,
@@ -339,7 +339,7 @@ var longFuncCeilings = map[string]int{
 	"rules (*Engine).xAsk":                                  408,
 	"rules (*legalWalk).battlefieldWalk":                    864,
 	"rules (*legalWalk).handWalk":                           673,
-	"rules (*oracleRun).do":                                 319,
+	"rules (*oracleRun).do":                                 317,
 	"rules/cost ParseCost":                                  581,
 	"rules/pay NonManaCastableP":                            392,
 }
