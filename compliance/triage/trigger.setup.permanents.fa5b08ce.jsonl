@@ -1,2 +1,0 @@
-{"shape":{"template":"trigger","op":"setup","field":"permanents","diff":"Grizzly Bears gorge+[counters=IMPOSTOR=1] xmage+[]"},"key":"trigger | setup | permanents | Grizzly Bears gorge+[counters=IMPOSTOR=1] xmage+[]","cards":1}
-{"card":"Illicit Masquerade","template":"trigger#0.1","status":"diverge","api":"ChangesZone:PutCounterAll+ChangesZone:ChangeZone","sets":["MKM"],"detail":"setup permanents: gorge \"c0 o0 Grizzly Bears [bear creature] {G} 2/2 counters=IMPOSTOR=1\", xmage \"c0 o0 Grizzly Bears [bear creature] {G} 2/2\""}

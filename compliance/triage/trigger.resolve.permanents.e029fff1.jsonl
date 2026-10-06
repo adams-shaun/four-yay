@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"resolve","field":"permanents","diff":"Grizzly Bears gorge+[4/4] xmage+[2/2]"},"key":"trigger | resolve | permanents | Grizzly Bears gorge+[4/4] xmage+[2/2]","cards":1}
+{"card":"Doran, Besieged by Time","template":"trigger#0.1","status":"diverge","api":"Attacks:Pump+Blocks:Pump","sets":["ECL"],"detail":"step 2 (resolve) permanents: gorge \"c0 o0 Grizzly Bears [bear creature] {G} 4/4 blocking\", xmage \"c0 o0 Grizzly Bears [bear creature] {G} 2/2 blocking\""}

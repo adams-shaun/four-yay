@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: <i>Summon</i> &mdash; {X}, {T}"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: <i>Summon</i> &mdash; {X}, {T}","cards":1}
+{"card":"Rydia, Summoner of Mist","template":"activate#0.0","status":"harness","api":"ChangesZone:Draw","sets":["FIN"],"detail":"xmage: AssertionError: Can't find ability to activate command: <i>Summon</i> &mdash; {X}, {T}"}

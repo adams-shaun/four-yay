@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"activate","field":"p0.pool","diff":"gorge=R xmage=W"},"key":"activate | activate | p0.pool | gorge=R xmage=W","cards":1}
-{"card":"Boros Guildgate","template":"activate#0.0","status":"diverge","api":"-","sets":["FDN"],"detail":"step 0 (activate) p0.pool: gorge \"R\", xmage \"W\""}

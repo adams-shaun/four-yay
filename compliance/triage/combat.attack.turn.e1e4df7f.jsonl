@@ -1,2 +1,0 @@
-{"shape":{"template":"combat","op":"attack","field":"turn","diff":"gorge=3 xmage=2"},"key":"combat | attack | turn | gorge=3 xmage=2","cards":1}
-{"card":"Ultimecia, Time Sorceress","template":"combat#1.block","status":"diverge","api":"ChangesZone:Surveil+Attacks:Surveil+Phase:SetState","sets":["FIN"],"detail":"step 0 (attack) turn: gorge \"3\", xmage \"2\""}

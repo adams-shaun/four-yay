@@ -1,2 +1,0 @@
-{"shape":{"template":"trigger","op":"attack","field":"stack","diff":"gorge=[ability:$CARD@p0] xmage=[ability:The Grim Captain@p0]"},"key":"trigger | attack | stack | gorge=[ability:$CARD@p0] xmage=[ability:The Grim Captain@p0]","cards":1}
-{"card":"Throne of the Grim Captain","template":"trigger#1.0","status":"diverge","api":"-","sets":["LCI"],"detail":"step 0 (attack) stack: gorge \"[ability:Throne of the Grim Captain@p0]\", xmage \"[ability:The Grim Captain@p0]\""}

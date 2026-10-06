@@ -1,2 +1,2 @@
 {"shape":{"template":"activate","op":"resolve","field":"p0.library_top","diff":"gorge+[Jace Beleren] xmage+[Ornithopter]"},"key":"activate | resolve | p0.library_top | gorge+[Jace Beleren] xmage+[Ornithopter]","cards":1}
-{"card":"Undulating Witness","template":"activate#0.1","status":"diverge","api":"-","sets":["FRA"],"detail":"step 1 (resolve) p0.library_top: gorge \"[Wastes, Wastes, Jace Beleren, Glorious Anthem, Wastes]\", xmage \"[Wastes, Wastes, Ornithopter, Glorious Anthem, Wastes]\""}
+{"card":"Ice Flan","template":"activate#0.0","status":"diverge","api":"ChangesZone:Tap","sets":["FIN"],"detail":"step 1 (resolve) p0.library_top: gorge \"[Wastes, Jace Beleren, Wastes, Wastes, Forest]\", xmage \"[Wastes, Wastes, Forest, Ornithopter, Wastes]\""}
