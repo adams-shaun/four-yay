@@ -116,18 +116,38 @@ const expectedEventsPerGame = 4096
 func NewLog(seed uint64) *Log { return NewLogInto(seed, nil) }
 
 // NewLogInto is NewLog backed by a spent event array a batch runner recycled
-// from a finished game (rules.Engine.Release). The array is reused only when
-// it can hold the ordinary preallocation, and it is re-capped to exactly that
-// preallocation, so the log's growth points -- and so every capacity-visible
-// behaviour -- are identical to a fresh NewLog's; only the allocation is
-// saved. spare's contents are ignored (each slot is overwritten on Append)
-// and its caller must hold no other reference into it.
+// from a finished game (rules.Engine.Release). The array is reused whenever it
+// can hold the ordinary preallocation, and its full capacity is kept: a spare
+// that came from a long game starts the next log already grown, so the log
+// does not have to re-copy its event history as it climbs. Capacity is not
+// observable -- growEvents picks where to reallocate from cap, but every
+// event, Seq and chain byte is identical whatever capacity the log started
+// with, and no reader of Events depends on cap -- so keeping the spare's
+// capacity changes only how much the log allocates, never what it records.
+// spare's contents are ignored (each slot is overwritten on Append) and its
+// caller must hold no other reference into it.
 func NewLogInto(seed uint64, spare []Event) *Log {
-	events := spare[:0]
-	if cap(events) >= expectedEventsPerGame {
-		events = events[:0:expectedEventsPerGame]
+	return NewLogIntoHint(seed, spare, 0)
+}
+
+// NewLogIntoHint is NewLogInto with a caller-supplied expected event count: a
+// batch runner that has measured its games' p95 length (rules.Config.
+// ExpectedEvents) preallocates once, so the log's common growth path never
+// reallocates. A hint at or below the ordinary preallocation
+// (expectedEventsPerGame) is ignored; a recycled spare at least as large as
+// the resulting target is reused at its full capacity. The hint is a pure
+// capacity choice -- it touches no event, Seq or chain state -- so a bad hint
+// costs allocation, never a different result.
+func NewLogIntoHint(seed uint64, spare []Event, expected int) *Log {
+	target := expectedEventsPerGame
+	if expected > target {
+		target = expected
+	}
+	var events []Event
+	if cap(spare) >= target {
+		events = spare[:0]
 	} else {
-		events = make([]Event, 0, expectedEventsPerGame)
+		events = make([]Event, 0, target)
 	}
 	l := &Log{Seed: seed, Events: events}
 	// Seed the chain with the seed value

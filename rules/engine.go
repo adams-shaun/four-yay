@@ -80,6 +80,15 @@ type Config struct {
 	// acceptance config sets it so the 12-deck suite exercises keep/mulligan
 	// and bottoming.
 	Mulligans int
+	// ExpectedEvents is an expected-size hint for this match's event log.
+	// 0 (the zero value) means the built-in preallocation; a positive n
+	// preallocates at least n event slots, so a batch runner that measured
+	// its games' p95 length never pays the log's growth reallocations. It is
+	// a pure capacity choice (events.NewLogIntoHint): no event, Seq or chain
+	// byte depends on it, so any value produces a byte-identical game. Hosts
+	// leave it 0 and reserve their own size through Log.Reserve; a replay
+	// carries the same hint only to avoid re-growth, never for correctness.
+	ExpectedEvents int
 	// WindowDiagnostics opts this table into per-priority-option withholding
 	// reasons. It is observer-only and emits no events.
 	WindowDiagnostics bool
