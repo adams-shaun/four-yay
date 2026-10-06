@@ -24,10 +24,22 @@ type costProbe struct {
 	exile       []string
 	hand        []string
 	first       *oraclegen.Step
+	// pre are setup-time steps (an attach) run before the probe step.
+	pre []oraclegen.Step
+	// seat adjusts p0's setup after the permanents are placed (a counter).
+	seat func(*oraclegen.Seat)
+	// activate makes the probe step an activation of one of the probe
+	// permanent's abilities instead of a cast.
+	activate *costActivation
 	// targeted offers the probe cast a surplus player target; gorge's own
 	// target decision rewrites it to the exact pick before the item is kept.
 	targeted   bool
 	mustReplay bool
+	// full is the probe's printed price, set when the probe is a candidate
+	// chosen from the corpus: a candidate gorge pays in full but refuses at the
+	// reduced price is a reduction gorge does not apply, which must surface as a
+	// divergence, not as a skipped row.
+	full string
 }
 
 func costStatic(reg *cards.Registry, f *cards.Face, name string, req levelb.Requirement) (oraclegen.Item, *oraclegen.Skip) {
@@ -37,32 +49,31 @@ func costStatic(reg *cards.Registry, f *cards.Face, name string, req levelb.Requ
 	}
 	// Each profile chooses a simple card whose printed cost makes the
 	// reduction visible and supplies only the prerequisites the static needs.
-	var p costProbe
+	var cands []costProbe
 	switch name {
 	case "Geist of Saint Thalia":
 		// Lightning Strike is {1}{R}: the generic {1} is what the reduction
 		// removes, so {R} alone casts it only while Geist's static applies.
-		p = costProbe{spell: "Lightning Strike", mana: "R", battlefield: []string{name}, targeted: true}
+		cands = []costProbe{{spell: "Lightning Strike", mana: "R", battlefield: []string{name}, targeted: true}}
 	case "Tam, the Possibility":
-		p = costProbe{spell: "Jace Beleren", mana: "UU", battlefield: []string{name}}
+		cands = []costProbe{{spell: "Jace Beleren", mana: "UU", battlefield: []string{name}}}
 	case "Ghalta the Immovable":
-		p = costProbe{spell: name, mana: "CCCCW", hand: []string{name}, battlefield: []string{"Serra Angel"}}
+		cands = []costProbe{{spell: name, mana: "CCCCW", hand: []string{name}, battlefield: []string{"Serra Angel"}}}
 	case "Ghalta the Unstoppable":
-		p = costProbe{spell: name, mana: "CCCCG", hand: []string{name}, battlefield: []string{"Serra Angel"}}
+		cands = []costProbe{{spell: name, mana: "CCCCG", hand: []string{name}, battlefield: []string{"Serra Angel"}}}
 	case "Traxos, Academy Guardian":
 		first := oraclegen.Step{Op: "cast", Seat: 0, Card: "p0:Shock", Mana: "R", Targets: []string{"p1"}}
-		p = costProbe{spell: name, mana: "CU", hand: []string{name}, first: &first}
+		cands = []costProbe{{spell: name, mana: "CU", hand: []string{name}, first: &first}}
 	case "Wrath of the Bloodmane":
-		p = costProbe{spell: name, mana: "CR", hand: []string{name}, battlefield: []string{"Tam, the Possibility"}}
+		cands = []costProbe{{spell: name, mana: "CR", hand: []string{name}, battlefield: []string{"Tam, the Possibility"}}}
 	default:
-		var ok bool
-		p, ok = parameterCostProbe(reg, f, name, idx)
-		if !ok {
-			reason := "cost static probe not supported"
-			if strings.EqualFold(f.Statics[idx].Params["ValidCard"], "Card.Self") {
-				reason += ": unsupported self-cost shape"
-			}
-			return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: reason}
+		if p, ok := parameterCostProbe(reg, f, name, idx); ok {
+			cands = []costProbe{p}
+			break
+		}
+		var gap string
+		if cands, gap = otherCostProbes(reg, f, name, idx); len(cands) == 0 {
+			return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: costStaticGap(f.Statics[idx], gap)}
 		}
 	}
 	slots := oraclegen.SlotSpecs(f)
@@ -70,66 +81,30 @@ func costStatic(reg *cards.Registry, f *cards.Face, name string, req levelb.Requ
 	if len(fixtures) == 0 {
 		fixtures = []oraclegen.Fixture{{}}
 	}
-	for _, fx := range fixtures {
-		p0 := *fx.P0()
-		p1 := *fx.P1()
-		p0.Battlefield = appendUnique(p0.Battlefield, p.battlefield...)
-		p0.Graveyard = appendUnique(p0.Graveyard, p.graveyard...)
-		p0.Exile = appendUnique(p0.Exile, p.exile...)
-		p0.Hand = append(p0.Hand, p.hand...)
-		p0.Hand = appendUnique(p0.Hand, p.spell)
-		if p.first != nil && p.first.Card == "p0:Shock" {
-			p0.Hand = appendUnique(p0.Hand, "Shock")
-		}
-		sc := oraclegen.Scenario{
-			Setup:        map[string]oraclegen.Seat{"p0": p0, "p1": p1},
-			SetupAnswers: oraclegen.OpeningHandAnswers(f),
-		}
-		sc.Steps = append(sc.Steps, fx.CombatSteps()...)
-		sc.Steps = append(sc.Steps, fx.Prelude()...)
-		if p.first != nil {
-			sc.Steps = append(sc.Steps, *p.first, oraclegen.Step{Op: "resolve"})
-		}
-		targets := fx.Targets()
-		if p.targeted {
-			targets = []string{"p1"}
-		}
-		if strings.Contains(f.Statics[idx].Params["ValidTarget"], "tapped") {
-			for _, target := range targets {
-				tapFixtureTarget(target, &p0, &p1)
-			}
-			sc.Setup["p0"], sc.Setup["p1"] = p0, p1
-		}
-		cast := oraclegen.Step{Op: "cast", Seat: 0, Card: "p0:" + p.spell, Mana: p.mana, Targets: targets}
-		sc.Steps = append(sc.Steps, cast)
-		oraclegen.Baseline(sc.Setup, f)
-		it := oraclegen.NewLevelBItem(name, req.Key, CostStatic.Version, []string{"601.2"}, sc)
-		// Settle plays a temporary copy with resolve steps, so the target
-		// rewrite is validated against a scenario whose stack empties. The
-		// settled copy is what is kept: every cast carries gorge's exact
-		// targets (cast steps' target decisions travel through castSpell and
-		// are not scripted a second time). When gorge cannot cast at the
-		// reduced price Settle fails and the unnormalized item is returned
-		// as is, so the failed cast surfaces as a divergence, not a Skip.
-		if n, res, ok := oraclegen.Settle(reg, sc); ok {
-			settled := sc
-			settled.Steps = append([]oraclegen.Step(nil), sc.Steps...)
-			for i := 0; i < n; i++ {
-				settled.Steps = append(settled.Steps, oraclegen.Step{Op: "resolve"})
-			}
-			settled, castSteps := oraclegen.ChooseTargets(settled, res.Decisions)
-			if res2, ok2 := oraclegen.PlaysThrough(reg, settled); ok2 {
-				settled.Name, settled.CR, settled.Why = it.Name, it.CR, it.Why
-				it.Scenario = settled
-				it.XAnswers = oraclegen.XAnswersForScenario(res2, settled, nil, castSteps)
-			}
-		}
+	// The first fixture is the one every probe uses. A probe the item must
+	// replay (mustReplay) is kept only when gorge can cast or activate it at
+	// the reduced price; the next candidate is tried otherwise.
+	for _, p := range cands {
+		it := costProbeItem(reg, f, name, req, idx, p, fixtures[0])
 		if p.mustReplay {
 			if _, ok := oraclegen.PlaysThrough(reg, it.Scenario); !ok {
-				return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: "cost static probe not supported: prerequisite fixture unavailable"}
+				continue
 			}
 		}
 		return it, nil
+	}
+	for _, p := range cands {
+		if p.full == "" {
+			continue
+		}
+		fullPrice := p
+		fullPrice.mana = p.full
+		if _, ok := oraclegen.PlaysThrough(reg, costProbeItem(reg, f, name, req, idx, fullPrice, fixtures[0]).Scenario); ok {
+			return costProbeItem(reg, f, name, req, idx, p, fixtures[0]), nil
+		}
+	}
+	if len(cands) > 0 && cands[0].mustReplay {
+		return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: "cost static probe not supported: prerequisite fixture unavailable"}
 	}
 	return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: "cost static has no fixture"}
 }
