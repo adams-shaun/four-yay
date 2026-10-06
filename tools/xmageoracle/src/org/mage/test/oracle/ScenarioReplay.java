@@ -700,9 +700,26 @@ public class ScenarioReplay extends CardTestPlayerBase {
     private String xmageName = "";
 
     /** The spelling to give XMage for a scenario card: the card under test's
-     * XMage spelling, else the name unchanged. */
+     * XMage spelling, else the name unchanged. This is the spelling of the
+     * card OBJECT (what addCard stores, what a target alias names), which for
+     * a split/Room card is the whole "A // B" card. */
     private String xmageSpelling(String n) {
         return (!xmageName.isEmpty() && n.equals(gorgeName)) ? xmageName : n;
+    }
+
+    /** The spelling XMage's cast command matches: the name of the card's
+     * SpellAbility, which differs from the card object's name for a split or
+     * Room card. XMage names a half's ability "Cast <half>" (SplitCard splits
+     * the set info name on " // "), while the physical card added to hand is
+     * the whole "A // B"; casting the whole name finds no ability ("Can't
+     * find ability to activate command: Cast Walk-In Closet"). So a cast
+     * step names the scenario's face (gorgeName) and setup still deals the
+     * whole card through xmageSpelling. */
+    private String castSpelling(String n) {
+        if (!xmageName.isEmpty() && n.equals(gorgeName) && xmageName.contains(" // ")) {
+            return gorgeName;
+        }
+        return xmageSpelling(n);
     }
 
     /** Rewrites XMage's spelling of the card under test back to the scenario's
@@ -808,7 +825,10 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 if (!sc0.has("xmage_answers")) {
                     answers(st, p);
                 }
-                String card = xmageSpelling(refName(str(st, "card")));
+                // The cast command names the SpellAbility, not the card
+                // object: a split/Room half is cast by its half name while
+                // the hand holds the whole "A // B" card (castSpelling).
+                String card = castSpelling(refName(str(st, "card")));
                 List<String> tg = targets(st);
                 if (hasAlternativeSourceCost(card)) {
                     // A plain cast step: gorge paid the mana cost, so decline
@@ -838,12 +858,12 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     castSpell(TURN, phase, p, card);
                     cast.add(card);
                     return;
-                } else if (tg.size() == 1 && cast.contains(xmageSpelling(refName(tg.get(0))))) {
+                } else if (tg.size() == 1 && cast.contains(castSpelling(refName(tg.get(0))))) {
                     // Targeting a spell cast by an earlier step: wait for it
-                    // on the stack. cast holds spelled card names and the
+                    // on the stack. cast holds cast-command names and the
                     // target is a scenario ref; the setup alias names the
                     // card in hand, not the spell, so target by name.
-                    String spell = xmageSpelling(refName(tg.get(0)));
+                    String spell = castSpelling(refName(tg.get(0)));
                     castSpell(TURN, phase, p, card, spell, spell);
                 } else if (tg.size() == 1) {
                     // A single target goes through XMage's own string form, so
@@ -989,10 +1009,11 @@ public class ScenarioReplay extends CardTestPlayerBase {
     private void queueCastTarget(TestPlayer p, String t) {
         if (isSeatRef(t)) {
             addTarget(p, seat(seatOf(t)));
-        } else if (cast.contains(xmageSpelling(refName(t)))) {
+        } else if (cast.contains(castSpelling(refName(t)))) {
             // A spell an earlier step cast: its setup alias names the card
-            // in hand, not the spell.
-            addTarget(p, xmageSpelling(refName(t)));
+            // in hand, not the spell. The target string is the cast-command
+            // name (a split/Room half), matching what castSpell queued.
+            addTarget(p, castSpelling(refName(t)));
         } else {
             addTarget(p, targetName(t));
         }
