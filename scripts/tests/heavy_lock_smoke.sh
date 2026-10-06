@@ -1,28 +1,136 @@
 #!/usr/bin/env bash
-# Prove heavy.sh and another script contend on the shared HEAVY lock.
-set -euo pipefail
+# heavy_lock_smoke.sh — every HEAVY runner contends on ONE lock, and a gate that
+# takes it is not deadlocked by a heavy lease the gate bracket paused.
+#
+#   scripts/tests/heavy_lock_smoke.sh
+#
+# Part A resolves each script's DEFAULT lock path (no GORGE_HEAVY_LOCK / LOCK
+# override) and requires them all to be the one repo path. Part B shows two
+# different scripts really contend on it. Part C is the gate-bracket liveness
+# check: a running lease, `broker.sh gate-begin`, then the gate's own command
+# (`heavy_lock.sh run -w N`) must get the lock inside the wait, not hang.
+set -uo pipefail
+
 ROOT=$(git rev-parse --show-toplevel)
-TMP=$(mktemp -d)
-export GORGE_ROOT=$ROOT GORGE_REWARD_DIR=$TMP/reward
-export GORGE_HEAVY_LOCK=$TMP/heavy.lock
-export HEAVY_START_FLOOR_MB=1 HEAVY_MAX_LEASES=5 LOAD_CEIL_FRAC=100
+S=$ROOT/scripts
+TMP=$(mktemp -d /tmp/heavy-lock.XXXXXX)
+fails=0
+check() {
+	if [ "$2" = 0 ]; then
+		printf 'ok   %s\n' "$1"
+	else
+		printf 'FAIL %s %s\n' "$1" "${3:-}"
+		fails=$((fails + 1))
+	fi
+}
 cleanup() {
-  [ -z "${PID:-}" ] || kill "$PID" 2>/dev/null || true
-  rm -rf "$TMP"
+	[ -z "${HPID:-}" ] || kill -KILL "$HPID" 2>/dev/null
+	[ -z "${JOBPID:-}" ] || kill -KILL -- "-$JOBPID" 2>/dev/null
+	rm -rf "$TMP"
 }
 trap cleanup EXIT
 
-"$ROOT/scripts/heavy.sh" heavy -- bash -c 'sleep 4' >"$TMP/heavy.log" 2>&1 &
-PID=$!
-contended=0
-for _ in $(seq 100); do
-  if "$ROOT/scripts/tests/heavy_lock_contender.sh" >"$TMP/contender.log" 2>&1; then
-    contended=1
-    break
-  fi
-  sleep 0.05
+# ---- A: one default path -------------------------------------------------
+unset GORGE_HEAVY_LOCK LOCK
+want=$("$S/heavy_lock.sh" path)
+case $want in
+*/.ds4/heavy.lock) check "helper path is <repo>/.ds4/heavy.lock" 0 ;;
+*) check "helper path is <repo>/.ds4/heavy.lock" 1 "$want" ;;
+esac
+paths=$(
+	printf 'heavy.sh=%s\n' "$("$S/heavy.sh" --print-heavy-lock 2>&1)"
+	printf 'broker.sh=%s\n' "$("$S/broker.sh" heavy-lock 2>&1)"
+	printf 'postmerge_batch.sh=%s\n' "$("$S/postmerge_batch.sh" --print-heavy-lock 2>&1)"
+	printf 'sb-gauntlet.sh=%s\n' "$(bash "$S/sb-gauntlet.sh" --print-heavy-lock 2>&1)"
+	printf 'm1b-distill.sh=%s\n' "$(bash "$S/m1b-distill.sh" --print-heavy-lock 2>&1)"
+)
+bad=$(printf '%s\n' "$paths" | grep -v -F "=$want" || true)
+[ -z "$bad" ]
+check "heavy.sh, broker.sh, postmerge_batch.sh, sb-gauntlet.sh, m1b-distill.sh resolve the same default lock" $? "want $want; got: $paths"
+# The two config.toml callers go through heavy_lock.sh, so they cannot drift:
+# no literal lock path may appear in the config.
+! grep -n 'heavy\.lock' "$ROOT/.agentctl/config.toml" | grep -v '^[0-9]*:#' | grep -q .
+check "config.toml names no literal heavy lock path outside comments" $?
+
+# ---- B: two different scripts contend on it ----------------------------------
+export GORGE_ROOT=$ROOT GORGE_REWARD_DIR=$TMP/reward
+export GORGE_HEAVY_LOCK=$TMP/lockfile
+export HEAVY_START_FLOOR_MB=1 PROBE_START_FLOOR_MB=1 HEAVY_MAX_LEASES=5 LOAD_CEIL_FRAC=100
+export PAUSE_GRACE_S=1 KILL_FLOOR_MB=1
+cat >"$TMP/job.sh" <<'JOB'
+#!/usr/bin/env bash
+# fd check: the job must NOT hold the lock file open.
+n=0
+for l in /proc/$$/fd/*; do [ "$(readlink "$l")" = "$GORGE_HEAVY_LOCK" ] && n=$((n + 1)); done
+echo "$n" >"$JOBFD"
+echo "$$" >"$JOBPIDFILE"
+while :; do echo tick >>"$TICKS"; sleep 0.2; done
+JOB
+chmod +x "$TMP/job.sh"
+export TICKS=$TMP/ticks JOBFD=$TMP/jobfd JOBPIDFILE=$TMP/jobpid
+: >"$TICKS"
+"$S/heavy.sh" heavy --name locktest -- "$TMP/job.sh" >"$TMP/heavy.log" 2>&1 &
+HPID=$!
+for _ in $(seq 80); do [ -s "$JOBPIDFILE" ] && break; sleep 0.1; done
+JOBPID=$(cat "$JOBPIDFILE" 2>/dev/null || true)
+[ -n "$JOBPID" ]
+check "precondition: heavy lease job started" $? "$(cat "$TMP/heavy.log")"
+
+"$S/heavy_lock.sh" run -w 0 -- true
+rc=$?
+[ "$rc" = 75 ]
+check "heavy_lock.sh (the gate/ledger wrapper) contends with a running heavy.sh lease" $? "rc=$rc"
+"$S/heavy.sh" heavy --wait 0 -- true >"$TMP/second.log" 2>&1
+rc=$?
+[ "$rc" = 3 ] && grep -q 'another heavy job holds' "$TMP/second.log"
+check "a second heavy.sh is refused with exit 3 and the 'holds' message" $? "rc=$rc $(cat "$TMP/second.log")"
+[ "$(cat "$JOBFD")" = 0 ]
+check "the heavy job does not inherit the lock fd" $? "fds on lock: $(cat "$JOBFD")"
+
+# ---- C: gate bracket does not deadlock on a paused lease ----------------------
+"$S/broker.sh" gate-begin smoke >/dev/null 2>&1
+t0=$(date +%s)
+"$S/heavy_lock.sh" run -w 20 -- bash -c 'echo gate-ran >"$1"' _ "$TMP/gate.out"
+rc=$?
+el=$(($(date +%s) - t0))
+[ "$rc" = 0 ] && [ "$(cat "$TMP/gate.out" 2>/dev/null)" = gate-ran ]
+check "gate command got the lock after gate-begin (rc=$rc in ${el}s, bounded wait 20s)" $? "rc=$rc"
+# The job really was frozen while the gate held the lock, so the lock was yielded
+# by a PARKED lease, not by a job that happened to be idle.
+p1=$(wc -l <"$TICKS")
+sleep 0.8
+p2=$(wc -l <"$TICKS")
+[ "$p1" = "$p2" ]
+check "lease is stopped while the gate bracket is open" $? "$p1 -> $p2"
+
+# gate-end while the gate command still holds the lock: the lease must not run
+# until the lock is its again (a job running beside a lock holder is the bug).
+"$S/heavy_lock.sh" run -w 20 -- sleep 4 &
+GPID=$!
+sleep 0.5
+"$S/broker.sh" gate-end smoke >/dev/null 2>&1
+sleep 2.5
+p3=$(wc -l <"$TICKS")
+[ "$p3" = "$p2" ]
+check "lease stays stopped after gate-end while the gate still holds the lock" $? "$p2 -> $p3"
+wait "$GPID"
+for _ in $(seq 60); do
+	[ "$(wc -l <"$TICKS")" -gt "$p2" ] && break
+	sleep 0.2
 done
-[ "$contended" = 1 ] || { cat "$TMP/heavy.log"; echo 'heavy.sh never acquired the lock' >&2; exit 1; }
-cat "$TMP/contender.log"
-wait "$PID"
-printf 'heavy lock contention passed\n'
+[ "$(wc -l <"$TICKS")" -gt "$p2" ]
+check "lease resumes after gate-end" $? "ticks stuck at $p2"
+"$S/heavy_lock.sh" run -w 0 -- true
+rc=$?
+[ "$rc" = 75 ]
+check "resumed lease holds the lock again" $? "rc=$rc"
+
+# A bounded wait on a lock that is genuinely held (no bracket) ends with 75 and
+# -s turns it into a logged skip instead of a failure.
+"$S/heavy_lock.sh" run -w 1 -s -- touch "$TMP/should-not-exist" 2>"$TMP/skip.err"
+rc=$?
+[ "$rc" = 0 ] && [ ! -e "$TMP/should-not-exist" ] && grep -q 'not run' "$TMP/skip.err"
+check "heavy_lock.sh run -w 1 -s skips (exit 0, command not run) on a held lock" $? "rc=$rc $(cat "$TMP/skip.err")"
+
+printf '\n%s failure(s)\n' "$fails"
+[ "$fails" = 0 ]

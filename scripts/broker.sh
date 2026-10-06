@@ -33,9 +33,8 @@ STATE=${GORGE_REWARD_DIR:-$ROOT/.ds4/reward}
 LEASES=$STATE/leases
 GATEFLAG=$STATE/gate-active
 SCORE=$STATE/scoreboard.jsonl
-SHARED_GIT_DIR=$(git -C "$ROOT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || printf '%s/.git' "$ROOT")
-GORGE_HEAVY_LOCK=${GORGE_HEAVY_LOCK:-$(dirname "$SHARED_GIT_DIR")/.ds4/heavy.lock}
-export GORGE_HEAVY_LOCK
+# The HEAVY lock is defined once, in heavy_lock.sh.
+. "$(dirname "$0")/heavy_lock.sh"
 
 # Floors in MiB of AVAILABLE memory (not free: page cache is reclaimable).
 # The box has ~58 GiB. A gate's test binaries have peaked near 8 GiB, and two
@@ -144,9 +143,16 @@ resume_class() {
 		pf=$(lease_field "$f" pause_file)
 		pid=$(lease_pid "$f")
 		[ -n "$pf" ] && rm -f "$pf"
-		rm -f "$f.paused_at" "$f.parked"
-		# Undo a SIGSTOP escalation if enforce applied one.
-		alive "$pid" && kill -CONT "-$pid" 2>/dev/null || true
+		rm -f "$f.paused_at"
+		# A heavy.sh-supervised lease is continued by its own supervisor, which
+		# first takes the HEAVY lock (heavy_lock.sh) back -- the lease yields it
+		# while parked. CONTinuing it here would run the job without the lock and
+		# drop the `.parked` marker the supervisor needs to re-take it.
+		if [ ! -e "$f.supervised" ]; then
+			rm -f "$f.parked"
+			# Undo a SIGSTOP escalation if enforce applied one.
+			alive "$pid" && kill -CONT "-$pid" 2>/dev/null || true
+		fi
 		n=$((n + 1))
 	done < <(lease_files "$class")
 	say "resumed $n $class lease(s)"
@@ -296,12 +302,13 @@ cmd=${1:-status}
 shift || true
 case $cmd in
 status) status "$@" ;;
+heavy-lock) printf '%s\n' "$GORGE_HEAVY_LOCK" ;;
 may-i) may_i "$@" ;;
 gate-begin)
-	# HEAVY launch is serialized by GORGE_HEAVY_LOCK and rechecks may-i after
-	# taking it. Do not take that lock here: existing heavy leases hold it for
-	# their lifetime and must be paused, not waited out. enforce likewise acts
-	# on those lock-owning leases (and must remain able to SIGSTOP/kill them).
+	# The HEAVY lock (heavy_lock.sh) is NOT taken here: a gate bracket pauses the
+	# leases that hold it, and heavy.sh's supervisor yields the lock while a
+	# lease is parked, so the gate that follows can take it. enforce needs no
+	# lock either: a killed lease closes its fd and so releases it.
 	# Both preemptible classes yield: a probe competes with a gate for memory
 	# exactly as a training run does, and a gate is short.
 	printf '%s %s\n' "$(now)" "${1:-gate}" >"$GATEFLAG"
@@ -317,5 +324,5 @@ pause-all) pause_class "${1:-heavy}" ;;
 resume-all) resume_class "${1:-heavy}" ;;
 enforce) enforce ;;
 reap) reap ;;
-*) die "usage: broker.sh {status|may-i <class>|gate-begin|gate-end|pause-all|resume-all|enforce|reap}" ;;
+*) die "usage: broker.sh {status|heavy-lock|may-i <class>|gate-begin|gate-end|pause-all|resume-all|enforce|reap}" ;;
 esac

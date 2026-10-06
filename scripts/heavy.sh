@@ -33,9 +33,15 @@ STATE=${GORGE_REWARD_DIR:-$ROOT/.ds4/reward}
 LEASES=$STATE/leases
 BROKER=$ROOT/scripts/broker.sh
 
+# The lock path is defined once, in heavy_lock.sh.
+. "$(dirname "$0")/heavy_lock.sh"
+[ "${1:-}" = --print-heavy-lock ] && {
+	printf '%s\n' "${LOCK:-$GORGE_HEAVY_LOCK}"
+	exit 0
+}
+
 CLASS=${1:?usage: heavy.sh <heavy|probe> [options] -- <cmd>}
 shift
-ORIGINAL_ARGS=("$@")
 case $CLASS in
 heavy | probe) ;;
 *)
@@ -95,9 +101,7 @@ if [ "$CLASS" = heavy ]; then
 	MEM=${MEM:-6G}
 	WEIGHT=${WEIGHT:-20}
 	CPUS=${CPUS:-${GORGE_HEAVY_CPUS:-}}
-	SHARED_GIT_DIR=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || printf '%s/.git' "$ROOT")
-	LOCK=${LOCK:-${GORGE_HEAVY_LOCK:-$(dirname "$SHARED_GIT_DIR")/.ds4/heavy.lock}}
-	export GORGE_HEAVY_LOCK=$LOCK
+	LOCK=${LOCK:-$GORGE_HEAVY_LOCK}
 	SLICE=gorge-heavy.slice
 else
 	MEM=${MEM:-8G}
@@ -106,19 +110,33 @@ else
 fi
 NAME=${NAME:-$(basename "$1")}
 
-# flock's command mode closes its descriptor before exec (-o), while keeping
-# the lock for the full wrapper lifetime. Re-exec once so children never inherit
-# the lock descriptor; the broker pause supervisor remains independent.
-if [ "$CLASS" = heavy ] && [ "${GORGE_HEAVY_LOCK_HELD:-0}" != 1 ]; then
-	mkdir -p "$(dirname "$LOCK")"
-	exec flock -o -w "$WAIT" "$LOCK" env GORGE_HEAVY_LOCK_HELD=1 "$0" "$CLASS" "${ORIGINAL_ARGS[@]}"
-fi
-
 mkdir -p "$LEASES"
 
-# 1. Ask the broker. Without --wait a refusal is exit 3, so a caller (a probe
-#    in the seed cycle) can treat "no headroom" as "not now", not as a failure.
+# --wait S is ONE budget: the lock wait and the broker wait draw on it together.
 deadline=$(($(date +%s) + WAIT))
+
+# 1. Serialise the class. The lock lives on fd 9 of THIS shell, never of the
+#    job (it is launched with 9>&-), so a child cannot hold it after we die or
+#    freeze whoever waits on it (an inherited tick.lock froze the daemon here on
+#    2026-09-22). It is held on an fd, not through `flock -o <cmd>`, because the
+#    pause supervisor below must RELEASE it while the job is parked and take it
+#    back before the job continues.
+if [ "$CLASS" = heavy ]; then
+	mkdir -p "$(dirname "$LOCK")"
+	exec 9>"$LOCK" || {
+		printf 'heavy.sh: cannot open lock %s\n' "$LOCK" >&2
+		exit 2
+	}
+	flock -w "$WAIT" -E 3 9
+	rc=$?
+	if [ "$rc" != 0 ]; then
+		printf 'heavy.sh: another %s job holds %s\n' "$CLASS" "$LOCK" >&2
+		exit 3
+	fi
+fi
+
+# 2. Ask the broker. Without --wait a refusal is exit 3, so a caller (a probe
+#    in the seed cycle) can treat "no headroom" as "not now", not as a failure.
 while :; do
 	if reason=$("$BROKER" may-i "$CLASS" 2>/dev/null); then
 		printf 'heavy.sh: %s\n' "$reason"
@@ -128,10 +146,10 @@ while :; do
 		printf 'heavy.sh: refused: %s\n' "$reason" >&2
 		exit 3
 	fi
-	sleep 10
+	sleep 10 9>&-
 done
 
-# 2. The outer flock -o command now owns the HEAVY lock for this process.
+# 3. The lease. The HEAVY lock (fd 9) is held until this shell exits.
 PAUSE_FILE=$STATE/pause-$$.flag
 LEASE=$LEASES/$$.json
 cleanup() {
@@ -139,13 +157,13 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-# 3. Job control on, so the job gets its own process group and the broker can
+# 4. Job control on, so the job gets its own process group and the broker can
 #    SIGSTOP or kill the whole tree by negative pid.
 set -m
 scope=(systemd-run --user --scope -q --slice="$SLICE" --unit="gorge-$CLASS-$$"
 	-p "MemoryMax=$MEM" -p "CPUWeight=$WEIGHT")
 [ -n "$CPUS" ] && scope+=(-p "AllowedCPUs=$CPUS")
-GORGE_PAUSE_FILE=$PAUSE_FILE GORGE_BROKER_CLASS=$CLASS "${scope[@]}" -- "$@" &
+GORGE_PAUSE_FILE=$PAUSE_FILE GORGE_BROKER_CLASS=$CLASS "${scope[@]}" -- "$@" 9>&- &
 job=$!
 set +m
 
@@ -157,7 +175,7 @@ printf '{"class":"%s","name":"%s","pid":%s,"started":"%s","pause_file":"%s","sli
 
 printf 'heavy.sh: %s lease %s pid %s slice %s mem %s\n' "$CLASS" "$(basename "$LEASE")" "$job" "$SLICE" "$MEM"
 
-# 4. Cooperative pause supervision for the HEAVY class. heavy.sh is the one
+# 5. Cooperative pause supervision for the HEAVY class. heavy.sh is the one
 #    place every heavy job runs through, so it is where "heavy leases must be
 #    pausable throughout" is guaranteed: the job needs no pause loop of its
 #    own. Without this, a long CPU-bound heavy command (`go test ./...`
@@ -177,22 +195,33 @@ PAUSE_GRACE_S=${PAUSE_GRACE_S:-60}
 if [ "$CLASS" = heavy ]; then
 	: >"$LEASE.supervised"
 	(
+		# This subshell shares fd 9 (the HEAVY lock) with heavy.sh. While the job
+		# is parked it YIELDS the lock (flock -u releases the shared open file
+		# description), so a gate that takes the lock is never waiting on a job
+		# the bracket itself froze; it takes the lock back before the job runs
+		# again. Its own sleeps close fd 9 so a stray sleep cannot pin the lock.
 		while kill -0 "$job" 2>/dev/null; do
 			if [ -e "$PAUSE_FILE" ]; then
 				if [ ! -e "$LEASE.parked" ]; then
-					sleep "$PAUSE_GRACE_S"
+					sleep "$PAUSE_GRACE_S" 9>&-
 					# The pause may have ended during the grace (a short gate).
 					# Do not stop a job that is no longer asked to pause.
 					[ -e "$PAUSE_FILE" ] || continue
 					kill -0 "$job" 2>/dev/null || break
 					kill -STOP "-$job" 2>/dev/null || kill -STOP "$job" 2>/dev/null || true
 					: >"$LEASE.parked"
+					flock -u 9
 				fi
 			elif [ -e "$LEASE.parked" ]; then
-				kill -CONT "-$job" 2>/dev/null || true
-				rm -f "$LEASE.parked"
+				# Wait for the lock in 1 s steps so a job that died while parked is
+				# still noticed by the loop condition. The job stays STOPPED until
+				# the lock is ours again.
+				if flock -w 1 9; then
+					kill -CONT "-$job" 2>/dev/null || true
+					rm -f "$LEASE.parked"
+				fi
 			fi
-			sleep 1
+			sleep 1 9>&-
 		done
 		rm -f "$LEASE.parked"
 	) &

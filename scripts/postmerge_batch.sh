@@ -24,8 +24,8 @@
 #   scripts/postmerge_batch.sh --parse-fails <go-test-output>   # self-test aid
 set -uo pipefail
 repo=$(git rev-parse --show-toplevel)
-SHARED_GIT_DIR=$(git rev-parse --path-format=absolute --git-common-dir)
-LOCK=${LOCK:-${GORGE_HEAVY_LOCK:-$(dirname "$SHARED_GIT_DIR")/.ds4/heavy.lock}}
+. "$(dirname "$0")/heavy_lock.sh"  # the one HEAVY lock definition
+LOCK=${LOCK:-$GORGE_HEAVY_LOCK}
 LOG=${LOG:-$repo/.ds4/postmerge-batch.log}
 CULPRITS=${CULPRITS:-$repo/.ds4/postmerge-culprits.log}
 OUT=$repo/.ds4/postmerge-full.out
@@ -61,6 +61,7 @@ parse_fails() {
     }' "$1"
 }
 
+if [ "${1:-}" = "--print-heavy-lock" ]; then printf '%s\n' "$LOCK"; exit 0; fi
 if [ "${1:-}" = "--parse-fails" ]; then parse_fails "$2"; exit 0; fi
 
 # fails_at <sha> <pkg> <regex>: 0 if the tests FAIL at sha, 1 if they pass.

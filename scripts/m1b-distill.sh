@@ -15,8 +15,9 @@
 set -u
 REPO=$(cd "$(dirname "$0")/.." && pwd)
 M=${M:-/mnt/sata/gorge-training/spellbench-work/m1b}
-SHARED_GIT_DIR=$(git -C "$REPO" rev-parse --path-format=absolute --git-common-dir)
-LOCK=${LOCK:-${GORGE_HEAVY_LOCK:-$(dirname "$SHARED_GIT_DIR")/.ds4/heavy.lock}}
+. "$REPO/scripts/heavy_lock.sh"  # the one HEAVY lock definition
+LOCK=${LOCK:-$GORGE_HEAVY_LOCK}
+[ "${1:-}" = --print-heavy-lock ] && { printf '%s\n' "$LOCK"; exit 0; }
 CARDS=$REPO/.cards
 heavy() { flock -o "$LOCK" systemd-run --user --scope -q -p MemoryMax=4G env GOMEMLIMIT=2GiB GOMAXPROCS=8 GOTMPDIR=/mnt/sata/gorge-training/gotmp "$@"; }
 mkdir -p "$M/bin" "$M/clair" "$M/honest" "$M/students" "$M/evals"

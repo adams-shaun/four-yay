@@ -69,8 +69,9 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 # SB_GAUNTLET_DIR overrides the gauntlet work root (cache, results.jsonl,
 # champions.txt); the default is the shared training mount.
 GDIR=${SB_GAUNTLET_DIR:-/mnt/sata/gorge-training/spellbench-work/gauntlet}
-SHARED_GIT_DIR=$(git -C "$ROOT" rev-parse --path-format=absolute --git-common-dir)
-LOCK=${LOCK:-${GORGE_HEAVY_LOCK:-$(dirname "$SHARED_GIT_DIR")/.ds4/heavy.lock}}
+. "$ROOT/scripts/heavy_lock.sh"  # the one HEAVY lock definition
+LOCK=${LOCK:-$GORGE_HEAVY_LOCK}
+[ "${1:-}" = --print-heavy-lock ] && { printf '%s\n' "$LOCK"; exit 0; }
 SBPY=${SB_GAUNTLET_SBPY:-/mnt/sata/gorge-training/sbvenv/bin}
 WORKERS=${SB_GAUNTLET_WORKERS:-8}
 POOL="Wildfire Rally Affinity Elves Spy Burn CawGates Faeries"
