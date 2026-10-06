@@ -429,17 +429,15 @@ func (e *Engine) finishUntapStep(next int) bool {
 // and no player receives priority in it; the turn goes from upkeep straight
 // to the precombat main phase. CR 103.8c: in every other multiplayer game no
 // player skips it (gorge models no Two-Headed Giant teams, so CR 103.8b's
-// team case does not arise). players is the constructed seat count --
-// eliminated players stay in the slice, so the rule cannot change as
-// players lose -- and turn 1 is the game's first turn, the starting
+// team case does not arise). len(g.Players) is the constructed seat count
+// -- eliminated players stay in the slice, so the rule cannot change as
+// players lose -- and Turn 1 is the game's first turn, the starting
 // player's. Every site that would enter the draw step from the walk's
 // natural advance (advanceStep, and a BeginPhase replacement that skips the
 // upkeep step) routes the proposed step through here; the replay folds the
-// StepChange the engine actually emitted, so it needs no separate rule. It
-// takes its two inputs as primitives rather than the engine so the shape
-// census does not count one more engine method for a pure step transform.
-func skipFirstDrawStep(next state.Step, players int, turn int32) state.Step {
-	if next == state.StepDraw && players == 2 && turn <= 1 {
+// StepChange the engine actually emitted, so it needs no separate rule.
+func skipFirstDrawStep(g *state.Game, next state.Step) state.Step {
+	if next == state.StepDraw && len(g.Players) == 2 && g.Turn <= 1 {
 		return state.StepMain1
 	}
 	return next
@@ -1177,7 +1175,7 @@ func (e *Engine) advanceStep() {
 	if s, ok := e.extraPhaseBoundary(); ok {
 		next = s
 	} else {
-		next = skipFirstDrawStep(next, len(e.G.Players), e.G.Turn)
+		next = skipFirstDrawStep(e.G, next)
 	}
 	e.setStep(next)
 	if e.pending != nil {

@@ -1,8 +1,8 @@
 package main
 
 import (
+	"go/types"
 	"os"
-	"reflect"
 	"strings"
 	"testing"
 
@@ -39,27 +39,18 @@ func TestFrameTypeUnionListsEveryConstant(t *testing.T) {
 	}
 }
 
-// The leaf synthetic structs deliberately carry NO struct-level doc comment -
-// such a comment would become its own emitted block and shift the comment-block
-// counts the leaves assert on. All explanatory text lives in the test bodies.
-
-type gt1LeafOne struct {
-	// Alpha is the first documented field; it must appear.
-	Alpha int `json:"alpha"`
-	// Beta is documented too, and carries omitempty.
-	Beta  string `json:"beta,omitempty"`
-	Gamma bool   `json:"gamma"` // a trailing comment is not a doc comment
-}
-
-type gt1LeafTwo struct {
-	// Delta carries its own struct's field comment.
-	Delta float64 `json:"delta"`
-}
-
-type gt1LeafPathological struct {
-	// This doc contains a*/b terminator that must not end the block early.
-	X int `json:"x"`
-	Y int `json:"y"` // no doc comment: only X's block should be emitted
+// leafRoot type-checks leaves_test.go from source and returns its named type.
+func leafRoot(t *testing.T, l *tsgen.Loader, name string) types.Type {
+	t.Helper()
+	pkg, err := l.CheckFiles("github.com/adams-shaun/gorge/cmd/gentypes", "leaves_test.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ty, err := tsgen.LookupIn(pkg, name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return ty
 }
 
 // Leaf 1: a field's Go doc comment is emitted as a block comment in the
@@ -68,26 +59,26 @@ type gt1LeafPathological struct {
 func TestGentypesEmitsFieldDocComment(t *testing.T) {
 	cases := []struct {
 		name   string
-		root   reflect.Type
+		root   string
 		wants  []string
 		blocks int // number of /* */ blocks the struct's fields should emit
 	}{
 		{
 			name:   "first struct",
-			root:   reflect.TypeOf(gt1LeafOne{}),
+			root:   "gt1LeafOne",
 			wants:  []string{"Alpha is the first documented field; it must appear.", "Beta is documented too, and carries omitempty."},
 			blocks: 2, // Alpha and Beta only; Gamma (trailing comment) gets none
 		},
 		{
 			name:   "second struct",
-			root:   reflect.TypeOf(gt1LeafTwo{}),
+			root:   "gt1LeafTwo",
 			wants:  []string{"Delta carries its own struct's field comment."},
 			blocks: 1,
 		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			src, err := tsgen.Generate(tsgen.Options{Roots: []reflect.Type{c.root}, Header: "// test header\n"})
+			src, err := tsgen.Generate(tsgen.Options{Roots: []types.Type{leafRoot(t, tsgen.NewLoader(), c.root)}, Header: "// test header\n"})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -111,7 +102,7 @@ func TestGentypesEmitsFieldDocComment(t *testing.T) {
 // (the `*/` that closes the single comment) and the field that follows it still
 // appears.
 func TestGentypesEscapesCommentTerminator(t *testing.T) {
-	src, err := tsgen.Generate(tsgen.Options{Roots: []reflect.Type{reflect.TypeOf(gt1LeafPathological{})}, Header: "// test header\n"})
+	src, err := tsgen.Generate(tsgen.Options{Roots: []types.Type{leafRoot(t, tsgen.NewLoader(), "gt1LeafPathological")}, Header: "// test header\n"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -129,8 +120,9 @@ func TestGentypesEscapesCommentTerminator(t *testing.T) {
 // Leaf 3: generating twice from the same input is byte-identical, so the
 // freshness gate is not a coin flip between runs.
 func TestGentypesIsDeterministic(t *testing.T) {
+	l := tsgen.NewLoader()
 	opts := tsgen.Options{
-		Roots:  []reflect.Type{reflect.TypeOf(gt1LeafOne{}), reflect.TypeOf(gt1LeafPathological{})},
+		Roots:  []types.Type{leafRoot(t, l, "gt1LeafOne"), leafRoot(t, l, "gt1LeafPathological")},
 		Unions: map[string][]string{"Z": {"z"}, "A": {"a"}},
 		Header: "// test header\n",
 	}

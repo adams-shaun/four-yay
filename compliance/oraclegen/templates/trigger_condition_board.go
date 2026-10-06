@@ -152,7 +152,8 @@ func svarBody(f *cards.Face, name string) string {
 // which no setup reaches: a Case is solved by its own end-step trigger.
 func solvedCaseCondition(t *cards.Trigger) bool {
 	for _, key := range []cards.ParamKey{cards.PKIsPresent, cards.PKIsPresent2} {
-		if strings.Contains(strings.ToLower(t.ParamStr(key)), "issolved") {
+		// "!IsSolved" is the unsolved Case that solves itself: reachable.
+		if lower := strings.ToLower(t.ParamStr(key)); strings.Contains(strings.ReplaceAll(lower, "!issolved", ""), "issolved") {
 			return true
 		}
 	}

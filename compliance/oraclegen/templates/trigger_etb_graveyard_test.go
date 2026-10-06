@@ -10,8 +10,9 @@ import (
 )
 
 // All nine graveyard sources in the brief must be tried from their trigger
-// zone, including the two whose separate conditions this ticket cannot meet
-// (Darklight Phoenix is named by its phase condition, the narrower reason).
+// zone. Darklight Phoenix's phase condition is now met by the count-aware
+// turn-history preludes; Persistent Marshstalker still keeps its graveyard-zone
+// skip (trigger did not fire from the graveyard).
 func TestTriggerETBProbeGraveyardSources(t *testing.T) {
 	reg := loadGenRegistry(t)
 	for _, tc := range []struct{ name, sub, skip string }{
@@ -22,7 +23,7 @@ func TestTriggerETBProbeGraveyardSources(t *testing.T) {
 		{"Shambling Cie'th", "trigger.spell-cast", ""},
 		{"Wolfbat", "trigger.drawn", ""},
 		{"Furious Forebear", "trigger.dies-other", ""},
-		{"Darklight Phoenix", "trigger.phase", "trigger condition: turn history (Count$ThisTurnEntered_Graveyard_from_Battlefield_Creature)"},
+		{"Darklight Phoenix", "trigger.phase", ""},
 		{"Persistent Marshstalker", "trigger.attacks", "trigger did not fire from the graveyard"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

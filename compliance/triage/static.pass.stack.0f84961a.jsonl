@@ -1,0 +1,2 @@
+{"shape":{"template":"static","op":"pass","field":"stack","diff":"gorge=[] xmage=[ability:Karn, Gilded Guardian@p0, ability:Karn, Gilded Guardian@p0]"},"key":"static | pass | stack | gorge=[] xmage=[ability:Karn, Gilded Guardian@p0, ability:Karn, Gilded Guardian@p0]","cards":1}
+{"card":"Annie Joins Up","template":"static#0.0","status":"diverge","api":"ChangesZone:DealDamage","sets":["OTJ"],"detail":"step 2 (pass) stack: gorge \"[]\", xmage \"[ability:Karn, Gilded Guardian@p0, ability:Karn, Gilded Guardian@p0]\""}

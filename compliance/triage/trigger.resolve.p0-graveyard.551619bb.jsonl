@@ -1,2 +1,0 @@
-{"shape":{"template":"trigger","op":"resolve","field":"p0.graveyard","diff":"gorge+[Notorious Auntie] xmage+[Storied Matriarch]"},"key":"trigger | resolve | p0.graveyard | gorge+[Notorious Auntie] xmage+[Storied Matriarch]","cards":1}
-{"card":"Grub, Storied Matriarch","template":"trigger#1.0","status":"diverge","api":"ChangesZone:ChangeZone+Transformed:ChangeZone+Phase:SetState","sets":["ECL"],"detail":"step 1 (resolve) p0.graveyard: gorge \"[Grub, Notorious Auntie]\", xmage \"[Grub, Storied Matriarch]\""}

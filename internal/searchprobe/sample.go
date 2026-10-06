@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"math/rand/v2"
-	"reflect"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -982,25 +981,26 @@ func addRejection(result *SampleResult, bucket RejectionBucket) {
 	})
 }
 
-// sameFrame is the replay's frame equality: reflect.DeepEqual over the
-// identities, events and decision, and the board by its Sum digest (the
-// caller puts the digest to compare there; see Sample's compare frames).
-// The history link is bookkeeping, not observation, and is not compared.
+// sameFrame is the replay's frame equality: reflect.DeepEqual's answer over
+// the identities, events and decision (computed by the typed comparisons in
+// frame_equal.go), and the board by its Sum digest (the caller puts the
+// digest to compare there; see Sample's compare frames). The history link is
+// bookkeeping, not observation, and is not compared.
 func sameFrame(got, want Frame) bool {
-	return got.Board.Sum == want.Board.Sum && reflect.DeepEqual(got.Identities, want.Identities) && reflect.DeepEqual(got.Events, want.Events) && reflect.DeepEqual(got.Decision, want.Decision)
+	return got.Board.Sum == want.Board.Sum && identitiesEqual(got.Identities, want.Identities) && observedEventsEqual(got.Events, want.Events) && observedDecisionEqual(got.Decision, want.Decision)
 }
 
 func rejectionBucket(frame int, got, want Frame) RejectionBucket {
-	if !reflect.DeepEqual(got.Identities, want.Identities) {
+	if !identitiesEqual(got.Identities, want.Identities) {
 		return RejectionBucket{Frame: frame, Component: "identities", Shape: identityDifferenceShape(got, want)}
 	}
-	if !reflect.DeepEqual(got.Events, want.Events) {
+	if !observedEventsEqual(got.Events, want.Events) {
 		limit := len(got.Events)
 		if len(want.Events) < limit {
 			limit = len(want.Events)
 		}
 		for i := 0; i < limit; i++ {
-			if !reflect.DeepEqual(got.Events[i], want.Events[i]) {
+			if !observedEventEqual(&got.Events[i], &want.Events[i]) {
 				return RejectionBucket{Frame: frame, Component: "events", Shape: got.Events[i].Kind.String() + "_to_" + want.Events[i].Kind.String()}
 			}
 		}
@@ -1047,9 +1047,9 @@ func identityDifferenceShape(got, want Frame) string {
 
 func frameDifference(i int, got, want Frame) string {
 	part := "decision"
-	if !reflect.DeepEqual(got.Identities, want.Identities) {
+	if !identitiesEqual(got.Identities, want.Identities) {
 		part = "identities"
-	} else if !reflect.DeepEqual(got.Events, want.Events) {
+	} else if !observedEventsEqual(got.Events, want.Events) {
 		part = "events"
 	} else if got.Board.Sum != want.Board.Sum {
 		part = "board"

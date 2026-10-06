@@ -855,7 +855,7 @@ pass() {
     # so a row the final landed batch no longer regresses is not recorded.
     MD_ROWS=(); MD_DET=()
     local rdir=$run/replay$attempt
-    (cd "$wt" && GOFLAGS="-p=2 -trimpath" XMAGE_ORACLE_MEM=6G "${LOCKRUN[@]}" "${REPLAY_CMD[@]}" "$rdir" >"$rdir.log" 2>&1)
+    (cd "$wt" && GOFLAGS="-p=8 -trimpath" XMAGE_ORACLE_MEM=3G "${LOCKRUN[@]}" "${REPLAY_CMD[@]}" "$rdir" >"$rdir.log" 2>&1)
     rc=$?
     say "REPLAY rc=$rc run=$rdir ids=${MERGED[*]}"
     if [ "$rc" -ne 0 ] || /usr/bin/grep -qE ' (gen|xmage|diff) FAILED' "$rdir.log"; then
@@ -997,7 +997,7 @@ drift_pass() {
   fi
   rdir=$run/replay0
   rm -rf -- "$rdir" && mkdir -p "$rdir"
-  (cd "$wt" && GOFLAGS="-p=2 -trimpath" XMAGE_ORACLE_MEM=6G "${LOCKRUN[@]}" "${REPLAY_CMD[@]}" "$rdir" >"$rdir.log" 2>&1)
+  (cd "$wt" && GOFLAGS="-p=8 -trimpath" XMAGE_ORACLE_MEM=3G "${LOCKRUN[@]}" "${REPLAY_CMD[@]}" "$rdir" >"$rdir.log" 2>&1)
   rc=$?
   say "REPLAY rc=$rc run=$rdir ids=drift-main"
   if [ "$rc" -ne 0 ] || /usr/bin/grep -qE ' (gen|xmage|diff) FAILED' "$rdir.log"; then
