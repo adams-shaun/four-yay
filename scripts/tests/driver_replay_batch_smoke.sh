@@ -519,7 +519,8 @@ check "H1 stale main verdict is not kept for the changed scenario" $?
 mkrepo H
 mkticket t1 2026-10-06T03:00:00Z tools/xmageoracle/t1.txt one
 mkticket t3 2026-10-06T04:00:00Z tools/xmageoracle/x.regress 'Beta/cast-resolve/v1'
-echo "2026-10-06 10:05:03 driver-batch-20261006T100503Z Beta Beta/cast-resolve/v1 varies: /state" >"$R/.ds4/driver-flakes.log"
+driver_sha=$(git -C "$R" log -1 --format=%H main -- tools/xmageoracle | cut -c1-12)
+echo "2026-10-06 10:05:03 driver-batch-20261006T100503Z Beta Beta/cast-resolve/v1 driver=$driver_sha varies: /state" >"$R/.ds4/driver-flakes.log"
 runpass
 has "$L" 'FLAKY Beta/cast-resolve/v1 (listed in driver-flakes.log)'
 check "H a stable-looking row listed in the flakes log is FLAKY without re-testing" $?
@@ -529,6 +530,36 @@ git -C "$R" show main:compliance/verdicts/a.jsonl | /usr/bin/grep -q '"id":"Beta
 check "H main's verdict row is kept for the known flake" $?
 /usr/bin/grep -qE 'LANDED [0-9a-f]{9} t1 t3$' "$L" && [ "$(status_of t3)" = merged ]
 check "H the branch that only looked guilty lands with the rest" $?
+
+# ---- H2: an expired flake is re-tested and a stable verdict is refreshed ----------
+mkrepo H2
+mkticket t1 2026-10-06T03:00:00Z tools/xmageoracle/t1.txt one
+mkticket t3 2026-10-06T04:00:00Z tools/xmageoracle/x.regress 'Beta/cast-resolve/v1'
+driver_sha=$(git -C "$R" log -1 --format=%H main -- tools/xmageoracle | cut -c1-12)
+echo "2026-10-06 10:05:03 old-batch Beta Beta/cast-resolve/v1 driver=000000000000 varies: /state" >"$R/.ds4/driver-flakes.log"
+runpass
+has "$L" 'CULPRIT t3 row Beta/cast-resolve/v1'
+check "H2 expired stable row is re-tested and classified normally" $?
+hasnt "$L" 'known flake, not re-tested'
+check "H2 expired row does not remain masked" $?
+hasnt "$R/.ds4/driver-flakes.log" "Beta/cast-resolve/v1 driver=$driver_sha"
+check "H2 stable row is not re-listed for the current driver" $?
+
+# ---- H3: an expired flake that still varies is recorded against the new driver ------
+mkrepo H3
+mkticket t1 2026-10-06T03:00:00Z tools/xmageoracle/t1.txt one
+mkticket t3 2026-10-06T04:00:00Z tools/xmageoracle/x.regress 'Beta/cast-resolve/v1'
+printf 'Beta/cast-resolve/v1\n' >"$R/.worktrees/t3/tools/xmageoracle/x.flaky"
+git -C "$R/.worktrees/t3" add tools/xmageoracle/x.flaky && git -C "$R/.worktrees/t3" commit -q -m 'make row vary'
+driver_sha=$(git -C "$R" log -1 --format=%H main -- tools/xmageoracle | cut -c1-12)
+echo "2026-10-06 10:05:03 old-batch Beta Beta/cast-resolve/v1 driver=000000000000 varies: /state" >"$R/.ds4/driver-flakes.log"
+runpass
+has "$L" 'FLAKY Beta/cast-resolve/v1 ('
+check "H3 expired varying row is re-tested as FLAKY" $?
+/usr/bin/grep -q "Beta/cast-resolve/v1 driver=$driver_sha varies:" "$R/.ds4/driver-flakes.log"
+check "H3 varying row is re-listed with the current driver sha" $?
+hasnt "$L" 'CULPRIT t3 row Beta/cast-resolve/v1'
+check "H3 a varying row is never a CULPRIT" $?
 
 # ---- I: a generator-caused regression is attributed by regenerating the row ---------
 mkrepo I

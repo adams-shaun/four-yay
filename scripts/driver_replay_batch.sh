@@ -413,14 +413,20 @@ one_scenario() {
   [ -s "$out" ]
 }
 
-# known_flaky <id>: 0 iff .ds4/driver-flakes.log already lists that row id. A row
-# that varied once is not re-tested: four equal replays prove nothing about it
-# (92a06b05 was HELD for a row flaked in the pass before).
+# DRIVER_SHA identifies the XMage driver on the batch base. Legacy flake
+# records without driver= are expired: their driver cannot be established, so
+# they get one normal re-test rather than masking rows indefinitely.
+DRIVER_SHA=$(git log -1 --format=%H "$MAIN" -- tools/xmageoracle | cut -c1-12)
+# known_flaky <id>: 0 iff the row has a flake record for this driver version.
+# A row that varied once is not re-tested on the same driver: four equal
+# replays prove nothing about it (92a06b05 was HELD for a row flaked before).
 known_flaky() {
   local line
   [ -e "$FLAKES" ] || return 1
   while IFS= read -r line; do
-    case $line in *" $1 "* | *" $1") return 0 ;; esac
+    case $line in
+      *" $1 "*"driver=$DRIVER_SHA"*) return 0 ;;
+    esac
   done <"$FLAKES"
   return 1
 }
@@ -564,7 +570,7 @@ select_parked() {
 }
 
 # classify <rdir> <use drift log 0|1>: sort the regressed rows of <rdir>.regressed
-# into FLAKY (varies on the same driver, or listed in driver-flakes.log), DRIFTED
+# into FLAKY (varies on this driver, or listed for it in driver-flakes.log), DRIFTED
 # (the drift log holds it for this driver+generator) and STABLE; main's row is put
 # back for the first two. Returns 1 with CLASSIFY_ERR set on an infra failure.
 STABLE=(); FLAKY=(); DRIFTED=(); CLASSIFY_ERR=""
@@ -591,7 +597,7 @@ classify() {
       STABLE+=("$id")
     elif [ "$rc" -eq 0 ]; then
       say "FLAKY $id ($FLAKE_FIELD): $FLAKE_RUNS replays on the batch driver differ; keeping main's row"
-      echo "$(date '+%F %T') $bid ${id%%/*} $id varies: $FLAKE_FIELD" >>"$FLAKES"
+      echo "$(date '+%F %T') $bid ${id%%/*} $id driver=$DRIVER_SHA varies: $FLAKE_FIELD" >>"$FLAKES"
       FLAKY+=("$id")
     else
       STABLE+=("$id")
