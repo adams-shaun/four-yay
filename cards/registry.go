@@ -36,6 +36,18 @@ func NewRegistry() *Registry {
 	return &Registry{byName: map[string]*Card{}, Tokens: map[string]*Card{}}
 }
 
+// Len returns the number of cards in the registry.
+func (r *Registry) Len() int { return len(r.Cards) }
+
+// Card returns the card at ordinal i.
+func (r *Registry) Card(i int) *Card { return r.Cards[i] }
+
+// AllCards returns the cards in registry order.
+func (r *Registry) AllCards() []*Card { return r.Cards }
+
+// MaterializedCount returns the number of cards currently materialized.
+func (r *Registry) MaterializedCount() int { return len(r.Cards) }
+
 // NormalizeName folds case, collapses whitespace and drops punctuation so
 // catalogue names from Scryfall match Forge script names. A "Front // Back"
 // name resolves to the front face, which is how Forge names the file.

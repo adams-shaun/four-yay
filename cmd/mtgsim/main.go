@@ -98,7 +98,7 @@ func run(decksFlag string, seats int, baseSeed uint64, games int, verify, verbos
 	failures := 0
 	for g := 0; g < games; g++ {
 		gameSeed := baseSeed + uint64(g)
-		if !playOne(out, gameSeed, names, decks, reg.Tokens, reg.Cards, verify) {
+		if !playOne(out, gameSeed, names, decks, reg.Tokens, reg.AllCards(), verify) {
 			failures++
 		}
 	}

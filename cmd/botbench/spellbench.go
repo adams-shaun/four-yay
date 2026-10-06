@@ -322,7 +322,7 @@ func sbPlayWithPool(g sbGame, deck []*cards.Card, reg *cards.Registry, maxTurns,
 	}
 	cfg := rules.Config{
 		Seed: g.seed, Names: []string{"p0", "p1"}, Decks: [][]*cards.Card{deck, deck},
-		Tokens: reg.Tokens, NameUniverse: reg.Cards, Mulligans: sbFlags.mulligans,
+		Tokens: reg.Tokens, NameUniverse: reg.AllCards(), Mulligans: sbFlags.mulligans,
 	}
 	// A finished game's storage backs the next game this worker plays
 	// (rules.Spare; reuse never changes a game -- the same contract

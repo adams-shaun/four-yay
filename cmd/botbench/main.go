@@ -2183,7 +2183,7 @@ func runMatrixTraced(baseSeed uint64, games, seats int, aName, bName, dir, forma
 		cfg := buildGameConfig(seed, []string{pd.a, pd.b},
 			[][]*cards.Card{deckByName[pd.a], deckByName[pd.b]}, commanders, commander)
 		cfg.Tokens = reg.Tokens
-		cfg.NameUniverse = reg.Cards
+		cfg.NameUniverse = reg.AllCards()
 		if onpol != nil {
 			// The on-policy recorder only observes the policynet seats'
 			// scored decisions; the game itself is the plain playMatch.
@@ -2410,7 +2410,7 @@ func run(baseSeed uint64, games, seats, rotate, workers int, aName, bName, dir s
 		}
 		cfg := buildGameConfig(s, seated, decks, commanders, commander)
 		cfg.Tokens = reg.Tokens
-		cfg.NameUniverse = reg.Cards
+		cfg.NameUniverse = reg.AllCards()
 		return playMatch(cfg, pols, botSeats, maxTurns, maxIntents, collect, cov)
 	}
 	if workers <= 0 {

@@ -240,7 +240,7 @@ func panharmoniconCreatureRuns(reg *cards.Registry, name, filter string) ([]panh
 		cmc  int32
 	}
 	var cands []cand
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		if len(c.Faces) != 1 {
 			continue
 		}
