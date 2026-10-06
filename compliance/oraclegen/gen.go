@@ -246,6 +246,37 @@ func mayYes(sc Scenario, ds []rules.OracleDecision) (Scenario, bool) {
 	return out, changed
 }
 
+// searchPicks queues, on the hidden-library-search step that posed it, an
+// answer taking the search's first eligible card. Gorge's deterministic
+// fallback declines an "up to N" hidden search (CR 701.19b fail-to-find),
+// and XMage poses a mandatory library search (Terramorphic Expanse's
+// TargetCardInLibrary 1..1) that rejects the resulting [target_skip] with
+// "Wrong skip command found". A declined search whose option list is
+// non-empty has a legal card, so re-running with the first eligible card
+// makes both engines find the same card. An optional "you may search"
+// shape poses a search_confirm yes/no first; when that confirm was declined
+// no search pick is posed, so there is nothing to queue, and when it was
+// accepted the search was actually made, so forcing its pick agrees with
+// XMage too. The answer is only kept when the replay consumes it (see the
+// caller's PlaysThrough guard), so a search XMage never reaches falls back
+// to the decline pair.
+func searchPicks(sc Scenario, ds []rules.OracleDecision) (Scenario, bool) {
+	out := sc
+	out.Steps = append([]Step(nil), sc.Steps...)
+	changed := false
+	for _, d := range ds {
+		if d.Step < 0 || d.Step >= len(out.Steps) || d.Options == 0 || d.First == "" ||
+			d.Kind != "choose_n" || d.Resume != "search" || len(d.Picks) != 0 {
+			continue
+		}
+		st := out.Steps[d.Step]
+		st.Answers = append(append([]Answer(nil), st.Answers...), Answer{Kind: d.GorgeKind, Pick: []string{d.First}})
+		out.Steps[d.Step] = st
+		changed = true
+	}
+	return out, changed
+}
+
 // playsThrough replays sc exactly and reports whether gorge performed
 // every step and ended with an empty stack. Both leftover targets and
 // answers are failures here: callers must rewrite targets to gorge's actual

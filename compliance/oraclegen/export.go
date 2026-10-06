@@ -143,6 +143,10 @@ func TargetSkipsFor(slots []Slot, fx Fixture, sc Scenario, ds []rules.OracleDeci
 // MayYes re-scripts every declined optional pick to take the first option.
 func MayYes(sc Scenario, ds []rules.OracleDecision) (Scenario, bool) { return mayYes(sc, ds) }
 
+// SearchPicks re-scripts a declined mandatory hidden library search to take
+// its first eligible card, so gorge and XMage find the same card.
+func SearchPicks(sc Scenario, ds []rules.OracleDecision) (Scenario, bool) { return searchPicks(sc, ds) }
+
 // PlaysThrough replays sc and reports whether gorge performed every step
 // and ended with an empty stack.
 func PlaysThrough(reg *cards.Registry, sc Scenario) (rules.OracleResult, bool) {

@@ -147,6 +147,14 @@ func activateWith(reg *cards.Registry, f *cards.Face, name string, req levelb.Re
 		if !ok {
 			continue
 		}
+		// A hidden library search gorge's fallback declined: re-run taking the
+		// search's first eligible card, so XMage's mandatory TargetCardInLibrary
+		// ask is answered with a card instead of the [target_skip] it rejects.
+		if search, changed := oraclegen.SearchPicks(sc, res.Decisions); changed {
+			if res2, ok2 := oraclegen.PlaysThrough(reg, search); ok2 {
+				sc, res = search, res2
+			}
+		}
 		it := oraclegen.NewLevelBItem(name, req.Key, ActivateAbility.Version, []string{"602.2"}, sc)
 		it.XAnswers = oraclegen.XAnswersForScenario(res, sc, oraclegen.ModeNumbers(f), targetSteps)
 		if len(it.XAnswers) == 0 {
