@@ -89,7 +89,10 @@ printf '{"id":"%s","card":"x","verdict":{"status":"%s"}}\n' "$id" "$st" >"$3"
 EOF
 cat >"$S/check.sh" <<'EOF'
 #!/usr/bin/env bash
-[ "$1" = pre ] && ls tools/xmageoracle/*.badtest >/dev/null 2>&1 && { echo "stub test red"; exit 1; }
+[ "$1" = pre ] || exit 0
+ls tools/xmageoracle/*.badtest >/dev/null 2>&1 && { echo "stub test red"; exit 1; }
+ls tools/xmageoracle/*.redalone >/dev/null 2>&1 && { echo "stub branch red alone"; exit 1; }
+[ -e tools/xmageoracle/t1.combo ] && [ -e tools/xmageoracle/t3.combo ] && { echo "stub combination red"; exit 1; }
 exit 0
 EOF
 cat >"$S/issue.sh" <<'EOF'
@@ -287,12 +290,34 @@ mkrepo E
 mkticket t1 2026-10-06T03:00:00Z tools/xmageoracle/t1.txt one
 mkticket t3 2026-10-06T04:00:00Z tools/xmageoracle/x.badtest broken
 runpass
-has "$L" 'CHECKS-RED with t3 merged last'
-check "E the most recently merged branch is dropped on a red pre-check" $?
+has "$L" 'CHECKS-RED-ALONE t3'
+check "E the red branch is identified by an alone pre-check" $?
 /usr/bin/grep -qE 'LANDED [0-9a-f]{9} t1$' "$L"
 check "E the rest lands" $?
-[ "$(status_of t3)" = human_needed ] && has "$R/.ds4/issues/t3.md" 'driver_replay_batch: HELD build/tests red'
+[ "$(status_of t3)" = human_needed ] && has "$R/.ds4/issues/t3.md" 'driver_replay_batch: HELD build/tests red alone'
 check "E the dropped ticket stays parked, HELD" $?
+
+# ---- E2: the first merged branch is red alone; the second lands -------------------
+mkrepo E2
+mkticket t1 2026-10-06T03:00:00Z tools/xmageoracle/t1.redalone red
+mkticket t3 2026-10-06T04:00:00Z tools/xmageoracle/t3.txt green
+runpass
+has "$L" 'CHECKS-RED-ALONE t1'
+check "E2 the first-merged red branch is isolated and held" $?
+[ "$(status_of t1)" = human_needed ] && has "$R/.ds4/issues/t1.md" 'driver_replay_batch: HELD build/tests red alone'
+check "E2 only the red branch is held" $?
+[ "$(status_of t3)" = merged ] && git -C "$R" cat-file -e main:tools/xmageoracle/t3.txt
+check "E2 the green branch lands" $?
+
+# ---- E3: green singles with a red combination hold only the later branch ----------
+mkrepo E3
+mkticket t1 2026-10-06T03:00:00Z tools/xmageoracle/t1.combo first
+mkticket t3 2026-10-06T04:00:00Z tools/xmageoracle/t3.combo second
+runpass
+has "$L" 'CHECKS-RED-COMBINATION t1 t3'
+check "E3 a red pair is reported as a combination" $?
+[ "$(status_of t1)" = merged ] && [ "$(status_of t3)" = human_needed ]
+check "E3 only the later combination branch is held" $?
 
 # ---- F: when not to act ------------------------------------------------------------
 mkrepo F1
