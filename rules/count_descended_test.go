@@ -102,7 +102,7 @@ func TestYouDescendedThisTurnHeadFoldsTheLedger(t *testing.T) {
 	}
 	const tokKey = "fixture:descend_token"
 	e.G.Tokens = fixtureTokenMap(e.G.Tokens)
-	e.G.Tokens[tokKey] = tokDef
+	setFixtureToken(e, tokKey, tokDef)
 	e.emit(events.Event{Kind: events.TokenCreate, Player: 0, Text: tokKey})
 	var tokID state.ObjID
 	for _, id := range e.G.Zone(state.ZBattlefield, 0) {

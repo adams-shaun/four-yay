@@ -243,6 +243,11 @@ fi
 if [ "$BLOCKED" = "True" ]; then
 	"$ROOT/scripts/broker.sh" pause-all heavy >/dev/null 2>&1
 	did "paused every heavy lease (stability veto active)"
+	VETO_METRIC=$(printf '%s' "$SCORE_JSON" | python3 -c '
+import json,sys
+d=json.load(sys.stdin)
+print(",".join(sorted(d.get("stability", {}).get("detail", {}))))
+' 2>/dev/null)
 	if marker_new stability; then
 		b=$(brief_file)
 		{
@@ -256,7 +261,7 @@ if [ "$BLOCKED" = "True" ]; then
 			printf 'the cause is named in the commit message. Heavy leases must be pausable\n'
 			printf 'throughout: `scripts/tests/broker_smoke.sh` passes.\n'
 		} >"$b"
-		file_ticket 1 "Stability veto active at $HEAD_SHA: OOM/gate-timeout in the reward window" "$b"
+		file_ticket 1 "Stability veto active at $HEAD_SHA: ${VETO_METRIC:-unknown metric}" "$b"
 		rm -f "$b"
 	else
 		skipped "stability ticket already filed for $HEAD_SHA"

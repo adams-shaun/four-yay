@@ -62,7 +62,7 @@ func duoCharmScript() string {
 func shadrixAtPlacement(t *testing.T, seed uint64) (*Engine, Config) {
 	t.Helper()
 	e, cfg, _ := newFixtureDeck(t, seed, shadrixScript)
-	e.G.Tokens["wb_2_1_inkling_flying"] = card(t, inklingScript)
+	setFixtureToken(e, "wb_2_1_inkling_flying", card(t, inklingScript))
 	putCreature(t, e, 0, shadrixScript)
 	e.emit(events.Event{Kind: events.StepChange, Step: state.StepBeginCombat})
 	e.putTriggersOnStack()
