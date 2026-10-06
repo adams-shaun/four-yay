@@ -231,7 +231,11 @@ func (r *oracleRun) snapshot(checkpoint string) OracleSnapshot {
 			if o.Obj == 0 {
 				continue
 			}
-			s.Offered = append(s.Offered, OracleSnapOffered{Source: r.objRef(g.Obj(o.Obj)), Kind: o.Kind, Label: o.Label})
+			kind := o.Kind
+			if kind == "ability" {
+				kind = "activate"
+			}
+			s.Offered = append(s.Offered, OracleSnapOffered{Source: r.objRef(g.Obj(o.Obj)), Kind: kind, Label: o.Label})
 		}
 		sort.Slice(s.Offered, func(i, j int) bool {
 			a, b := s.Offered[i], s.Offered[j]

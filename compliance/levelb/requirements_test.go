@@ -374,6 +374,59 @@ func TestRequirementsClassificationTable(t *testing.T) {
 			},
 		},
 		{
+			name: "CanAttackDefender creature-you-control shape is served",
+			c: cardOf(&cards.Face{Types: []string{"Creature"}, Statics: []cards.Static{
+				stat("CanAttackDefender", map[string]string{"ValidCard": "Creature.YouCtrl"}),
+			}}),
+			want: []Requirement{{Key: "static#0.0", Family: "static", Face: 0, Slot: "0", Sub: "static.can-attack-defender"},
+				{Key: "combat#0.attack", Family: "combat", Face: 0, Slot: "attack", Sub: "combat.attack"},
+				{Key: "combat#0.block", Family: "combat", Face: 0, Slot: "block", Sub: "combat.block"}},
+		},
+		{
+			name: "CanAttackDefender self SVar shape is served",
+			c: cardOf(&cards.Face{Types: []string{"Creature"}, SVars: map[string]string{"X": "Count$YouScryThisTurn/Plus.Y", "Y": "Count$YouSurveilThisTurn"}, Statics: []cards.Static{
+				stat("CanAttackDefender", map[string]string{"ValidCard": "Card.Self", "CheckSVar": "X"}),
+			}}),
+			want: []Requirement{{Key: "static#0.0", Family: "static", Face: 0, Slot: "0", Sub: "static.can-attack-defender-svar"},
+				{Key: "combat#0.attack", Family: "combat", Face: 0, Slot: "attack", Sub: "combat.attack"},
+				{Key: "combat#0.block", Family: "combat", Face: 0, Slot: "block", Sub: "combat.block"}},
+		},
+		{
+			name: "CantBlockBy supported filter shape is served",
+			c: cardOf(&cards.Face{Types: []string{"Creature"}, Statics: []cards.Static{
+				stat("CantBlockBy", map[string]string{"ValidAttacker": "Creature.YouCtrl+powerLE1,Creature.YouCtrl+toughnessLE1"}),
+			}}),
+			want: []Requirement{{Key: "static#0.0", Family: "static", Face: 0, Slot: "0", Sub: "static.cant-block-by"},
+				{Key: "combat#0.attack", Family: "combat", Face: 0, Slot: "attack", Sub: "combat.attack"},
+				{Key: "combat#0.block", Family: "combat", Face: 0, Slot: "block", Sub: "combat.block"}},
+		},
+		{
+			name: "Proft CantBeCast threshold shape is served",
+			c: cardOf(&cards.Face{Types: []string{"Creature"}, Statics: []cards.Static{
+				stat("CantBeCast", map[string]string{"ValidCard": "Card.Self", "CheckSVar": "X", "SVarCompare": "LT7", "EffectZone": "All"}),
+			}}),
+			want: []Requirement{{Key: "static#0.0", Family: "static", Face: 0, Slot: "0", Sub: "static.cant-be-cast-threshold"}},
+		},
+		{
+			name: "Yuriko CantBeCast combat shape is served",
+			c: cardOf(&cards.Face{Types: []string{"Creature"}, Statics: []cards.Static{
+				stat("CantBeCast", map[string]string{"ValidCard": "Card", "Phases": "BeginCombat->EndCombat"}),
+			}}),
+			want: []Requirement{{Key: "static#0.0", Family: "static", Face: 0, Slot: "0", Sub: "static.cant-be-cast-combat"}},
+		},
+		{
+			name: "Yuriko CantBeActivated combat shape is served",
+			c: cardOf(&cards.Face{Types: []string{"Creature"}, Statics: []cards.Static{
+				stat("CantBeActivated", map[string]string{"ValidCard": "Card", "ValidSA": "Activated.!ManaAbility", "Phases": "BeginCombat->EndCombat"}),
+			}}),
+			want: []Requirement{{Key: "static#0.0", Family: "static", Face: 0, Slot: "0", Sub: "static.cant-be-activated-combat"}},
+		},
+		{
+			name: "CantBeCast generic shape remains a gap",
+			c:    cardOf(&cards.Face{Types: []string{"Creature"}, Statics: []cards.Static{stat("CantBeCast", map[string]string{"ValidCard": "Card"})}}),
+			want: []Requirement{{Key: "static#0.0", Family: "static", Face: 0, Slot: "0", Sub: "static.gap:CantBeCast", Gap: "static mode CantBeCast"}},
+		},
+		{
 			name: "static unrecognized mode is a gap",
 			c: cardOf(&cards.Face{Types: []string{"Creature"}, Statics: []cards.Static{
 				stat("UnknownStatic", nil),
