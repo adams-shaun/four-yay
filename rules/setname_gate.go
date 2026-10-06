@@ -1,6 +1,5 @@
 package rules
 
-
 // renameGateVerifyFlag / renameGateVerify: when set, every refresh the
 // no-SetName gate below skips is recomputed in full and the engine panics on
 // any difference. Enabled for the rules test binary by
