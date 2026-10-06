@@ -1,61 +1,41 @@
 package templates
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/adams-shaun/gorge/compliance/oraclegen"
 )
 
-// TestOneLastJobKeepsItsAuraEquipmentModeUnserved pins the generator's
-// deliberate skip of One Last Job's third (Aura/Equipment) Spree mode.
-//
-// Serving that mode is NOT deterministic across engines at this fixture: the
-// mode returns an Aura attached to a creature, and XMage's OneLastJobEffect
-// poses an unhinted, non-targeting TargetPermanent attach ask that consumes the
-// cast's scripted mana-ability choice ("Activate Llanowar Elves for mana")
-// instead of a target, failing the strict run with "Found wrong choice command
-// (invalid target or miss skip command)". The failure text varies run to run
-// (a random object_id appears in it), so the row is not replayable and a
-// level-A card may not be declared against it. Main served the creature mode
-// only, and that row replays deterministically and agrees; keep it.
-//
-// The scenario sha is main's recorded scenario_sha for
-// "One Last Job/cast-resolve/v1"; a generator change that re-serves the
-// Aura/Equipment mode produces a different scenario and fails here first.
-func TestOneLastJobKeepsItsAuraEquipmentModeUnserved(t *testing.T) {
+// TestOneLastJobGeneratesMountMode pins the first mode the generator can now
+// serve: a Mount from the caster's graveyard, returned by One Last Job.
+func TestOneLastJobGeneratesMountMode(t *testing.T) {
 	reg := loadGenRegistry(t)
 	it, skip := Generate(reg, "One Last Job")
 	if skip != nil {
 		t.Fatalf("One Last Job: %s", skip.Reason)
 	}
+	if !containsString(it.Setup["p0"].Graveyard, "Alacrian Jaguar") {
+		t.Fatalf("precondition: One Last Job's Mount target is not in p0's graveyard: %+v", it.Setup["p0"].Graveyard)
+	}
 	cast := castStep(t, it, "One Last Job")
-
-	// Precondition: the fixture really does offer the spell a mode decision.
 	var picked []string
 	for _, answer := range cast.Answers {
 		if answer.Kind == "modes" {
 			picked = answer.Pick
 		}
 	}
-	if len(picked) == 0 {
-		t.Fatalf("One Last Job cast answers %v have no mode pick; the fixture changed shape", cast.Answers)
+	if len(picked) != 1 || !strings.Contains(picked[0], "Return target Mount or Vehicle") {
+		t.Fatalf("One Last Job mode pick = %v, want Mount or Vehicle mode", picked)
 	}
-	for _, mode := range picked {
-		if strings.Contains(mode, "Aura or Equipment") {
-			t.Fatalf("One Last Job fixture selected the Aura/Equipment mode %q; it is not deterministically replayable (see the test doc)", mode)
-		}
+	if len(cast.Targets) != 1 || cast.Targets[0] != "p0:Alacrian Jaguar" {
+		t.Fatalf("One Last Job Mount-mode targets = %v, want [p0:Alacrian Jaguar]", cast.Targets)
 	}
-
-	// The scenario bytes must be exactly main's deterministically-agreeing row.
-	b, err := json.Marshal(it)
-	if err != nil {
-		t.Fatalf("marshal One Last Job item: %v", err)
+	if !faceHasType(t, reg, "Alacrian Jaguar", "Mount") {
+		t.Fatal("precondition: Alacrian Jaguar is not a Mount in the corpus")
 	}
-	sum := sha256.Sum256(b)
-	const wantSHA = "36552f0d3157e0da755686c5365ad97dab34312b129a8c846008865432e4ad70"
-	if got := hex.EncodeToString(sum[:]); got != wantSHA {
-		t.Fatalf("One Last Job scenario sha = %s, want %s (main's deterministic row); the generator re-served a mode", got, wantSHA)
+	res, ok := oraclegen.PlaysThrough(reg, it.Scenario)
+	if !ok || len(res.Fails) != 0 {
+		t.Fatalf("One Last Job Mount scenario did not play through cleanly: %v", res.Fails)
 	}
 }

@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"resolve","field":"p0.library_top","diff":"gorge+[Glorious Anthem, Jace Beleren] xmage+[Ornithopter, Plains]"},"key":"activate | resolve | p0.library_top | gorge+[Glorious Anthem, Jace Beleren] xmage+[Ornithopter, Plains]","cards":1}
+{"card":"Slavering Branchsnapper","template":"activate#0.0","status":"diverge","api":"-","sets":["DSK"],"detail":"step 1 (resolve) p0.library_top: gorge \"[Wastes, Wastes, Jace Beleren, Glorious Anthem, Wastes]\", xmage \"[Ornithopter, Wastes, Plains, Wastes, Wastes]\""}

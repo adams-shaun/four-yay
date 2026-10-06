@@ -211,7 +211,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 				return false
 			}
 		}
-		if d, ok := r.ParamCode(cards.PKDestination); ok && !effects.Destination(d).IsAny() && effects.Destination(d).Zone() != ev.To {
+		if d, ok := r.ParamCode(cards.PKDestination); ok && !effects.Destination(d).Admits(ev.To) {
 			return false
 		}
 		// FoundSearchingLibrary$ True (Opposition Agent's "While an opponent

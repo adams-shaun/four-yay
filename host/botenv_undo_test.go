@@ -162,7 +162,10 @@ func TestUndoRebuildsEnvSeatFeeds(t *testing.T) {
 	if err := r.SubmitIntent("t1", 1, 0, legalIntent(d)); err != nil {
 		t.Fatalf("SubmitIntent after undo: %v", err)
 	}
-	waitIntents(t, r, "t1", intents+3)
+	// +2, not +3, since CR 103.8a's turn-1 draw step skip (2026-10-06):
+	// that step's priority pair is gone, and the match (measured) now parks
+	// on the human's next decision two intents past the rewound one.
+	waitIntents(t, r, "t1", intents+2)
 
 	m = liveMatch(t, r, "t1")
 	m.mu.RLock()

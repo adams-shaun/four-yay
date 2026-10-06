@@ -131,7 +131,7 @@ func TestDiesOtherEquipmentIsAttachedBeforeTheKill(t *testing.T) {
 func TestDiesOtherUnplaceableVictimsKeepNamedSkips(t *testing.T) {
 	reg := loadGenRegistry(t)
 	for _, tc := range []struct{ name, key, want string }{
-		{"Predator Ooze", "trigger#0.0", "dies victim must be damaged"},
+		{"Trophy Hunter", "trigger#0.0", "dies victim must be damaged"},
 		{"Teysa, Opulent Oligarch", "trigger#0.1", "dies victim must be a Clue"},
 		{"Massacre Girl, Known Killer", "trigger#0.0", "dies victim must have toughness less than 1"},
 		{"Ares, God of War", "trigger#0.0", "dies victim must be attacking"},

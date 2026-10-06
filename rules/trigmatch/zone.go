@@ -82,7 +82,7 @@ func ZoneChangeMatchesWithCapture(e Board, t cards.Trigger, source state.ObjID, 
 	if excl, ok := t.ParamCode(cards.PKExcludedOrigins); ok && effects.ZoneWords(excl).Has(from) {
 		return false
 	}
-	if d, ok := t.ParamCode(cards.PKDestination); ok && !effects.Destination(d).IsAny() && effects.Destination(d).Zone() != to {
+	if d, ok := t.ParamCode(cards.PKDestination); ok && !effects.Destination(d).Admits(to) {
 		return false
 	}
 	// ValidCards$ is the PLURAL key the ChangesZoneAll corpus uses (124 of

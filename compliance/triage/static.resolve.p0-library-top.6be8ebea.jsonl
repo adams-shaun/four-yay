@@ -1,2 +1,0 @@
-{"shape":{"template":"static","op":"resolve","field":"p0.library_top","diff":"gorge+[Jace Beleren] xmage+[$LIB]"},"key":"static | resolve | p0.library_top | gorge+[Jace Beleren] xmage+[$LIB]","cards":1}
-{"card":"Lo and Li, Twin Tutors","template":"static#0.1","status":"diverge","api":"ChangesZone:ChangeZone","sets":["TLA"],"detail":"step 1 (resolve) p0.library_top: gorge \"[Wastes, Wastes, Wastes, Jace Beleren, Wastes]\", xmage \"[Wastes, Wastes, Wastes, Wastes, Wastes]\""}

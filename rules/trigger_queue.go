@@ -1086,7 +1086,7 @@ func (e *Engine) pushTrigger(pt pendingTrigger) {
 	}
 	stackLen := len(e.G.Stack)
 	e.emit(events.Event{Kind: events.TriggerPush, Player: pt.Controller,
-		Obj: pt.Source, Amount: triggerPushAmount(e.G.Obj(pt.Source), pt), IDs: ids, Text: "triggered ability"})
+		Obj: pt.Source, Amount: triggerPushAmount(e.G, pt), IDs: ids, Text: "triggered ability"})
 	if len(e.G.Stack) > stackLen {
 		id := e.G.Stack[len(e.G.Stack)-1]
 		if e.triggerContexts == nil {
@@ -1165,35 +1165,6 @@ func (e *Engine) pushTrigger(pt pendingTrigger) {
 	e.drainAwaitsTarget = e.Pending() != nil && !e.drainAwaitsModes
 }
 
-// triggerTaggedFace reports whether pt's T: line lives on a printed card face
-// the source no longer shows, so its TriggerPush must be tagged with that face
-// and triggerOf must read it from o.Card.Faces rather than the active Face().
-// The shape it exists for: a transformed double-faced card that left the
-// battlefield is front face up (CR 712.8a), but its dies trigger is the back
-// face's. One home for the rule -- triggerPushAmount's pack and triggerOf's
-// decode both read it, so the two can never disagree.
-//
-// The comparison is on the PRINTED FaceIdx, not on Face(): an object under a
-// copy effect shows its CopyFace as the active face, and a copy's trigger line
-// lives on that active face -- the compiled *cards.SA is the copy's own line,
-// not any of the copier's Card.Faces -- so a copy must never take the tagged
-// branch (its FaceIdx still indexes the copier's printed card). The tie-break
-// is what keeps Galian Beast's back-face dies trigger working without turning
-// a Clone's copied "you may" trigger into a mandatory one.
-func triggerTaggedFace(o *state.Object, pt pendingTrigger) bool {
-	return o != nil && o.Card != nil && o.CopyFace == nil && pt.FaceTag != 0 &&
-		pt.printed() && o.FaceIdx+1 != pt.FaceTag && int(pt.FaceTag) <= len(o.Card.Faces)
-}
-
-// triggerPushAmount is the TriggerPush Amount for pt: its line index, tagged
-// with the printed face when the source src no longer shows that face.
-func triggerPushAmount(src *state.Object, pt pendingTrigger) int32 {
-	if triggerTaggedFace(src, pt) {
-		return events.TriggerPushAmount(pt.FaceTag-1, pt.Idx)
-	}
-	return int32(pt.Idx)
-}
-
 // triggerOf re-reads the T: line a pending trigger came from, so nothing has
 // to be cached on pendingTrigger for it.
 //
@@ -1220,8 +1191,6 @@ func (e *Engine) triggerOf(pt pendingTrigger) (cards.Trigger, bool) {
 	var f *cards.Face
 	if pt.Merged > 0 {
 		f = o.MergedFaceAt(pt.Merged - 1)
-	} else if triggerTaggedFace(o, pt) {
-		f = o.Card.Faces[pt.FaceTag-1]
 	} else {
 		f = o.Face()
 	}
@@ -1288,45 +1257,6 @@ func (e *Engine) triggerPaidX(stack state.ObjID, o *state.Object) int32 {
 	return tc.TriggerPaidX
 }
 
-// printedTriggerFace finds o's face that owns the trigger whose compiled
-// effect is sa -- the source's active face first, then every other printed
-// face of the card -- and the line's index on that face. A trigger can be
-// pushed from a face o no longer shows: a transformed double-faced card that
-// left the battlefield is front face up (CR 712.8a), but its "when this dies"
-// line is the back face's. The compiled *cards.SA pointer identifies the line
-// on whichever face owns it, so this one search is the only home for the
-// ownership rule: event encoding (triggerPushAmount), resolution lookup
-// (triggerOf, findTriggerForAbilityFace) and the oracle snapshot's trigger
-// slot all read it from here rather than searching the live face themselves.
-// A token or copy has no *cards.Card and answers from its live face alone.
-func printedTriggerFace(o *state.Object, sa *cards.SA) (*cards.Face, int, bool) {
-	if o == nil || sa == nil {
-		return nil, 0, false
-	}
-	live := o.Face()
-	if live != nil {
-		for i := range live.Triggers {
-			if live.Triggers[i].Effect == sa {
-				return live, i, true
-			}
-		}
-	}
-	if o.Card == nil {
-		return nil, 0, false
-	}
-	for _, cf := range o.Card.Faces {
-		if cf == nil || cf == live {
-			continue
-		}
-		for i := range cf.Triggers {
-			if cf.Triggers[i].Effect == sa {
-				return cf, i, true
-			}
-		}
-	}
-	return nil, 0, false
-}
-
 func (e *Engine) findTriggerForAbility(source state.ObjID, sa *cards.SA) (cards.Trigger, bool) {
 	t, _, ok := e.findTriggerForAbilityFace(source, sa)
 	return t, ok
@@ -1346,8 +1276,12 @@ func (e *Engine) findTriggerForAbilityFace(source state.ObjID, sa *cards.SA) (ca
 	if o == nil {
 		return cards.Trigger{}, nil, false
 	}
-	if f, idx, ok := printedTriggerFace(o, sa); ok {
-		return f.Triggers[idx], f, true
+	if t, tf, _, _, ok := printedFaceTrigger(o, sa); ok {
+		return t, tf, true
+	}
+	f := o.Face()
+	if f == nil {
+		return cards.Trigger{}, nil, false
 	}
 	for i := range o.MergedCards {
 		mf := o.MergedFaceAt(i)

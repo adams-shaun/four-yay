@@ -1,2 +1,2 @@
 {"shape":{"template":"activate","op":"resolve","field":"p0.library_top","diff":"gorge+[Forest, Jace Beleren] xmage+[Glorious Anthem, Plains]"},"key":"activate | resolve | p0.library_top | gorge+[Forest, Jace Beleren] xmage+[Glorious Anthem, Plains]","cards":1}
-{"card":"Giant Koi","template":"activate#0.1","status":"diverge","api":"-","sets":["TLA"],"detail":"step 1 (resolve) p0.library_top: gorge \"[Wastes, Jace Beleren, Wastes, Wastes, Forest]\", xmage \"[Wastes, Wastes, Wastes, Plains, Glorious Anthem]\""}
+{"card":"Seismic Monstrosaur","template":"activate#0.1","status":"diverge","api":"-","sets":["LCI"],"detail":"step 1 (resolve) p0.library_top: gorge \"[Wastes, Jace Beleren, Wastes, Wastes, Forest]\", xmage \"[Wastes, Wastes, Plains, Glorious Anthem, Wastes]\""}
