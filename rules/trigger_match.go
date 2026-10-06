@@ -109,6 +109,9 @@ type pendingTrigger struct {
 	// the MergedTriggerPush event as Amount (minus one). It and Delayed are
 	// never both set.
 	Merged int
+	// cause is the provenance the AbilityTriggered marker reports (see
+	// triggerCause); zero when no watcher was on the battlefield.
+	cause triggerCause
 	// Granted marks a static-grant's trigger (AddTrigger$ on a Mode$
 	// Continuous static, e.g. Hearthhull's "STATION 8+ Whenever you sacrifice
 	// a land"): like a delayed trigger its Ability is an SVar-named body (the
@@ -1745,6 +1748,7 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 						TriggerContext: observer.triggerReferents(t, id, *ev, objLKI),
 					}),
 				}
+				pt.cause = causeOf(boardOf(observer), t, id, *ev, pt.Ctx.TriggerContext.TriggerCard)
 				switch {
 				case fc.merged > 0:
 					pt.Merged = fc.merged

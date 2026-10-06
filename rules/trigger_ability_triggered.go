@@ -3,6 +3,7 @@ package rules
 import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/trigmatch"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -25,27 +26,46 @@ func anyAbilityTriggeredWatcher(g *state.Game) bool {
 	return false
 }
 
+// triggerCause is a queued trigger's provenance for Mode$ AbilityTriggered
+// (events.AbilityTriggered): the CAUSING trigger line's mode and whether the
+// ability's source is itself the object whose event caused it. It is stamped
+// where the line and the event are both in hand (the queue sites), never
+// re-derived at push time, because the push arms for granted, gained, merged
+// and synthesized keyword abilities have no printed face index to recover the
+// line from. set is false when no AbilityTriggered watcher was on the
+// battlefield at queue time, so such games emit no marker.
+type triggerCause struct {
+	mode     string
+	own, set bool
+}
+
+// causeOf stamps t's provenance for ev. An attack-declaration line reads the
+// attackers its own filter selected (trigmatch.AttackCausedBySource); every
+// other event's causing object is the TriggerCard role (triggerCard).
+func causeOf(b trigmatch.Board, t cards.Trigger, source state.ObjID, ev events.Event,
+	triggerCard state.ObjID) triggerCause {
+	if !anyAbilityTriggeredWatcher(b.Game()) {
+		return triggerCause{}
+	}
+	own, ok := trigmatch.AttackCausedBySource(b, t, source, ev)
+	if !ok {
+		own = triggerCard == source
+	}
+	return triggerCause{mode: t.Mode, own: own, set: true}
+}
+
 // emitAbilityTriggered records the provenance of the triggered ability pt just
-// put on the stack (see events.AbilityTriggered): the causing trigger's mode
-// and whether the source is the object whose event caused it. The causing
-// object is read from the capture the queue stored (TriggerCard, else the
-// remembered event objects -- the attacker of an Attacks line).
-func emitAbilityTriggered(g *state.Game, triggerOf func(pendingTrigger) (cards.Trigger, bool),
-	emit func(events.Event) events.Event, pt pendingTrigger) {
-	t, ok := triggerOf(pt)
-	if !ok || !anyAbilityTriggeredWatcher(g) {
+// put on the stack (see events.AbilityTriggered). It runs deferred from
+// pushTrigger so every push arm is covered; stackLen is the stack height on
+// entry, so a push that minted nothing records nothing.
+func emitAbilityTriggered(g *state.Game, emit func(events.Event) events.Event, pt pendingTrigger, stackLen int) {
+	if !pt.cause.set || len(g.Stack) <= stackLen {
 		return
 	}
-	own := pt.Ctx.TriggerContext.TriggerCard == pt.Source
-	for _, tgt := range pt.Ctx.Remembered {
-		if !tgt.IsPlayer && tgt.Obj == pt.Source {
-			own = true
-		}
-	}
 	var amount int32
-	if own {
+	if pt.cause.own {
 		amount = 1
 	}
 	emit(events.Event{Kind: events.AbilityTriggered, Player: pt.Controller,
-		Obj: pt.Source, Amount: amount, Counter: t.Mode})
+		Obj: pt.Source, Amount: amount, Counter: pt.cause.mode})
 }
