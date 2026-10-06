@@ -31,9 +31,24 @@ func ShufflesThenDraws(f *cards.Face) bool {
 	if f == nil {
 		return false
 	}
-	text := strings.ToLower(f.Oracle)
-	shuffle := strings.Index(text, "shuffle")
-	return shuffle >= 0 && strings.Index(text[shuffle+len("shuffle"):], "draw") >= 0
+	// Keep the draw causally attached to the shuffle. A later draw elsewhere
+	// in the Oracle text may be unrelated (for example, a search that shuffles
+	// before an activated draw ability). These shuffle-then-draw instructions
+	// use the explicit sequencing phrase in one sentence.
+	for _, sentence := range strings.FieldsFunc(strings.ToLower(f.Oracle), func(r rune) bool {
+		return r == '.' || r == '\n'
+	}) {
+		shuffle := strings.Index(sentence, "shuffle")
+		if shuffle < 0 {
+			continue
+		}
+		tail := sentence[shuffle+len("shuffle"):]
+		then := strings.Index(tail, "then")
+		if then >= 0 && strings.Contains(tail[then+len("then"):], "draw") {
+			return true
+		}
+	}
+	return false
 }
 
 // UniformShuffleLibraries makes a shuffle-back-and-draw deterministic on both

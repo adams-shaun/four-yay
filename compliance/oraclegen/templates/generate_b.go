@@ -31,12 +31,15 @@ func GenerateB(reg *cards.Registry, name string, req levelb.Requirement) (item o
 		if !ok || req.Face < 0 || req.Face >= len(c.Faces) || !oraclegen.CanShuffleLibrary(c.Faces[req.Face]) {
 			return
 		}
-		for _, option := range item.Compare {
-			if option == oraclegen.CompareNoLibraryOrder {
-				return
-			}
+		if !hasCompareOption(item.Compare, oraclegen.CompareNoLibraryOrder) {
+			item.Compare = append(item.Compare, oraclegen.CompareNoLibraryOrder)
 		}
-		item.Compare = append(item.Compare, oraclegen.CompareNoLibraryOrder)
+		// Level-B observations may stop before the shuffle resolves, so their
+		// fixture cannot always make the resulting draw uniform. Preserve the
+		// observable hand size while ignoring random card identity.
+		if oraclegen.ShufflesThenDraws(c.Faces[req.Face]) && !hasCompareOption(item.Compare, oraclegen.CompareHandCount) {
+			item.Compare = append(item.Compare, oraclegen.CompareHandCount)
+		}
 	}()
 	if req.Gap != "" {
 		return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: "level B: " + req.Gap}
@@ -84,4 +87,13 @@ func GenerateB(reg *cards.Registry, name string, req levelb.Requirement) (item o
 		return staticContinuous(reg, c.Faces[req.Face], name, req)
 	}
 	return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: "level B: no template for " + req.Sub}
+}
+
+func hasCompareOption(options []string, want string) bool {
+	for _, option := range options {
+		if option == want {
+			return true
+		}
+	}
+	return false
 }

@@ -19,3 +19,9 @@ func TestLibraryOrderOptionMatchesGenerator(t *testing.T) {
 		t.Fatalf("comparator option %q != generator option %q", CompareNoLibraryOrder, oraclegen.CompareNoLibraryOrder)
 	}
 }
+
+func TestHandCountOptionMatchesGenerator(t *testing.T) {
+	if CompareHandCount != oraclegen.CompareHandCount {
+		t.Fatalf("comparator option %q != generator option %q", CompareHandCount, oraclegen.CompareHandCount)
+	}
+}

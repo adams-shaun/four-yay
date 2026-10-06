@@ -25,6 +25,17 @@ func TestShuffleThenDrawUniformFixtureIgnoresBattlefield(t *testing.T) {
 	}
 }
 
+func TestShuffleThenDrawRequiresCausalSequence(t *testing.T) {
+	unrelated := &cards.Face{Oracle: "Search your library, then shuffle it. {1}, Sacrifice: Draw a card."}
+	if ShufflesThenDraws(unrelated) {
+		t.Fatal("unrelated later draw was classified as part of the shuffle")
+	}
+	linked := &cards.Face{Oracle: "Shuffle your hand and graveyard into your library, then draw seven cards.\nThe first spell each player casts may be free."}
+	if !ShufflesThenDraws(linked) {
+		t.Fatal("causally linked shuffle-then-draw was not recognized")
+	}
+}
+
 func TestShuffleThenDrawReportsUnuniformizableSetup(t *testing.T) {
 	sc := Scenario{Setup: map[string]Seat{
 		"p0": {Hand: []string{"Forest"}, Graveyard: []string{"Ornithopter"}},

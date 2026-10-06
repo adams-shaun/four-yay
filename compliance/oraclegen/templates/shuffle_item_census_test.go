@@ -56,6 +56,18 @@ func TestShuffleEmittedItemCensus(t *testing.T) {
 			}
 			seen[name] = true
 			card, _ := reg.Lookup(name)
+			face := requestedFace(card, name)
+			if oraclegen.CanShuffleLibrary(face) && oraclegen.ShufflesThenDraws(face) {
+				if item, skip := Generate(reg, name); skip == nil && item.ID != "" {
+					route := shuffleDrawRoutes[set]
+					if hasCompare(item.Compare, oraclegen.CompareHandCount) {
+						route[1]++
+					} else {
+						route[0]++
+					}
+					shuffleDrawRoutes[set] = route
+				}
+			}
 			for _, req := range levelb.Requirements(card) {
 				if req.Gap != "" || !oraclegen.CanShuffleLibrary(card.Faces[req.Face]) {
 					continue
@@ -75,6 +87,9 @@ func TestShuffleEmittedItemCensus(t *testing.T) {
 				}
 				if marks != 1 {
 					t.Fatalf("%s: got %d library-order marks, want exactly one", item.ID, marks)
+				}
+				if item.ID == "Weftwalking/static#0.0/v1" && !hasCompare(item.Compare, oraclegen.CompareHandCount) {
+					t.Fatal("Weftwalking static row must compare hand count, not random hand contents")
 				}
 				if oraclegen.ShufflesThenDraws(card.Faces[req.Face]) {
 					if hasCompare(item.Compare, oraclegen.CompareHandCount) {
@@ -103,9 +118,9 @@ func TestShuffleEmittedItemCensus(t *testing.T) {
 	}
 	wantShuffleDrawRoutes := map[string][2]int{
 		"BIG": {0, 0}, "BLB": {0, 0}, "DFT": {0, 0}, "DSK": {0, 0}, "ECL": {0, 0},
-		"EOE": {1, 0}, "FDN": {0, 0}, "FIN": {0, 0}, "FRA": {1, 0}, "HOB": {2, 0},
+		"EOE": {1, 1}, "FDN": {0, 0}, "FIN": {0, 0}, "FRA": {0, 0}, "HOB": {0, 0},
 		"LCI": {0, 0}, "MKM": {0, 0}, "MSH": {0, 0}, "OTJ": {0, 0}, "SOS": {0, 0},
-		"SPM": {0, 0}, "TDM": {0, 0}, "TLA": {0, 0}, "TMT": {0, 0}, "WOE": {0, 0},
+		"SPM": {0, 0}, "TDM": {0, 0}, "TLA": {0, 0}, "TMT": {1, 0}, "WOE": {0, 0},
 	}
 	if !reflect.DeepEqual(shuffleDrawRoutes, wantShuffleDrawRoutes) {
 		t.Fatalf("shuffle-then-draw route census changed: got %#v, want %#v", shuffleDrawRoutes, wantShuffleDrawRoutes)
