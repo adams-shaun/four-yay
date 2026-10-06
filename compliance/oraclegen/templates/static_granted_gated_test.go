@@ -3,6 +3,7 @@ package templates
 import (
 	"testing"
 
+	"github.com/adams-shaun/gorge/compliance/oraclegen"
 	"github.com/adams-shaun/gorge/internal/testutil"
 )
 
@@ -60,6 +61,77 @@ func TestStaticGatedGrantFallsThroughToNamedGap(t *testing.T) {
 			_, skip := GenerateB(reg, tc.card, req)
 			if skip == nil || skip.Reason != "static "+tc.reason {
 				t.Fatalf("skip = %v, want static %q", skip, tc.reason)
+			}
+		})
+	}
+}
+
+// TestStaticGatedGrantControlRejectsGateOff pins the gate-off control a gated
+// self grant is served with. The served scenario's own offered label is
+// re-run on the same board with ONLY the gate removed (the counters, or max
+// speed) and must not be offered; a grant that ignored its static gate would
+// fail here with offered=true where want=false.
+func TestStaticGatedGrantControlRejectsGateOff(t *testing.T) {
+	reg := testutil.CorpusRegistry(t)
+	for _, tc := range []struct{ card, key, kind string }{
+		{"Evendo, Waking Haven", "static#0.0", "activate"},
+		{"Muraganda Raceway", "static#0.0", "granted"},
+		{"Amonkhet Raceway", "static#0.0", "granted"},
+	} {
+		card, key := tc.card, tc.key
+		t.Run(card, func(t *testing.T) {
+			req := counterReq(t, reg, card, key)
+			item, skip := GenerateB(reg, card, req)
+			if skip != nil {
+				t.Fatalf("GenerateB skip = %v; want a served self offered observation", skip)
+			}
+			sc := item.Scenario
+			if len(sc.Steps) == 0 {
+				t.Fatal("served item has no steps")
+			}
+			last := sc.Steps[len(sc.Steps)-1]
+			if len(last.Expect) != 1 || last.Expect[0].Offered == nil || last.Expect[0].Want == nil || !*last.Expect[0].Want {
+				t.Fatalf("last step is not a want=true offered expectation: %+v", last)
+			}
+			off := last.Expect[0].Offered
+			if off.Card != "p0:"+card || off.Kind != tc.kind || off.Label == "" {
+				t.Fatalf("offered expectation = %+v; want kind %q on p0:%s with a non-empty label", off, tc.kind, card)
+			}
+
+			st := staticAt(t, reg, card, key)
+			ckind, need, counterGated := staticCounterGate(&st)
+			speedGated := staticGatedOnMaxSpeed(&st)
+			if counterGated == speedGated {
+				t.Fatalf("%s must be gated by exactly one of counters (%v) or max speed (%v)", card, counterGated, speedGated)
+			}
+			// The gate-on board really holds the gate the control removes.
+			on := sc.Setup["p0"]
+			if counterGated && on.Counters[card][ckind] < need {
+				t.Fatalf("gate-on board has %d %s counters on %s; the gate needs %d", on.Counters[card][ckind], ckind, card, need)
+			}
+			if speedGated && on.Speed != maxSpeed {
+				t.Fatalf("gate-on board speed = %d; want max speed %d", on.Speed, maxSpeed)
+			}
+
+			setup := cloneSeats(sc.Setup)
+			p0 := setup["p0"]
+			if counterGated {
+				delete(p0.Counters[card], ckind)
+			} else {
+				p0.Speed = 0
+			}
+			setup["p0"] = p0
+			control := sc
+			control.Setup = setup
+			control.Steps = append(append([]oraclegen.Step(nil), sc.Steps[:len(sc.Steps)-1]...),
+				gatedGrantExpectation(card, off.Kind, off.Label, false))
+
+			res, ok := runStatic(reg, control)
+			if !ok {
+				t.Fatal("gate-off control did not run")
+			}
+			if len(res.Fails) != 0 {
+				t.Fatalf("gate-off control still offers %q (%s) with the gate removed: %v", off.Label, off.Kind, res.Fails)
 			}
 		})
 	}
