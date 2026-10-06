@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/internal/bench"
 	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/replay"
 	"github.com/adams-shaun/gorge/rules"
@@ -27,6 +28,12 @@ import (
 // this many intents is not "slow", it is not terminating, and mtgsim reports
 // that as a failure rather than spinning forever.
 const maxIntents = 400000
+
+// sparePool recycles finished games' storage (rules.Spare) between the games
+// -games runs back to back; reuse never changes a game
+// (TestSpareReuseIsInvisible), so a run's output is byte-identical with or
+// without it.
+var sparePool bench.SparePool
 
 func main() {
 	decksFlag := flag.String("decks", "", "comma-separated deck names (default: the first -seats of the repo decks)")
@@ -133,9 +140,18 @@ func deckNames(flagVal string, seats int) ([]string, error) {
 // its one-line summary, then -- if verify is set -- a second line reporting
 // the replay outcome. It returns false for anything Ruling §5 counts as
 // failure: non-termination, a replay error or a chain divergence.
-func playOne(out io.Writer, seed uint64, names []string, decks [][]*cards.Card, tokens map[string]*cards.Card, nameUniverse []*cards.Card, verify bool) bool {
+func playOne(out io.Writer, seed uint64, names []string, decks [][]*cards.Card, tokens map[string]*cards.Card, nameUniverse []*cards.Card, verify bool) (ok bool) {
 	cfg := rules.Config{Seed: seed, Names: append([]string(nil), names...), Decks: decks, Tokens: tokens, NameUniverse: nameUniverse}
+	spare := sparePool.Get()
+	cfg.Spare = spare
 	e := rules.NewStartingPlayerChoice(cfg)
+	defer func() {
+		// Only a clean finish recycles: a game that failed or did not
+		// terminate has no trustworthy log shape to hand to the next game.
+		if ok {
+			sparePool.Put(spare, e)
+		}
+	}()
 	b := seat.NewBot(seed)
 	// CR 103.1's winner-chooses ask: pose it so the bot answers it (the
 	// recorded Intent replays through the log's DecisionAsk).
