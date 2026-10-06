@@ -92,6 +92,11 @@ func (e *Engine) refreshRenames() {
 		}
 		return
 	}
+	// No-SetName gate (setname_gate.go): an empty table with no SetName
+	// effect in either source of active() stays empty, with no rebuild.
+	if e.renameGateSkip() {
+		return
+	}
 	// Derived-transparent reuse (derived_transparent.go): a table built at
 	// the derivedSeq active() still holds read names that no battlefield
 	// derivation has changed since -- a transparent rebuild spans no event
