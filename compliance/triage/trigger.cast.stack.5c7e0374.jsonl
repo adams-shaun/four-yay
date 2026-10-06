@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"cast","field":"stack","diff":"gorge=[spell:$CARD@p0] xmage=[spell:Tunnel of Hate@p0]"},"key":"trigger | cast | stack | gorge=[spell:$CARD@p0] xmage=[spell:Tunnel of Hate@p0]","cards":1}
+{"card":"Ticket Booth","template":"trigger#1.0","status":"diverge","api":"UnlockDoor:ManifestDread","detail":"step 0 (cast) stack: gorge \"[spell:Ticket Booth@p0]\", xmage \"[spell:Tunnel of Hate@p0]\""}

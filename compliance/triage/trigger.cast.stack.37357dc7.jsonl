@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"cast","field":"stack","diff":"gorge=[spell:$CARD@p0] xmage=[spell:Forgotten Cellar@p0]"},"key":"trigger | cast | stack | gorge=[spell:$CARD@p0] xmage=[spell:Forgotten Cellar@p0]","cards":1}
+{"card":"Walk-In Closet","template":"trigger#1.0","status":"diverge","api":"-","detail":"step 0 (cast) stack: gorge \"[spell:Walk-In Closet@p0]\", xmage \"[spell:Forgotten Cellar@p0]\""}

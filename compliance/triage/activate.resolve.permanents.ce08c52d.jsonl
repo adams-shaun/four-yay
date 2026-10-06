@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"resolve","field":"permanents","diff":"Braided Quipu gorge+[counters=NET=3] xmage+[]"},"key":"activate | resolve | permanents | Braided Quipu gorge+[counters=NET=3] xmage+[]","cards":1}
-{"card":"Braided Net","template":"activate#0.1","status":"diverge","api":"-","sets":["LCI"],"detail":"step 1 (resolve) permanents: gorge \"c0 o0 Braided Quipu [artifact] {U} counters=NET=3\", xmage \"c0 o0 Braided Quipu [artifact] {U}\""}
