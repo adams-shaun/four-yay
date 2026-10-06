@@ -39,7 +39,8 @@ type costProbe struct {
 	// chosen from the corpus: a candidate gorge pays in full but refuses at the
 	// reduced price is a reduction gorge does not apply, which must surface as a
 	// divergence, not as a skipped row.
-	full string
+	full     string
+	opponent bool
 }
 
 func costStatic(reg *cards.Registry, f *cards.Face, name string, req levelb.Requirement) (oraclegen.Item, *oraclegen.Skip) {
@@ -66,6 +67,10 @@ func costStatic(reg *cards.Registry, f *cards.Face, name string, req levelb.Requ
 		cands = []costProbe{{spell: name, mana: "CU", hand: []string{name}, first: &first}}
 	case "Wrath of the Bloodmane":
 		cands = []costProbe{{spell: name, mana: "CR", hand: []string{name}, battlefield: []string{"Tam, the Possibility"}}}
+	case "Thalia, the Survivor":
+		cands = []costProbe{{spell: "Shock", mana: "CR", battlefield: []string{name}, targeted: true, opponent: true}}
+	case "Terror of the Peaks":
+		cands = []costProbe{{spell: "Shock", mana: "R", battlefield: []string{name}, targeted: true, opponent: true}}
 	default:
 		if p, ok := parameterCostProbe(reg, f, name, idx); ok {
 			cands = []costProbe{p}
