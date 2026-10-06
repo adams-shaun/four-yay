@@ -1,0 +1,48 @@
+{
+  "card": "Restoration Seminar",
+  "family": "paradigm",
+  "oracle_sha": "f8915e42bd0f",
+  "author": "cli-20261006T024353Z-98038af0 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "returns-target-nonland-permanent-card-then-exiles-itself",
+      "cr": ["608.2", "110.5b", "702.168a"],
+      "why": "The targeted creature card in its owner's graveyard is returned to the battlefield (110.5b) under its owner's control, untapped; a land card in the same graveyard is not a legal target. The Paradigm rider then exiles the resolved spell.",
+      "setup": {
+        "p0": {"hand": ["Restoration Seminar"], "graveyard": ["Craw Wurm", "Forest"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Restoration Seminar", "mana": "WWWWWWW", "targets": ["p0:Craw Wurm"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Craw Wurm", "zone": "battlefield", "pt": "6/4", "tapped": false},
+        {"card": "p0:Forest", "zone": "graveyard"},
+        {"card": "p0:Restoration Seminar", "zone": "exile"}
+      ]
+    },
+    {
+      "name": "paradigm-free-copy-at-the-next-first-main-phase",
+      "cr": ["702.168a", "702.168b", "601.2h"],
+      "why": "The exiled card is a free castable copy at the beginning of each of its owner's first main phases (702.168b), cast with no mana; it returns the second graveyard permanent (Hill Giant) too.",
+      "setup": {
+        "p0": {"hand": ["Restoration Seminar"], "graveyard": ["Craw Wurm", "Hill Giant"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Restoration Seminar", "mana": "WWWWWWW", "targets": ["p0:Craw Wurm"]},
+        {"op": "resolve"},
+        {"op": "pass_to", "step": "upkeep", "active": "p1"},
+        {"op": "pass_to", "step": "main1", "active": "p0",
+          "expect": [{"offered": {"seat": 0, "kind": "cast", "card": "p0:Restoration Seminar"}, "want": true}]},
+        {"op": "cast", "seat": 0, "card": "p0:Restoration Seminar", "targets": ["p0:Hill Giant"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Craw Wurm", "zone": "battlefield"},
+        {"card": "p0:Hill Giant", "zone": "battlefield"},
+        {"card": "p0:Restoration Seminar", "zone": "exile"},
+        {"pool": {"p0": ""}}
+      ]
+    }
+  ]
+}
