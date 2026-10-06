@@ -60,9 +60,17 @@ func init() {
 // mayFlashSacFace reports whether f prints K:MayFlashSac. A nil face, or one
 // whose keyword is absent, is false -- the permission and the rider both key
 // off the same read, so they cannot disagree about which cards carry it.
+//
+// The read is the face's interned keyword-head bitset (one bit test on a bound
+// face), not HasKeyword's string path: spellTimingOK asks it for every
+// non-instant hand card on every priority walk. MayFlashSac has no compiled
+// keyword-mask bit, so HasKeyword answered from this same line scan anyway.
 func mayFlashSacFace(f *cards.Face) bool {
-	return f != nil && f.HasKeyword("MayFlashSac")
+	return f != nil && f.KeywordLinesHaveHead(kwhMayFlashSac.S, kwhMayFlashSac.ID)
 }
+
+// kwhMayFlashSac is the compiled K:MayFlashSac head mayFlashSacFace reads.
+var kwhMayFlashSac = newKWHead("MayFlashSac")
 
 // offSorceryAtCast captures the CR 702.8 rider's condition at announcement
 // time: true when the cast was made at a time a sorcery could NOT have been

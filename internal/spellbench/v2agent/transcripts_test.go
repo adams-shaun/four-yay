@@ -247,10 +247,7 @@ func TestTypedDecodeRoundTrips(t *testing.T) {
 			}
 			switch mustString(t, top["request_type"]) {
 			case "game_start":
-				var gs struct {
-					envelope
-					GameStart
-				}
+				var gs gameStartRequest
 				strictDecode(t, tr.Name+" game_start", []byte(req), &gs)
 				roundTrip(t, tr.Name+" game_start", []byte(req), gs)
 				starts++
@@ -326,6 +323,7 @@ func strictDecode(t *testing.T, label string, raw []byte, target any) {
 	if unknown := UnknownFields(raw, target); len(unknown) > 0 {
 		t.Errorf("%s: unknown fields %v", label, unknown)
 	}
+	checkUnknownOracle(t, label, raw, target)
 }
 
 func roundTrip(t *testing.T, label string, raw []byte, v any) {

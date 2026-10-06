@@ -16,7 +16,10 @@ import (
 var wantSetupColourCensus = map[string][2]int{
 	"BIG": {2, 2},
 	"EOE": {0, 0},
-	"FDN": {4, 4},
+	// Gate Colossus's affinity board is three inert Gates from the shared
+	// condition helper; the corpus-order Gates it used before included one that
+	// asks for a colour as it enters, which is the fourth ask this set had.
+	"FDN": {3, 3},
 	"FRA": {2, 2},
 }
 

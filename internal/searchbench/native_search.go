@@ -36,7 +36,6 @@ import (
 	"errors"
 	"fmt"
 	"math/rand/v2"
-	"reflect"
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
@@ -416,9 +415,9 @@ func checkRoots(answer, real *rules.Engine, worlds []*rules.Engine) (state.Playe
 		switch {
 		case got.Board.Sum != want.Board.Sum: // equal exactly when the boards' JSON encodings are
 			return fmt.Errorf("searchbench: %s observes a different board", name)
-		case !reflect.DeepEqual(got.Identities, want.Identities):
+		case !searchprobe.IdentitiesEqual(got.Identities, want.Identities):
 			return fmt.Errorf("searchbench: %s observes different identities", name)
-		case !reflect.DeepEqual(got.Decision, want.Decision):
+		case !searchprobe.ObservedDecisionEqual(got.Decision, want.Decision):
 			return fmt.Errorf("searchbench: %s observes a different decision", name)
 		}
 		return nil

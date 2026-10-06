@@ -84,9 +84,15 @@ func Requirements(c *cards.Card) []Requirement {
 		}
 		for ti := range f.Triggers {
 			sub, gap, covered := classifyTrigger(f, &f.Triggers[ti])
-			out = append(out, newReq("trigger", fi, strconv.Itoa(ti), sub, gap, covered, servable))
+			out = append(out, newReq("trigger", fi, strconv.Itoa(ti), sub, gap, covered, servable || roomDoorServable(c)))
 		}
 		for si := range f.Statics {
+			if AIHintOnlyStatic(f, &f.Statics[si]) {
+				// No rules effect to observe: the static only hands its
+				// recipient a Forge AI hint (Ordeal of Nylea's
+				// HasAttackEffect).
+				continue
+			}
 			sub, gap := classifyStatic(f, &f.Statics[si])
 			out = append(out, newReq("static", fi, strconv.Itoa(si), sub, gap, false, servable))
 		}
@@ -344,7 +350,37 @@ func supportedLegalityStatic(f *cards.Face, st *cards.Static) (string, bool) {
 			strings.EqualFold(f.SVars["Y"], "Count$YouSurveilThisTurn") {
 			return "static.can-attack-defender-svar", true
 		}
+	case "manaconvert":
+		if strings.EqualFold(st.ParamStr(cards.PKValidPlayer), "You") &&
+			strings.EqualFold(st.ParamStr(cards.PKValidCard), "Creature.YouCtrl") &&
+			strings.EqualFold(st.ParamStr(cards.PKValidSA), "Spell") &&
+			(strings.EqualFold(st.ParamStr(cards.PKManaConversion), "AnyType->AnyType") || strings.EqualFold(st.ParamStr(cards.PKManaConversion), "AnyType->AnyColor")) &&
+			!st.HasParam(cards.PKEffectZone) && !st.HasParam(cards.PKOptional) && !st.HasParam(cards.PKAffectedZone) {
+			return "static.mana-convert-creature-spells", true
+		}
+	case "cantgainlife":
+		switch strings.ToLower(st.ParamStr(cards.PKValidPlayer)) {
+		case "player", "you":
+			// Unconditional: only ValidPlayer$ plus the Mode and display
+			// parameters.
+			allowed := 1
+			for _, k := range []cards.ParamKey{cards.PKMode, cards.PKDescription} {
+				if st.HasParam(k) {
+					allowed++
+				}
+			}
+			if len(st.Params) == allowed {
+				return "static.cant-gain-life", true
+			}
+		}
+	case "cantattack":
+		if EnchantedHostLegalityStatic(f, st) {
+			return "static.cant-attack-enchanted", true
+		}
 	case "cantblockby":
+		if f.IsCreature() && SelfLegalityStatic(st, cards.PKValidAttacker, cards.PKValidBlocker) && blockerFilterServable(st.ParamStr(cards.PKValidBlocker)) {
+			return "static.cant-block-by-blocker-filter", true
+		}
 		if strings.EqualFold(st.ParamStr(cards.PKValidAttacker), "Creature.YouCtrl+powerLE1,Creature.YouCtrl+toughnessLE1") && !st.HasParam(cards.PKValidBlocker) && !st.HasParam(cards.PKIsPresent) && !st.HasParam(cards.PKCondition) {
 			return "static.cant-block-by", true
 		}
@@ -356,6 +392,9 @@ func supportedLegalityStatic(f *cards.Face, st *cards.Static) (string, bool) {
 	case "cantblock":
 		if f.IsCreature() && SelfLegalityStatic(st, cards.PKValidCard) {
 			return "static.cant-block-self", true
+		}
+		if EnchantedHostLegalityStatic(f, st) {
+			return "static.cant-block-enchanted", true
 		}
 	case "minmaxblocker":
 		if f.IsCreature() && SelfLegalityStatic(st, cards.PKValidCard, cards.PKMin) && MinBlockers(st) > 0 {
@@ -369,6 +408,9 @@ func supportedLegalityStatic(f *cards.Face, st *cards.Static) (string, bool) {
 			return "static.cant-be-cast-combat", true
 		}
 	case "cantbeactivated":
+		if NamedCardActivationStatic(f, st) {
+			return "static.cant-be-activated-named", true
+		}
 		if strings.EqualFold(st.ParamStr(cards.PKValidCard), "Card") && strings.EqualFold(st.ParamStr(cards.PKValidSA), "Activated.!ManaAbility") && strings.EqualFold(st.ParamStr(cards.PKPhases), "BeginCombat->EndCombat") && !st.HasParam(cards.PKActivator) && !st.HasParam(cards.PKAffectedZone) && !st.HasParam(cards.PKCondition) {
 			return "static.cant-be-activated-combat", true
 		}
@@ -401,6 +443,125 @@ func SelfLegalityStatic(st *cards.Static, key cards.ParamKey, extra ...cards.Par
 		}
 	}
 	return len(st.Params) == allowed
+}
+
+// EnchantedHostLegalityStatic reports whether st is an Aura's unconditional
+// CantAttack/CantBlock on the creature it enchants (Pacifism's "Enchanted
+// creature can't attack or block"): ValidCard$ names the enchanted host and
+// no other parameter beyond the Mode and display ones scopes it.
+func EnchantedHostLegalityStatic(f *cards.Face, st *cards.Static) bool {
+	if f.IsCreature() || !faceHasSubtype(f, "Aura") {
+		return false
+	}
+	switch strings.ToLower(st.ParamStr(cards.PKValidCard)) {
+	case "creature.enchantedby", "creature.attachedby", "card.enchantedby", "card.attachedby":
+	default:
+		return false
+	}
+	allowed := 1
+	for _, k := range []cards.ParamKey{cards.PKMode, cards.PKDescription, cards.PKSecondary} {
+		if st.HasParam(k) {
+			allowed++
+		}
+	}
+	return len(st.Params) == allowed
+}
+
+func faceHasSubtype(f *cards.Face, t string) bool {
+	for _, x := range f.Types {
+		if strings.EqualFold(x, t) {
+			return true
+		}
+	}
+	return false
+}
+
+// NamedCardActivationStatic reports whether st is Sorcerous Spyglass's
+// shape: "Activated abilities of sources with the chosen name can't be
+// activated unless they're mana abilities" on a castable nonland permanent
+// whose as-enters replacement names the card (NameCard).
+func NamedCardActivationStatic(f *cards.Face, st *cards.Static) bool {
+	if f.IsLand() || f.ManaCost == "" || !strings.EqualFold(st.ParamStr(cards.PKValidCard), "Card.NamedCard") ||
+		!strings.EqualFold(st.ParamStr(cards.PKValidSA), "Activated.!ManaAbility") {
+		return false
+	}
+	allowed := 2
+	for _, k := range []cards.ParamKey{cards.PKMode, cards.PKDescription, cards.PKSecondary} {
+		if st.HasParam(k) {
+			allowed++
+		}
+	}
+	if len(st.Params) != allowed {
+		return false
+	}
+	for _, body := range f.SVars {
+		if strings.Contains(body, "DB$ NameCard") {
+			return true
+		}
+	}
+	return false
+}
+
+// aiHintSVars are Forge AI-only SVar names: hints the AI reads to choose
+// attacks, equips, sacrifices and targets. They have no rules meaning.
+var aiHintSVars = map[string]bool{
+	"hasattackeffect": true, "hasblockeffect": true, "aitapdown": true,
+	"sacme": true, "equipme": true, "enchantme": true, "destroywhendamaged": true,
+}
+
+// AIHintOnlyStatic reports whether st is a Continuous static whose only
+// effect is AddSVar$/AddSVars$ of Forge AI hints ("SVar:AE:SVar:
+// HasAttackEffect:TRUE"): it changes nothing either rules engine models, so
+// it gives the card no level-B requirement. Any other effect parameter, or
+// an added SVar that is not a known AI hint, keeps the requirement.
+func AIHintOnlyStatic(f *cards.Face, st *cards.Static) bool {
+	if st.ModeKind() != cards.StaticContinuous {
+		return false
+	}
+	var names []string
+	for k, v := range st.Params {
+		switch k {
+		case "Mode", "Description", "Secondary", "Affected", "AffectedDefined", "AffectedZone", "EffectZone":
+		case "AddSVar", "AddSVars":
+			for _, n := range strings.FieldsFunc(v, func(r rune) bool { return r == '&' || r == ',' }) {
+				names = append(names, strings.TrimSpace(n))
+			}
+		default:
+			return false
+		}
+	}
+	if len(names) == 0 {
+		return false
+	}
+	for _, n := range names {
+		body := strings.TrimSpace(f.SVars[n])
+		rest, ok := strings.CutPrefix(body, "SVar:")
+		if !ok {
+			return false
+		}
+		hint, _, _ := strings.Cut(rest, ":")
+		if !aiHintSVars[strings.ToLower(hint)] {
+			return false
+		}
+	}
+	return true
+}
+
+// blockerFilterServable reports whether a CantBlockBy ValidBlocker$ filter is
+// one creature filter the blocker-filter template can field a matching and a
+// non-matching probe for: a single "Creature.<qualifiers>" alternative with
+// no controller or zone qualifier.
+func blockerFilterServable(filter string) bool {
+	filter = strings.TrimSpace(filter)
+	if filter == "" || strings.ContainsAny(filter, ",$ ") || !strings.HasPrefix(filter, "Creature.") {
+		return false
+	}
+	for _, q := range []string{"YouCtrl", "OppCtrl", "Other", "Self", "Remembered", "Chosen", "Named"} {
+		if strings.Contains(filter, q) {
+			return false
+		}
+	}
+	return true
 }
 
 // MinBlockers is the Min$ of a MinMaxBlocker static ("can't be blocked except

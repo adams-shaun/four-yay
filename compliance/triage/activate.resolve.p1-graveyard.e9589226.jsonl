@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"resolve","field":"p1.graveyard","diff":"gorge+[Grizzly Bears] xmage+[]"},"key":"activate | resolve | p1.graveyard | gorge+[Grizzly Bears] xmage+[]","cards":1}
+{"card":"Tithing Blade","template":"activate#0.0","status":"diverge","api":"ChangesZone:Sacrifice","sets":["LCI"],"detail":"step 1 (resolve) p1.graveyard: gorge \"[Grizzly Bears]\", xmage \"[]\""}

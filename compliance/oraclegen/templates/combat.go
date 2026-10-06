@@ -57,10 +57,18 @@ func combatRequirement(reg *cards.Registry, f *cards.Face, name string, req leve
 		if it, sk, served := combatNotOffered(reg, f, name, req); served {
 			return it, sk
 		}
-		if req.Sub == "combat.block" {
+		late, lateOK := lateEntryBlock(reg, f, name, req)
+		if !lateOK {
+			if req.Sub == "combat.block" {
+				return skip("block not offered")
+			}
+			return skip("scenario does not replay")
+		}
+		sc = late
+		n, res, ok = oraclegen.Settle(reg, sc)
+		if !ok || len(res.Fails) != 0 {
 			return skip("block not offered")
 		}
-		return skip("scenario does not replay")
 	}
 	for i := 0; i < n; i++ {
 		sc.Steps = append(sc.Steps, oraclegen.Step{Op: "resolve"})

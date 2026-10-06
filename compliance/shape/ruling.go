@@ -6,7 +6,6 @@ import (
 	"hash/fnv"
 	"os"
 	"path/filepath"
-	"reflect"
 	"sort"
 	"strings"
 
@@ -211,5 +210,28 @@ func Classify(r *compliance.VerdictRow, rs []Ruling, api string) (applied *Rulin
 	if r.Status != compliance.StatusXMageWrong {
 		r.CanonSHA, r.Frozen = "", nil
 	}
-	return &m, overlap, !reflect.DeepEqual(*r, before)
+	return &m, overlap, !rowEqual(*r, before)
+}
+
+// rowEqual is the typed equality Classify reports change by. It compares
+// every VerdictRow field, and Frozen element by element with nil distinct
+// from empty (the exact semantics the reflect.DeepEqual it replaced had).
+// TestRowEqualCoversEveryField guards against a field added to VerdictRow
+// but not here.
+func rowEqual(a, b compliance.VerdictRow) bool {
+	if a.Card != b.Card || a.Template != b.Template || a.ID != b.ID ||
+		a.ScenarioSHA != b.ScenarioSHA || a.XMageRef != b.XMageRef ||
+		a.Status != b.Status || a.CanonSHA != b.CanonSHA || a.Detail != b.Detail ||
+		a.Ruling != b.Ruling || a.RulingID != b.RulingID || a.Review != b.Review {
+		return false
+	}
+	if (a.Frozen == nil) != (b.Frozen == nil) || len(a.Frozen) != len(b.Frozen) {
+		return false
+	}
+	for i := range a.Frozen {
+		if a.Frozen[i] != b.Frozen[i] {
+			return false
+		}
+	}
+	return true
 }

@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"reflect"
 
 	"github.com/adams-shaun/gorge/state"
 )
@@ -234,7 +233,7 @@ func ClonePaymentPlan(p PaymentPlan) PaymentPlan {
 	// Preserve nil versus an explicitly empty list.  The distinction is part
 	// of exact offered-witness membership: a planner-produced pool-only plan
 	// carries a non-nil empty activation list, and turning it into nil in a
-	// host/view clone would make a verbatim selected witness fail DeepEqual
+	// host/view clone would make a verbatim selected witness fail PaymentPlan.Equal
 	// against the engine's still-offered plan.
 	if p.Activations != nil {
 		activations := p.Activations
@@ -580,8 +579,8 @@ func (d *Decision) validatePayment(in Intent) error {
 		if err != nil || in.Payment.Plan.ID != wantPlan {
 			return fmt.Errorf("payment plan id is malformed")
 		}
-		for _, offered := range a.Plans {
-			if reflect.DeepEqual(offered, in.Payment.Plan) {
+		for i := range a.Plans {
+			if a.Plans[i].Equal(&in.Payment.Plan) {
 				return nil
 			}
 		}

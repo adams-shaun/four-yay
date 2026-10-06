@@ -115,6 +115,12 @@ type Step struct {
 	// step name an ability without pasting the script's SpellDescription
 	// text. Nil on every level-A step, so level-A items are byte-identical.
 	AbilityIndex *int `json:"ability_index,omitempty"`
+	// Ability selects an `activate` option by its label (the runner's
+	// oracleStep.Ability): a special action the engine offers under its own
+	// option kind, such as a Room's "Unlock <door name>", has no IR ability
+	// index. Empty on every existing step, so existing items are
+	// byte-identical.
+	Ability string `json:"ability,omitempty"`
 	// A scenario step may move a card into a zone; the move op stamps the
 	// object as having entered this turn (a board-history target such as
 	// ThisTurnEntered@Graveyard needs that).
@@ -159,7 +165,10 @@ type Expect struct {
 	Offered        *Offered   `json:"offered,omitempty"`
 	CanBlock       *CanBlock  `json:"can_block,omitempty"`
 	CanAttack      *CanAttack `json:"can_attack,omitempty"`
-	Want           *bool      `json:"want,omitempty"`
+	// LookAtLibraryTop is the runner's per-seat "may look at the top card of
+	// their library" assertion (rules oracleExpect.LookAtLibraryTop).
+	LookAtLibraryTop map[string]bool `json:"look_at_library_top,omitempty"`
+	Want             *bool           `json:"want,omitempty"`
 }
 
 // Answer is a queued answer for gorge's runner (kind = decision kind).
