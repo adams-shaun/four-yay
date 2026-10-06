@@ -92,6 +92,11 @@ func triggerFires(reg *cards.Registry, f *cards.Face, name string, req levelb.Re
 		}
 	}
 	if !fired {
+		if req.Sub == "trigger.spell-cast" {
+			if reason := spellCastNarrowSkip(&f.Triggers[idx]); reason != "" {
+				return skip(reason)
+			}
+		}
 		if triggerFromGraveyard(f, req) {
 			// The card sat in the graveyard, where the trigger functions,
 			// and its own condition (a threshold, an event count) still

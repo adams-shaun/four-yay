@@ -92,12 +92,7 @@ func triggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards.Tri
 		}
 		out = append(out, c)
 	case "trigger.spell-cast":
-		filter := t.ParamStr(cards.PKValidCard)
-		if strings.Contains(filter, "Creature") && !strings.Contains(strings.ToLower(filter), "noncreature") {
-			cast(bearsProbe)
-		} else {
-			cast(shockProbe, "p1")
-		}
+		return spellCastProbeCauses(reg, name, t), ""
 	case "trigger.becomes-target":
 		if !creature {
 			return nil, "becomes-target needs a creature"
