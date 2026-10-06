@@ -153,6 +153,7 @@ func activateWith(reg *cards.Registry, f *cards.Face, name string, req levelb.Re
 			it.XAnswers = make([][]oraclegen.XAnswer, len(sc.Steps))
 		}
 		addActivationCostAnswers(it.XAnswers, activateStepIndex(sc.Steps), cost, res.Decisions)
+		dropUnproducedManaColours(it.XAnswers, activateStepIndex(sc.Steps), res)
 		addSetupColourAnswers(it.XAnswers, res.Decisions)
 		it.XAbility = make([]string, len(sc.Steps))
 		it.XAbility[activateStepIndex(sc.Steps)] = prefix
@@ -393,6 +394,41 @@ func addActivationCostAnswers(answers [][]oraclegen.XAnswer, step int, cost stri
 		}
 	}
 	addTapXTypeAnswers(answers, step, cost, decisions)
+}
+
+// dropUnproducedManaColours removes the activate step's colour choice when
+// the activation produced no coloured mana. An any-colour mana ability whose
+// amount resolved to zero (Three Tree City with no creature of the chosen
+// type) poses no colour dialog in XMage, and a queued colour is then consumed
+// by an unrelated dialog (XMage throws "Choice key [White] not found"). The
+// pool after the activate step is the ground truth: a colour choice is
+// scripted only when the mana it names was actually added. Called before
+// addSetupColourAnswers, so a setup-placed permanent's ETB colour (which no
+// activation produces) is never stripped here.
+func dropUnproducedManaColours(answers [][]oraclegen.XAnswer, step int, res rules.OracleResult) {
+	if step < 0 || step >= len(answers) || len(res.Snapshots) <= step+1 {
+		return
+	}
+	if strings.ContainsAny(res.Snapshots[step+1].Players[0].Pool, "WUBRG") {
+		return
+	}
+	kept := answers[step][:0]
+	for _, a := range answers[step] {
+		if a.Kind == "choice" && isColourName(a.Value) {
+			continue
+		}
+		kept = append(kept, a)
+	}
+	answers[step] = kept
+}
+
+// isColourName reports whether v is an XMage colour-choice value.
+func isColourName(v string) bool {
+	switch v {
+	case "White", "Blue", "Black", "Red", "Green":
+		return true
+	}
+	return false
 }
 
 // addSetupColourAnswers scripts the colour gorge chose as a setup-placed
