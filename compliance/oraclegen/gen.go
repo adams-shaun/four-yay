@@ -208,9 +208,8 @@ type Item struct {
 	// Ignore names snapshot fields the comparison leaves out for this
 	// scenario: library_top after the card shuffles a library.
 	Ignore []string `json:"ignore,omitempty"`
-	// Compare opts a snapshot field into the comparison. The one legal value
-	// for now is "keywords": a permanent's key gains its folded evergreen
-	// keywords. Empty (omitempty) keeps a level-A item byte-identical.
+	// Compare opts a snapshot field into the comparison. Empty (omitempty)
+	// keeps a level-A item byte-identical.
 	Compare []string `json:"compare,omitempty"`
 	Scenario
 }
@@ -812,7 +811,22 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSt
 	}
 	routing := newAnswerRouting(ds)
 	for i, d := range ds {
-		if d.Step < 0 || d.Step >= steps || (d.Via == "target" && castSteps[d.Step]) {
+		if d.Step < 0 {
+			// Setup ETB replacement choices are answered before XMage places the
+			// seeded permanents. Keep them in step zero's answer stream with a
+			// distinct kind so the driver can queue them before build().
+			if d.Resume == "etb" && d.Kind == "choose_n" && len(d.Picks) == 1 && len(d.PickKinds) == 1 && d.PickKinds[0] == "color" {
+				// Setup answers are read from xmage_answers[0] before build(),
+				// even when the scenario has no gameplay steps.
+				if len(out) == 0 {
+					out = append(out, nil)
+				}
+				out[0] = append(out[0], XAnswer{d.Seat, "setup_choice", d.Picks[0]})
+				any = true
+			}
+			continue
+		}
+		if d.Step >= steps || (d.Via == "target" && castSteps[d.Step]) {
 			// A cast step's own targets reach XMage through castSpell; a
 			// target decision posed at a resolve step is scripted below.
 			continue

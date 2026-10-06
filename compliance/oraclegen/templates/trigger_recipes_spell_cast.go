@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/compliance/oraclegen"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -67,7 +68,7 @@ func spellCastProbeCauses(reg *cards.Registry, name string, t *cards.Trigger) []
 	fp := newFilterProbe(filter, state.ZStack)
 	candidates = filterAcceptedFirst(reg, candidates, fp)
 	for _, probe := range candidates {
-		if seen[probe] || probe == name {
+		if seen[probe] || probe == name || !oraclegen.XMageKnown(probe) {
 			continue
 		}
 		seen[probe] = true
@@ -198,7 +199,7 @@ func spellProbeTarget(probe, filter, source string, t *cards.Trigger) string {
 }
 
 func spellCastNarrowSkip(t *cards.Trigger) string {
-	filter := strings.ToLower(t.ParamStr(cards.PKValidCard))
+	filter := strings.ToLower(t.ParamStr(cards.PKValidCard) + "," + t.ParamStr(cards.PKValidSAonCard))
 	for _, shape := range []struct{ text, reason string }{
 		{"wascastfromexile", "cast-from-exile provenance"},
 		{"wascastfromyourhand", "cast-from-hand provenance"},

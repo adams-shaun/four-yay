@@ -26,6 +26,9 @@ type costProbe struct {
 	first       *oraclegen.Step
 	// pre are setup-time steps (an attach) run before the probe step.
 	pre []oraclegen.Step
+	// preXAbility is parallel to pre: the XMage rule-text prefix of a prelude
+	// activate step (a Class level-up), "" on every other prelude step.
+	preXAbility []string
 	// seat adjusts p0's setup after the permanents are placed (a counter).
 	seat func(*oraclegen.Seat)
 	// activate makes the probe step an activation of one of the probe
@@ -180,7 +183,7 @@ func parameterCostProbe(reg *cards.Registry, f *cards.Face, name string, idx int
 		case strings.Contains(desc, "creature card you own in exile and in your graveyard"):
 			p.graveyard = []string{"Grizzly Bears"}
 		case strings.Contains(desc, "each color among permanents you control"):
-			p.battlefield = []string{"Grizzly Bears", "Mischievous Snappers", "Goblin Piker"}
+			p.battlefield = append([]string(nil), costColourFixtures...)
 		case strings.Contains(desc, "greatest mana value among elementals you control"):
 			p.battlefield = affinityFixtures(reg, "Elemental", 1)
 			if len(p.battlefield) == 0 {
@@ -223,8 +226,7 @@ func parameterCostProbe(reg *cards.Registry, f *cards.Face, name string, idx int
 	present := st.Params["IsPresent"]
 	if present != "" {
 		head := strings.SplitN(present, ".", 2)[0]
-		fixtures := map[string]string{"Otter": "Mischievous Snappers", "Frog": "Frog Lizard", "Creature": "Grizzly Bears", "Artifact": "Silver Myr", "Kithkin": "Kithkin Greatheart", "land": "Forest", "Land": "Forest"}
-		card := fixtures[head]
+		card := costPresentFixtures[head]
 		if card != "" {
 			p.battlefield = appendUnique(p.battlefield, card)
 		}
@@ -264,13 +266,16 @@ func affinityFixtures(reg *cards.Registry, typ string, count int) []string {
 	})
 	var fixtures []string
 	for _, c := range cardsInOrder {
-		if strings.HasPrefix(firstName(c), "A-") || strings.Contains(firstName(c), "\"") || strings.Contains(firstName(c), "'") {
+		if !oraclegen.XMageKnown(firstName(c)) || strings.Contains(firstName(c), "'") {
 			continue
 		}
 		if len(c.Faces) == 0 {
 			continue
 		}
 		for _, face := range c.Faces {
+			if !oraclegen.XMageKnown(face.Name) {
+				continue
+			}
 			for _, cardType := range face.Types {
 				if strings.EqualFold(cardType, typ) {
 					fixtures = appendUnique(fixtures, face.Name)

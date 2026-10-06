@@ -87,7 +87,7 @@ func activateAbility(reg *cards.Registry, f *cards.Face, name string, req levelb
 	// restriction names. gap names the restriction shape no setup reaches, so
 	// a failure is reported as a known restriction rather than the generic
 	// no-fixture reason.
-	restriction, gap := activateRestriction(reg, f, sa)
+	restriction, gap := activateRestriction(reg, f, name, sa)
 	it, ok := activateWith(reg, f, name, req, idx, prefix, pool, sa.ParamStr(cards.PKCost), zone, slots, restriction)
 	if !ok {
 		if oraclegen.HasType(f, "Aura") {
@@ -198,10 +198,14 @@ func activateWithFixture(reg *cards.Registry, f *cards.Face, name string, req le
 	costAnswers := append([]oraclegen.XAnswer(nil), it.XAnswers[activateStep][costAnswerStart:]...)
 	it.XAnswers[activateStep] = append(costAnswers, it.XAnswers[activateStep][:costAnswerStart]...)
 	dropUnproducedManaColours(it.XAnswers, activateStep, res)
-	addSetupColourAnswers(it.XAnswers, res.Decisions)
 	it.XAnswers = scriptPreludeSacrifice(it.XAnswers, prelude, len(sc.Steps))
 	it.XAbility = make([]string, len(sc.Steps))
-	it.XAbility[activateStepIndex(sc.Steps)] = prefix
+	copy(it.XAbility, pre.xability)
+	it.XAbility[activateStep] = prefix
+	if comboPrefix, ok := comboManaColourPrefix(f.Abilities[idx], cost, activateStep, res); ok {
+		it.XAbility[activateStep] = comboPrefix
+		dropColourChoices(it.XAnswers, activateStep)
+	}
 	return it, true
 }
 
@@ -270,16 +274,18 @@ func attackedThisTurn(filter string) bool {
 	return false
 }
 
-// activateStepIndex returns the index of the scenario's activate step. The
-// template emits it first today; the helper keeps XAbility parallel to Steps
-// if a prelude is ever added.
+// activateStepIndex returns the index of the scenario's PROBE activate step.
+// A probe with an activation prelude (a Class level-up) emits the prelude's
+// activate steps first, so the LAST activate step is the ability under test;
+// the cost answers and mana-colour drops must target it, not the prelude.
 func activateStepIndex(steps []oraclegen.Step) int {
+	found := 0
 	for i := range steps {
 		if steps[i].Op == "activate" {
-			return i
+			found = i
 		}
 	}
-	return 0
+	return found
 }
 
 // costTokens splits a Forge cost string on whitespace, keeping a token's
@@ -438,9 +444,8 @@ func addActivationCostAnswers(answers [][]oraclegen.XAnswer, step int, cost stri
 // type) poses no colour dialog in XMage, and a queued colour is then consumed
 // by an unrelated dialog (XMage throws "Choice key [White] not found"). The
 // pool after the activate step is the ground truth: a colour choice is
-// scripted only when the mana it names was actually added. Called before
-// addSetupColourAnswers, so a setup-placed permanent's ETB colour (which no
-// activation produces) is never stripped here.
+// scripted only when the mana it names was actually added. Setup ETB colour
+// answers use the distinct setup_choice kind and are never stripped here.
 func dropUnproducedManaColours(answers [][]oraclegen.XAnswer, step int, res rules.OracleResult) {
 	if step < 0 || step >= len(answers) || len(res.Snapshots) <= step+1 {
 		return
@@ -465,27 +470,6 @@ func isColourName(v string) bool {
 		return true
 	}
 	return false
-}
-
-// addSetupColourAnswers scripts the colour gorge chose as a setup-placed
-// permanent entered ("As ~ enters, choose a color": Crossroads Village,
-// Heraldic Banner). XMage poses the same ETB colour dialog when it puts the
-// card on the battlefield at game start, before any step, and answers it at
-// random when its choice queue is empty. The queue is first-in first-out and
-// every step's answers are queued before the game starts, so the colour goes
-// FIRST on step 0's answers.
-func addSetupColourAnswers(answers [][]oraclegen.XAnswer, decisions []rules.OracleDecision) {
-	if len(answers) == 0 {
-		return
-	}
-	var setup []oraclegen.XAnswer
-	for _, d := range decisions {
-		if d.Step >= 0 || d.Resume != "etb" || len(d.Picks) != 1 || len(d.PickKinds) != 1 || d.PickKinds[0] != "color" {
-			continue
-		}
-		setup = append(setup, oraclegen.XAnswer{Seat: d.Seat, Kind: "choice", Value: d.Picks[0]})
-	}
-	answers[0] = append(setup, answers[0]...)
 }
 
 // addActivationCostFixtures supplies the explicit cards needed by supported

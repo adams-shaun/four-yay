@@ -170,6 +170,12 @@ func classifyTrigger(f *cards.Face, t *cards.Trigger) (sub, gap string, covered 
 	if sub, ok := classifyEventTrigger(t); ok {
 		return sub, "", false
 	}
+	if sub, ok := classifyTapCombatTrigger(f, t); ok {
+		return sub, "", false
+	}
+	if sub, ok := classifyCastTrigger(f, t); ok {
+		return sub, "", false
+	}
 	switch t.ModeKind() {
 	case cards.TriggerChangesZone:
 		dest := t.ParamStr(cards.PKDestination)
@@ -202,7 +208,10 @@ func classifyTrigger(f *cards.Face, t *cards.Trigger) (sub, gap string, covered 
 		return gapMode()
 
 	case cards.TriggerAttackersDeclared:
-		if strings.EqualFold(t.ParamStr(cards.PKAttackingPlayer), "You") || namesYouCtrl(t.ParamStr(cards.PKValidAttackers)) {
+		// "Whenever a player attacks with N or more creatures" is p0's attack
+		// too (AttackingPlayer$ Player, no attacked-target filter).
+		anyPlayer := strings.EqualFold(t.ParamStr(cards.PKAttackingPlayer), "Player") && !t.HasParam(cards.PKAttackedTarget)
+		if strings.EqualFold(t.ParamStr(cards.PKAttackingPlayer), "You") || anyPlayer || namesYouCtrl(t.ParamStr(cards.PKValidAttackers)) {
 			return "trigger.attacks", "", false
 		}
 		return gapMode()

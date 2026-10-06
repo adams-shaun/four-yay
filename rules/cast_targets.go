@@ -1493,7 +1493,9 @@ func (e *Engine) recheckIllegal(pc *pendingCast) bool {
 				sc := e.specCtx(sv.Source, sv.Controller)
 				sc.HasManaValue = true
 				sc.ManaValue = mv
-				if e.matchesSpec(sv.ParamStr(cards.PKValidCard), pc.card, sc) {
+				spec := castValidCardSpec(sv)
+				if e.matchesSpec(spec, pc.card, sc) &&
+					castLimitBinds(e.L.Events, sv, pc.player, pc.card, func(oid state.ObjID) bool { return e.matchesSpec(spec, oid, e.staticSpecCtx(sv)) }) {
 					return true
 				}
 			}
