@@ -192,6 +192,14 @@ const (
 	// an opponent of the evaluating controller (sc.You), the object-side twin
 	// of the player grammar's `Opponent` base.
 	wordDealtDamageThisTurn
+	// wordSourceDealtDamageThisTurn is Forge's dealtDamageThisTurn -- the
+	// object DEALT damage this turn (the SOURCE side, distinct from
+	// wordDealtDamageThisTurn's recipient side). It reads
+	// state.Object.DamageDealtThisTurn, the per-object record events.Apply's
+	// DamageProvenance case appends to and TurnChange clears. Corpus
+	// carriers: Avenging Arrow, Executioner's Swing, Restore the Peace, Red
+	// Guardian, Super Soldier and Treacherous Greed's sacrifice cost.
+	wordSourceDealtDamageThisTurn
 	wordDealtExcessDamageThisTurn
 	wordDamagedBy
 	wordImprinted
@@ -425,6 +433,8 @@ func wordPredicate(p string) (wordKind, string) {
 	// matcher and UnknownPredicates agree that the word is implemented.
 	case wordPredicateWordWasDealtDamageThisTurn:
 		return wordDealtDamageThisTurn, ""
+	case wordPredicateWordDealtDamageThisTurn:
+		return wordSourceDealtDamageThisTurn, ""
 	case wordPredicateWordWasDealtExcessDamageThisTurn:
 		return wordDealtExcessDamageThisTurn, ""
 	case wordPredicateWordWasDealtDamageByThisGame:
@@ -876,14 +886,14 @@ func wordMatches(kind wordKind, key string, g *state.Game, o *state.Object, sc S
 		// semantics its shape implies rather than the always-true trap an
 		// unrecognised-but-plausible token could be mistaken for.
 		return !sharesName(o, key, sc)
-	case wordDealtDamageThisTurn:
+	case wordDealtDamageThisTurn, wordSourceDealtDamageThisTurn:
 		// Forge's wasDealtDamageThisTurn: the object was dealt damage this
 		// turn. The flag is the per-object provenance events.Apply's Damage
 		// case sets (the same field the playercount HasProperty heads read)
-		// and TurnChange clears; an object never damaged this turn reads
-		// false. The by-source refinement (wasDealtDamageThisTurnBySource)
-		// is a separate token and stays unknown.
-		return o.WasDealtDamageThisTurn
+		// and TurnChange clears. dealtDamageThisTurn is the SOURCE side: the
+		// object DEALT damage (state.Object.DamageDealtThisTurn). The
+		// by-source refinement is a separate token and stays unknown.
+		return damageThisTurnPredicate(kind, o)
 	case wordDealtExcessDamageThisTurn:
 		return o.WasDealtExcessDamageThisTurn
 	case wordDealtDamageByThisGame:
@@ -1123,6 +1133,24 @@ func wordMatches(kind wordKind, key string, g *state.Game, o *state.Object, sc S
 	return false
 }
 
+// damageThisTurnPredicate evaluates the two same-turn damage predicates for
+// one candidate object. wordDealtDamageThisTurn is Forge's
+// wasDealtDamageThisTurn, the RECIPIENT side: state.Object.WasDealtDamageThisTurn,
+// the flag events.Apply's Damage case sets and TurnChange clears, so an object
+// never damaged this turn reads false. wordSourceDealtDamageThisTurn is Forge's
+// dealtDamageThisTurn, the SOURCE side: state.Object.DamageDealtThisTurn, the
+// record the DamageProvenance fold appends to and TurnChange clears, non-empty
+// only when the object itself dealt damage this turn -- the fail-closed
+// direction. Both share one wordMatches case so the added branch costs the
+// long-function ratchet nothing extra; wordDealtExcessDamageThisTurn (the
+// recipient's excess) stays its own case.
+func damageThisTurnPredicate(kind wordKind, o *state.Object) bool {
+	if kind == wordSourceDealtDamageThisTurn {
+		return len(o.DamageDealtThisTurn) > 0
+	}
+	return o.WasDealtDamageThisTurn
+}
+
 // attachedToBearerQualifier evaluates the dotted two-token
 // "<class>.<qual>" argument of wordAttachedTo against a, the bearer the
 // candidate object is attached to. It runs the whole term through the
@@ -1268,6 +1296,7 @@ const (
 	wordPredicateWordHasCounters
 	wordPredicateWordSuspended
 	wordPredicateWordWasDealtDamageThisTurn
+	wordPredicateWordDealtDamageThisTurn
 	wordPredicateWordWasDealtExcessDamageThisTurn
 	wordPredicateWordWasDealtDamageByThisGame
 	wordPredicateWordIsImprinted
@@ -1319,6 +1348,7 @@ var wordPredicateWordCodes = state.NewStrCodes(
 	state.StrEntry[wordPredicateWordCode]{Key: "HasCounters", Val: wordPredicateWordHasCounters},
 	state.StrEntry[wordPredicateWordCode]{Key: "suspended", Val: wordPredicateWordSuspended},
 	state.StrEntry[wordPredicateWordCode]{Key: "wasDealtDamageThisTurn", Val: wordPredicateWordWasDealtDamageThisTurn},
+	state.StrEntry[wordPredicateWordCode]{Key: "dealtDamageThisTurn", Val: wordPredicateWordDealtDamageThisTurn},
 	state.StrEntry[wordPredicateWordCode]{Key: "wasDealtExcessDamageThisTurn", Val: wordPredicateWordWasDealtExcessDamageThisTurn},
 	state.StrEntry[wordPredicateWordCode]{Key: "wasDealtDamageByThisGame", Val: wordPredicateWordWasDealtDamageByThisGame},
 	state.StrEntry[wordPredicateWordCode]{Key: "IsImprinted", Val: wordPredicateWordIsImprinted},
