@@ -38,6 +38,9 @@ const (
 	// faceScanModalCost: some SVar names a mode printing a ModeCost$
 	// (faceHasModeCost).
 	faceScanModalCost
+	// faceScanTargetedCastSpend: the face mentions
+	// Targeted$CastTotalManaSpent (targetedCastSpendReaderOut).
+	faceScanTargetedCastSpend
 )
 
 // faceScanVerify: see derivedMemoVerify. Set by the rules test binary.
@@ -62,6 +65,9 @@ func computeFaceScan(f *cards.Face) faceScan {
 	}
 	if faceHasModeCost(f) {
 		s |= faceScanModalCost
+	}
+	if f.Mentions("Targeted$CastTotalManaSpent") {
+		s |= faceScanTargetedCastSpend
 	}
 	return s
 }
