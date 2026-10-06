@@ -26,7 +26,9 @@ func TestDeclaredSetsCompliant(t *testing.T) {
 		t.Log("no declared sets")
 		return
 	}
-	reg, err := cards.LoadRegistry(cards.CachePath(filepath.Join(root, ".cards")))
+	// Process-shared registry (cards.SharedCorpus): a registry is read-only
+	// after open, and a fresh load per test cost ~600 MB and ~1 s.
+	reg, err := cards.SharedCorpus(filepath.Join(root, ".cards"))
 	if err != nil {
 		t.Fatalf("declared sets need the corpus (make fetch-cards compile-cards): %v", err)
 	}
