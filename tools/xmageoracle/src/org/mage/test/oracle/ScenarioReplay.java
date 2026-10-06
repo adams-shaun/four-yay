@@ -806,11 +806,16 @@ public class ScenarioReplay extends CardTestPlayerBase {
         return hasAdjuster && !divided && targetCount > 0;
     }
 
+    /** Whether an ability gets its targets from a target adjuster. */
+    static boolean hasTargetAdjuster(Ability ability) {
+        return ability != null && ability.getTargetAdjuster() != null;
+    }
+
     /** Whether the card's spell ability gets its targets from a target adjuster. */
     private static boolean spellHasTargetAdjuster(String name) {
         CardInfo info = CardRepository.instance.findCard(name);
         Card c = info == null ? null : info.createCard();
-        return c != null && c.getSpellAbility().getTargetAdjuster() != null;
+        return c != null && hasTargetAdjuster(c.getSpellAbility());
     }
 
     /** Whether the card's spell ability has a divided-amount target. */
@@ -836,8 +841,22 @@ public class ScenarioReplay extends CardTestPlayerBase {
         if (c == null) {
             return false;
         }
-        List<mage.target.Target> ts = c.getSpellAbility().getAllSelectedTargets();
-        return ts.size() == 1 && n >= ts.get(0).getMaxNumberOfTargets();
+        return !targetSlotNeedsSkip(c.getSpellAbility().getAllSelectedTargets(), n);
+    }
+
+    /** An unfilled or open target slot needs an explicit skip to finish casting. */
+    static boolean targetSlotNeedsSkip(List<mage.target.Target> targets, int supplied) {
+        return targets.size() != 1 || supplied < targets.get(0).getMaxNumberOfTargets();
+    }
+
+    private static boolean targetSlotNeedsSkipForCard(String card, int supplied) {
+        return !singleTargetFilled(card, supplied);
+    }
+
+    static void queueAdjustedTargetSkip(TestPlayer player, boolean needsSkip) {
+        if (needsSkip) {
+            player.addTarget(TestPlayer.TARGET_SKIP);
+        }
     }
 
     /** Normalises a cost label so gorge's pick ("Sacrifice artifact or
@@ -1153,6 +1172,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     for (String t : tg) {
                         queueCastTarget(p, t);
                     }
+                    queueAdjustedTargetSkip(p, targetSlotNeedsSkipForCard(card, tg.size()));
                     castSpell(turn, phase, p, card);
                 } else if (tg.size() == 1 && isSeatRef(tg.get(0)) && !hasGift(card)) {
                     castSpell(turn, phase, p, card, seat(seatOf(tg.get(0))));

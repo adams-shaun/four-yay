@@ -7,7 +7,13 @@ import com.google.gson.JsonPrimitive;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.LinkedHashMap;
+import java.util.UUID;
+import mage.cards.CardSetInfo;
+import mage.cards.t.TheEaglesAreComing;
+import mage.constants.Rarity;
 import mage.constants.Zone;
+import mage.filter.FilterPermanent;
+import mage.target.TargetPermanent;
 import org.mage.test.player.TestPlayer;
 import sun.misc.Unsafe;
 
@@ -104,6 +110,23 @@ public final class ScenarioReplaySplitRoomTest {
         equal(false, ScenarioReplay.queueAdjustedCastTargets(false, false, 1));
         equal(false, ScenarioReplay.queueAdjustedCastTargets(true, true, 1));
         equal(false, ScenarioReplay.queueAdjustedCastTargets(true, false, 0));
+        TheEaglesAreComing eagles = new TheEaglesAreComing(UUID.randomUUID(),
+                new CardSetInfo("The Eagles Are Coming!", "HOB", "1", Rarity.RARE));
+        equal(true, ScenarioReplay.hasTargetAdjuster(eagles.getSpellAbility()));
+        equal(true, ScenarioReplay.targetSlotNeedsSkip(
+                java.util.List.of(new TargetPermanent(0, Integer.MAX_VALUE, new FilterPermanent())), 1));
+        equal(false, ScenarioReplay.targetSlotNeedsSkip(java.util.List.of(new TargetPermanent()), 1));
+        Field unsafeField = Unsafe.class.getDeclaredField("theUnsafe");
+        unsafeField.setAccessible(true);
+        Unsafe unsafe = (Unsafe) unsafeField.get(null);
+        TestPlayer targetQueue = (TestPlayer) unsafe.allocateInstance(TestPlayer.class);
+        Field targets = TestPlayer.class.getDeclaredField("targets");
+        targets.setAccessible(true);
+        targets.set(targetQueue, new java.util.ArrayList<String>());
+        ScenarioReplay.queueAdjustedTargetSkip(targetQueue, ScenarioReplay.targetSlotNeedsSkip(
+                java.util.List.of(new TargetPermanent(0, Integer.MAX_VALUE, new FilterPermanent())), 1));
+        equal(java.util.List.of(TestPlayer.TARGET_SKIP), targets.get(targetQueue));
+        System.out.println("PASS target-adjuster detection and closing an unfilled adjusted target slot");
         System.out.println("PASS adjusted spell targets are queued without changing divided, ordinary, or targetless casts");
         System.out.println("PASS ordinary alias and unchanged spelling");
     }
