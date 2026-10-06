@@ -57,7 +57,7 @@ const (
 	// itself -- one recorded intent at genesis -- so every later intent
 	// (including the overshoot burst's own) sits one later in the count.
 	// The Menace floor removed one forced-empty blockers ask at intent 194.
-	overshootIntents = 378 // intents recorded when parked on the overshoot burst's pending ask
+	overshootIntents = 376 // intents recorded when parked on the overshoot burst's pending ask
 )
 
 // gateSeat is a bot behind a test gate: every decision is signalled to the
@@ -632,6 +632,11 @@ func TestCrashedMatchFeedbackCaptureStillTrims(t *testing.T) {
 // 2131-2135); every other event is unchanged. Re-recorded via
 // TestGenerateOvershootCapture: 2147 events, 378 intents (unchanged), head
 // 4101482cdae7fccc.
+// CR 103.8a first draw STEP (2026-10-06): the starting player's turn-1 draw
+// step is skipped whole, not only its draw, so the stream loses that step's
+// StepChange and both seats' priority ask/answer pairs (9 events) and two
+// intents. Re-recorded via TestGenerateOvershootCapture: 2138 events, 376
+// intents, head f54a225e6073bbfa; overshootIntents 378 -> 376.
 const committedCaptureRel = "../cmd/repro/testdata/feedback/20260915T094418Z-e484f1db"
 
 // requireCommittedCapture skips when the worktree has no .cards/ corpus:
@@ -663,8 +668,8 @@ func TestCommittedOvershootCaptureReplaysToTheParkedAsk(t *testing.T) {
 	if err != nil {
 		t.Fatalf("feedback.Load: %v", err)
 	}
-	if n := len(l.Events); n != 2147 {
-		t.Fatalf("capture carries %d events, want the full 2147-event stream (re-recorded)", n)
+	if n := len(l.Events); n != 2138 {
+		t.Fatalf("capture carries %d events, want the full 2138-event stream (re-recorded)", n)
 	}
 	e, err := replay.Replay(l, cfg)
 	if err != nil {

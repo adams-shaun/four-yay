@@ -12,8 +12,11 @@ import com.google.gson.JsonParser;
 import mage.abilities.keyword.SpreeAbility;
 import mage.cards.Card;
 import mage.cards.CardSetInfo;
+import mage.cards.a.AresGodOfWar;
+import mage.cards.g.GrizzlyBears;
 import mage.cards.l.LightningBolt;
 import mage.cards.o.OneLastJob;
+import mage.cards.r.RedHerring;
 import mage.constants.Rarity;
 import mage.constants.Zone;
 import org.mage.test.player.TestPlayer;
@@ -293,6 +296,23 @@ public final class ScenarioReplayDriverContractTest {
                 + "lone p0 pass yields before the p1 cast checkpoint; other shapes rejected)");
     }
 
+    private static void mustAttack() {
+        // The structural check the attack step uses must be exact on the
+        // actual XMage card models, not a name list: a card that carries
+        // AttacksEachCombatStaticAbility is declared and tapped by XMage's
+        // own checkAttackRequirements, so its attack() command is never
+        // consumed. Ares, God of War and Red Herring carry it; a plain
+        // creature does not.
+        Card ares = new AresGodOfWar(UUID.randomUUID(), info("Ares, God of War"));
+        Card herring = new RedHerring(UUID.randomUUID(), info("Red Herring"));
+        Card bears = new GrizzlyBears(UUID.randomUUID(), info("Grizzly Bears"));
+        check(ScenarioReplay.isMustAttackCard(ares), "Ares, God of War was not detected as a must-attack card");
+        check(ScenarioReplay.isMustAttackCard(herring), "Red Herring was not detected as a must-attack card");
+        check(!ScenarioReplay.isMustAttackCard(bears), "Grizzly Bears was detected as a must-attack card");
+        check(!ScenarioReplay.isMustAttackCard(null), "a null card was detected as must-attack");
+        System.out.println("PASS must-attack detection (AttacksEachCombatStaticAbility on the card, not a name list)");
+    }
+
     private static CardSetInfo info(String name) {
         return new CardSetInfo(name, "TEST", "1", Rarity.RARE);
     }
@@ -317,5 +337,6 @@ public final class ScenarioReplayDriverContractTest {
         zones();
         passes();
         spree();
+        mustAttack();
     }
 }

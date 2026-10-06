@@ -61,7 +61,7 @@ var wantCensus = map[string]map[string]int{
 		"static.continuous":              64,
 		"static.cost":                    9,
 		"static.gap:CantPreventDamage":   1,
-		"static.gap:Panharmonicon":       1,
+		"static.panharmonicon":           1,
 		"static.gap:TapPowerValue":       1,
 		"trigger.attacks":                7,
 		"trigger.attacks-attached":       2,
@@ -109,7 +109,7 @@ var wantCensus = map[string]map[string]int{
 		"trigger.drawn":                4,
 		"trigger.etb-land":             20,
 		"trigger.etb-other":            24,
-		"trigger.gap:Always":           1,
+		"trigger.state-self-counters":  1, // Mazemind Tome: the self page-counter state trigger, formerly trigger.gap:Always
 		"trigger.gap:CounterAddedOnce": 2,
 		"trigger.gap:DamageDealtOnce":  1,
 		"trigger.gap:DamageDone":       3,

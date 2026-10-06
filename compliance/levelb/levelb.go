@@ -53,6 +53,7 @@ var combatKeywords = []string{
 var servableStaticModes = []struct{ mode, sub string }{
 	{"DisableTriggers", "static.disable-triggers"},
 	{"CombatDamageToughness", "static.combat-damage-toughness"},
+	{"Panharmonicon", "static.panharmonicon"},
 }
 
 // combatStaticModes are the combat-legality statics whose presence on a face
@@ -174,6 +175,9 @@ func classifyTrigger(f *cards.Face, t *cards.Trigger) (sub, gap string, covered 
 		return sub, "", false
 	}
 	if sub, ok := classifyCastTrigger(f, t); ok {
+		return sub, "", false
+	}
+	if sub, ok := classifyStateTrigger(t); ok {
 		return sub, "", false
 	}
 	switch t.ModeKind() {

@@ -424,19 +424,13 @@ func addTapXTypeAnswers(answers [][]oraclegen.XAnswer, step int, cost string, de
 		if d.Step != step || d.Seat != 0 || d.Kind != "choose_n" || len(d.ObjectPicks) == 0 {
 			continue
 		}
-		isTapCost := false
-		for _, kind := range d.PickKinds {
-			if kind == "tapcost" {
-				isTapCost = true
-				break
-			}
-		}
-		if !isTapCost {
+		if !hasPickKind(d, "tapcost") {
 			continue
 		}
 		// Preserve gorge's exact choice, rather than selecting the catalogue
-		// defaults. XAnswersForScenario may encode a batch as one compound
-		// answer, while XMage also needs the selected card labels individually.
+		// defaults. XMage pays the cost from the selected card labels
+		// individually; the compound answer XAnswersForScenario encodes for the
+		// same batch is dropped by dropCostCompound.
 		var tokenPicks []string
 		for k, pick := range d.Picks {
 			if k < len(d.ObjectPicks) {
@@ -485,6 +479,57 @@ func addTapXTypeAnswers(answers [][]oraclegen.XAnswer, step int, cost string, de
 			}
 		}
 	}
+}
+
+// dropCostCompound removes the joined "^" answer XAnswersForScenario encodes
+// for an observed multi-pick tapcost or sacrifice batch. The cost answer
+// paths (addTapXTypeAnswers, the Sac arm of addActivationCostAnswers) script
+// the same picks one answer each, and XMage's cost consumes those singles:
+// Kithkeeper's, Rat King's and Magda's verdicts each found the compound as the
+// one unused choice. Left in the queue, the compound is consumed by the next
+// dialog: Supportive Parents' "Add one mana of any color" threw "Choice key
+// [Supportive Parents^Grizzly Bears] not found in [White, Blue, Black, Red,
+// Green]".
+func dropCostCompound(answers [][]oraclegen.XAnswer, step int, decisions []rules.OracleDecision) {
+	if step < 0 || step >= len(answers) {
+		return
+	}
+	for _, d := range decisions {
+		if d.Step != step || d.Seat != 0 || d.Kind != "choose_n" || len(d.Picks) < 2 || !allCostPicks(d) {
+			continue
+		}
+		compound := strings.Join(d.Picks, "^")
+		for i, answer := range answers[step] {
+			if answer.Seat == 0 && answer.Kind == "choice" && strings.EqualFold(answer.Value, compound) {
+				answers[step] = append(answers[step][:i], answers[step][i+1:]...)
+				break
+			}
+		}
+	}
+}
+
+// allCostPicks reports a decision whose every pick pays a tap or sacrifice
+// cost, the batches the cost answer paths script as singles.
+func allCostPicks(d rules.OracleDecision) bool {
+	if len(d.PickKinds) == 0 {
+		return false
+	}
+	for _, k := range d.PickKinds {
+		if k != "tapcost" && k != "sacrifice" {
+			return false
+		}
+	}
+	return true
+}
+
+// hasPickKind reports whether any of the decision's picks is of kind.
+func hasPickKind(d rules.OracleDecision, kind string) bool {
+	for _, k := range d.PickKinds {
+		if k == kind {
+			return true
+		}
+	}
+	return false
 }
 
 func addTapXTypeFixtures(p0 *oraclegen.Seat, cost string) {

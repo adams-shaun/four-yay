@@ -200,6 +200,9 @@ func baseTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards
 		if causes, why, ok := tapCombatRecipe(reg, f, name, t, sub); ok {
 			return causes, why
 		}
+		if causes, why, ok := stateTriggerRecipe(reg, f, name, t, sub); ok {
+			return causes, why
+		}
 		return nil, "no recipe for " + sub
 	}
 	if len(out) == 0 {

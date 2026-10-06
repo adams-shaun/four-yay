@@ -289,17 +289,11 @@ func (r *oracleRun) snapshot(checkpoint string) OracleSnapshot {
 // sa (the pointer TriggerPush mints, as findTriggerForAbilityFace matches it),
 // or "" when sa is not one of src's face triggers.
 func stackTriggerSlot(src *state.Object, sa *cards.SA) string {
-	if src == nil {
-		return ""
-	}
-	f := src.Face()
-	if f == nil {
-		return ""
-	}
-	for i := range f.Triggers {
-		if f.Triggers[i].Effect == sa {
-			return strconv.Itoa(i)
-		}
+	// printedFaceTrigger also finds a back-face line of a double-faced source
+	// that is already front face up again (a "when this dies" trigger pushed
+	// from the look-back board, CR 712.8a).
+	if _, _, _, idx, ok := printedFaceTrigger(src, sa); ok {
+		return strconv.Itoa(idx)
 	}
 	return ""
 }
