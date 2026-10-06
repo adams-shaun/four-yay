@@ -156,6 +156,7 @@ func main() {
 		startProfiles()
 		switch *row {
 		case "random":
+			w.expectedEvents = randomExpectedEvents
 			return runRandom(&r, w, *pair, *seed, *secs)
 		case "bot":
 			return runBot(&r, w, *pair, *seed, *secs, *autopay)
