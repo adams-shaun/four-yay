@@ -37,6 +37,16 @@ case $want in
 */.ds4/heavy.lock) check "helper path is <repo>/.ds4/heavy.lock" 0 ;;
 *) check "helper path is <repo>/.ds4/heavy.lock" 1 "$want" ;;
 esac
+# The path is derived from the shared git common dir, so a sibling WORKTREE
+# resolves to the SAME file (the operator decision: one repo-owned lock, not one
+# per checkout). Assert the derivation explicitly: the lock is next to the
+# common dir's parent. This fails if anyone switches to `git rev-parse
+# --show-toplevel`, which would give each worktree its own lock.
+common=$(git -C "$S" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
+[ -n "$common" ]
+check "git common dir resolves (precondition for the one-lock derivation)" $? "common=$common"
+[ "$(dirname "$common")/.ds4/heavy.lock" = "$want" ]
+check "lock is derived from the shared git common dir, not this checkout's toplevel" $? "common=$common want=$want"
 paths=$(
 	printf 'heavy.sh=%s\n' "$("$S/heavy.sh" --print-heavy-lock 2>&1)"
 	printf 'broker.sh=%s\n' "$("$S/broker.sh" heavy-lock 2>&1)"
