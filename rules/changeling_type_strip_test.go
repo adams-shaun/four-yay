@@ -37,13 +37,9 @@ func TestChangelingCreatureTypeStrip(t *testing.T) {
 		t.Fatal("type strip must not remove the Changeling ability in layer 6")
 	}
 	for _, spec := range []string{"Surrakar", "Creature.Surrakar", "Creature.Shapeshifter"} {
-		if effects.MatchesSpecCtx(e.G, spec, outcast, e.specCtx(0, 0)) {
-			t.Errorf("stripped Outcast still matches %s", spec)
-		}
+		assertChangelingTypePredicate(t, e, outcast, spec, false)
 	}
-	if !effects.MatchesSpecCtx(e.G, "Creature.nonSurrakar", outcast, e.specCtx(0, 0)) {
-		t.Error("stripped Outcast must match Creature.nonSurrakar")
-	}
+	assertChangelingTypePredicate(t, e, outcast, "Creature.nonSurrakar", true)
 	// A later type-gated effect must not resurrect the intrinsic CDA either.
 	e.AddContinuous(state.ContinuousEffect{Source: outcast, Affects: "Creature.Surrakar", Layer: state.LPT, Sub: state.SubModify, AddPower: 3})
 	if got := e.Power(outcast); got != 1 {
@@ -73,13 +69,45 @@ func TestChangelingSetCreatureTypes(t *testing.T) {
 				t.Errorf("set creature types = %v, all %v; want %v, false", got.Types, got.AllCreatureTypes, want)
 			}
 			for _, spec := range []string{"Frog", "Creature.Frog", "Creature.nonSurrakar"} {
-				if !effects.MatchesSpecCtx(e.G, spec, id, e.specCtx(0, 0)) {
-					t.Errorf("set creature types must match %s", spec)
-				}
+				assertChangelingTypePredicate(t, e, id, spec, true)
 			}
-			if effects.MatchesSpecCtx(e.G, "Creature.Surrakar", id, e.specCtx(0, 0)) {
-				t.Error("set creature types resurrected the intrinsic CDA")
+			assertChangelingTypePredicate(t, e, id, "Creature.Surrakar", false)
+			// Also exercise a semantic-only change: the printed type list can
+			// be restored without restoring the CDA's all-types marker.
+			printed := e.G.Obj(id).Face().Types
+			printedSubtype := printed[len(printed)-1]
+			if !effects.CreatureTypeWords(printedSubtype) {
+				t.Fatal("precondition: last printed type must be a creature subtype")
 			}
+			e.AddContinuous(state.ContinuousEffect{Source: id, Affects: "Card.Self", Layer: state.LType, SetCreatureTypes: true, AddTypes: []string{printedSubtype}})
+			if !slices.Equal(e.Derived(id).Types, e.G.Obj(id).Face().Types) {
+				t.Fatal("precondition: setter must reproduce the printed type list")
+			}
+			assertChangelingTypePredicate(t, e, id, "Creature.Surrakar", false)
+			e.AddContinuous(state.ContinuousEffect{Source: id, Affects: "Card.Self", Layer: state.LType, AddAllCreatureTypes: true})
+			if !e.Derived(id).AllCreatureTypes {
+				t.Fatal("later all-types grant must override the setter")
+			}
+			assertChangelingTypePredicate(t, e, id, "Creature.Surrakar", true)
 		})
+	}
+}
+
+// Assert both filter implementations, not merely whichever sidecar the engine
+// happened to install for this match's cards.
+func assertChangelingTypePredicate(t *testing.T, e *Engine, id state.ObjID, spec string, want bool) {
+	t.Helper()
+	sc := e.specCtx(0, 0)
+	sc.PredicatePrograms = nil
+	if got := effects.MatchesSpecCtx(e.G, spec, id, sc); got != want {
+		t.Errorf("textual %s = %v, want %v", spec, got, want)
+	}
+	sc.PredicatePrograms = effects.CompilePredicatePrograms([]string{spec})
+	verdict := sc.PredicatePrograms.Evaluate(spec, e.G, e.G.Obj(id), sc)
+	if verdict == effects.PredicateMaybe {
+		t.Fatalf("precondition: %s must have a definite compiled type predicate", spec)
+	}
+	if got := verdict == effects.PredicateYes; got != want {
+		t.Errorf("compiled %s = %v, want %v", spec, got, want)
 	}
 }
