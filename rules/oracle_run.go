@@ -715,6 +715,7 @@ func (r *oracleRun) submit(d *decision.Decision, choices []int, why string) erro
 			}
 		}
 		chain = markTrigChain(r.e.trigSub, d)
+		od.LeadingUnposed = chain.leading
 		r.decisions = append(r.decisions, od)
 		recorded = len(r.decisions) - 1
 	}

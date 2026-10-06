@@ -415,6 +415,7 @@ func addActivationCostAnswers(answers [][]oraclegen.XAnswer, step int, cost stri
 				}
 			}
 		}
+		kind := costAnswerKind(cost, head)
 		for _, pick := range picks {
 			if isTokenPick(pick) {
 				// Token picks repeat (one answer per token), so they
@@ -424,13 +425,13 @@ func addActivationCostAnswers(answers [][]oraclegen.XAnswer, step int, cost stri
 			}
 			present := false
 			for _, answer := range answers[step] {
-				if answer.Seat == 0 && answer.Kind == "choice" && strings.EqualFold(answer.Value, pick) {
+				if answer.Seat == 0 && answer.Kind == kind && strings.EqualFold(answer.Value, pick) {
 					present = true
 					break
 				}
 			}
 			if !present {
-				answers[step] = append(answers[step], oraclegen.XAnswer{Seat: 0, Kind: "choice", Value: pick})
+				answers[step] = append(answers[step], oraclegen.XAnswer{Seat: 0, Kind: kind, Value: pick})
 			}
 		}
 	}
