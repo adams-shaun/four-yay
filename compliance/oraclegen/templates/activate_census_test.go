@@ -89,6 +89,16 @@ var activateCensusSets = []string{"BIG", "EOE", "FDN", "FRA"}
 // the six EOE Station lands' "STATION N+" sections no longer count as printed
 // ability lines, so their {T} mana ability is served instead of skipped as
 // "xmage text ambiguous" (EOE mana 17 -> 23, ambiguous 6 -> 0).
+//
+// Re-measured for the activation-cost fixture ticket
+// (cli-20261006T144108Z-00fe26be): a Sac cost naming a token a maker card can
+// produce, and a tapXType total-power/count cost, are served from a prelude
+// that makes the tokens; and the tapXType description field no longer glues
+// to the filter. EOE Ragost, Deft Gastronaut's {1}{T}, Sacrifice a Food
+// ability is served (EOE battlefield 36 -> 37, Sac<token> 1 -> 0); FDN
+// Lathril, Blade of the Elves' tapXType<10/Elf> is now recognised as a
+// count above the catalogue rather than an unsupported filter (FDN
+// unsupported-filter 1 -> 0, count-above-catalogue 0 -> 1).
 var wantActivateCensus = map[string]map[string]int{
 	"BIG": {
 		"served:activate.battlefield":        11,
@@ -98,18 +108,17 @@ var wantActivateCensus = map[string]map[string]int{
 		"skip:activate no fixture":           1,
 	},
 	"EOE": {
-		"served:activate.battlefield":             36,
+		"served:activate.battlefield":             37,
 		"served:activate.mana":                    23,
-		"skip:activate cost gap: Sac<token>":      1,
 		"skip:activate cost gap: SubCounter<...>": 1,
 		"skip:activate cost gap: tapXType<X>":     1,
 	},
 	"FDN": {
-		"served:activate.battlefield":                          85,
-		"served:activate.graveyard":                            2,
-		"served:activate.mana":                                 53,
-		"skip:activate cost gap: tapXType<unsupported-filter>": 1,
-		"skip:activate no fixture":                             5,
+		"served:activate.battlefield":                             85,
+		"served:activate.graveyard":                               2,
+		"served:activate.mana":                                    53,
+		"skip:activate cost gap: tapXType<count-above-catalogue>": 1,
+		"skip:activate no fixture":                                5,
 	},
 	"FRA": {
 		"served:activate.battlefield":                                      71,

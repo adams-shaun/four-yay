@@ -109,7 +109,7 @@ func activateAbility(reg *cards.Registry, f *cards.Face, name string, req levelb
 // the named level-B item. A restriction names the extra setup the ability's
 // offer gates need; the bare scenario is tried first, then the restricted one.
 func activateWith(reg *cards.Registry, f *cards.Face, name string, req levelb.Requirement, idx int, prefix, mana, cost, zone string, slots []oraclegen.Slot, restrictions []conditionPrelude) (oraclegen.Item, bool) {
-	preludes := append([]conditionPrelude{{}}, restrictions...)
+	preludes := withTokenCostPrelude(reg, cost, append([]conditionPrelude{{}}, restrictions...))
 	for _, fx := range oraclegen.Fixtures(reg, slots) {
 		for _, pre := range preludes {
 			it, ok := activateWithFixture(reg, f, name, req, idx, prefix, mana, cost, zone, fx, pre)
@@ -319,26 +319,14 @@ func isNumericBracket(tok string) bool {
 	return err == nil
 }
 
-// discardFixtureSupported covers the two v1 discard selectors: any card and
-// a legendary card. Both use a single card, so one deterministic hand fixture
-// is sufficient and the engine/XMage answer translation selects it.
-func discardFixtureSupported(tok string) bool {
-	payload, ok := bracketPayload(tok)
-	if !ok {
-		return false
-	}
-	parts := strings.Split(payload, "/")
-	return len(parts) >= 2 && parts[0] == "1" &&
-		(strings.EqualFold(parts[1], "Card") || strings.EqualFold(parts[1], "Card.Legendary"))
-}
-
 func selfZoneCost(tok string) bool {
 	payload, ok := bracketPayload(tok)
 	if !ok {
 		return false
 	}
 	parts := strings.Split(payload, "/")
-	return len(parts) >= 2 && parts[0] == "1" && strings.EqualFold(parts[1], "CARDNAME")
+	return len(parts) >= 2 && parts[0] == "1" &&
+		(strings.EqualFold(parts[1], "CARDNAME") || strings.EqualFold(parts[1], "NICKNAME"))
 }
 
 // graveyardCreatureCost recognises ExileFromGrave<1/Creature.Other[/text]>:
@@ -367,6 +355,7 @@ func addActivationCostAnswers(answers [][]oraclegen.XAnswer, step int, cost stri
 	if step < 0 || step >= len(answers) {
 		return
 	}
+	var tokenPicks []string
 	for _, tok := range costTokens(cost) {
 		head := tok
 		if i := strings.IndexByte(tok, '<'); i >= 0 {
@@ -378,15 +367,7 @@ func addActivationCostAnswers(answers [][]oraclegen.XAnswer, step int, cost stri
 			if selfZoneCost(tok) {
 				break
 			}
-			payload, _ := bracketPayload(tok)
-			if strings.Contains(strings.ToLower(payload), "legendary") {
-				picks = []string{"Ajani, Caller of the Pride"}
-			} else {
-				picks = discardCostFixtures(tok)
-				if len(picks) == 0 {
-					picks = []string{"Wastes"}
-				}
-			}
+			picks = discardCostPlacement(tok)
 		case "ExileFromGrave", "ExileCtrlOrGrave", "CollectEvidence", "Exile":
 			picks = activationCostFixturesX(tok, activationX(cost))
 		case "Sac":
@@ -405,18 +386,29 @@ func addActivationCostAnswers(answers [][]oraclegen.XAnswer, step int, cost stri
 					observed = true
 					if i < len(d.Picks) {
 						picks = append(picks, d.Picks[i])
+						if i < len(d.ObjectPicks) {
+							picks[len(picks)-1] = xmageTokenName(d.Picks[i], d.ObjectPicks[i])
+						}
 					}
 				}
 			}
 			// A self-sacrifice is usually a singleton with no ask. For cases
 			// with no observed sacrifice decision, use the deterministic fixture.
 			if !observed {
-				if card, ok := sacFilterFixture(tok); ok {
-					picks = []string{card}
+				if cards, ok := sacFilterFixtures(tok); ok {
+					picks = cards
+				} else if needs, ok := tokenCostNeeds(tok); ok {
+					picks = tokenCostAnswerNames(needs)
 				}
 			}
 		}
 		for _, pick := range picks {
+			if isTokenPick(pick) {
+				// Token picks repeat (one answer per token), so they
+				// bypass the dedupe below.
+				tokenPicks = append(tokenPicks, pick)
+				continue
+			}
 			present := false
 			for _, answer := range answers[step] {
 				if answer.Seat == 0 && answer.Kind == "choice" && strings.EqualFold(answer.Value, pick) {
@@ -429,6 +421,7 @@ func addActivationCostAnswers(answers [][]oraclegen.XAnswer, step int, cost stri
 			}
 		}
 	}
+	answers[step] = appendTokenAnswers(answers[step], 0, tokenPicks...)
 	addTapXTypeAnswers(answers, step, cost, decisions)
 }
 
@@ -503,16 +496,8 @@ func addActivationCostFixtures(p0 *oraclegen.Seat, cost string) {
 			if selfZoneCost(tok) {
 				break
 			}
-			payload, _ := bracketPayload(tok)
-			if strings.Contains(strings.ToLower(payload), "legendary") {
-				p0.Hand = appendFixtureUnique(p0.Hand, "Ajani, Caller of the Pride")
-			} else {
-				for _, name := range discardCostFixtures(tok) {
-					p0.Hand = appendFixtureUnique(p0.Hand, name)
-				}
-				if len(discardCostFixtures(tok)) == 0 {
-					p0.Hand = appendFixtureUnique(p0.Hand, "Wastes")
-				}
+			for _, name := range discardCostPlacement(tok) {
+				p0.Hand = appendFixtureUnique(p0.Hand, name)
 			}
 		case "ExileFromGrave", "ExileCtrlOrGrave", "CollectEvidence":
 			for _, name := range activationCostFixturesX(tok, activationX(cost)) {
@@ -525,8 +510,10 @@ func addActivationCostFixtures(p0 *oraclegen.Seat, cost string) {
 		case "Sac":
 			// The fixture table is the single authority; a self-sacrifice
 			// places nothing (the source is already on the battlefield).
-			if card, ok := sacFilterFixture(tok); ok {
-				p0.Battlefield = appendFixtureUnique(p0.Battlefield, card)
+			if cards, ok := sacFilterFixtures(tok); ok {
+				for _, card := range cards {
+					p0.Battlefield = appendFixtureUnique(p0.Battlefield, card)
+				}
 			}
 		}
 	}
