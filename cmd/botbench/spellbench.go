@@ -298,6 +298,10 @@ func sbSubmitWithFallback(seats []seat.Seat, res *sbResult) func(*rules.Engine, 
 }
 
 func sbPlay(g sbGame, deck []*cards.Card, reg *cards.Registry, maxTurns, maxIntents int) sbResult {
+	return sbPlayWithPool(g, deck, reg, maxTurns, maxIntents, &sbSparePool)
+}
+
+func sbPlayWithPool(g sbGame, deck []*cards.Card, reg *cards.Registry, maxTurns, maxIntents int, pool *gbench.SparePool) sbResult {
 	var res sbResult
 	seats := make([]seat.Seat, 2)
 	for s := 0; s < 2; s++ {
@@ -318,16 +322,16 @@ func sbPlay(g sbGame, deck []*cards.Card, reg *cards.Registry, maxTurns, maxInte
 	}
 	cfg := rules.Config{
 		Seed: g.seed, Names: []string{"p0", "p1"}, Decks: [][]*cards.Card{deck, deck},
-		Tokens: reg.Tokens, NameUniverse: reg.Cards, Mulligans: sbFlags.mulligans,
+		Tokens: reg.Tokens, NameUniverse: reg.AllCards(), Mulligans: sbFlags.mulligans,
 	}
 	// A finished game's storage backs the next game this worker plays
 	// (rules.Spare; reuse never changes a game -- the same contract
 	// playMatch's sparePool relies on).
-	spare, _ := sbSparePool.Get().(*rules.Spare)
-	if spare == nil {
-		spare = new(rules.Spare)
+	var spare *rules.Spare
+	if pool != nil {
+		spare = pool.Get()
+		cfg.Spare = spare
 	}
-	cfg.Spare = spare
 	// The decision arena backs the game's priority decisions, resolution
 	// contexts and LKI copies with chunks the Spare recycles. It is sound
 	// only when nothing read from the engine outlives its Release below: a
@@ -392,11 +396,10 @@ func sbPlay(g sbGame, deck []*cards.Card, reg *cards.Registry, maxTurns, maxInte
 			res.stats[s] = b.Stats
 		}
 	}
-	if err == nil && e != nil && !gbench.IsAbort(o.StallOn) {
+	if pool != nil && err == nil && e != nil && !gbench.IsAbort(o.StallOn) {
 		// The engine's last use: the outcome, corpus and stats above are
 		// plain values, and the seats that held it die with this call.
-		*spare = e.Release()
-		sbSparePool.Put(spare)
+		pool.Put(spare, e)
 	}
 	return res
 }
@@ -404,7 +407,7 @@ func sbPlay(g sbGame, deck []*cards.Card, reg *cards.Registry, maxTurns, maxInte
 // sbSparePool recycles finished spellbench games' storage (rules.Spare)
 // between the games a worker plays back to back. Which spare a game draws is
 // scheduling-dependent but invisible (rules.Spare's contract).
-var sbSparePool sync.Pool
+var sbSparePool gbench.SparePool
 
 // sbCorpusMember stamps each record with the recording seat's outcome and
 // encodes the game's records as one gzip member. A halted or truncated game's

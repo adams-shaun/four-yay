@@ -147,7 +147,7 @@ func identity(c *cards.Card) uint8 {
 func buildPool(reg *cards.Registry) (*pool, error) {
 	p := &pool{all: map[string]bool{}, cards: map[string]*cards.Card{}, keys: map[string][]string{}}
 	sup := effects.Supported()
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		if !eligible(c) || len(reg.Unsupported(c, sup)) > 0 {
 			continue
 		}
@@ -593,7 +593,7 @@ func playGame(reg *cards.Registry, decks []genDeck, seed uint64, maxTurns, maxIn
 	// Only a COMPLETED game reaches the replay verification (every stall kind
 	// returns early), and a completed game never crossed the cap, so the cap
 	// is inert on the replay; a cap-aborted game is never verified.
-	cfg := rules.Config{Names: names, Decks: dk, Tokens: reg.Tokens, Seed: seed, NameUniverse: reg.Cards,
+	cfg := rules.Config{Names: names, Decks: dk, Tokens: reg.Tokens, Seed: seed, NameUniverse: reg.AllCards(),
 		LoopGuard: objectCapGuard(maxObjects)}
 	var o gbench.Outcome
 	var e *rules.Engine

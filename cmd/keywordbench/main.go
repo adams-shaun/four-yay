@@ -19,6 +19,7 @@ import (
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/internal/bench"
 	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/replay"
 	"github.com/adams-shaun/gorge/rules"
@@ -145,7 +146,7 @@ func corpusReport(w io.Writer, dir string, reg *cards.Registry) error {
 	for _, line := range strings.Split(strings.TrimSpace(string(rawBytes)), "\n") {
 		raw[cards.KeywordHead(strings.TrimSpace(strings.TrimPrefix(line, "K:")))]++
 	}
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		seen := map[string]bool{}
 		for _, f := range c.Faces {
 			for _, line := range f.Keywords {
@@ -186,7 +187,7 @@ func corpusReport(w io.Writer, dir string, reg *cards.Registry) error {
 		}
 		return a < b
 	})
-	fmt.Fprintf(w, "# corpus: %d compiled cards; raw binary=/usr/bin/grep -rhI '^K:' %s/cardsfolder; tokens excluded\n", len(reg.Cards), dir)
+	fmt.Fprintf(w, "# corpus: %d compiled cards; raw binary=/usr/bin/grep -rhI '^K:' %s/cardsfolder; tokens excluded\n", reg.Len(), dir)
 	fmt.Fprintln(w, "keyword\tregistered\traw_K_lines\tcompiled_K_occurrences\tcompiled_cards")
 	for _, k := range order {
 		fmt.Fprintf(w, "%s\t%t\t%d\t%d\t%d\n", k, supported["kw:"+k], raw[k], occurrences[k], reach[k])
@@ -342,8 +343,22 @@ func (t tally) consume(g *state.Game, log []events.Event, seen map[string]bool) 
 	}
 }
 
-func play(cfg rules.Config, t tally) (string, error) {
+// sparePool recycles finished games' storage (rules.Spare) between the games
+// -games runs back to back; reuse never changes a game, so the tallies stay
+// byte-identical with or without it.
+var sparePool bench.SparePool
+
+func play(cfg rules.Config, t tally) (status string, err error) {
+	spare := sparePool.Get()
+	cfg.Spare = spare
 	e := rules.New(cfg)
+	defer func() {
+		// The replay below is the finished engine's last read; only a clean
+		// finish recycles, so a stalled or errored game's log is dropped.
+		if err == nil {
+			sparePool.Put(spare, e)
+		}
+	}()
 	mirror := e.G.Clone()
 	offset := len(e.L.Events) // New has already applied genesis/deal to the clone.
 	seen := map[string]bool{}
