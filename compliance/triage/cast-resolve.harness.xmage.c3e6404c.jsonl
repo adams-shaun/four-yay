@@ -1,4 +1,4 @@
-{"shape":{"template":"cast-resolve","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: Cast $CARD"},"key":"cast-resolve | harness | xmage | AssertionError: Can't find ability to activate command: Cast $CARD","cards":55}
+{"shape":{"template":"cast-resolve","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: Cast $CARD"},"key":"cast-resolve | harness | xmage | AssertionError: Can't find ability to activate command: Cast $CARD","cards":57}
 {"card":"Bottomless Pool","template":"cast-resolve","status":"harness","api":"UnlockDoor:ChangeZone","detail":"xmage: AssertionError: Can't find ability to activate command: Cast Bottomless Pool"}
 {"card":"Cease","template":"cast-resolve","status":"harness","api":"ChangeZone+GainLife+Draw","detail":"xmage: AssertionError: Can't find ability to activate command: Cast Cease"}
 {"card":"Central Elevator","template":"cast-resolve","status":"harness","api":"UnlockDoor:ChangeZone","detail":"xmage: AssertionError: Can't find ability to activate command: Cast Central Elevator"}
@@ -49,8 +49,10 @@
 {"card":"Surgical Suite","template":"cast-resolve","status":"harness","api":"UnlockDoor:ChangeZone","detail":"xmage: AssertionError: Can't find ability to activate command: Cast Surgical Suite"}
 {"card":"Thundertrap Trainer","template":"cast-resolve","status":"harness","api":"ChangesZone:Dig+ChangesZone:CopyPermanent","sets":["BLB"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Thundertrap Trainer"}
 {"card":"Ticket Booth","template":"cast-resolve","status":"harness","api":"UnlockDoor:ManifestDread","detail":"xmage: AssertionError: Can't find ability to activate command: Cast Ticket Booth"}
+{"card":"Treacherous Greed","template":"cast-resolve","status":"harness","api":"Draw+LoseLife+GainLife","sets":["MKM"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Treacherous Greed"}
 {"card":"Underwater Tunnel","template":"cast-resolve","status":"harness","api":"UnlockDoor:Surveil","detail":"xmage: AssertionError: Can't find ability to activate command: Cast Underwater Tunnel"}
 {"card":"Unfortunate Accident","template":"cast-resolve","status":"harness","api":"Charm","sets":["OTJ"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Unfortunate Accident"}
 {"card":"Unholy Annex","template":"cast-resolve","status":"harness","api":"Phase:Draw","detail":"xmage: AssertionError: Can't find ability to activate command: Cast Unholy Annex"}
+{"card":"Vanille, Cheerful l'Cie","template":"cast-resolve","status":"harness","api":"ChangesZone:Mill+Phase:Meld","sets":["FIN"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Vanille, Cheerful l'Cie"}
 {"card":"Walk-In Closet","template":"cast-resolve","status":"harness","api":"-","detail":"xmage: AssertionError: Can't find ability to activate command: Cast Walk-In Closet"}
 {"card":"Yip Yip!","template":"cast-resolve","status":"harness","api":"Pump","sets":["TLA"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Yip Yip!$target=@p1:Grizzly Bears"}
