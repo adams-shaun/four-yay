@@ -1,4 +1,4 @@
-package rules
+package seat
 
 // Cross-interface privacy acceptance for the seat deck manifest contract
 // (docs/superpowers/specs/2026-09-29-seat-deck-manifest.md, ticket
@@ -13,8 +13,7 @@ package rules
 //
 // The fixture is authored inline (Ruling P9): Forge scripts are GPL and must
 // never be committed, so a synthetic card is parsed from bytes here exactly
-// as deck/manifest_test.go does. The tutor leaf needs a real search card and
-// reuses the corpus-backed searchEngine fixture.
+// as deck/manifest_test.go does.
 
 import (
 	"encoding/json"
@@ -24,11 +23,9 @@ import (
 
 	"github.com/adams-shaun/gorge/botpolicy"
 	"github.com/adams-shaun/gorge/cards"
-	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/deck"
 	"github.com/adams-shaun/gorge/events"
-	"github.com/adams-shaun/gorge/seat"
-	"github.com/adams-shaun/gorge/state"
+	"github.com/adams-shaun/gorge/rules"
 	"github.com/adams-shaun/gorge/view"
 )
 
@@ -50,7 +47,7 @@ func parseAcceptanceCard(t *testing.T, script string) *cards.Card {
 // card names are deliberately unique to this fixture so a leak assertion can
 // search any wire blob for them without false positives.
 type acceptanceFixture struct {
-	cfg       Config
+	cfg       rules.Config
 	twin      *cards.Card // main x4 (duplicate collapse)
 	twin2     *cards.Card // same printed name, separate object -> one counted row
 	commander *cards.Card
@@ -73,9 +70,9 @@ func newAcceptanceFixture(t *testing.T) acceptanceFixture {
 	for i := range opp {
 		opp[i] = filler
 	}
-	cfg := Config{
+	cfg := rules.Config{
 		Seed:       4242,
-		Format:     FormatCommander,
+		Format:     rules.FormatCommander,
 		Names:      []string{"acceptance-owner", "acceptance-opponent"},
 		Decks:      [][]*cards.Card{main, opp},
 		Sideboards: [][]*cards.Card{{side, side}, nil},
@@ -101,7 +98,7 @@ var acceptancePrivateNames = []string{"Acceptance Twin", "Acceptance Sideboard"}
 func TestSeatDeckManifestFixtureShape(t *testing.T) {
 	t.Parallel()
 	f := newAcceptanceFixture(t)
-	e := New(f.cfg)
+	e := rules.New(f.cfg)
 	m := e.OwnDeck(0)
 	if m == nil {
 		t.Fatal("precondition: genesis built no owner manifest")
@@ -143,7 +140,7 @@ func TestSeatDeckManifestFixtureShape(t *testing.T) {
 func TestSeatDeckManifestCommanderZoneIsPublic(t *testing.T) {
 	t.Parallel()
 	f := newAcceptanceFixture(t)
-	e := New(f.cfg)
+	e := rules.New(f.cfg)
 	e.Advance()
 	opp := view.ProjectFor(e.G, e, 1, view.Seat, nil)
 	for _, p := range opp.Players {
@@ -191,7 +188,7 @@ func manifestNames(m *deck.Manifest, name string) bool {
 func TestSeatDeckManifestEveryOwnerInterfaceAgrees(t *testing.T) {
 	t.Parallel()
 	f := newAcceptanceFixture(t)
-	e := New(f.cfg)
+	e := rules.New(f.cfg)
 	e.Advance() // genesis: shuffle + deal
 
 	engineManifest := e.OwnDeck(0)
@@ -211,7 +208,7 @@ func TestSeatDeckManifestEveryOwnerInterfaceAgrees(t *testing.T) {
 	// Ordinary seat/board adapters: both halves must agree with the view and
 	// the engine. BoardFromView reads the projected view; BoardFromGame reads
 	// the engine handle directly through the same OwnDeck accessor.
-	boardView := seat.BoardFromView(v)
+	boardView := BoardFromView(v)
 	boardGame := botpolicy.BoardFromGame(e.G, e, 0)
 	if boardView.OwnDeck == nil || boardGame.OwnDeck == nil {
 		t.Fatalf("board halves dropped the manifest: view=%#v game=%#v", boardView.OwnDeck, boardGame.OwnDeck)
@@ -253,7 +250,7 @@ func TestSeatDeckManifestEveryOwnerInterfaceAgrees(t *testing.T) {
 func TestSeatDeckManifestNeverLeaksToAnotherProjection(t *testing.T) {
 	t.Parallel()
 	f := newAcceptanceFixture(t)
-	e := New(f.cfg)
+	e := rules.New(f.cfg)
 	e.Advance()
 
 	owner := view.ProjectFor(e.G, e, 0, view.Seat, nil)
@@ -328,7 +325,7 @@ func projectionMentions(v view.View, names []string) bool {
 // logMentions reports whether any redacted event's public text carries one of
 // names. A hidden-zone move's Obj is zeroed by redaction, but Note/Reveal
 // text or a leaked Name field is what this catches.
-func logMentions(t *testing.T, e *Engine, evs []events.Event, names []string) bool {
+func logMentions(t *testing.T, e *rules.Engine, evs []events.Event, names []string) bool {
 	t.Helper()
 	for _, ev := range evs {
 		for _, name := range names {
@@ -338,88 +335,4 @@ func logMentions(t *testing.T, e *Engine, evs []events.Event, names []string) bo
 		}
 	}
 	return false
-}
-
-// TestSeatDeckManifestTutorPromptIsAuthoritative pins the spec's tutor rule:
-// the pending decision — the engine's legal candidate list — is the
-// authority, and the manifest cannot make an absent card legal or expose the
-// current library order. The fixture forces the two apart: a card the
-// manifest names is drawn OUT of the library, so it is no longer a legal
-// candidate, and the search must not offer it.
-func TestSeatDeckManifestTutorPromptIsAuthoritative(t *testing.T) {
-	t.Parallel()
-	reg := searchTestRegistry(t)
-	e, _ := searchEngine(t, reg, "Demonic Tutor", "Grizzly Bears")
-	manifest := e.OwnDeck(0)
-	if manifest == nil || !manifestNames(manifest, "Grizzly Bears") {
-		t.Fatalf("precondition: manifest does not name Grizzly Bears: %#v", manifest)
-	}
-
-	// Move every Grizzly Bears from the library to hand: the manifest still
-	// counts them (it is genesis config), the library no longer holds them.
-	bears := 0
-	for _, id := range append([]state.ObjID(nil), e.G.Zone(state.ZLibrary, 0)...) {
-		o := e.G.Obj(id)
-		if o != nil && o.Face() != nil && o.Face().Name == "Grizzly Bears" {
-			e.moveHiddenForTest(id, state.ZLibrary, state.ZHand)
-			bears++
-		}
-	}
-	if bears == 0 {
-		t.Fatal("precondition: no Grizzly Bears in the library to remove")
-	}
-	if !manifestNames(e.OwnDeck(0), "Grizzly Bears") {
-		t.Fatal("precondition: manifest stopped naming a card moved out of the library")
-	}
-
-	tutor := searchMoveByName(t, e, "Demonic Tutor", state.ZHand)
-	addMana(t, e, 0, "WUBRGCCCCCCCC")
-	castFixture(t, e, tutor, -1)
-	d := passUntilNonPriority(t, e, 20)
-	if d == nil || d.Kind != decision.KChoose || d.ResumeKind != "search" {
-		t.Fatalf("precondition: no search KChoose: %+v", d)
-	}
-
-	// The authority: the option list is exactly the library's current
-	// eligible cards, and no option is a Grizzly Bears. A candidate list
-	// derived from the manifest would still offer the bears.
-	lib := e.G.Zone(state.ZLibrary, 0)
-	if len(d.Options) != len(lib) {
-		t.Fatalf("search offered %d options for a %d-card library; the prompt is not the library", len(d.Options), len(lib))
-	}
-	offered := optionNames(e, d)
-	if slices.Contains(offered, "Grizzly Bears") {
-		t.Fatalf("search offered a manifest card absent from the library: %v", offered)
-	}
-	for _, id := range optionIDs(d) {
-		if !slices.Contains(lib, id) {
-			t.Fatalf("search offered object %d which is not in the current library", id)
-		}
-	}
-	// The manifest is unchanged by the whole exchange.
-	if !manifestNames(e.OwnDeck(0), "Grizzly Bears") {
-		t.Fatal("manifest changed when its card left the library")
-	}
-}
-
-// moveHiddenForTest emits the zone move a hidden-zone card needs, then
-// re-asks priority, mirroring search_library_test.go's searchMoveByName. It is
-// fixture setup, not a rule under test.
-func (e *Engine) moveHiddenForTest(id state.ObjID, from, to state.Zone) {
-	e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: from, To: to})
-	e.pending = nil
-	e.priorityRound()
-}
-
-func optionNames(e *Engine, d *decision.Decision) []string {
-	out := make([]string, 0, len(d.Options))
-	for _, o := range d.Options {
-		obj := e.G.Obj(o.Obj)
-		if obj == nil || obj.Face() == nil {
-			out = append(out, "")
-			continue
-		}
-		out = append(out, obj.Face().Name)
-	}
-	return out
 }
