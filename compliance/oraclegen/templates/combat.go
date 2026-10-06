@@ -54,6 +54,9 @@ func combatRequirement(reg *cards.Registry, f *cards.Face, name string, req leve
 	}
 	n, res, ok := oraclegen.Settle(reg, sc)
 	if !ok || len(res.Fails) != 0 {
+		if it, sk, served := combatNotOffered(reg, f, name, req); served {
+			return it, sk
+		}
 		if req.Sub == "combat.block" {
 			return skip("block not offered")
 		}

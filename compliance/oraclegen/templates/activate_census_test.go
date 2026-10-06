@@ -75,12 +75,11 @@ var activateCensusSets = []string{"BIG", "EOE", "FDN", "FRA"}
 // instead of a no-fixture skip (EOE mana 16 -> 17, no-fixture 1 -> 0).
 var wantActivateCensus = map[string]map[string]int{
 	"BIG": {
-		"served:activate.battlefield":             10,
-		"served:activate.hand":                    2,
-		"served:activate.mana":                    4,
-		"skip:activate cost gap: Sac<token>":      1,
-		"skip:activate cost gap: SubCounter<...>": 1,
-		"skip:activate no fixture":                1,
+		"served:activate.battlefield":        11,
+		"served:activate.hand":               2,
+		"served:activate.mana":               4,
+		"skip:activate cost gap: Sac<token>": 1,
+		"skip:activate no fixture":           1,
 	},
 	"EOE": {
 		"served:activate.battlefield":             36,
@@ -91,10 +90,9 @@ var wantActivateCensus = map[string]map[string]int{
 		"skip:activate xmage text ambiguous":      6,
 	},
 	"FDN": {
-		"served:activate.battlefield":                          81,
+		"served:activate.battlefield":                          84,
 		"served:activate.graveyard":                            2,
-		"served:activate.mana":                                 52,
-		"skip:activate cost gap: SubCounter<...>":              4,
+		"served:activate.mana":                                 53,
 		"skip:activate cost gap: tapXType<unsupported-filter>": 1,
 		"skip:activate no fixture":                             6,
 	},

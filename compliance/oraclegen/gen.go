@@ -47,30 +47,32 @@ type Seat struct {
 	// the card enters with. Like Tapped it names every placement of that
 	// card. A planeswalker's loyalty headroom and a "creature with a +1/+1
 	// counter" target fixture ride it.
-	Counters map[string]map[string]int `json:"counters,omitempty"`
+	Counters map[string]map[string]int32 `json:"counters,omitempty"`
+	// Speed is the seat's starting speed, 0..4 (the runner's setup field).
+	Speed int32 `json:"speed,omitempty"`
 }
 
 // WithCounters returns s with n more counters of kind on its card name. The
 // map is copied, so a fixture's seat is never mutated through a shared map.
-func WithCounters(s Seat, name, kind string, n int) Seat {
+func WithCounters(s Seat, name, kind string, n int32) Seat {
 	s.Counters = cloneCounters(s.Counters)
 	if s.Counters == nil {
-		s.Counters = map[string]map[string]int{}
+		s.Counters = map[string]map[string]int32{}
 	}
 	if s.Counters[name] == nil {
-		s.Counters[name] = map[string]int{}
+		s.Counters[name] = map[string]int32{}
 	}
 	s.Counters[name][kind] += n
 	return s
 }
 
-func cloneCounters(m map[string]map[string]int) map[string]map[string]int {
+func cloneCounters(m map[string]map[string]int32) map[string]map[string]int32 {
 	if m == nil {
 		return nil
 	}
-	out := make(map[string]map[string]int, len(m))
+	out := make(map[string]map[string]int32, len(m))
 	for card, kinds := range m {
-		k := make(map[string]int, len(kinds))
+		k := make(map[string]int32, len(kinds))
 		for kind, n := range kinds {
 			k[kind] = n
 		}
@@ -136,12 +138,19 @@ type CanBlock struct {
 	Attacker string `json:"attacker"`
 }
 
+// CanAttack asserts whether Attacker is among the attackers the pending
+// declare-attackers decision offers (rules/oracle_can_attack.go).
+type CanAttack struct {
+	Attacker string `json:"attacker"`
+}
+
 type Expect struct {
-	TriggerOnStack string    `json:"trigger_on_stack,omitempty"`
-	StackSize      *int      `json:"stack_size,omitempty"`
-	Offered        *Offered  `json:"offered,omitempty"`
-	CanBlock       *CanBlock `json:"can_block,omitempty"`
-	Want           *bool     `json:"want,omitempty"`
+	TriggerOnStack string     `json:"trigger_on_stack,omitempty"`
+	StackSize      *int       `json:"stack_size,omitempty"`
+	Offered        *Offered   `json:"offered,omitempty"`
+	CanBlock       *CanBlock  `json:"can_block,omitempty"`
+	CanAttack      *CanAttack `json:"can_attack,omitempty"`
+	Want           *bool      `json:"want,omitempty"`
 }
 
 // Answer is a queued answer for gorge's runner (kind = decision kind).
@@ -236,6 +245,37 @@ func mayYes(sc Scenario, ds []rules.OracleDecision) (Scenario, bool) {
 	for _, d := range ds {
 		if d.Step < 0 || d.Step >= len(out.Steps) || d.Options == 0 || d.First == "" ||
 			d.Via == "target" || d.Via == "answer" || (d.GorgeKind != "choose" && d.GorgeKind != "target") {
+			continue
+		}
+		st := out.Steps[d.Step]
+		st.Answers = append(append([]Answer(nil), st.Answers...), Answer{Kind: d.GorgeKind, Pick: []string{d.First}})
+		out.Steps[d.Step] = st
+		changed = true
+	}
+	return out, changed
+}
+
+// searchPicks queues, on the hidden-library-search step that posed it, an
+// answer taking the search's first eligible card. Gorge's deterministic
+// fallback declines an "up to N" hidden search (CR 701.19b fail-to-find),
+// and XMage poses a mandatory library search (Terramorphic Expanse's
+// TargetCardInLibrary 1..1) that rejects the resulting [target_skip] with
+// "Wrong skip command found". A declined search whose option list is
+// non-empty has a legal card, so re-running with the first eligible card
+// makes both engines find the same card. An optional "you may search"
+// shape poses a search_confirm yes/no first; when that confirm was declined
+// no search pick is posed, so there is nothing to queue, and when it was
+// accepted the search was actually made, so forcing its pick agrees with
+// XMage too. The answer is only kept when the replay consumes it (see the
+// caller's PlaysThrough guard), so a search XMage never reaches falls back
+// to the decline pair.
+func searchPicks(sc Scenario, ds []rules.OracleDecision) (Scenario, bool) {
+	out := sc
+	out.Steps = append([]Step(nil), sc.Steps...)
+	changed := false
+	for _, d := range ds {
+		if d.Step < 0 || d.Step >= len(out.Steps) || d.Options == 0 || d.First == "" ||
+			d.Kind != "choose_n" || d.Resume != "search" || len(d.Picks) != 0 {
 			continue
 		}
 		st := out.Steps[d.Step]

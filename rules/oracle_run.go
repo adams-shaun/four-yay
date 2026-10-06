@@ -97,6 +97,9 @@ type oracleSeat struct {
 	// stands in for an unspecified outside effect, as logged CounterChange
 	// events, so the scenario still replays from its log.
 	Counters map[string]map[string]int32 `json:"counters,omitempty"`
+	// Speed is the seat's starting speed (CR 702.179), 0..4, set with a
+	// SpeedChange event during setup.
+	Speed int32 `json:"speed,omitempty"`
 }
 
 // setupCounters lists the counters a seat's setup puts on a battlefield
@@ -187,6 +190,7 @@ type oracleExpect struct {
 	StackSize      *int              `json:"stack_size,omitempty"`
 	Offered        *oracleOffered    `json:"offered,omitempty"`
 	CanBlock       *oracleCanBlock   `json:"can_block,omitempty"`
+	CanAttack      *oracleCanAttack  `json:"can_attack,omitempty"`
 	Count          *oracleCount      `json:"count,omitempty"`
 	Eq             *int              `json:"eq,omitempty"`
 	Want           *bool             `json:"want,omitempty"`
@@ -435,6 +439,9 @@ func (r *oracleRun) build(sc oracleScenario) error {
 			}
 			sideboards[p] = append(sideboards[p], c)
 		}
+		if err := validateSetupState(p, s); err != nil {
+			return err
+		}
 	}
 	cfg := Config{Seed: 42, Names: []string{"a", "b"}, Decks: decks, Tokens: r.reg.Tokens, NamedCorpus: r.reg.Cards}
 	for p := range sideboards {
@@ -574,6 +581,7 @@ func (r *oracleRun) build(sc oracleScenario) error {
 				e.emit(events.Event{Kind: events.LifeChange, Player: pid, Amount: d})
 			}
 		}
+		emitSetupSpeed(e.emit, p, e.G.Players[p].Speed, sc.Setup[fmt.Sprintf("p%d", p)])
 	}
 	if sc.xmageFixture {
 		// Generated scenarios start from a position XMage creates with
@@ -1708,6 +1716,13 @@ func (r *oracleRun) check(x oracleExpect) []string {
 				failf("%s can block %s = %v, want %v", x.CanBlock.Blocker, x.CanBlock.Attacker, found, r.wantBool(x))
 			}
 		}
+	}
+	if x.CanAttack != nil {
+		id, err := r.resolve(x.CanAttack.Attacker)
+		if err != nil {
+			return []string{err.Error()}
+		}
+		bad = append(bad, canAttackFails(e.Pending(), id, x.CanAttack.Attacker, r.wantBool(x))...)
 	}
 	if x.Count != nil {
 		z, ok := oracleZones[x.Count.Zone]

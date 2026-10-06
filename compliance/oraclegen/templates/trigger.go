@@ -26,7 +26,7 @@ var TriggerFires = Template{ID: "trigger", Version: 1}
 // trigger.gap:* still skips.
 func triggerSubs(sub string) bool {
 	switch sub {
-	case "trigger.etb-other", "trigger.dies", "trigger.attacks", "trigger.combat-damage",
+	case "trigger.etb-other", "trigger.etb-land", "trigger.dies", "trigger.attacks", "trigger.combat-damage",
 		"trigger.spell-cast", "trigger.spell-cast-self", "trigger.becomes-target", "trigger.life-gained", "trigger.drawn", "trigger.phase",
 		"trigger.dies-other", "trigger.scry", "trigger.surveil", "trigger.noncombat-damage", "trigger.combat-damage-all",
 		"trigger.loyalty-activated", "trigger.discarded", "trigger.attacks-one-target":
@@ -178,7 +178,7 @@ func triggerScenario(f *cards.Face, name string, c triggerCause, req levelb.Requ
 		sort.Strings(counterKinds)
 		for _, kind := range counterKinds {
 			count := kinds[kind]
-			p0 = oraclegen.WithCounters(p0, card, kind, count)
+			p0 = oraclegen.WithCounters(p0, card, kind, int32(count))
 		}
 	}
 	scenarioSteps := triggerSteps(f, name, c, steps, fx)

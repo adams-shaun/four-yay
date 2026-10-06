@@ -143,7 +143,7 @@ func runCheck(args []string, out, errw io.Writer) int {
 	fs := flag.NewFlagSet("check", flag.ContinueOnError)
 	fs.SetOutput(errw)
 	events := fs.String("events", "", "per-test events file written by `testbudget tee` (or `go test -json` output)")
-	rssDir := fs.String("rss-dir", "", "directory the `testbudget exec` wrapper recorded peak RSS in")
+	rssDir := fs.String("rss-dir", "", "directory test binaries recorded peak RSS in")
 	wallFile := fs.String("wall-exceptions", "internal/testutil/testdata/wall_exceptions.txt", "shrink-only wall inventory")
 	rssFile := fs.String("rss-exceptions", "internal/testutil/testdata/rss_exceptions.txt", "shrink-only RSS inventory")
 	gomod := fs.String("gomod", "go.mod", "go.mod naming the module")
