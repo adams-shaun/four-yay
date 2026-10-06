@@ -10,7 +10,7 @@ import (
 func TestEngineCompiledTextEvictsOldestEntryOnly(t *testing.T) {
 	// This sequential test owns the cache while it constructs the exact bound.
 	compiledTextCache.Lock()
-	compiledTextCache.entries = make(map[*cards.Card][]*compiledTextCacheEntry)
+	compiledTextCache.entries = make(map[uintptr][]*compiledTextCacheEntry)
 	compiledTextCache.order = nil
 	compiledTextCache.n = 0
 	compiledTextCache.Unlock()

@@ -35,6 +35,11 @@ type PredicatePrograms struct {
 	// known also sees member, and every answer is the texts search's.
 	known  [specIDWords]atomic.Uint64
 	member [specIDWords]atomic.Uint64
+	// parent is a shared lower layer (an engine's token-script programs):
+	// a spec is a member when it is in texts or in parent. Membership is all
+	// a set decides -- a member's program is a pure function of its text --
+	// so the layered set answers exactly as the union of both texts would.
+	parent *PredicatePrograms
 }
 
 // specIDWords covers every compiledSpec.id (1..compiledSpecCacheMax).
@@ -106,9 +111,15 @@ type predicateTerm struct {
 // evaluated using only the candidate object and SpecContext. The compiler
 // preserves unknown text as maybe rather than treating it as a non-match.
 func CompilePredicatePrograms(specs []string) *PredicatePrograms {
+	return CompilePredicateProgramsOver(nil, specs)
+}
+
+// CompilePredicatePrograms over parent: the set of specs plus every member
+// of parent (nil: none). parent is shared, never modified.
+func CompilePredicateProgramsOver(parent *PredicatePrograms, specs []string) *PredicatePrograms {
 	texts := append([]string(nil), specs...)
 	sort.Strings(texts)
-	programs := &PredicatePrograms{}
+	programs := &PredicatePrograms{parent: parent}
 	for _, spec := range texts {
 		if spec == "" {
 			continue
@@ -124,7 +135,10 @@ func CompilePredicatePrograms(specs []string) *PredicatePrograms {
 // isMember is the text membership search.
 func (ps *PredicatePrograms) isMember(spec string) bool {
 	i := sort.SearchStrings(ps.texts, spec)
-	return i < len(ps.texts) && ps.texts[i] == spec
+	if i < len(ps.texts) && ps.texts[i] == spec {
+		return true
+	}
+	return ps.parent != nil && ps.parent.isMember(spec)
 }
 
 // lookup is isMember with the program: spec's program when it is a member
