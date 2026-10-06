@@ -385,14 +385,14 @@ func runDiff(dir, scen, xm, cacheDir, out, write, ref, rulingDir string) error {
 			row.Verdict = oraclediff.Verdict{Status: oraclediff.Harness, Engine: "xmage", Msg: "no XMage result"}
 		} else {
 			g, gerr := rules.RunOracleScenarioJSON(reg, it.Raw())
-			row.Verdict = oraclediff.Compare(g, gerr, x, it.Ignore...)
+			row.Verdict = oraclediff.CompareOpts(g, gerr, x, it.Compare, it.Ignore...)
 			row.XMageMS = x.MS
 			vr := compliance.VerdictRow{Card: it.Card, Template: it.Template, ID: it.ID,
 				ScenarioSHA: sha, XMageRef: ref}
 			switch row.Verdict.Status {
 			case oraclediff.Agree:
 				vr.Status = compliance.StatusAgree
-				vr.Frozen = oraclediff.Freeze(g, it.Ignore...)
+				vr.Frozen = oraclediff.FreezeOpts(g, it.Compare, it.Ignore...)
 				if x.StrictMiss != "" {
 					vr.Detail = "xmage chose unscripted (gorge posed no such decision): " + firstLine(x.StrictMiss)
 				} else if x.Leftover != "" {
@@ -417,7 +417,7 @@ func runDiff(dir, scen, xm, cacheDir, out, write, ref, rulingDir string) error {
 			if r, _, _ := shape.Classify(&vr, rs, cardAPI(reg, it.Card)); r != nil {
 				auto[r.ID]++
 				if vr.Status == compliance.StatusXMageWrong {
-					vr.Frozen = oraclediff.Freeze(g, it.Ignore...)
+					vr.Frozen = oraclediff.FreezeOpts(g, it.Compare, it.Ignore...)
 				}
 			}
 			rows = append(rows, vr)
