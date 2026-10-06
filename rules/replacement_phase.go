@@ -92,7 +92,7 @@ func (e *Engine) applyBeginPhaseReplacement(ev events.Event, m replMatch) (event
 	// next turn begin correctly, and no corpus line names it. Bounding the
 	// emission here also bounds the chain recursion.
 	if ev.Step < state.StepCleanup {
-		e.emit(events.Event{Kind: events.StepChange, Step: e.skipFirstDrawStep(ev.Step + 1)})
+		e.emit(events.Event{Kind: events.StepChange, Step: skipFirstDrawStep(len(e.G.Players), e.G.Turn, ev.Step+1)})
 	}
 	return ev, true
 }

@@ -436,8 +436,8 @@ func (e *Engine) finishUntapStep(next int) bool {
 // natural advance (advanceStep, and a BeginPhase replacement that skips the
 // upkeep step) routes the proposed step through here; the replay folds the
 // StepChange the engine actually emitted, so it needs no separate rule.
-func (e *Engine) skipFirstDrawStep(next state.Step) state.Step {
-	if next == state.StepDraw && len(e.G.Players) == 2 && e.G.Turn <= 1 {
+func skipFirstDrawStep(seats int, turn int32, next state.Step) state.Step {
+	if next == state.StepDraw && seats == 2 && turn <= 1 {
 		return state.StepMain1
 	}
 	return next
@@ -1175,7 +1175,7 @@ func (e *Engine) advanceStep() {
 	if s, ok := e.extraPhaseBoundary(); ok {
 		next = s
 	} else {
-		next = e.skipFirstDrawStep(next)
+		next = skipFirstDrawStep(len(e.G.Players), e.G.Turn, next)
 	}
 	e.setStep(next)
 	if e.pending != nil {
