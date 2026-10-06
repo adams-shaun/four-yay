@@ -901,17 +901,12 @@ func (r *oracleRun) do(st oracleStep) error {
 			return err
 		}
 		// A cast picks the option whose Mode matches: "kicked" for a kicked
-		// cast, an explicit cast_mode (flashback, evoke, ...) when given, and
-		// otherwise the plain cast -- or, when the card offers only a
+		// cast, an explicit cast_mode (flashback, evoke, ...) when given, the
+		// Adventure offer for a ref naming an Adventure face, and otherwise
+		// the plain cast -- or, when the card offers only a
 		// permission-mode cast (a graveyard "mayplay"), that one.
 		idx, fallback, manaFallback := -1, -1, -1
-		wantMode := st.CastMode
-		if st.Kicked {
-			wantMode = "kicked"
-		}
-		if wantMode == "" && st.Op == "cast" {
-			wantMode = r.faceCastMode(st.Card, id) // an Adventure face ref
-		}
+		wantMode := oracleCastWantMode(st, e.G.Obj(id))
 		// A named mana ability lives behind the generic "Activate <card> for
 		// mana" priority option: the engine asks a second-stage KChoose over
 		// the source's available mana abilities (or, when exactly one is

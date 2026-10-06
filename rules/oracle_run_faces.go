@@ -25,13 +25,20 @@ func oracleAltFaceMode(o *state.Object, name string) string {
 	return ""
 }
 
-// faceCastMode is the cast mode a cast step's ref implies: the alternate
-// face's mode when the ref names one of id's alternate spell faces, else ""
-// (the ordinary cast).
-func (r *oracleRun) faceCastMode(ref string, id state.ObjID) string {
-	_, name, token, _, err := splitRef(ref)
+// oracleCastWantMode is the cast option Mode a cast step on o asks for: "kicked" for
+// a kicked cast, else its explicit cast_mode, else the alternate face's mode
+// when the step's ref names one of o's alternate spell faces, else "" (the
+// ordinary cast).
+func oracleCastWantMode(st oracleStep, o *state.Object) string {
+	if st.Kicked {
+		return "kicked"
+	}
+	if st.CastMode != "" {
+		return st.CastMode
+	}
+	_, name, token, _, err := splitRef(st.Card)
 	if err != nil || token {
 		return ""
 	}
-	return oracleAltFaceMode(r.e.G.Obj(id), name)
+	return oracleAltFaceMode(o, name)
 }
