@@ -12,9 +12,16 @@
 //     is the prefix.
 //   - A keyword-expanded AB (Equip, Cycling, Station, ...) maps to its
 //     keyword line's text ("Equip {2}"), found by the keyword's printed name.
+//   - A loyalty cost prints as XMage does ("+1", "-3", "0", "-X"), without
+//     the Oracle brackets.
+//   - When two lines share the exact same prefix, each is extended a word at
+//     a time into its own {this}-rewritten rule text until no other line
+//     starts with it ("+1: Exile" vs "+1: Add").
+//   - An injected basic-land-type mana ability with no printed line maps to
+//     XMage's "{T}: Add {C}." text.
 //   - When the two ordinal counts differ, a keyword line cannot be found, or
-//     two abilities share a prefix, the mapping is ambiguous and the caller
-//     skips.
+//     two abilities still share a prefix, the mapping is ambiguous and the
+//     caller skips.
 package oraclegen
 
 import (
@@ -52,45 +59,46 @@ func XMageAbility(f *cards.Face) (map[int]string, string) {
 	}
 	out := make(map[int]string, len(f.Abilities))
 	seen := make(map[string]bool)
+	// full and base live in the same {this}-rewritten text space, so a shared
+	// self-referential cost ("{T}, Sacrifice {this}") is seen as shared and an
+	// extension into the rule text never copies the printed name.
 	full := make([]string, len(nonKeyword))
 	base := make([]string, len(nonKeyword))
 	for k, i := range nonKeyword {
-		full[k] = lines[k]
+		full[k] = selfRef(lines[k], f.Name)
 		base[k] = linePrefix(lines[k], f.Name)
 		if loyalty := loyaltyCost(f.Abilities[i].ParamStr(cards.PKCost)); loyalty != "" {
-			colon := strings.Index(lines[k], ": ")
+			colon := strings.Index(full[k], ": ")
 			if colon < 0 {
 				return nil, "activate xmage text ambiguous"
 			}
-			full[k] = loyalty + ": " + strings.TrimSpace(lines[k][colon+2:])
+			full[k] = loyalty + ": " + strings.TrimSpace(full[k][colon+2:])
 			base[k] = loyalty
 		}
 	}
 	for k, i := range nonKeyword {
 		prefix := base[k]
-		for len(prefix) < len(full[k]) && conflictsWithOtherLine(prefix, k, full) {
-			end := len(prefix)
-			for end < len(full[k]) {
-				end++
-				if full[k][end-1] == ' ' {
-					for end < len(full[k]) && full[k][end] != ' ' {
-						end++
-					}
-					break
-				}
+		if sharedBase(base, k) {
+			prefix = extendPrefix(prefix, full, k)
+			if conflictsWithOtherLine(prefix, k, full) || namesShortName(prefix[len(base[k]):], f.Name) {
+				return nil, "activate xmage text ambiguous"
 			}
-			prefix = full[k][:end]
 		}
-		if prefix == "" || conflictsWithOtherLine(prefix, k, full) {
+		if prefix == "" || seen[prefix] {
 			return nil, "activate xmage text ambiguous"
 		}
-		out[i] = prefix
 		seen[prefix] = true
+		out[i] = prefix
 	}
 	if !intrinsicHasLine {
 		for i, sa := range f.Abilities {
 			if sa.IsActivated() && intrinsicLandMana(sa) {
-				out[i] = intrinsicManaText(sa)
+				text := intrinsicManaText(sa)
+				if seen[text] {
+					return nil, "activate xmage text ambiguous"
+				}
+				seen[text] = true
+				out[i] = text
 			}
 		}
 	}
@@ -133,6 +141,38 @@ func loyaltyCost(cost string) string {
 	return ""
 }
 
+// sharedBase reports whether another ability line has exactly the same cost
+// prefix as line own (two "+1" loyalty abilities, two "{T}, Sacrifice
+// {this}" costs). Only such a shared prefix is extended; a cost that merely
+// starts another line's cost ("{T}" beside "{T}, Sacrifice {this}") keeps
+// its ordinal mapping.
+func sharedBase(base []string, own int) bool {
+	for i, b := range base {
+		if i != own && b == base[own] {
+			return true
+		}
+	}
+	return false
+}
+
+// extendPrefix lengthens prefix one word at a time into its own full line
+// until no other line starts with it, the longer prefix XMage's startsWith
+// selection needs to tell two same-cost abilities apart.
+func extendPrefix(prefix string, full []string, own int) string {
+	line := full[own]
+	for len(prefix) < len(line) && conflictsWithOtherLine(prefix, own, full) {
+		end := len(prefix)
+		for end < len(line) && line[end] == ' ' {
+			end++
+		}
+		for end < len(line) && line[end] != ' ' {
+			end++
+		}
+		prefix = line[:end]
+	}
+	return prefix
+}
+
 // conflictsWithOtherLine reports whether prefix would select another ability
 // line under XMage's startsWith matching rule.
 func conflictsWithOtherLine(prefix string, own int, lines []string) bool {
@@ -142,6 +182,15 @@ func conflictsWithOtherLine(prefix string, own int, lines []string) bool {
 		}
 	}
 	return false
+}
+
+// namesShortName reports whether text mentions the short name of a comma-
+// named card ("Chandra" for "Chandra, Torch of Defiance"). The Oracle prints
+// it where XMage's rule text has {this}, so an extension through it could not
+// match and the mapping fails closed.
+func namesShortName(text, name string) bool {
+	short, _, ok := strings.Cut(name, ",")
+	return ok && short != "" && strings.Contains(strings.ToLower(text), strings.ToLower(short))
 }
 
 // nonKeywordAbilities lists the indices of f's activated ABs that are not
@@ -223,30 +272,35 @@ func stripReminder(line string) string {
 }
 
 // linePrefix returns the text before the line's first ": ", the cost prefix
-// XMage matches on. XMage's no-argument AbilityImpl.getRule() leaves the
-// source placeholder literal, so a self-referential cost is rendered with
-// {this}, not the card's printed name.
+// XMage matches on, with the card's name rewritten by selfRef.
 func linePrefix(line, sourceName string) string {
 	i := strings.Index(line, ": ")
 	if i < 0 {
 		return ""
 	}
-	prefix := strings.TrimSpace(line[:i])
+	return selfRef(strings.TrimSpace(line[:i]), sourceName)
+}
+
+// selfRef rewrites every mention of the card's name in text to {this}:
+// XMage's no-argument AbilityImpl.getRule() leaves the source placeholder
+// literal, so a self-referential cost or effect is rendered with {this}, not
+// the card's printed name.
+func selfRef(text, sourceName string) string {
 	if sourceName == "" {
-		return prefix
+		return text
 	}
-	lowerPrefix, lowerName := strings.ToLower(prefix), strings.ToLower(sourceName)
+	lowerText, lowerName := strings.ToLower(text), strings.ToLower(sourceName)
 	for from := 0; ; {
-		rel := strings.Index(lowerPrefix[from:], lowerName)
+		rel := strings.Index(lowerText[from:], lowerName)
 		if rel < 0 {
 			break
 		}
 		start := from + rel
-		prefix = prefix[:start] + "{this}" + prefix[start+len(sourceName):]
-		lowerPrefix = lowerPrefix[:start] + "{this}" + lowerPrefix[start+len(sourceName):]
+		text = text[:start] + "{this}" + text[start+len(sourceName):]
+		lowerText = lowerText[:start] + "{this}" + lowerText[start+len(sourceName):]
 		from = start + len("{this}")
 	}
-	return prefix
+	return text
 }
 
 // keywordPrefix finds the keyword-expanded AB's printed line and returns its
