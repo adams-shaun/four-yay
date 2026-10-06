@@ -26,15 +26,15 @@ var wantStaticContinuousCensus = map[string]map[string]int{
 	},
 	"EOE": {
 		"served": 16,
-		"skip:static effect not observable on a probe or the card":                    13,
+		"skip:static effect not observable on a probe or the card":                    14,
 		"skip:static amount is a computed count the fixture does not make observable": 3,
-		"skip:static grants only keywords outside the compared evergreen set":         2,
+		"skip:static grants only keywords outside the compared evergreen set":         1,
 		"skip:static needs counters on the affected permanent":                        30,
 	},
 	"FDN": {
 		"served": 39,
-		"skip:static effect not observable on a probe or the card":                    28,
-		"skip:static amount is a computed count the fixture does not make observable": 5,
+		"skip:static effect not observable on a probe or the card":                    29,
+		"skip:static amount is a computed count the fixture does not make observable": 4,
 		"skip:static needs counters on the affected permanent":                        3,
 	},
 	"FRA": {

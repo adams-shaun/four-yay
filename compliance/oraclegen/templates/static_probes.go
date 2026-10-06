@@ -152,7 +152,19 @@ func staticProbeSpecs(reg *cards.Registry, names []string) map[string]staticProb
 // evergreen keyword set, or an amount counted from something the fixture
 // leaves at zero. "" is the generic reason.
 func staticGap(st cards.Static, affected string) string {
-	for _, w := range affectedWords(affected) {
+	words := affectedWords(affected)
+	// A static on an attachment (an Aura's EnchantedBy, an Equipment's
+	// EquippedBy/AttachedBy, a Fortification's FortifiedBy) lands on the
+	// permanent it attaches to, which the attachment prelude's scenario
+	// serves; its rows keep the generic reason rather than the narrower ones
+	// below, which belong to the probe cluster this ticket derives.
+	for _, w := range words {
+		switch w {
+		case "EnchantedBy", "EquippedBy", "AttachedBy", "FortifiedBy":
+			return ""
+		}
+	}
+	for _, w := range words {
 		switch {
 		case strings.HasPrefix(w, "counters_") || w == "HasCounters":
 			return "needs counters on the affected permanent"
