@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"cast","field":"stack","diff":"gorge=[spell:$CARD@p0] xmage=[spell:Drowned Diner@p0]"},"key":"trigger | cast | stack | gorge=[spell:$CARD@p0] xmage=[spell:Drowned Diner@p0]","cards":1}
+{"card":"Meat Locker","template":"trigger#1.0","status":"diverge","api":"UnlockDoor:Tap","detail":"step 0 (cast) stack: gorge \"[spell:Meat Locker@p0]\", xmage \"[spell:Drowned Diner@p0]\""}
