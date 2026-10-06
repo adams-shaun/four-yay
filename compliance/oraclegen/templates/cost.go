@@ -24,10 +24,22 @@ type costProbe struct {
 	exile       []string
 	hand        []string
 	first       *oraclegen.Step
+	// pre are setup-time steps (an attach) run before the probe step.
+	pre []oraclegen.Step
+	// seat adjusts p0's setup after the permanents are placed (a counter).
+	seat func(*oraclegen.Seat)
+	// activate makes the probe step an activation of one of the probe
+	// permanent's abilities instead of a cast.
+	activate *costActivation
 	// targeted offers the probe cast a surplus player target; gorge's own
 	// target decision rewrites it to the exact pick before the item is kept.
 	targeted   bool
 	mustReplay bool
+	// full is the probe's printed price, set when the probe is a candidate
+	// chosen from the corpus: a candidate gorge pays in full but refuses at the
+	// reduced price is a reduction gorge does not apply, which must surface as a
+	// divergence, not as a skipped row.
+	full string
 }
 
 func costStatic(reg *cards.Registry, f *cards.Face, name string, req levelb.Requirement) (oraclegen.Item, *oraclegen.Skip) {
@@ -37,38 +49,31 @@ func costStatic(reg *cards.Registry, f *cards.Face, name string, req levelb.Requ
 	}
 	// Each profile chooses a simple card whose printed cost makes the
 	// reduction visible and supplies only the prerequisites the static needs.
-	var p costProbe
+	var cands []costProbe
 	switch name {
 	case "Geist of Saint Thalia":
 		// Lightning Strike is {1}{R}: the generic {1} is what the reduction
 		// removes, so {R} alone casts it only while Geist's static applies.
-		p = costProbe{spell: "Lightning Strike", mana: "R", battlefield: []string{name}, targeted: true}
+		cands = []costProbe{{spell: "Lightning Strike", mana: "R", battlefield: []string{name}, targeted: true}}
 	case "Tam, the Possibility":
-		p = costProbe{spell: "Jace Beleren", mana: "UU", battlefield: []string{name}}
+		cands = []costProbe{{spell: "Jace Beleren", mana: "UU", battlefield: []string{name}}}
 	case "Ghalta the Immovable":
-		p = costProbe{spell: name, mana: "CCCCW", hand: []string{name}, battlefield: []string{"Serra Angel"}}
+		cands = []costProbe{{spell: name, mana: "CCCCW", hand: []string{name}, battlefield: []string{"Serra Angel"}}}
 	case "Ghalta the Unstoppable":
-		p = costProbe{spell: name, mana: "CCCCG", hand: []string{name}, battlefield: []string{"Serra Angel"}}
+		cands = []costProbe{{spell: name, mana: "CCCCG", hand: []string{name}, battlefield: []string{"Serra Angel"}}}
 	case "Traxos, Academy Guardian":
 		first := oraclegen.Step{Op: "cast", Seat: 0, Card: "p0:Shock", Mana: "R", Targets: []string{"p1"}}
-		p = costProbe{spell: name, mana: "CU", hand: []string{name}, first: &first}
+		cands = []costProbe{{spell: name, mana: "CU", hand: []string{name}, first: &first}}
 	case "Wrath of the Bloodmane":
-		p = costProbe{spell: name, mana: "CR", hand: []string{name}, battlefield: []string{"Tam, the Possibility"}}
+		cands = []costProbe{{spell: name, mana: "CR", hand: []string{name}, battlefield: []string{"Tam, the Possibility"}}}
 	default:
-		var ok bool
-		p, ok = parameterCostProbe(reg, f, name, idx)
-		if !ok {
-			p, ok = otherSpellCostProbe(reg, f, name, idx)
+		if p, ok := parameterCostProbe(reg, f, name, idx); ok {
+			cands = []costProbe{p}
+			break
 		}
-		if !ok {
-			reason := "cost static probe not supported"
-			if strings.EqualFold(f.Statics[idx].Params["Type"], "Ability") || f.Statics[idx].Params["ValidSpell"] != "" {
-				reason += ": activated-ability probe unsupported"
-			}
-			if strings.EqualFold(f.Statics[idx].Params["ValidCard"], "Card.Self") {
-				reason += ": unsupported self-cost shape"
-			}
-			return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: reason}
+		var gap string
+		if cands, gap = otherCostProbes(reg, f, name, idx); len(cands) == 0 {
+			return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: costStaticGap(f.Statics[idx], gap)}
 		}
 	}
 	slots := oraclegen.SlotSpecs(f)
@@ -76,179 +81,32 @@ func costStatic(reg *cards.Registry, f *cards.Face, name string, req levelb.Requ
 	if len(fixtures) == 0 {
 		fixtures = []oraclegen.Fixture{{}}
 	}
-	for _, fx := range fixtures {
-		p0 := *fx.P0()
-		p1 := *fx.P1()
-		p0.Battlefield = appendUnique(p0.Battlefield, p.battlefield...)
-		p0.Graveyard = appendUnique(p0.Graveyard, p.graveyard...)
-		p0.Exile = appendUnique(p0.Exile, p.exile...)
-		p0.Hand = append(p0.Hand, p.hand...)
-		p0.Hand = appendUnique(p0.Hand, p.spell)
-		if p.first != nil && p.first.Card == "p0:Shock" {
-			p0.Hand = appendUnique(p0.Hand, "Shock")
-		}
-		sc := oraclegen.Scenario{
-			Setup:        map[string]oraclegen.Seat{"p0": p0, "p1": p1},
-			SetupAnswers: oraclegen.OpeningHandAnswers(f),
-		}
-		sc.Steps = append(sc.Steps, fx.CombatSteps()...)
-		sc.Steps = append(sc.Steps, fx.Prelude()...)
-		if p.first != nil {
-			sc.Steps = append(sc.Steps, *p.first, oraclegen.Step{Op: "resolve"})
-		}
-		targets := fx.Targets()
-		if p.targeted {
-			targets = []string{"p1"}
-		}
-		if strings.Contains(f.Statics[idx].Params["ValidTarget"], "tapped") {
-			for _, target := range targets {
-				tapFixtureTarget(target, &p0, &p1)
-			}
-			sc.Setup["p0"], sc.Setup["p1"] = p0, p1
-		}
-		cast := oraclegen.Step{Op: "cast", Seat: 0, Card: "p0:" + p.spell, Mana: p.mana, Targets: targets}
-		sc.Steps = append(sc.Steps, cast)
-		oraclegen.Baseline(sc.Setup, f)
-		it := oraclegen.NewLevelBItem(name, req.Key, CostStatic.Version, []string{"601.2"}, sc)
-		// Settle plays a temporary copy with resolve steps, so the target
-		// rewrite is validated against a scenario whose stack empties. The
-		// settled copy is what is kept: every cast carries gorge's exact
-		// targets (cast steps' target decisions travel through castSpell and
-		// are not scripted a second time). When gorge cannot cast at the
-		// reduced price Settle fails and the unnormalized item is returned
-		// as is, so the failed cast surfaces as a divergence, not a Skip.
-		if n, res, ok := oraclegen.Settle(reg, sc); ok {
-			settled := sc
-			settled.Steps = append([]oraclegen.Step(nil), sc.Steps...)
-			for i := 0; i < n; i++ {
-				settled.Steps = append(settled.Steps, oraclegen.Step{Op: "resolve"})
-			}
-			settled, castSteps := oraclegen.ChooseTargets(settled, res.Decisions)
-			if res2, ok2 := oraclegen.PlaysThrough(reg, settled); ok2 {
-				settled.Name, settled.CR, settled.Why = it.Name, it.CR, it.Why
-				it.Scenario = settled
-				it.XAnswers = oraclegen.XAnswersForScenario(res2, settled, nil, castSteps)
-			}
-		}
+	// The first fixture is the one every probe uses. A probe the item must
+	// replay (mustReplay) is kept only when gorge can cast or activate it at
+	// the reduced price; the next candidate is tried otherwise.
+	for _, p := range cands {
+		it := costProbeItem(reg, f, name, req, idx, p, fixtures[0])
 		if p.mustReplay {
 			if _, ok := oraclegen.PlaysThrough(reg, it.Scenario); !ok {
-				return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: "cost static probe not supported: prerequisite fixture unavailable"}
+				continue
 			}
 		}
 		return it, nil
 	}
+	for _, p := range cands {
+		if p.full == "" {
+			continue
+		}
+		fullPrice := p
+		fullPrice.mana = p.full
+		if _, ok := oraclegen.PlaysThrough(reg, costProbeItem(reg, f, name, req, idx, fullPrice, fixtures[0]).Scenario); ok {
+			return costProbeItem(reg, f, name, req, idx, p, fixtures[0]), nil
+		}
+	}
+	if len(cands) > 0 && cands[0].mustReplay {
+		return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: "cost static probe not supported: prerequisite fixture unavailable"}
+	}
 	return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: "cost static has no fixture"}
-}
-
-// otherSpellCostProbe chooses a deterministic spell satisfying a static's
-// ValidCard filter, then pays its printed cost minus the declared generic
-// reduction. Unsupported timing/count/provenance shapes stay explicit skips.
-func otherSpellCostProbe(reg *cards.Registry, source *cards.Face, name string, idx int) (costProbe, bool) {
-	st := source.Statics[idx]
-	if st.ModeKind() != cards.StaticReduceCost || !strings.EqualFold(st.Params["Type"], "Spell") || st.Params["ValidSpell"] != "" {
-		return costProbe{}, false
-	}
-	if st.Params["ValidCard"] == "" || strings.EqualFold(st.Params["ValidCard"], "Card.Self") {
-		return costProbe{}, false
-	}
-	if st.Params["CheckSVar"] != "" || st.Params["Amount"] == "X" || st.Params["Amount"] == "Y" || st.Params["Amount"] == "Z" {
-		return costProbe{}, false
-	}
-	if cond := strings.ToLower(st.Params["Condition"]); cond != "" && cond != "playerturn" {
-		return costProbe{}, false
-	}
-	var reduction int
-	if _, err := fmt.Sscanf(st.Params["Amount"], "%d", &reduction); err != nil || reduction < 1 {
-		return costProbe{}, false
-	}
-	filter := st.Params["ValidCard"]
-	candidates := append([]*cards.Card(nil), reg.Cards...)
-	sort.Slice(candidates, func(i, j int) bool {
-		return candidates[i].Faces[0].Name < candidates[j].Faces[0].Name
-	})
-	for _, card := range candidates {
-		for _, face := range card.Faces {
-			if face == nil || face.Name == name || face.ManaCost == "" || face.ManaCost == "no cost" || !spellFilterMatches(face, filter) {
-				continue
-			}
-			base, why := oraclegen.PoolFor(face.ManaCost)
-			if why != "" {
-				continue
-			}
-			mana, ok := removeGenericMana(base, reduction)
-			if !ok {
-				continue
-			}
-			p := costProbe{spell: face.Name, mana: mana, battlefield: []string{name}, mustReplay: true}
-			if present := st.Params["IsPresent"]; present != "" {
-				fixtures := []struct{ typ, card string }{{"Lesson", "Introduction to Annihilation"}, {"Creature", "Grizzly Bears"}, {"Artifact", "Silver Myr"}, {"Kithkin", "Kithkin Greatheart"}, {"land", "Forest"}, {"Land", "Forest"}}
-				found := false
-				for _, fixture := range fixtures {
-					if strings.Contains(present, fixture.typ) {
-						p.graveyard = appendUnique(p.graveyard, fixture.card)
-						found = true
-					}
-				}
-				if !found {
-					return costProbe{}, false
-				}
-			}
-			return p, true
-		}
-	}
-	return costProbe{}, false
-}
-
-// spellFilterMatches handles the ordinary card/type/colour filter grammar
-// used by cost-reduction statics. Commas are alternatives and '+' joins terms.
-func spellFilterMatches(face *cards.Face, filter string) bool {
-	for _, alternative := range strings.Split(filter, ",") {
-		matched := true
-		for _, raw := range strings.Split(alternative, "+") {
-			term := strings.TrimSpace(raw)
-			if term == "" {
-				continue
-			}
-			ok := false
-			switch strings.ToLower(term) {
-			case "card":
-				ok = true
-			case "noncreature", "card.noncreature":
-				ok = !costFaceHasType(face, "Creature")
-			case "legendary":
-				ok = costFaceHasType(face, "Legendary")
-			case "red", "card.red":
-				ok = strings.Contains(strings.ToLower(face.Colors), "red") || strings.Contains(face.ManaCost, "R")
-			case "blue", "card.blue":
-				ok = strings.Contains(strings.ToLower(face.Colors), "blue") || strings.Contains(face.ManaCost, "U")
-			case "white", "card.white":
-				ok = strings.Contains(strings.ToLower(face.Colors), "white") || strings.Contains(face.ManaCost, "W")
-			case "black", "card.black":
-				ok = strings.Contains(strings.ToLower(face.Colors), "black") || strings.Contains(face.ManaCost, "B")
-			case "green", "card.green":
-				ok = strings.Contains(strings.ToLower(face.Colors), "green") || strings.Contains(face.ManaCost, "G")
-			default:
-				ok = costFaceHasType(face, term)
-			}
-			if !ok {
-				matched = false
-				break
-			}
-		}
-		if matched {
-			return true
-		}
-	}
-	return false
-}
-
-func costFaceHasType(face *cards.Face, want string) bool {
-	for _, typ := range face.Types {
-		if strings.EqualFold(typ, want) {
-			return true
-		}
-	}
-	return false
 }
 
 // parameterCostProbe derives the simple own-spell cost shapes from the static
