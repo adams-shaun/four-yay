@@ -86,6 +86,9 @@ func compileTypedHalves(f *SAFacts, sa *cards.SA) {
 	if isVoteSA(sa) {
 		f.Vote = compileVote(sa)
 	}
+	if sa.APIKind() == cards.APIMeld {
+		f.Meld = compileMeld(sa)
+	}
 	if isRepeatEachSA(sa) {
 		f.RepeatEach = compileRepeatEach(sa, f.Defined)
 	}
