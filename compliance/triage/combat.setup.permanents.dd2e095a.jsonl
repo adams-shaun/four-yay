@@ -1,3 +1,0 @@
-{"shape":{"template":"combat","op":"setup","field":"permanents","diff":"$CARD gorge+[4/8] xmage+[2/4]"},"key":"combat | setup | permanents | $CARD gorge+[4/8] xmage+[2/4]","cards":2}
-{"card":"Friendly Ghost","template":"combat#0.attack","status":"diverge","api":"ChangesZone:Pump","sets":["DSK"],"detail":"setup permanents: gorge \"c0 o0 Friendly Ghost [creature spirit] {W} 4/8\", xmage \"c0 o0 Friendly Ghost [creature spirit] {W} 2/4\""}
-{"card":"Friendly Ghost","template":"combat#0.block","status":"diverge","api":"ChangesZone:Pump","sets":["DSK"],"detail":"setup permanents: gorge \"c0 o0 Friendly Ghost [creature spirit] {W} 4/8\", xmage \"c0 o0 Friendly Ghost [creature spirit] {W} 2/4\""}

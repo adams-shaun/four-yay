@@ -1,2 +1,4 @@
-{"shape":{"template":"trigger","op":"resolve","field":"permanents","diff":"xmage+token"},"key":"trigger | resolve | permanents | xmage+token","cards":1}
+{"shape":{"template":"trigger","op":"resolve","field":"permanents","diff":"xmage+token"},"key":"trigger | resolve | permanents | xmage+token","cards":3}
+{"card":"Calamity, Galloping Inferno","template":"trigger#0.0","status":"diverge","api":"Attacks:CopyPermanent","sets":["OTJ"],"detail":"step 3 (resolve) permanents: gorge \"\", xmage \"c0 o0 token [creature dinosaur] {G} 6/6 tapped attacking; c0 o0 token [creature dinosaur] {G} 6/6 tapped attacking\""}
+{"card":"Luxurious Locomotive","template":"trigger#0.0","status":"diverge","api":"Attacks:Token","sets":["OTJ"],"detail":"step 3 (resolve) permanents: gorge \"\", xmage \"c0 o0 token [artifact treasure] {}\""}
 {"card":"Wojek Investigator","template":"trigger#0.0","status":"diverge","api":"Phase:Investigate","sets":["MKM"],"detail":"step 1 (resolve) permanents: gorge \"\", xmage \"c0 o0 token [artifact clue] {}\""}

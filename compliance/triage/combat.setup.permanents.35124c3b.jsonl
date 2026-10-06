@@ -1,3 +1,0 @@
-{"shape":{"template":"combat","op":"setup","field":"permanents","diff":"$CARD gorge+[5/5] xmage+[3/3]"},"key":"combat | setup | permanents | $CARD gorge+[5/5] xmage+[3/3]","cards":2}
-{"card":"Rampart Hunter","template":"combat#0.attack","status":"diverge","api":"ChangesZone:Pump","sets":["FRA"],"detail":"setup permanents: gorge \"c0 o0 Rampart Hunter [creature horror] {B} 5/5\", xmage \"c0 o0 Rampart Hunter [creature horror] {B} 3/3\""}
-{"card":"Rampart Hunter","template":"combat#0.block","status":"diverge","api":"ChangesZone:Pump","sets":["FRA"],"detail":"setup permanents: gorge \"c0 o0 Rampart Hunter [creature horror] {B} 5/5\", xmage \"c0 o0 Rampart Hunter [creature horror] {B} 3/3\""}

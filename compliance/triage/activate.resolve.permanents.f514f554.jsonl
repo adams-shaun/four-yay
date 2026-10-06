@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"resolve","field":"permanents","diff":"token types gorge+[blood] xmage+[food]"},"key":"activate | resolve | permanents | token types gorge+[blood] xmage+[food]","cards":1}
-{"card":"Transmutation Font","template":"activate#0.0","status":"diverge","api":"-","sets":["BIG"],"detail":"step 1 (resolve) permanents: gorge \"c0 o0 token [artifact blood] {}\", xmage \"c0 o0 token [artifact food] {}\""}

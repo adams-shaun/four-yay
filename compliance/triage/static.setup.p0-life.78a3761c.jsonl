@@ -1,2 +1,0 @@
-{"shape":{"template":"static","op":"setup","field":"p0.life","diff":"gorge-xmage=2"},"key":"static | setup | p0.life | gorge-xmage=2","cards":1}
-{"card":"Crossway Troublemakers","template":"static#0.0","status":"diverge","api":"ChangesZone:Draw","sets":["FDN"],"detail":"setup p0.life: gorge \"22\", xmage \"20\""}

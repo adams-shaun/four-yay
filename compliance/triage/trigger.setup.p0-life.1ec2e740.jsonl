@@ -1,2 +1,0 @@
-{"shape":{"template":"trigger","op":"setup","field":"p0.life","diff":"gorge-xmage=7"},"key":"trigger | setup | p0.life | gorge-xmage=7","cards":1}
-{"card":"Pelakka Wurm","template":"trigger#0.1","status":"diverge","api":"ChangesZone:GainLife+ChangesZone:Draw","sets":["FDN"],"detail":"setup p0.life: gorge \"27\", xmage \"20\""}

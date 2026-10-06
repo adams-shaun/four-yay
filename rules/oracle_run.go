@@ -59,8 +59,8 @@ type oracleScenario struct {
 	Expect       []oracleExpect `json:"expect"`
 	// xmageFixture marks a generated compliance scenario
 	// (RunOracleScenarioJSON). Setup permanents are present before turn 1 in
-	// both engines; the driver clears XMage's seeded entry history. Never
-	// decoded from JSON.
+	// both engines (build drops the triggers their placement queued); the
+	// driver clears XMage's seeded entry history. Never decoded from JSON.
 	xmageFixture bool
 }
 
@@ -574,6 +574,27 @@ func (r *oracleRun) build(sc oracleScenario) error {
 				e.emit(events.Event{Kind: events.LifeChange, Player: pid, Amount: d})
 			}
 		}
+	}
+	if sc.xmageFixture {
+		// Generated scenarios start from a position XMage creates with
+		// addCard, which does not fire enters-the-battlefield triggers. Other
+		// setup triggers (for example, CounterAddedOnce from loyalty setup)
+		// do fire there and must remain queued.
+		kept := e.pendingTriggers[:0]
+		ordered := 0
+		for i, pt := range e.pendingTriggers {
+			tr, ok := e.triggerOf(pt)
+			destination, hasDestination := tr.ParamCode(cards.PKDestination)
+			if ok && tr.ModeKind() == cards.TriggerChangesZone && hasDestination &&
+				effects.Destination(destination).Zone() == state.ZBattlefield {
+				continue
+			}
+			kept = append(kept, pt)
+			if i < e.orderedTriggers {
+				ordered++
+			}
+		}
+		e.pendingTriggers, e.orderedTriggers = kept, ordered
 	}
 	e.Advance()
 	r.answers = append([]oracleAnswer(nil), sc.SetupAnswers...)

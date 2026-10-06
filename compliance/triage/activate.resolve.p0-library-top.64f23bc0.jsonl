@@ -1,3 +1,0 @@
-{"shape":{"template":"activate","op":"resolve","field":"p0.library_top","diff":"gorge+[Forest, Jace Beleren] xmage+[$LIB, Ornithopter]"},"key":"activate | resolve | p0.library_top | gorge+[Forest, Jace Beleren] xmage+[$LIB, Ornithopter]","cards":2}
-{"card":"Dragonstorm Forecaster","template":"activate#0.0","status":"diverge","api":"-","sets":["TDM"],"detail":"step 1 (resolve) p0.library_top: gorge \"[Wastes, Jace Beleren, Wastes, Wastes, Forest]\", xmage \"[Ornithopter, Wastes, Wastes, Wastes, Wastes]\""}
-{"card":"Maze's End","template":"activate#0.1","status":"diverge","api":"-","sets":["FDN"],"detail":"step 1 (resolve) p0.library_top: gorge \"[Wastes, Jace Beleren, Wastes, Wastes, Forest]\", xmage \"[Wastes, Wastes, Ornithopter, Wastes, Wastes]\""}
