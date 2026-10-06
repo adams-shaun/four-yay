@@ -162,6 +162,19 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 			candidates = append(candidates, staticCandidate{base, res, plan})
 		}
 	}
+	// Retry Aura rows whose cast target is killed by their own -X/-X static
+	// with a setup-attached, larger probe. This is after all existing candidates
+	// so already-served scenarios retain their bytes.
+	if it, ok := staticSurvivingAuraItem(reg, f, name, req, st); ok {
+		return it, nil
+	}
+	// Retry Equipment rows whose ETB target would consume the probe: answer the
+	// ETB with a different legal permanent (or decline an optional target).
+	for _, cand := range candidates {
+		if it, ok := staticPreserveETBProbe(reg, f, name, req, st, cand.base, cand.res); ok {
+			return it, nil
+		}
+	}
 	// Fallback: a static that lands on the permanent the card is attached to
 	// rather than on a probe (Puppet Crafting, Shimmerwilds Growth). This
 	// runs only after every existing candidate failed, so it can never win an
