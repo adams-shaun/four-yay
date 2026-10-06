@@ -266,6 +266,10 @@ func Sample(setup PublicGame, h History, opts SampleOptions) (out SampleResult, 
 		hcfg.Spare = spare
 		e, err := rules.NewHypotheticalPlanned(hcfg, tape, proposal.plan)
 		if e != nil {
+			// Decisions this replay poses are read only before their answer
+			// is submitted; a rejected engine's die at its Release, and a kept
+			// world is never released here, so its arena stays valid.
+			e.SetDecisionArena(true)
 			defer func() {
 				if !kept {
 					*spare = e.Release()
