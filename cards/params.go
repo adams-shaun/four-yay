@@ -1513,10 +1513,10 @@ var paramKeyNames = [paramKeyCount]string{
 	PKChosenZone:                       "ChosenZone",
 	PKRestRandomOrder:                  "RestRandomOrder",
 	PKImprintRest:                      "ImprintRest",
-	PKChangeLater:                     "ChangeLater",
+	PKChangeLater:                      "ChangeLater",
 	PKChooseAmount:                     "ChooseAmount",
 	PKPrimary:                          "Primary",
-	PKSecondaryType:                    "SecondaryType"
+	PKSecondaryType:                    "SecondaryType",
 }
 
 // String is the key's Forge text.

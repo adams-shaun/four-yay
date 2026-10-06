@@ -1,0 +1,26 @@
+{
+  "card": "Vanille, Cheerful l'Cie",
+  "family": "etb-ltb",
+  "oracle_sha": "117a354812a8",
+  "author": "cli-20261005T172935Z-a198a472",
+  "scenarios": [
+    {
+      "name": "first-main-phase-declines-without-mana",
+      "cr": ["603.4", "701.42", "712.4"],
+      "why": "Vanille's first-main-phase trigger offers its {3}{B}{G} meld ability; without mana, declining leaves both components unchanged.",
+      "setup": {
+        "p0": {"battlefield": ["Vanille, Cheerful l'Cie", "Fang, Fearless l'Cie"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "pass_to", "step": "begin-combat", "active": "p0"},
+        {"op": "pass_to", "step": "main1", "active": "p0"},
+        {"op": "resolve", "answers": [{"kind": "any", "pick": ["Do not pay"]}]}
+      ],
+      "expect": [
+        {"card": "p0:Vanille, Cheerful l'Cie", "zone": "battlefield", "pt": "3/2"},
+        {"card": "p0:Fang, Fearless l'Cie", "zone": "battlefield"}
+      ]
+    }
+  ]
+}
