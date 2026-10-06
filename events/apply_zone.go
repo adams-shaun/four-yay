@@ -123,6 +123,16 @@ func foldMoveZone(g *state.Game, e *Event) {
 		if e.To == state.ZStack && o.Face() != nil {
 			o.StackKind, o.StackKindKnown = state.StackKindSpell, true
 		}
+		if e.Kind == PutOnStack {
+			// Record the zone and caster of this cast on the object, so
+			// rules' latestCastOrigin reads the field instead of scanning
+			// the whole log backwards on every call. A later PutOnStack
+			// overwrites it (latest cast wins); the reverse move below does
+			// NOT clear it, because the reverse scan it replaces still finds
+			// this PutOnStack in the log after a CR 733.1 reversal. The fold
+			// is the one writer, so a log-only replay derives the same pair.
+			o.LatestCastFrom, o.LatestCastBy, o.HasLatestCast = e.From, e.Player, true
+		}
 
 		if e.To == state.ZStack && IsFaceDownEntry(moveCounter) {
 			// CR 708.4: a face-down CAST's spell sits on the stack with no

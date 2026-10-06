@@ -49,7 +49,7 @@ func XMageAbility(f *cards.Face) (map[int]string, string) {
 	out := make(map[int]string, len(f.Abilities))
 	seen := map[string]bool{}
 	for k, i := range nonKeyword {
-		prefix := linePrefix(lines[k])
+		prefix := linePrefix(lines[k], f.Name)
 		if prefix == "" || seen[prefix] {
 			return nil, "activate xmage text ambiguous"
 		}
@@ -121,13 +121,30 @@ func stripReminder(line string) string {
 }
 
 // linePrefix returns the text before the line's first ": ", the cost prefix
-// XMage matches on.
-func linePrefix(line string) string {
+// XMage matches on. XMage's no-argument AbilityImpl.getRule() leaves the
+// source placeholder literal, so a self-referential cost is rendered with
+// {this}, not the card's printed name.
+func linePrefix(line, sourceName string) string {
 	i := strings.Index(line, ": ")
 	if i < 0 {
 		return ""
 	}
-	return strings.TrimSpace(line[:i])
+	prefix := strings.TrimSpace(line[:i])
+	if sourceName == "" {
+		return prefix
+	}
+	lowerPrefix, lowerName := strings.ToLower(prefix), strings.ToLower(sourceName)
+	for from := 0; ; {
+		rel := strings.Index(lowerPrefix[from:], lowerName)
+		if rel < 0 {
+			break
+		}
+		start := from + rel
+		prefix = prefix[:start] + "{this}" + prefix[start+len(sourceName):]
+		lowerPrefix = lowerPrefix[:start] + "{this}" + lowerPrefix[start+len(sourceName):]
+		from = start + len("{this}")
+	}
+	return prefix
 }
 
 // keywordPrefix finds the keyword-expanded AB's printed line and returns its

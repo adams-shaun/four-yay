@@ -12,24 +12,25 @@ import (
 // wantStaticContinuousCensus pins, per set, how many static.continuous
 // requirements the static template serves and how many it skips. Every skip
 // is the one observability reason: gorge showed no effect on either probe or
-// on the card itself (an Elf/Pirate-only anthem, an equipment that is not
-// attached, a self static whose condition the fixture leaves false). It fails
+// on the card itself (an Elf/Pirate-only anthem, an ability-only Equipment, or
+// a self static whose condition the fixture leaves false). It fails
 // in both directions.
 var wantStaticContinuousCensus = map[string]map[string]int{
 	"BIG": {
-		"skip:static effect not observable on a probe or the card": 3,
+		"served": 2,
+		"skip:static effect not observable on a probe or the card": 1,
 	},
 	"EOE": {
-		"served": 11,
-		"skip:static effect not observable on a probe or the card": 53,
+		"served": 15,
+		"skip:static effect not observable on a probe or the card": 49,
 	},
 	"FDN": {
-		"served": 19,
-		"skip:static effect not observable on a probe or the card": 56,
+		"served": 26,
+		"skip:static effect not observable on a probe or the card": 49,
 	},
 	"FRA": {
-		"served": 6,
-		"skip:static effect not observable on a probe or the card": 33,
+		"served": 10,
+		"skip:static effect not observable on a probe or the card": 29,
 	},
 }
 

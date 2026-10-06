@@ -44,9 +44,6 @@ func combatRequirement(reg *cards.Registry, f *cards.Face, name string, req leve
 			return skip("block not offered")
 		}
 		sc = combatScenario(f, name, req, []oraclegen.Step{
-			// The runner currently begins on p0's turn; move to p1's next
-			// upkeep explicitly before declaring p1's attack.
-			{Op: "pass_to", Seat: 0, Step: "upkeep", Active: "p1"},
 			{Op: "attack", Seat: 1, Defender: "p0", Attackers: []string{"p1:" + combatBlocker}},
 			{Op: "block", Seat: 0, Blocks: [][2]string{{"p0:" + name, "p1:" + combatBlocker}}},
 			{Op: "pass_to", Seat: 0, Step: "main2", Active: "p1"},

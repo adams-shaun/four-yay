@@ -8,6 +8,7 @@ import (
 
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/chars"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -523,13 +524,13 @@ func (e *Engine) appendDerivedEntry(buf []effects.ObjectTypes, act []ContinuousE
 	if o == nil || o.Zone != state.ZBattlefield || o.Face() == nil {
 		return buf
 	}
-	ty := e.typeCharacteristicsActive(act, id, 0)
-	if sameTypeWordSet(ty, o.Face().Types) {
+	ty, all := chars.TypesAndAllCreatureTypes(asChars(e), act, id, 0)
+	if sameTypeWordSet(ty, o.Face().Types) && all == effects.IntrinsicAllCreatureTypes(o) {
 		return buf
 	}
 	// The list may alias a scratch buffer or the face's own slice, so copy
 	// it into the table (only for the few changed objects).
-	return append(buf, effects.ObjectTypes{ID: id, Types: append([]string(nil), ty...)})
+	return append(buf, effects.ObjectTypes{ID: id, Types: append([]string(nil), ty...), AllCreatureTypes: all})
 }
 
 // liveLTypeEffects returns the live registered layer-4 effects, in the same
@@ -794,13 +795,13 @@ func (e *Engine) buildDerivedTypesWalk(buf []effects.ObjectTypes, srcs []state.O
 		if selfOnly && !layer4BaseMayDiffer(o) && !slices.Contains(srcs, o.ID) {
 			continue
 		}
-		ty := e.typeCharacteristics(o.ID, 0)
-		if sameTypeWordSet(ty, o.Face().Types) {
+		ty, all := chars.TypesAndAllCreatureTypes(asChars(e), e.active(), o.ID, 0)
+		if sameTypeWordSet(ty, o.Face().Types) && all == effects.IntrinsicAllCreatureTypes(o) {
 			continue
 		}
 		// The list may alias a scratch buffer or the face's own slice, so copy
 		// it into the table (only for the few changed objects).
-		buf = append(buf, effects.ObjectTypes{ID: o.ID, Types: append([]string(nil), ty...)})
+		buf = append(buf, effects.ObjectTypes{ID: o.ID, Types: append([]string(nil), ty...), AllCreatureTypes: all})
 	}
 	return buf
 }

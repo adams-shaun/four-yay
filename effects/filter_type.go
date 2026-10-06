@@ -33,7 +33,7 @@ func hasType(o *state.Object, t string) bool { return hasTypeID(o, t, 0) }
 // hasTypeID is hasType with t's precompiled cards.InternTypeWord ordinal (0 =
 // none): the printed type-line test is one bit test when the face is bound.
 func hasTypeID(o *state.Object, t string, id cards.TypeWordID) bool {
-	d, f := hasTypePrinted(o, t, id)
+	d, _ := hasTypePrinted(o, t, id)
 	if d != typeUndecided {
 		return d == typeYes
 	}
@@ -43,7 +43,7 @@ func hasTypeID(o *state.Object, t string, id cards.TypeWordID) bool {
 	// the positive subtype vocabulary, so a non-creature word (Arcane,
 	// Alara, Ajani) can never leak, and neither materialises subtypes into
 	// the derived type list.
-	return (f.HasKeywordID("Changeling", kwChangeling) || f.AllCreatureTypesCDA()) && changelingType(t)
+	return IntrinsicAllCreatureTypes(o) && changelingType(t)
 }
 
 // hasTypeSub is hasType with changelingType(t) supplied precomputed as sub
@@ -51,11 +51,11 @@ func hasTypeID(o *state.Object, t string, id cards.TypeWordID) bool {
 // involved is pure, so reading sub first only skips the keyword probe for a
 // word no Changeling can grant.
 func hasTypeSub(o *state.Object, t string, id cards.TypeWordID, sub bool) bool {
-	d, f := hasTypePrinted(o, t, id)
+	d, _ := hasTypePrinted(o, t, id)
 	if d != typeUndecided {
 		return d == typeYes
 	}
-	return sub && (f.HasKeywordID("Changeling", kwChangeling) || f.AllCreatureTypesCDA())
+	return sub && IntrinsicAllCreatureTypes(o)
 }
 
 type typeDecision uint8
@@ -206,30 +206,31 @@ func hasTypeCtxPtrID(o *state.Object, t string, id cards.TypeWordID, sc *SpecCon
 			return true
 		}
 	}
-	// When the layer walk bound a types-so-far list, it is authoritative and
-	// the pre-existing printed-face/Changeling fallback below is kept verbatim.
+	// When the layer walk bound a types-so-far list, it is authoritative.
 	// The published table is not consulted in that case: it may carry a type a
 	// LATER effect grants, which would break the walk's ordering (rules/layers.go
 	// clears sc.DerivedTypes for the same reason, but this guard keeps the
 	// contract even for a caller that sets ExtraTypes without clearing it).
-	if sc.ExtraTypes != nil {
-		return hasTypeID(o, t, id)
+	if sc.ExtraTypes != nil && o.ID == sc.ExtraTypesOwner {
+		return false
 	}
 	// Outside the walk a published layer-4 entry makes the object's DERIVED
 	// type list authoritative for type words: it already carries the printed
 	// types the effect kept (rules' typeCharacteristics folds them in), so a
 	// RemoveCardTypes$ cannot be resurrected by a fallback to the printed face,
 	// while a granted word (a static's AddTypes$, AddAllCreatureTypes$) is
-	// found exactly as the layer walk finds it. Only the intrinsic CDAs the
-	// list deliberately does not materialise (Changeling's keyword, Mistform
-	// Ultimus's AddAllCreatureTypes$ CDA) are added back on this path.
-	if types, ok := derivedTypesForPtr(o, sc); ok {
-		for _, x := range types {
+	// found exactly as the layer walk finds it. The semantic all-types marker
+	// is the layer-4 result too, never a fresh read of the printed CDA.
+	for _, d := range sc.Layers.DerivedTypes {
+		if d.ID != o.ID {
+			continue
+		}
+		for _, x := range d.Types {
 			if strings.EqualFold(x, t) {
 				return true
 			}
 		}
-		return intrinsicCDAType(o, t)
+		return d.AllCreatureTypes && changelingType(t)
 	}
 	// No derived entry: the printed face plus intrinsic CDAs, as before.
 	return hasTypeID(o, t, id)
@@ -243,8 +244,8 @@ func hasTypeCtxSub(o *state.Object, t string, id cards.TypeWordID, sub bool, sc 
 			return true
 		}
 	}
-	if sc.ExtraTypes != nil {
-		return hasTypeSub(o, t, id, sub)
+	if sc.ExtraTypes != nil && o.ID == sc.ExtraTypesOwner {
+		return false
 	}
 	for _, d := range sc.Layers.DerivedTypes {
 		if d.ID != o.ID {
@@ -256,11 +257,7 @@ func hasTypeCtxSub(o *state.Object, t string, id cards.TypeWordID, sub bool, sc 
 				return true
 			}
 		}
-		if !sub {
-			return false
-		}
-		f := o.Face()
-		return f != nil && (f.HasKeywordID("Changeling", kwChangeling) || f.AllCreatureTypesCDA())
+		return sub && d.AllCreatureTypes
 	}
 	return hasTypeSub(o, t, id, sub)
 }
@@ -272,18 +269,36 @@ func hasTypeCtxSub(o *state.Object, t string, id cards.TypeWordID, sub bool, sc 
 // grants.
 func changelingType(t string) bool { return CreatureTypeWords(t) }
 
-// intrinsicCDAType is hasType's intrinsic type-defining-ability branch on its
-// own (Changeling's keyword, and the characteristic-defining
-// AddAllCreatureTypes$ True static -- Mistform Ultimus). A layer-4 derived type
-// list deliberately never materialises these subtypes, so hasTypeCtx must still
-// answer them when the published table is authoritative for the object; the
-// positive vocabulary keeps a non-creature word out.
-func intrinsicCDAType(o *state.Object, t string) bool {
-	f := o.Face()
-	if f == nil {
+// IntrinsicAllCreatureTypes is the layer-4 CDA basis, before any type-changing
+// effects. Bound layer results must use their own marker instead. A face-down
+// battlefield permanent has no printed CDA (CR 708.5).
+func IntrinsicAllCreatureTypes(o *state.Object) bool {
+	if o == nil || o.Face() == nil || (o.FaceDown && o.Zone == state.ZBattlefield) {
 		return false
 	}
-	return (f.HasKeywordID("Changeling", kwChangeling) || f.AllCreatureTypesCDA()) && changelingType(t)
+	f := o.Face()
+	if f.HasKeywordID("Changeling", kwChangeling) || f.AllCreatureTypesCDA() {
+		return true
+	}
+	for _, kw := range o.IntrinsicKeywords {
+		if cards.KeywordHeadIDOf(kw) == kwChangeling {
+			return true
+		}
+	}
+	return false
+}
+
+// TypeMatchWords binds a compact layer-4 type list and its semantic all-types
+// marker as an authoritative predicate list. The returned slice is read-only.
+// A non-nil empty list means "no types", not "read the printed face".
+func TypeMatchWords(types []string, all bool) []string {
+	if all {
+		return append(append([]string(nil), types...), CreatureTypeWordList()...)
+	}
+	if types == nil {
+		return []string{}
+	}
+	return types
 }
 
 // kwChangeling is Changeling's interned keyword head (cards.InternKeywordHead).

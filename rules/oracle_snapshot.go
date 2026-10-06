@@ -14,16 +14,23 @@ import (
 // §7). The XMage driver emits the same shape, so the comparator diffs the
 // two field by field. Building one never writes game state.
 type OracleSnapshot struct {
-	Checkpoint string             `json:"checkpoint"`
-	Turn       int32              `json:"turn"`
-	Step       string             `json:"step"`
-	Active     int                `json:"active"`
-	Priority   int                `json:"priority"`
-	Over       bool               `json:"over"`
-	Winner     *int               `json:"winner,omitempty"`
-	Players    []OracleSnapPlayer `json:"players"`
-	Permanents []OracleSnapPerm   `json:"permanents"`
-	Stack      []OracleSnapStack  `json:"stack"`
+	Checkpoint string              `json:"checkpoint"`
+	Turn       int32               `json:"turn"`
+	Step       string              `json:"step"`
+	Active     int                 `json:"active"`
+	Priority   int                 `json:"priority"`
+	Over       bool                `json:"over"`
+	Winner     *int                `json:"winner,omitempty"`
+	Players    []OracleSnapPlayer  `json:"players"`
+	Permanents []OracleSnapPerm    `json:"permanents"`
+	Stack      []OracleSnapStack   `json:"stack"`
+	Offered    []OracleSnapOffered `json:"offered,omitempty"`
+}
+
+type OracleSnapOffered struct {
+	Source string `json:"source"`
+	Kind   string `json:"kind"`
+	Label  string `json:"label,omitempty"`
 }
 
 // OracleSnapPlayer is one seat's public and (scenarios are omniscient)
@@ -112,6 +119,11 @@ type OracleDecision struct {
 	// PerOpponent marks a per-player target ask whose filter admits only
 	// opponents' objects: XMage asks no target for the controller's seat.
 	PerOpponent bool `json:"per_opponent,omitempty"`
+	// AltPayable counts the options of an AlternateAdditionalCost either-or
+	// ask (option kind "altaddcost") the cast could pay. XMage's OrCost poses
+	// its chooseUse only when two or more of its costs can be paid, so the
+	// generator scripts the boolean only for AltPayable >= 2.
+	AltPayable int `json:"alt_payable,omitempty"`
 }
 
 const oracleLibraryTopN = 5
@@ -218,6 +230,19 @@ func (r *oracleRun) snapshot(checkpoint string) OracleSnapshot {
 			p.AttachedTo = fmt.Sprintf("p%d", o.AttachedPlayer)
 		}
 		s.Permanents = append(s.Permanents, p)
+	}
+	if d := e.Pending(); d != nil && d.Kind == decision.KPriority {
+		s.Offered = oracleSnapshotOffers(r, d)
+		sort.Slice(s.Offered, func(i, j int) bool {
+			a, b := s.Offered[i], s.Offered[j]
+			if a.Source != b.Source {
+				return a.Source < b.Source
+			}
+			if a.Kind != b.Kind {
+				return a.Kind < b.Kind
+			}
+			return a.Label < b.Label
+		})
 	}
 	for i := len(g.Stack) - 1; i >= 0; i-- {
 		o := g.Obj(g.Stack[i])

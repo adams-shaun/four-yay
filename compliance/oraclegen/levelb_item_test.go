@@ -3,6 +3,8 @@ package oraclegen
 import (
 	"encoding/json"
 	"testing"
+
+	"github.com/adams-shaun/gorge/cards"
 )
 
 func itemJSON(t *testing.T, it Item) string {
@@ -23,7 +25,7 @@ func TestNewItemLevelABytesArePinned(t *testing.T) {
 		Steps: []Step{{Op: "cast", Seat: 0, Card: "p0:Shock"}},
 	}
 	const want = `{"id":"Shock/cast-resolve/v1","card":"Shock","template":"cast-resolve","name":"gen1-cast-resolve","cr":["601.2"],"why":"generated level-A scenario","setup":{"p0":{"hand":["Shock"]}},"steps":[{"op":"cast","seat":0,"card":"p0:Shock"}]}`
-	if got := itemJSON(t, NewItem("Shock", "cast-resolve", 1, sc)); got != want {
+	if got := itemJSON(t, NewItem(&cards.Face{Name: "Shock"}, "Shock", "cast-resolve", 1, sc)); got != want {
 		t.Errorf("NewItem output changed:\n got %s\nwant %s", got, want)
 	}
 }

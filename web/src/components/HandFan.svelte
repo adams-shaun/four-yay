@@ -3,7 +3,7 @@
   import { visibleHand } from '../lib/board';
   import { handFanLayout, PLAY_CARD_WIDTH, type HandFanSpec } from '../lib/handfan';
   import type { CardOptions } from '../lib/cardoptions';
-  import { ACTION_GLYPHS, actionAccessibleLabel, singleActionIcon, tileScenario, tileOptions } from '../lib/cardoptions';
+  import { ACTION_GLYPHS, actionAccessibleLabel, laterLabel, singleActionIcon, tileScenario, tileOptions } from '../lib/cardoptions';
   import CardImage from './CardImage.svelte';
   import CardDetail from './CardDetail.svelte';
   import { HoverCard, type AnchorRect } from '../lib/carddetail.svelte';
@@ -206,6 +206,14 @@
       <!-- Auto Mana already supplies CAST for its matching base cast. Keep
            unrelated offers visible, but remove that exact legacy duplicate. -->
       {@const legacyActions = opt?.list.filter((action) => action.index !== payment?.base_option_index) ?? []}
+      <!-- The float-gated abilities a hand card would gain once mana floats
+           (laterByObj): a plan-less cast is one of them, so a hand card with
+           no live option and no payment action still gets a badge whose menu
+           opens to a disabled "(tap other mana first)" row. The badge is now
+           a pure count of live + later rows. -->
+      {@const late = !payment && opt ? (opt.later ?? []) : []}
+      {@const actionCount = legacyActions.length + late.length}
+      {@const showAffordance = !!opt && actionCount > 0 && !(actionCount === 1 && landPlay)}
       <div class="card" class:marked={!!opt} data-obj={c.id} style:left="{i * layout.step}px">
         <div
           class="face"
@@ -224,15 +232,15 @@
         >
           <CardImage card={c} />
         </div>
-        {#if opt && legacyActions.length > 0 && !(legacyActions.length === 1 && landPlay)}
+        {#if showAffordance}
           <!-- The options affordance sits OUTSIDE the role="button" face so a
                real button is never nested inside one; it anchors near the
                card's TOP EDGE (a bare face has no corner meaning to preserve).
                In an overlap fan it sits above the later face but clears that
                card's exposed left edge so the raise hover remains reachable. -->
-          {@const scenario = tileScenario(opt)}
+          {@const scenario = late.length > 0 ? null : tileScenario(opt)}
           <div class="tile-actions">
-            {#if legacyActions.length === 1}
+            {#if legacyActions.length === 1 && late.length === 0}
               {@const action = legacyActions[0]}
               {@const icon = singleActionIcon(action)}
               <button
@@ -256,8 +264,8 @@
                 aria-haspopup="menu"
                 aria-expanded={openForCard(c.id)}
                 aria-label={scenario
-                  ? `${legacyActions.length} ${scenario.noun} for ${c.name}`
-                  : `${legacyActions.length} actions for ${c.name}`}
+                  ? `${actionCount} ${scenario.noun} for ${c.name}`
+                  : `${actionCount} actions for ${c.name}`}
                 title="Options for {c.name}"
                 data-action-icon={scenario?.icon}
                 use:pointerRelease
@@ -266,18 +274,25 @@
                 {#if scenario}
                   <span class="badge__icon" aria-hidden="true">{ACTION_GLYPHS[scenario.icon]}</span>
                 {/if}
-                <span class="badge__n data">{legacyActions.length}</span>
+                <span class="badge__n data">{actionCount}</span>
               </button>
             {/if}
             {#if opt.pickedOrder.length > 0}
               <span class="sel data" aria-label="picked {opt.pickedOrder.join(', ')}">{opt.pickedOrder.join(',')}</span>
             {/if}
-            {#if opt.list.length > 1 && openForCard(c.id)}
+            {#if openForCard(c.id) && (actionCount > 1 || late.length > 0)}
               <ul class="menu" role="menu" aria-label="Options for {c.name}">
                 {#each legacyActions as o (o.index)}
                   <li role="none">
                     <button class="menu__item" type="button" role="menuitem" use:pointerRelease onclick={(event) => opt.post(o.index, false, event.ctrlKey)}>
                       {o.label}
+                    </button>
+                  </li>
+                {/each}
+                {#each late as a, j (`later-${a.obj}-${a.ability}-${j}`)}
+                  <li role="none">
+                    <button class="menu__item menu__item--later" type="button" role="menuitem" aria-disabled="true" data-later-ability={a.ability} onclick={(event) => event.stopPropagation()}>
+                      {laterLabel(a)}
                     </button>
                   </li>
                 {/each}
@@ -629,5 +644,14 @@
     background: color-mix(in srgb, var(--ink) 7%, var(--instrument));
     border-left-color: var(--ink-dim);
     color: var(--ink);
+  }
+  /* A later row (cardoptions.laterByObj): an ability the hand card would gain
+     once mana floats — the plan-less cast included. Dashed/dimmed and never
+     clickable; its label says to tap other mana first. Mirrors OptionPicker's
+     .menu__item--later so the hand surface reads the same as a board tile. */
+  .menu__item--later {
+    color: var(--ink-dim);
+    cursor: not-allowed;
+    font-style: italic;
   }
 </style>
