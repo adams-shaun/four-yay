@@ -82,13 +82,21 @@ func activateAbility(reg *cards.Registry, f *cards.Face, name string, req levelb
 				Reason: "activate target gap: attackedThisTurn needs a combat prelude (" + sl.Filter + ")"}
 		}
 	}
-	it, ok := activateWith(reg, f, name, req, idx, prefix, pool, sa.ParamStr(cards.PKCost), zone, slots)
+	// The board, graveyard and turn-history setup the ability's activation
+	// restriction names. gap names the restriction shape no setup reaches, so
+	// a failure is reported as a known restriction rather than the generic
+	// no-fixture reason.
+	restriction, gap := activateRestriction(reg, f, sa)
+	it, ok := activateWith(reg, f, name, req, idx, prefix, pool, sa.ParamStr(cards.PKCost), zone, slots, restriction)
 	if !ok {
 		if oraclegen.HasType(f, "Aura") {
 			// An Aura's ability is offered only while it is attached; this
 			// template has no attach prelude, so name that cause.
 			return oraclegen.Item{}, &oraclegen.Skip{Card: name,
 				Reason: fmt.Sprintf("activate no fixture gorge can activate (Aura needs an attach prelude; targets %v)", filterStrings(slots))}
+		}
+		if gap != "" {
+			return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: gap}
 		}
 		return oraclegen.Item{}, &oraclegen.Skip{Card: name,
 			Reason: fmt.Sprintf("activate no fixture gorge can activate (targets %v)", filterStrings(slots))}
@@ -97,69 +105,87 @@ func activateAbility(reg *cards.Registry, f *cards.Face, name string, req levelb
 }
 
 // activateWith tries every fixture for the ability's target plan and returns
-// the named level-B item.
-func activateWith(reg *cards.Registry, f *cards.Face, name string, req levelb.Requirement, idx int, prefix, mana, cost, zone string, slots []oraclegen.Slot) (oraclegen.Item, bool) {
+// the named level-B item. A restriction names the extra setup the ability's
+// offer gates need; the bare scenario is tried first, then the restricted one.
+func activateWith(reg *cards.Registry, f *cards.Face, name string, req levelb.Requirement, idx int, prefix, mana, cost, zone string, slots []oraclegen.Slot, restrictions []conditionPrelude) (oraclegen.Item, bool) {
+	preludes := append([]conditionPrelude{{}}, restrictions...)
 	for _, fx := range oraclegen.Fixtures(reg, slots) {
-		abilityIndex := idx
-		p0 := *fx.P0()
-		switch zone {
-		case "hand":
-			p0.Hand = appendFixtureUnique(p0.Hand, name)
-		case "graveyard":
-			p0.Graveyard = appendFixtureUnique(p0.Graveyard, name)
-		default:
-			p0.Battlefield = appendFixtureUnique(p0.Battlefield, name)
+		for _, pre := range preludes {
+			it, ok := activateWithFixture(reg, f, name, req, idx, prefix, mana, cost, zone, fx, pre)
+			if ok {
+				return it, true
+			}
 		}
-		addActivationCostFixtures(&p0, cost)
-		if extra := loyaltyHeadroom(f, f.Abilities[idx]); extra > 0 {
-			p0 = oraclegen.WithCounters(p0, name, "LOYALTY", extra)
-		}
-		setupBackFace(&p0, name, req)
-		sc := oraclegen.Scenario{
-			Setup:        map[string]oraclegen.Seat{"p0": p0, "p1": *fx.P1()},
-			SetupAnswers: oraclegen.OpeningHandAnswers(f),
-			Steps: []oraclegen.Step{{
-				Op: "activate", Seat: 0, Card: "p0:" + name,
-				Mana: mana, Targets: fx.Targets(), AbilityIndex: &abilityIndex,
-				Answers: activationXAnswers(cost),
-			}},
-		}
-		oraclegen.Baseline(sc.Setup, f)
-		n, res, ok := oraclegen.Settle(reg, sc)
-		if !ok {
-			continue
-		}
-		// A mana ability leaves the stack empty after the activate step. A
-		// loyalty-cost ability with the Mana API (Chandra, Flameshaper's
-		// "[+2]: Add {R}{R}{R}") is NOT a mana ability (CR 605.1b) and does
-		// use the stack, so the resolve count follows the engine's own stack
-		// rather than the requirement's sub-family.
-		if len(res.Snapshots) < 2 || len(res.Snapshots[1].Stack) == 0 {
-			n = 0
-		}
-		for i := 0; i < n; i++ {
-			sc.Steps = append(sc.Steps, oraclegen.Step{Op: "resolve"})
-		}
-		// The fixture over-offers targets; rewrite the activate step to
-		// exactly gorge's picks and verify the rewrite replays cleanly.
-		sc, targetSteps := oraclegen.ChooseTargets(sc, res.Decisions)
-		res, ok = oraclegen.PlaysThrough(reg, sc)
-		if !ok {
-			continue
-		}
-		it := oraclegen.NewLevelBItem(name, req.Key, ActivateAbility.Version, []string{"602.2"}, sc)
-		it.XAnswers = oraclegen.XAnswersForScenario(res, sc, oraclegen.ModeNumbers(f), targetSteps)
-		if len(it.XAnswers) == 0 {
-			it.XAnswers = make([][]oraclegen.XAnswer, len(sc.Steps))
-		}
-		addActivationCostAnswers(it.XAnswers, activateStepIndex(sc.Steps), cost, res.Decisions)
-		dropUnproducedManaColours(it.XAnswers, activateStepIndex(sc.Steps), res)
-		addSetupColourAnswers(it.XAnswers, res.Decisions)
-		it.XAbility = make([]string, len(sc.Steps))
-		it.XAbility[activateStepIndex(sc.Steps)] = prefix
-		return it, true
 	}
 	return oraclegen.Item{}, false
+}
+
+// activateWithFixture builds and settles one fixture with one restriction
+// prelude applied.
+func activateWithFixture(reg *cards.Registry, f *cards.Face, name string, req levelb.Requirement, idx int, prefix, mana, cost, zone string, fx oraclegen.Fixture, pre conditionPrelude) (oraclegen.Item, bool) {
+	abilityIndex := idx
+	p0 := *fx.P0()
+	switch zone {
+	case "hand":
+		p0.Hand = appendFixtureUnique(p0.Hand, name)
+	case "graveyard":
+		p0.Graveyard = appendFixtureUnique(p0.Graveyard, name)
+	default:
+		p0.Battlefield = appendFixtureUnique(p0.Battlefield, name)
+	}
+	addActivationCostFixtures(&p0, cost)
+	if extra := loyaltyHeadroom(f, f.Abilities[idx]); extra > 0 {
+		p0 = oraclegen.WithCounters(p0, name, "LOYALTY", extra)
+	}
+	p0, prelude := applyActivationPrelude(p0, name, pre)
+	setupBackFace(&p0, name, req)
+	steps := make([]oraclegen.Step, 0, len(prelude)+1)
+	steps = append(steps, prelude...)
+	steps = append(steps, oraclegen.Step{
+		Op: "activate", Seat: 0, Card: "p0:" + name,
+		Mana: mana, Targets: fx.Targets(), AbilityIndex: &abilityIndex,
+		Answers: activationXAnswers(cost),
+	})
+	sc := oraclegen.Scenario{
+		Setup:        map[string]oraclegen.Seat{"p0": p0, "p1": *fx.P1()},
+		SetupAnswers: oraclegen.OpeningHandAnswers(f),
+		Steps:        steps,
+	}
+	oraclegen.Baseline(sc.Setup, f)
+	n, res, ok := oraclegen.Settle(reg, sc)
+	if !ok {
+		return oraclegen.Item{}, false
+	}
+	// A mana ability leaves the stack empty after the activate step. A
+	// loyalty-cost ability with the Mana API (Chandra, Flameshaper's
+	// "[+2]: Add {R}{R}{R}") is NOT a mana ability (CR 605.1b) and does
+	// use the stack, so the resolve count follows the engine's own stack
+	// rather than the requirement's sub-family.
+	if len(res.Snapshots) < len(prelude)+2 || len(res.Snapshots[len(prelude)+1].Stack) == 0 {
+		n = 0
+	}
+	for i := 0; i < n; i++ {
+		sc.Steps = append(sc.Steps, oraclegen.Step{Op: "resolve"})
+	}
+	// The fixture over-offers targets; rewrite the activate step to
+	// exactly gorge's picks and verify the rewrite replays cleanly.
+	sc, targetSteps := oraclegen.ChooseTargets(sc, res.Decisions)
+	res, ok = oraclegen.PlaysThrough(reg, sc)
+	if !ok {
+		return oraclegen.Item{}, false
+	}
+	it := oraclegen.NewLevelBItem(name, req.Key, ActivateAbility.Version, []string{"602.2"}, sc)
+	it.XAnswers = oraclegen.XAnswersForScenario(res, sc, oraclegen.ModeNumbers(f), targetSteps)
+	if len(it.XAnswers) == 0 {
+		it.XAnswers = make([][]oraclegen.XAnswer, len(sc.Steps))
+	}
+	addActivationCostAnswers(it.XAnswers, activateStepIndex(sc.Steps), cost, res.Decisions)
+	dropUnproducedManaColours(it.XAnswers, activateStepIndex(sc.Steps), res)
+	addSetupColourAnswers(it.XAnswers, res.Decisions)
+	it.XAnswers = scriptPreludeSacrifice(it.XAnswers, prelude, len(sc.Steps))
+	it.XAbility = make([]string, len(sc.Steps))
+	it.XAbility[activateStepIndex(sc.Steps)] = prefix
+	return it, true
 }
 
 // loyaltyHeadroom is how many loyalty counters the source needs at setup
