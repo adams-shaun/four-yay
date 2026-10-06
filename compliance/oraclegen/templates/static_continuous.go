@@ -17,10 +17,12 @@
 // derives from the filter (a Squirrel for a Squirrel lord, an attack step for
 // "attacking" permanents).
 //
-// A candidate is served only when gorge shows an effect: a probe's P/T or
-// evergreen keywords differ from its printed ones (Grizzly Bears: 2/2, none), or the
-// card's own P/T or evergreen keywords differ from its printed ones (a self
-// static whose condition the fixture makes true). A static that lands on
+// A candidate is served only when gorge shows an effect: a probe's P/T,
+// evergreen keywords, types or colours differ from its printed ones (Grizzly
+// Bears: 2/2, none), or the card's own differ from its printed ones (a self
+// static whose condition the fixture makes true), or the card shows the P/T of
+// its own characteristic-defining static, or a GainControl$ static leaves a
+// permanent under a controller who is not its owner (static_observe.go). A static that lands on
 // nothing observable stays a skip, so no item asserts a static the engine does
 // not implement.
 package templates
@@ -68,7 +70,7 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 	// served is the item for a scenario that replays and shows an effect.
 	served := func(base oraclegen.Item, res rules.OracleResult, plan staticProbePlan) (oraclegen.Item, bool) {
 		specs := staticProbeSpecs(reg, append([]string{staticProbe}, plan.probes...))
-		if !staticObserved(res.Snapshots[len(res.Snapshots)-1], f, name, specs) {
+		if !staticObserved(res.Snapshots[len(res.Snapshots)-1], f, name, st, specs) {
 			return oraclegen.Item{}, false
 		}
 		it := oraclegen.NewLevelBItem(name, req.Key, StaticApplies.Version, []string{"611.3", "613"}, base.Scenario)
@@ -119,6 +121,9 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 	}
 	if st.HasParam(cards.PKClassBand) {
 		return skip(staticClassReason)
+	}
+	if gap := staticObserveGap(f, st); gap != "" {
+		return skip(gap)
 	}
 	if gap := staticGap(st, affected); gap != "" {
 		return skip(gap)
@@ -229,12 +234,15 @@ func staticBackFaceScenario(f *cards.Face, name string, req levelb.Requirement, 
 }
 
 // staticObserved reports whether the final snapshot shows a continuous effect:
-// a probe off its printed 2/2 with no keywords, or the card (p0's) off its
-// printed P/T or evergreen keywords. The card is matched by its active face's
-// printed name (f.Name), so a face-after-0 static whose permanent reports the
-// back-face name is still recognised.
-func staticObserved(s rules.OracleSnapshot, f *cards.Face, name string, probes map[string]staticProbeSpec) bool {
+// a probe off its printed P/T, evergreen keywords, types or colours; the card
+// (p0's) off its printed P/T, evergreen keywords, types or colours, or showing
+// the P/T of its own characteristic-defining static; or any permanent whose
+// controller is not its owner under a GainControl$ static. The card is
+// matched by its active face's printed name (f.Name), so a face-after-0 static
+// whose permanent reports the back-face name is still recognised.
+func staticObserved(s rules.OracleSnapshot, f *cards.Face, name string, st cards.Static, probes map[string]staticProbeSpec) bool {
 	printedKW := oraclediff.EvergreenKeywords(f.Keywords)
+	printedChars := printedStaticChars(f)
 	cardName := f.Name
 	if cardName == "" {
 		cardName = name
@@ -243,16 +251,22 @@ func staticObserved(s rules.OracleSnapshot, f *cards.Face, name string, probes m
 		spec, isProbe := probes[p.Name]
 		switch {
 		case isProbe:
-			if p.PT != spec.pt || oraclediff.EvergreenKeywords(p.Keywords) != spec.keywords {
+			if p.PT != spec.pt || oraclediff.EvergreenKeywords(p.Keywords) != spec.keywords || staticCharsMoved(p, spec.chars) {
 				return true
 			}
 		case p.Controller == 0 && p.Name == cardName:
 			if p.PT != "" && f.PT != "" && !strings.Contains(f.PT, "*") && p.PT != f.PT {
 				return true
 			}
-			if oraclediff.EvergreenKeywords(p.Keywords) != printedKW {
+			if p.PT != "" && strings.Contains(f.PT, "*") && staticSelfCDA(st) {
 				return true
 			}
+			if oraclediff.EvergreenKeywords(p.Keywords) != printedKW || staticCharsMoved(p, printedChars) {
+				return true
+			}
+		}
+		if p.Controller != p.Owner && st.HasParam(cards.PKGainControl) {
+			return true
 		}
 	}
 	return false

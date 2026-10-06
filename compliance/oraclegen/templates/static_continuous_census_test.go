@@ -17,7 +17,11 @@ import (
 // qualifier the setup cannot give a probe, a grant outside the compared
 // evergreen keywords, an amount counted from state the fixture does not make
 // observable). Re-pinned by levelb-static-probe-from-filter, which retries a
-// row the Bear shows nothing on with the probes its Affected$ filter names.
+// row the Bear shows nothing on with the probes its Affected$ filter names,
+// and by levelb-static-cda-types-control, which also observes a card's own
+// characteristic-defining P/T, a type or colour change and a control change
+// (Eluge-style CDAs, Tractor Beam, Ygra move out of the skips; a removal of
+// abilities from the vanilla fixture creature is a named skip).
 // It fails in both directions.
 var wantStaticContinuousCensus = map[string]map[string]int{
 	"BIG": {
@@ -25,28 +29,28 @@ var wantStaticContinuousCensus = map[string]map[string]int{
 		"skip:static counts cards exiled with the source": 1,
 	},
 	"EOE": {
-		"served": 20,
-		"skip:static effect not observable on a probe or the card":                    10,
-		"skip:static amount is a computed count the fixture does not make observable": 2,
-		"skip:static changes a player rule (hand size, land plays), not a permanent":  1,
-		"skip:static grants only keywords outside the compared evergreen set":         1,
-		"skip:static needs counters on the affected permanent":                        30,
+		"served": 24,
+		"skip:static effect not observable on a probe or the card":                   8,
+		"skip:static changes a player rule (hand size, land plays), not a permanent": 1,
+		"skip:static grants only keywords outside the compared evergreen set":        1,
+		"skip:static needs counters on the affected permanent":                       30,
 	},
 	"FDN": {
-		"served": 51,
-		"skip:static effect not observable on a probe or the card":                    16,
-		"skip:static amount is a computed count the fixture does not make observable": 3,
+		"served": 54,
+		"skip:static effect not observable on a probe or the card":                    14,
+		"skip:static amount is a computed count the fixture does not make observable": 1,
+		"skip:static removes the abilities of a permanent the fixture gives none":     1,
 		"skip:static changes a player rule (hand size, land plays), not a permanent":  2,
 		"skip:static needs counters on the affected permanent":                        3,
 	},
 	"FRA": {
-		"served": 17,
-		"skip:static effect not observable on a probe or the card":                    15,
-		"skip:static amount is a computed count the fixture does not make observable": 2,
-		"skip:static counts cards exiled with the source":                             1,
-		"skip:static grants only keywords outside the compared evergreen set":         1,
-		"skip:static needs a token (setup places none)":                               1,
-		"skip:static needs counters on the affected permanent":                        2,
+		"served": 19,
+		"skip:static effect not observable on a probe or the card":                14,
+		"skip:static removes the abilities of a permanent the fixture gives none": 1,
+		"skip:static counts cards exiled with the source":                         1,
+		"skip:static grants only keywords outside the compared evergreen set":     1,
+		"skip:static needs a token (setup places none)":                           1,
+		"skip:static needs counters on the affected permanent":                    2,
 	},
 }
 
