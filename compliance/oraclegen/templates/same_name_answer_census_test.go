@@ -30,8 +30,10 @@ import (
 //   - Unresolved: the emitted value matches zero or more than one distinct
 //     same-name candidate. This is the Joo Dee defect and must stay 0.
 //
-// Fails in both directions: adding or removing an ambiguous pick, or dropping
-// a discriminator from an emitted answer, moves a pin.
+// Buckets count items, not individual picks. If an item uses both forms,
+// Alias wins; any unresolved pick makes the whole item Unresolved. Their sum
+// is the number of items ambiguous before discrimination; Unresolved is the
+// number remaining afterward. Pins fail on increases AND decreases.
 type sameNameCensus struct {
 	Alias      int      `json:"alias"`
 	Copy       int      `json:"copy"`
@@ -41,27 +43,28 @@ type sameNameCensus struct {
 
 // wantSameNameCensus pins the per-set census as JSON. Measured 2026-10-06 on
 // the fix that emits an exact ref for same-kind and cross-seat duplicates and
-// a ref-bound copy marker for a unique token-or-card pick.
+// a copy marker for a unique token-or-card pick. Re-measured as ITEMS rather
+// than picks (multi-pick decisions previously inflated these counts).
 var wantSameNameCensus = map[string]string{
 	"BIG": `{"alias":1,"copy":0,"unresolved":0,"items":null}`,
-	"BLB": `{"alias":7,"copy":0,"unresolved":0,"items":null}`,
+	"BLB": `{"alias":4,"copy":0,"unresolved":0,"items":null}`,
 	"DFT": `{"alias":3,"copy":0,"unresolved":0,"items":null}`,
-	"DSK": `{"alias":33,"copy":0,"unresolved":0,"items":null}`,
-	"ECL": `{"alias":6,"copy":0,"unresolved":0,"items":null}`,
+	"DSK": `{"alias":27,"copy":0,"unresolved":0,"items":null}`,
+	"ECL": `{"alias":5,"copy":0,"unresolved":0,"items":null}`,
 	"EOE": `{"alias":2,"copy":0,"unresolved":0,"items":null}`,
 	"FDN": `{"alias":2,"copy":1,"unresolved":0,"items":null}`,
-	"FIN": `{"alias":5,"copy":0,"unresolved":0,"items":null}`,
+	"FIN": `{"alias":4,"copy":0,"unresolved":0,"items":null}`,
 	"FRA": `{"alias":2,"copy":0,"unresolved":0,"items":null}`,
 	"HOB": `{"alias":2,"copy":0,"unresolved":0,"items":null}`,
 	"LCI": `{"alias":5,"copy":0,"unresolved":0,"items":null}`,
-	"MKM": `{"alias":2,"copy":0,"unresolved":0,"items":null}`,
-	"MSH": `{"alias":5,"copy":0,"unresolved":0,"items":null}`,
-	"OTJ": `{"alias":3,"copy":1,"unresolved":0,"items":null}`,
-	"SOS": `{"alias":7,"copy":0,"unresolved":0,"items":null}`,
+	"MKM": `{"alias":1,"copy":0,"unresolved":0,"items":null}`,
+	"MSH": `{"alias":4,"copy":0,"unresolved":0,"items":null}`,
+	"OTJ": `{"alias":2,"copy":1,"unresolved":0,"items":null}`,
+	"SOS": `{"alias":5,"copy":0,"unresolved":0,"items":null}`,
 	"SPM": `{"alias":3,"copy":0,"unresolved":0,"items":null}`,
-	"TDM": `{"alias":6,"copy":0,"unresolved":0,"items":null}`,
+	"TDM": `{"alias":5,"copy":0,"unresolved":0,"items":null}`,
 	"TLA": `{"alias":3,"copy":1,"unresolved":0,"items":null}`,
-	"TMT": `{"alias":5,"copy":0,"unresolved":0,"items":null}`,
+	"TMT": `{"alias":4,"copy":0,"unresolved":0,"items":null}`,
 	"WOE": `{"alias":3,"copy":0,"unresolved":0,"items":null}`,
 }
 
@@ -158,7 +161,8 @@ func classifyAnswer(answer string, ref string, options []string) (bucket string,
 // exact "@ref"/ref alias, then a bare/copy-marked name equal to the pick's
 // name, then an alias of a same-name SIBLING (a wrong answer, which
 // classifyAnswer then counts as unresolved rather than letting it go
-// uncounted). Returns "" when no segment names the pick, which is the
+// uncounted). Finally a different-name alias is retained as a wrong answer,
+// not silently skipped. Returns "" when no segment names any object, the
 // ordinary case for a pick XMage answers with a number, a yes/no, or a skip
 // token rather than a name selection.
 func segmentFor(values []string, ref string) string {
@@ -186,10 +190,27 @@ func segmentFor(values []string, ref string) string {
 			return seg
 		}
 	}
+	for _, seg := range segs {
+		if isRefSpelling(strings.TrimPrefix(seg, "@")) {
+			return seg
+		}
+	}
 	return ""
 }
 
-func TestSameNameAnswerCensus(t *testing.T) {
+// Count siblings independently of the production discriminator, so a bug in
+// ClassifySameName cannot make both the generator and its census go green.
+func sameNameCandidates(ref string, options []string) int {
+	seen := map[string]bool{}
+	for _, candidate := range options {
+		if strings.EqualFold(refName(candidate), refName(ref)) {
+			seen[candidate] = true
+		}
+	}
+	return len(seen)
+}
+
+func runSameNameAnswerCensus(t *testing.T, start, end int) {
 	reg := testutil.CorpusRegistry(t)
 	has := func(n string) bool { _, ok := reg.Lookup(n); return ok }
 	folded := compliance.FoldedNames(reg)
@@ -203,6 +224,10 @@ func TestSameNameAnswerCensus(t *testing.T) {
 		sets = append(sets, set)
 	}
 	sort.Strings(sets)
+	if len(sets) != 20 || len(wantSameNameCensus) != len(sets) {
+		t.Fatalf("census chunks/pins must cover every declared set: sets=%v pins=%d", sets, len(wantSameNameCensus))
+	}
+	sets = sets[start:end]
 
 	got := map[string]string{}
 	for _, set := range sets {
@@ -216,12 +241,13 @@ func TestSameNameAnswerCensus(t *testing.T) {
 			if err != nil {
 				return
 			}
+			itemBucket := ""
 			for _, d := range res.Decisions {
 				for k := range d.Picks {
 					if !oraclegen.IsNameSelection(d, k) {
 						continue
 					}
-					if !oraclegen.ClassifySameName(d, k).Ambiguous {
+					if k >= len(d.PickRefs) || sameNameCandidates(d.PickRefs[k], d.OptionRefs) < 2 {
 						continue
 					}
 					ref := d.PickRefs[k]
@@ -247,16 +273,21 @@ func TestSameNameAnswerCensus(t *testing.T) {
 						// pick: report both the defect and the pick.
 						t.Errorf("%s: ambiguous pick %q emitted %q, which matches %d distinct offered objects, not exactly the pick (kind=%s resume=%s via=%s pk=%v)", id, ref, answer, matches, d.Kind, d.Resume, d.Via, d.PickKinds)
 					}
-					switch bucket {
-					case "alias":
-						c.Alias++
-					case "copy":
-						c.Copy++
-					default:
-						c.Unresolved++
-						c.Items = append(c.Items, id)
+					// Count ITEMS, not picks: multi-pick dialogs or several
+					// decisions in one item must not inflate the pre-fix census.
+					if itemBucket == "" || bucket == "unresolved" || bucket == "alias" && itemBucket == "copy" {
+						itemBucket = bucket
 					}
 				}
+			}
+			switch itemBucket {
+			case "alias":
+				c.Alias++
+			case "copy":
+				c.Copy++
+			case "unresolved":
+				c.Unresolved++
+				c.Items = append(c.Items, id)
 			}
 		}
 		for _, name := range printed.Cards {
@@ -280,6 +311,7 @@ func TestSameNameAnswerCensus(t *testing.T) {
 		sort.Strings(c.Items)
 		b, _ := json.Marshal(c)
 		got[set] = string(b)
+		t.Logf("%s before=%d after=%d %s", set, c.Alias+c.Copy+c.Unresolved, c.Unresolved, got[set])
 	}
 	for _, set := range sets {
 		if got[set] != wantSameNameCensus[set] {

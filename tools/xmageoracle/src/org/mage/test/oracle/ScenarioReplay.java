@@ -176,6 +176,45 @@ public class ScenarioReplay extends CardTestPlayerBase {
             return new ScriptedChoicePlayer(this);
         }
 
+        // Tokens may be created after scripted() queues an answer. Resolve a
+        // token ref against the LIVE choice game, not a prematurely bound or
+        // stale alias. Other choice values and the target path stay unchanged.
+        private Game choiceGame;
+
+        @Override
+        public boolean choose(Outcome outcome, mage.target.Target target, Ability source, Game game) {
+            Game previous = choiceGame;
+            choiceGame = game;
+            try {
+                return super.choose(outcome, target, source, game);
+            } finally {
+                choiceGame = previous;
+            }
+        }
+
+        @Override
+        public boolean choose(Outcome outcome, Cards cards, mage.target.TargetCard target, Ability source, Game game) {
+            Game previous = choiceGame;
+            choiceGame = game;
+            try {
+                return super.choose(outcome, cards, target, source, game);
+            } finally {
+                choiceGame = previous;
+            }
+        }
+
+        @Override
+        public boolean hasObjectTargetNameOrAlias(mage.MageObject object, String value) {
+            if (choiceGame != null && value != null && value.startsWith("@")
+                    && isScenarioRef(value.substring(1)) && value.contains(":token:")) {
+                String ref = value.substring(1);
+                Permanent chosen = tokenChoice(ref, owner.seat(refSeat(ref)).getId(),
+                        choiceGame.getBattlefield().getAllPermanents());
+                return object != null && chosen != null && chosen.getId().equals(object.getId());
+            }
+            return super.hasObjectTargetNameOrAlias(object, value);
+        }
+
         @Override
         public boolean scry(int value, Ability source, Game game) {
             if (game.getTurnNum() == 1 && game.getStep() == null) {
@@ -1105,6 +1144,26 @@ public class ScenarioReplay extends CardTestPlayerBase {
         for (String ref : answerRefs(value)) {
             bindOneAlias(ref);
         }
+    }
+
+    /** Tokens' gorge refs rank the controller's live tokens in creation order.
+     * Battlefield iteration is UUID/hash order in XMage, not entry order. */
+    static Permanent tokenChoice(String ref, UUID controller, Iterable<Permanent> battlefield) {
+        String name = refName(ref).toLowerCase(java.util.Locale.ROOT);
+        int wanted = 1;
+        int hash = ref.lastIndexOf('#');
+        if (hash >= 0 && ref.substring(hash + 1).matches("[0-9]+")) {
+            wanted = Integer.parseInt(ref.substring(hash + 1));
+        }
+        List<Permanent> candidates = new ArrayList<>();
+        for (Permanent permanent : battlefield) {
+            if (permanent.isToken() && controller.equals(permanent.getControllerId())
+                    && permanent.getName().toLowerCase(java.util.Locale.ROOT).contains(name)) {
+                candidates.add(permanent);
+            }
+        }
+        candidates.sort(java.util.Comparator.comparingInt(Permanent::getCreateOrder));
+        return wanted > 0 && wanted <= candidates.size() ? candidates.get(wanted - 1) : null;
     }
 
     /** The seat index of a scenario ref: "p1:Forest#2" -> 1. */
