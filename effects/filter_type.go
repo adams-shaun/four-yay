@@ -201,17 +201,17 @@ func hasTypeCtxPtrID(o *state.Object, t string, id cards.TypeWordID, sc *SpecCon
 	// while a slice field is read-only and allocation-free. It is checked
 	// first because it is the layer walk's OWN types-so-far list, which can
 	// differ from the published table mid-walk.
-	for _, x := range sc.ExtraTypes {
-		if strings.EqualFold(x, t) {
-			return true
-		}
-	}
-	// When the layer walk bound a types-so-far list, it is authoritative.
-	// The published table is not consulted in that case: it may carry a type a
-	// LATER effect grants, which would break the walk's ordering (rules/layers.go
-	// clears sc.DerivedTypes for the same reason, but this guard keeps the
-	// contract even for a caller that sets ExtraTypes without clearing it).
 	if sc.ExtraTypes != nil && o.ID == sc.ExtraTypesOwner {
+		for _, x := range sc.ExtraTypes {
+			if strings.EqualFold(x, t) {
+				return true
+			}
+		}
+		// When the layer walk bound a types-so-far list, it is authoritative.
+		// The published table is not consulted in that case: it may carry a type a
+		// LATER effect grants, which would break the walk's ordering (rules/layers.go
+		// clears sc.DerivedTypes for the same reason, but this guard keeps the
+		// contract even for a caller that sets ExtraTypes without clearing it).
 		return false
 	}
 	// Outside the walk a published layer-4 entry makes the object's DERIVED
@@ -239,12 +239,12 @@ func hasTypeCtxPtrID(o *state.Object, t string, id cards.TypeWordID, sc *SpecCon
 // hasTypeCtxSub is hasTypeCtx with changelingType(t) precomputed as sub: the
 // same reads in the same order, the intrinsic-CDA tails taking sub.
 func hasTypeCtxSub(o *state.Object, t string, id cards.TypeWordID, sub bool, sc *SpecContext) bool {
-	for _, x := range sc.ExtraTypes {
-		if strings.EqualFold(x, t) {
-			return true
-		}
-	}
 	if sc.ExtraTypes != nil && o.ID == sc.ExtraTypesOwner {
+		for _, x := range sc.ExtraTypes {
+			if strings.EqualFold(x, t) {
+				return true
+			}
+		}
 		return false
 	}
 	for _, d := range sc.Layers.DerivedTypes {
