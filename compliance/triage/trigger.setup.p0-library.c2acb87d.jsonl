@@ -1,4 +1,4 @@
-{"shape":{"template":"trigger","op":"setup","field":"p0.library","diff":"placement"},"key":"trigger | setup | p0.library | placement","cards":27}
+{"shape":{"template":"trigger","op":"setup","field":"p0.library","diff":"placement"},"key":"trigger | setup | p0.library | placement","cards":28}
 {"card":"Bard's Company","template":"trigger#0.1","status":"diverge","api":"ChangesZone:Recruit+Attacks:Recruit","sets":["HOB"],"detail":"setup p0.graveyard: gorge \"[Wastes]\", xmage \"[]\""}
 {"card":"Blossoming Tortoise","template":"trigger#0.1","status":"diverge","api":"ChangesZone:Mill+Attacks:Mill","sets":["WOE"],"detail":"setup p0.graveyard: gorge \"[Wastes, Wastes]\", xmage \"[]\""}
 {"card":"Breaching Dragonstorm","template":"trigger#0.1","status":"diverge","api":"ChangesZone:DigUntil+ChangesZone:ChangeZone","sets":["TDM"],"detail":"setup p0.exile: gorge \"[Wastes, Wastes, Wastes, Wastes, Wastes, Wastes, Wastes, Wastes, Wastes, Wastes, Wastes, Wastes, Wastes, Wastes, Wastes, Wastes, Wastes, Wastes, Wastes, Wastes, Wastes, Wastes, Wastes, Wastes, Wastes, Wastes, Wastes, Wastes, Wastes, Wastes, Wastes, Wastes, Wastes, Wastes, Wastes, Wastes, Wastes, Wastes]\", xmage \"[]\""}
@@ -12,6 +12,7 @@
 {"card":"Dreadwing Scavenger","template":"trigger#0.1","status":"diverge","api":"ChangesZone:Draw+Attacks:Draw","sets":["FDN"],"detail":"setup p0.graveyard: gorge \"[Wastes]\", xmage \"[]\""}
 {"card":"Emet-Selch, Unsundered","template":"trigger#0.1","status":"diverge","api":"ChangesZone:Draw+Attacks:Draw+Phase:SetState","sets":["FIN"],"detail":"setup p0.graveyard: gorge \"[Wastes]\", xmage \"[]\""}
 {"card":"Equilibrium Adept","template":"trigger#0.1","status":"diverge","api":"ChangesZone:Dig+SpellCast:Pump","sets":["TDM"],"detail":"setup p0.exile: gorge \"[Wastes]\", xmage \"[]\""}
+{"card":"Kefka, Court Mage","template":"trigger#0.1","status":"diverge","api":"ChangesZone:Discard+Attacks:Discard","sets":["FIN"],"detail":"setup p0.hand: gorge \"[]\", xmage \"[Wastes]\""}
 {"card":"Overlord of the Balemurk","template":"trigger#0.1","status":"diverge","api":"ChangesZone:Mill+Attacks:Mill","sets":["DSK"],"detail":"setup p0.graveyard: gorge \"[Wastes, Wastes, Wastes, Wastes]\", xmage \"[]\""}
 {"card":"Overlord of the Floodpits","template":"trigger#0.1","status":"diverge","api":"ChangesZone:Draw+Attacks:Draw","sets":["DSK"],"detail":"setup p0.hand: gorge \"[Wastes]\", xmage \"[]\""}
 {"card":"Paramecia Coloniex","template":"trigger#0.1","status":"diverge","api":"ChangesZone:Mill+ChangesZone:ImmediateTrigger","sets":["TMT"],"detail":"setup p0.graveyard: gorge \"[Wastes, Wastes, Wastes]\", xmage \"[]\""}
