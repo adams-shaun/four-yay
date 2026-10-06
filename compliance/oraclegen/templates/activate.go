@@ -139,7 +139,17 @@ func activateWithFixture(reg *cards.Registry, f *cards.Face, name string, req le
 	if extra := loyaltyHeadroom(f, f.Abilities[idx]); extra > 0 {
 		p0 = oraclegen.WithCounters(p0, name, "LOYALTY", int32(extra))
 	}
-	p0, prelude := applyActivationPrelude(p0, name, pre)
+	p0, restrictSteps := applyActivationPrelude(p0, name, pre)
+	// The fixture's own prelude (a token made, an Aura attached) runs first
+	// in the main phase, then the restriction's steps, then the fixture's
+	// combat: a target filter naming an attacking creature ("another target
+	// attacking creature you control") has that creature declared attacking
+	// before the activation, which then happens in combat.
+	fxPre, combat := fx.Prelude(), fx.CombatSteps()
+	prelude := make([]oraclegen.Step, 0, len(fxPre)+len(restrictSteps)+len(combat))
+	prelude = append(prelude, fxPre...)
+	prelude = append(prelude, restrictSteps...)
+	prelude = append(prelude, combat...)
 	setupBackFace(&p0, name, req)
 	steps := make([]oraclegen.Step, 0, len(prelude)+1)
 	steps = append(steps, prelude...)
@@ -201,7 +211,7 @@ func activateWithFixture(reg *cards.Registry, f *cards.Face, name string, req le
 	dropUnproducedManaColours(it.XAnswers, activateStep, res)
 	it.XAnswers = scriptPreludeSacrifice(it.XAnswers, prelude, len(sc.Steps))
 	it.XAbility = make([]string, len(sc.Steps))
-	copy(it.XAbility, pre.xability)
+	copy(it.XAbility[len(fxPre):], pre.xability)
 	it.XAbility[activateStep] = prefix
 	if comboPrefix, ok := comboManaColourPrefix(f.Abilities[idx], cost, activateStep, res); ok {
 		it.XAbility[activateStep] = comboPrefix

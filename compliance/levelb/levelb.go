@@ -177,6 +177,9 @@ func classifyTrigger(f *cards.Face, t *cards.Trigger) (sub, gap string, covered 
 	if sub, ok := classifyCastTrigger(f, t); ok {
 		return sub, "", false
 	}
+	if sub, ok := classifyStateTrigger(t); ok {
+		return sub, "", false
+	}
 	switch t.ModeKind() {
 	case cards.TriggerChangesZone:
 		dest := t.ParamStr(cards.PKDestination)
