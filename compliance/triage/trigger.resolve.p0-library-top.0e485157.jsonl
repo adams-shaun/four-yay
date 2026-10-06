@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"resolve","field":"p0.library_top","diff":"gorge+[Jace Beleren] xmage+[Glorious Anthem]"},"key":"trigger | resolve | p0.library_top | gorge+[Jace Beleren] xmage+[Glorious Anthem]","cards":1}
+{"card":"Kyoshi Island Plaza","template":"trigger#0.1","status":"diverge","api":"ChangesZone:ChangeZone","sets":["TLA"],"detail":"step 1 (resolve) p0.library_top: gorge \"[Wastes, Wastes, Wastes, Jace Beleren, Wastes]\", xmage \"[Wastes, Glorious Anthem, Wastes, Wastes, Wastes]\""}

@@ -1,2 +1,0 @@
-{"shape":{"template":"combat","op":"attack","field":"stack","diff":"gorge=[ability:$CARD@p0] xmage=[ability:Aang and La, Ocean's Fury@p0]"},"key":"combat | attack | stack | gorge=[ability:$CARD@p0] xmage=[ability:Aang and La, Ocean's Fury@p0]","cards":1}
-{"card":"Aang, Swift Savior","template":"combat#1.attack","status":"diverge","api":"ChangesZone:Airbend","sets":["TLA"],"detail":"step 0 (attack) stack: gorge \"[ability:Aang, Swift Savior@p0]\", xmage \"[ability:Aang and La, Ocean's Fury@p0]\""}

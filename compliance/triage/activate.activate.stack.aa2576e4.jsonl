@@ -1,3 +1,0 @@
-{"shape":{"template":"activate","op":"activate","field":"stack","diff":"gorge=[ability:$CARD@p0] xmage=[ability:Bladewheel Chariot@p0]"},"key":"activate | activate | stack | gorge=[ability:$CARD@p0] xmage=[ability:Bladewheel Chariot@p0]","cards":2}
-{"card":"Spring-Loaded Sawblades","template":"activate#1.0","status":"diverge","api":"ChangesZone:DealDamage","sets":["LCI"],"detail":"step 0 (activate) stack: gorge \"[ability:Spring-Loaded Sawblades@p0]\", xmage \"[ability:Bladewheel Chariot@p0]\""}
-{"card":"Spring-Loaded Sawblades","template":"activate#1.1","status":"diverge","api":"ChangesZone:DealDamage","sets":["LCI"],"detail":"step 0 (activate) stack: gorge \"[ability:Spring-Loaded Sawblades@p0]\", xmage \"[ability:Bladewheel Chariot@p0]\""}

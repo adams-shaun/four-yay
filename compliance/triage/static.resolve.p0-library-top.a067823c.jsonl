@@ -1,0 +1,2 @@
+{"shape":{"template":"static","op":"resolve","field":"p0.library_top","diff":"gorge+[Jace Beleren, Ornithopter, Plains] xmage+[$LIB]"},"key":"static | resolve | p0.library_top | gorge+[Jace Beleren, Ornithopter, Plains] xmage+[$LIB]","cards":1}
+{"card":"Prismatic Undercurrents","template":"static#0.0","status":"diverge","api":"ChangesZone:ChangeZone","sets":["ECL"],"detail":"step 1 (resolve) p0.library_top: gorge \"[Wastes, Jace Beleren, Wastes, Ornithopter, Plains]\", xmage \"[Wastes, Wastes, Wastes, Wastes, Wastes]\""}

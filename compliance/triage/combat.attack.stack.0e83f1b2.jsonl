@@ -1,2 +1,0 @@
-{"shape":{"template":"combat","op":"attack","field":"stack","diff":"gorge=[ability:$CARD@p0] xmage=[ability:Sephiroth, One-Winged Angel@p0]"},"key":"combat | attack | stack | gorge=[ability:$CARD@p0] xmage=[ability:Sephiroth, One-Winged Angel@p0]","cards":1}
-{"card":"Sephiroth, Fabled SOLDIER","template":"combat#1.attack","status":"diverge","api":"ChangesZone:Draw+Attacks:Draw+ChangesZone:LoseLife","sets":["FIN"],"detail":"step 0 (attack) stack: gorge \"[ability:Sephiroth, Fabled SOLDIER@p0]\", xmage \"[ability:Sephiroth, One-Winged Angel@p0]\""}

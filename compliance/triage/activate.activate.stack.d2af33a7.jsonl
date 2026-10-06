@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"activate","field":"stack","diff":"gorge=[ability:$CARD@p0] xmage=[ability:Dire Blunderbuss@p0]"},"key":"activate | activate | stack | gorge=[ability:$CARD@p0] xmage=[ability:Dire Blunderbuss@p0]","cards":1}
-{"card":"Dire Flail","template":"activate#1.0","status":"diverge","api":"-","sets":["LCI"],"detail":"step 0 (activate) stack: gorge \"[ability:Dire Flail@p0]\", xmage \"[ability:Dire Blunderbuss@p0]\""}

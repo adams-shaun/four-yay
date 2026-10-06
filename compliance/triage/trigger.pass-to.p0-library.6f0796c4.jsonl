@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"pass_to","field":"p0.library","diff":"placement"},"key":"trigger | pass_to | p0.library | placement","cards":1}
+{"card":"Zuko, Conflicted","template":"trigger#0.0","status":"diverge","api":"Phase:Charm","sets":["TLA"],"detail":"step 0 (pass_to) p0.hand: gorge \"[Wastes]\", xmage \"[]\""}

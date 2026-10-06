@@ -1,2 +1,0 @@
-{"shape":{"template":"trigger","op":"setup","field":"p0.exile","diff":"gorge+[Jace Beleren] xmage+[]"},"key":"trigger | setup | p0.exile | gorge+[Jace Beleren] xmage+[]","cards":1}
-{"card":"Sanar, Innovative First-Year","template":"trigger#0.0","status":"diverge","api":"Phase:DigUntil","sets":["ECL"],"detail":"setup p0.exile: gorge \"[Jace Beleren]\", xmage \"[]\""}

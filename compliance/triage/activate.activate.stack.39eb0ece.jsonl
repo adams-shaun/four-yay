@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"activate","field":"stack","diff":"gorge=[ability:$CARD@p0] xmage=[ability:Geode Grotto@p0]"},"key":"activate | activate | stack | gorge=[ability:$CARD@p0] xmage=[ability:Geode Grotto@p0]","cards":1}
-{"card":"Dowsing Device","template":"activate#1.1","status":"diverge","api":"ChangesZone:Pump","sets":["LCI"],"detail":"step 0 (activate) stack: gorge \"[ability:Dowsing Device@p0]\", xmage \"[ability:Geode Grotto@p0]\""}
