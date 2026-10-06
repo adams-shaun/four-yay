@@ -1,0 +1,50 @@
+{
+  "card": "Decorum Dissertation",
+  "family": "paradigm",
+  "oracle_sha": "d2453e9265d0",
+  "author": "cli-20261006T024353Z-98038af0 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "target-player-draws-two-and-loses-two-then-exiles-itself",
+      "cr": ["608.2", "121.1", "118.3", "702.168a"],
+      "why": "The spell's whole effect is on the target player: they draw two cards (121.1) and lose 2 life (118.3), and the Paradigm rider then exiles the resolved spell instead of putting it into its owner's graveyard.",
+      "setup": {
+        "p0": {"hand": ["Decorum Dissertation"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Decorum Dissertation", "mana": "BBBBB", "targets": ["p1"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"life": {"p1": 18}},
+        {"hand_size": {"p1": 2}},
+        {"card": "p0:Decorum Dissertation", "zone": "exile"}
+      ]
+    },
+    {
+      "name": "paradigm-free-copy-at-the-next-first-main-phase",
+      "cr": ["702.168a", "702.168b", "601.2h"],
+      "why": "After the original resolved, the exiled card is a free castable copy at the beginning of each of its owner's first main phases (702.168b), and casting it costs no mana at all. In the main phase the original resolved in, its beginning has already passed, so the copy first appears at seat 0's next first main phase and re-applies the same effect (two more cards, two more life).",
+      "setup": {
+        "p0": {"hand": ["Decorum Dissertation"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Decorum Dissertation", "mana": "BBBBB", "targets": ["p1"]},
+        {"op": "resolve"},
+        {"op": "pass_to", "step": "upkeep", "active": "p1"},
+        {"op": "pass_to", "step": "main1", "active": "p0",
+          "expect": [{"offered": {"seat": 0, "kind": "cast", "card": "p0:Decorum Dissertation"}, "want": true}]},
+        {"op": "cast", "seat": 0, "card": "p0:Decorum Dissertation", "targets": ["p1"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"life": {"p1": 16}},
+        {"hand_size": {"p1": 5}},
+        {"card": "p0:Decorum Dissertation", "zone": "exile"},
+        {"pool": {"p0": ""}}
+      ]
+    }
+  ]
+}

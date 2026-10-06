@@ -5,16 +5,35 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/adams-shaun/gorge/compliance"
 	"github.com/adams-shaun/gorge/internal/testutil"
 )
 
 // TestGateHonoursXMageUnfinished: SOS's set class removes five cards after
 // listing them, so XMage's card database does not hold them. They belong in
-// the no-XMage bucket (a hand-authored oracle scenario), never the harness
-// bucket.
+// the no-XMage bucket -- a hand-authored oracle scenario, never a generated
+// XMage one. Each now carries such a scenario under
+// rules/testdata/oracle/paradigm, which is what closes the card: the gate
+// must report NO level-A problem for it. This pins both halves of that
+// contract -- the manifest still marks the card unfinished (so no generated
+// scenario can be expected) and a hand scenario exists -- so deleting either
+// the scenario or the manifest row reintroduces the "XMage does not
+// implement it" problem and fails here.
 func TestGateHonoursXMageUnfinished(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	root := filepath.Join("..", "..")
+	m, err := compliance.LoadManifest(filepath.Join(root, "compliance", "manifests"), "SOS")
+	if err != nil {
+		t.Fatal(err)
+	}
+	unfinished := map[string]bool{}
+	for _, u := range m.Unfinished {
+		unfinished[compliance.FoldName(u)] = true
+	}
+	hand, err := HandScenarios(filepath.Join(root, "rules", "testdata", "oracle"))
+	if err != nil {
+		t.Fatal(err)
+	}
 	probs, err := Check(reg, root, "SOS", "A")
 	if err != nil {
 		t.Fatal(err)
@@ -27,13 +46,14 @@ func TestGateHonoursXMageUnfinished(t *testing.T) {
 		"Decorum Dissertation", "Echocasting Symposium", "Germination Practicum",
 		"Improvisation Capstone", "Restoration Seminar",
 	} {
-		reason, ok := byCard[card]
-		if !ok {
-			t.Errorf("%s: not reported at all; want the no-XMage reason", card)
-			continue
+		if !unfinished[compliance.FoldName(card)] {
+			t.Errorf("%s: not marked unfinished in the SOS manifest", card)
 		}
-		if !strings.Contains(reason, "XMage does not implement it") {
-			t.Errorf("%s: %q, want the no-XMage reason", card, reason)
+		if !hand[card] {
+			t.Errorf("%s: no hand-authored oracle scenario covers it", card)
+		}
+		if reason, ok := byCard[card]; ok && strings.Contains(reason, "XMage does not implement it") {
+			t.Errorf("%s: still reported as needing a hand scenario: %q", card, reason)
 		}
 	}
 }
