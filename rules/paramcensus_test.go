@@ -2119,7 +2119,12 @@ var handRoots = struct {
 		// stored trigger body, and the firing walker re-evaluates its
 		// ValidCard$/ValidActivatingPlayer$/PlayerTurn$ clauses at fire time,
 		// outside triggerMatches' dispatch walk.
-		"Engine.registerOpeningEffectTriggers", "Engine.checkEventDelayedTriggers"},
+		"Engine.registerOpeningEffectTriggers", "Engine.checkEventDelayedTriggers",
+		// The generated-scenario runner (oracle_run.go) drops the
+		// enters-the-battlefield triggers its setup placements queued -- XMage's
+		// addCard never fires them -- by reading Mode$ and Destination$ of each
+		// pending trigger, mode-shared, outside the dispatch walk.
+		"oracleRun.build"},
 	// applyReplacements is the replacement pipeline's root beside
 	// replacementMatches, whose `r.Event != "Moved"` early return scopes every
 	// r.Params read in it to repl:Moved. handleReplacement is the
