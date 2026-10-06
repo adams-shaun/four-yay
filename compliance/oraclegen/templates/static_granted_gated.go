@@ -5,8 +5,8 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/compliance/levelb"
-	"github.com/adams-shaun/gorge/compliance/oraclediff"
 	"github.com/adams-shaun/gorge/compliance/oraclegen"
+	"github.com/adams-shaun/gorge/rules/pay"
 )
 
 // staticGatedGrantedAbilityItem observes a gated AddAbility grant on the
@@ -22,7 +22,9 @@ func staticGatedGrantedAbilityItem(reg *cards.Registry, c *cards.Card, f *cards.
 	}
 	var label string
 	if sa.API == "Mana" && grantedLoyaltyCost(sa) < 0 {
-		label = grantedManaLabel(sa)
+		// Keep the cost prefix: a bare production such as "Add G" also
+		// matches the card's printed mana ability under oracleLabelMatches' substring semantics.
+		label = pay.ManaAbilityLabel(sa, "")
 	} else {
 		desc := strings.TrimSpace(sa.ParamStr(cards.PKSpellDescription))
 		if desc == "" {
@@ -70,7 +72,6 @@ func staticGatedGrantedAbilityItem(reg *cards.Registry, c *cards.Card, f *cards.
 	}
 	it := oraclegen.NewLevelBItem(name, req.Key, StaticApplies.Version, []string{"611.3", "613"}, sc)
 	it.XAnswers = oraclegen.XAnswersForScenario(res, sc, oraclegen.ModeNumbers(f), nil)
-	it.Compare = []string{oraclediff.CompareKeywords}
 	return it, true
 }
 

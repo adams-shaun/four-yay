@@ -151,6 +151,9 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 		return skip(gap)
 	}
 	if gated || speedGated {
+		if sa := cards.ResolveSVar(f.SVars, strings.TrimSpace(st.ParamStr(cards.PKAddAbility))); sa != nil && sa.API == "Mana" && grantedLoyaltyCost(sa) < 0 {
+			return skip(staticGrantSelfManaReason)
+		}
 		if gap := staticGrantGap(f, st); gap != "" {
 			return skip(gap)
 		}
