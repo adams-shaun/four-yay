@@ -450,20 +450,34 @@ func SlotIsStack(filter string) bool {
 	return true
 }
 
-// RequiresTurnFour identifies cards whose Oracle cast restriction ends after
-// their controller's third turn.
-func RequiresTurnFour(card string) bool {
-	return card == "Jace Reawakened" || card == "Spider-Man 2099"
+// firstThreeTurnScenarioTurn recognizes the compiled first-three-turns cast
+// lockout. Fixtures cast as seat 0 in a two-seat game, so global turn 2*4-1
+// is that seat's fourth turn (TurnsTaken >= 4), when the lockout ends.
+func firstThreeTurnScenarioTurn(f *cards.Face) (int, bool) {
+	if f == nil {
+		return 0, false
+	}
+	for _, st := range f.Statics {
+		if st.Mode != "CantBeCast" || st.Params["SVarCompare"] != "LE3" {
+			continue
+		}
+		v := st.Params["CheckSVar"]
+		if body, ok := f.SVars[v]; ok {
+			v = body
+		}
+		if v == "Count$YourTurns" {
+			return 7, true
+		}
+	}
+	return 0, false
 }
 
 // NewItem names a template's scenario. The template's version is part of
 // the id and the scenario name, so bumping one template's version stales
 // only that template's verdicts (compliance/oraclegen/templates).
-func NewItem(card, template string, version int, sc Scenario) Item {
-	// These cards explicitly cannot be cast during their controller's first
-	// three turns. Their generated cast fixture must start after that window.
-	if RequiresTurnFour(card) {
-		sc.Turn = 7
+func NewItem(f *cards.Face, card, template string, version int, sc Scenario) Item {
+	if turn, ok := firstThreeTurnScenarioTurn(f); ok {
+		sc.Turn = turn
 	}
 	sc.Name = fmt.Sprintf("gen%d-%s", version, template)
 	sc.CR = []string{"601.2"}
