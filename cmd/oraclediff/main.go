@@ -205,6 +205,9 @@ func runGen(dir, manifest, out, level string) error {
 	if err := json.Unmarshal(raw, &m); err != nil {
 		return err
 	}
+	if err := installXMageKnown(filepath.Dir(manifest)); err != nil {
+		return err
+	}
 	reg, err := loadReg(dir)
 	if err != nil {
 		return err
@@ -215,7 +218,6 @@ func runGen(dir, manifest, out, level string) error {
 // genManifest generates from an already loaded registry, so deterministic
 // fixtures can exercise the manifest/name boundary without an external corpus.
 func genManifest(reg *cards.Registry, m compliance.Manifest, out, level string) error {
-	installXMageKnown()
 	sup := effects.Supported()
 	has := func(n string) bool { _, ok := reg.Lookup(n); return ok }
 	folded := compliance.FoldedNames(reg)
@@ -589,6 +591,9 @@ func runStatus(dir, set, level string) error {
 // review, as checked; -shape-id writes the ruling as a reusable shape
 // ruling instead of on this one row.
 func runRule(dir, card, status, ruling, shapeID, template string, confirm bool) error {
+	if err := installXMageKnown(filepath.Join("compliance", "manifests")); err != nil {
+		return err
+	}
 	if card == "" {
 		return fmt.Errorf("rule needs -card")
 	}
@@ -749,27 +754,14 @@ func xmageSpelling(reg *cards.Registry, card string) (string, bool) {
 	return "", false
 }
 
-// installXMageKnown hands the generator the names XMage's database holds, the
-// union of the committed set manifests, so no probe or fixture picker places a
-// card XMage's addCard cannot find. Without the manifests (the working
-// directory is not the repository root) nothing is installed and
-// oraclegen.XMageKnown falls back to its name heuristic.
-func installXMageKnown() {
-	paths, _ := filepath.Glob(filepath.Join("compliance", "manifests", "*.json"))
-	sort.Strings(paths)
-	var names []string
-	for _, p := range paths {
-		raw, err := os.ReadFile(p)
-		if err != nil {
-			continue
-		}
-		var m compliance.Manifest
-		if json.Unmarshal(raw, &m) != nil {
-			continue
-		}
-		for _, mc := range m.Cards {
-			names = append(names, mc.Name)
-		}
+// installXMageKnown installs the union of the committed XMage manifests.
+// Requiring a non-empty, successfully parsed manifest set prevents generation
+// from silently falling back to the permissive name heuristic.
+func installXMageKnown(manifestDir string) error {
+	names, err := compliance.LoadXMageNames(manifestDir)
+	if err != nil {
+		return err
 	}
 	oraclegen.SetXMageKnown(names)
+	return nil
 }

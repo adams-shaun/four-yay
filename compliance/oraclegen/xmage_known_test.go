@@ -4,14 +4,21 @@ import (
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/compliance"
 )
 
 // TestXMageKnownRejectsNonXMageProbes: with the manifests' names installed, a
 // card XMage's database lacks (Un-set, Alchemy, Commander-only) is not a legal
 // probe, and a card it holds, in any accent or split spelling, is.
 func TestXMageKnownRejectsNonXMageProbes(t *testing.T) {
-	// The names are what the manifests hold: one printing per entry.
-	SetXMageKnown([]string{"Grizzly Bears", "Pyre-Sledge Arsonist", "Extremis Elite", "Dain Ironfoot", "Fire // Ice", `"Name Sticker" Goblin`, "A-Pyre-Sledge Arsonist"})
+	names, err := compliance.LoadXMageNames("../manifests")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(names) < 10000 {
+		t.Fatalf("only %d names loaded from committed manifests", len(names))
+	}
+	SetXMageKnown(names)
 	t.Cleanup(func() { SetXMageKnown(nil) })
 
 	for _, n := range []string{"Disguise Agent", "1996 World Champion", `"Lifetime" Pass Holder`, "A-Pyre-Sledge Arsonist", "A Golden Opportunity", "Adorable Kitten", `"Name Sticker" Goblin`, ""} {
