@@ -162,6 +162,21 @@ func (e *Engine) finishParkedPhase(rc replChoice, selected int) {
 	}
 }
 
+// answerParkedOptionalPhase settles the elected skip or resumes the original
+// step after a decline. An invalid parked selection must not enter either path.
+func answerParkedOptionalPhase(rc replChoice, apply bool, finish func(replChoice, int), resume func(replChoice)) bool {
+	if rc.selected < 0 || rc.selected >= len(rc.cands) {
+		return false
+	}
+	if apply {
+		finish(rc, rc.selected)
+	} else {
+		rc.applied[rc.selected] = true
+		resume(rc)
+	}
+	return true
+}
+
 // resumeParkedPhase continues after an optional replacement was declined.
 // It preserves the original boundary ownership while either posing the next
 // order/optional ask or completing with the remaining mandatory replacement.

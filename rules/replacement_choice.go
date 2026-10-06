@@ -795,17 +795,11 @@ func (e *Engine) handleReplacement(d *decision.Decision, in decision.Intent) {
 			e.finishParkedPhase(rc, i)
 		}
 	case replChoicePhaseOptional:
-		if rc.selected < 0 || rc.selected >= len(rc.cands) {
+		if !answerParkedOptionalPhase(rc, chosen[0].Kind == "apply", e.finishParkedPhase, e.resumeParkedPhase) {
 			e.triggerBefore = before
 			e.emit(events.Event{Kind: events.Note, Player: in.Player,
 				Text: "optional phase replacement answer out of range"})
 			return
-		}
-		if chosen[0].Kind == "apply" {
-			e.finishParkedPhase(rc, rc.selected)
-		} else {
-			rc.applied[rc.selected] = true
-			e.resumeParkedPhase(rc)
 		}
 	case replChoiceAddCounter:
 		if chosen[0].Index < 0 || chosen[0].Index >= len(rc.cands) {
