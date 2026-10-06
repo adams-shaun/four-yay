@@ -21,6 +21,29 @@ import (
 // workers IS a data race -- the 2026-10-05 sampler bug fixed in 75c053d09 --
 // so a caller that needs one spare per worker must give each worker its own
 // pool, never share a *rules.Spare value.
+//
+// The per-game rules.New / NewStartingPlayerChoice census (2026-10-06) and
+// why each caller does or does not draw from a SparePool here:
+//
+//   - recycled: cmd/enginebench playRandom/playBot (the -row random and -row
+//     bot rows), cmd/botbench playMatchTraced and sbPlay, cmd/policytune's
+//     pair player, cmd/mtgsim playOne, cmd/keywordbench play.
+//   - NOT recycled, no single last-use point: cmd/enginebench findRoots (its
+//     roots are e.Clone()s that share e's log prefix, so e must outlive
+//     them), cmd/enginebench searchGame (the engine is handed to the search
+//     and to searchseat.Feed, whose results may retain clones), cmd/hindsight
+//     captureGame (branches retain e.Clone() for post-game evaluation),
+//     cmd/searchteacher playGame (returns the engine to its caller),
+//     internal/paymirror PlayConfig (a deferred handler reads e.G at return
+//     and CheckLive may retain), internal/spellbench kshadow/v2engine/v2shadow
+//     (the engine outlives the "game" as the observer/translator pipeline).
+//   - already owns spare recycling: internal/searchprobe (per goroutine since
+//     75c053d09; its verifyActual rebuilds a replay that owns its output),
+//     internal/azmcts (clairvoyant/nodecache/redeal/seat/world).
+//   - out of scope or by construction: host/ engines outlive the game
+//     (feedback capture and replay); replay/ builds the engine that produces
+//     its own output log; cmd/autopayaudit and cmd/cardfuzz read the engine
+//     across several post-game phases (verify replay, failure context).
 type SparePool struct {
 	pool sync.Pool
 }
