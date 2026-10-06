@@ -653,6 +653,14 @@ func evalCountBody(h Host, c *Ctx, body string, depth int) (int32, bool) {
 			head, arg = "OptionalGenericCostPaid", strings.TrimSpace(rest)
 		}
 	}
+	// Rith's historical excess-recipient count needs the damage-time victim
+	// snapshot; other NumDamageThisTurn expressions keep the ordinary
+	// source/recipient damage-history evaluator.
+	if evalCountBodyCostCodes.Code(head) == evalCountBodyCostNumDamageThisTurn {
+		if v, ok := countExcessDamagedOpponents(g, c, arg); ok {
+			return v, true
+		}
+	}
 	if v, ok, matched := evalCountBodyCost(h, c, g, head, arg, depth); matched {
 		return v, ok
 	}

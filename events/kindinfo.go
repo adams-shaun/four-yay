@@ -215,6 +215,7 @@ var kindInfo = [NumKinds]KindInfo{
 	ClassLevelChange:     {Name: "class_level", Trigger: TriggerNone, Describe: "{obj} gains a Class level"},
 	MillProposal:         {Name: "mill_proposal", Trigger: TriggerNone, Describe: "{player} would mill {amount} cards"},
 	Meld:                 {Name: "meld", Trigger: TriggerNone, Describe: "{obj}: {text}"},
+	ExcessDamage:         {Name: "excess_damage", Trigger: TriggerNone, Describe: "{obj} was dealt excess damage"},
 }
 
 // Info returns k's descriptor; ok is false for a value past the enum.
