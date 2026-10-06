@@ -29,43 +29,70 @@ import (
 //     isCopy() filter leaves exactly one same-name candidate.
 //   - Unresolved: the emitted value matches zero or more than one distinct
 //     same-name candidate. This is the Joo Dee defect and must stay 0.
+//   - Unproven: the pick's ref is a rank-derived library/hand ref XMage's
+//     alias binding cannot reproduce, so no exact answer exists (the class
+//     the driver cannot rank-align). Out of the fix's reach; pinned so a
+//     regression that makes more picks unproven still fails.
 //
 // Buckets count items, not individual picks. If an item uses both forms,
-// Alias wins; any unresolved pick makes the whole item Unresolved. Their sum
+// Alias wins; any unresolved pick makes the whole item Unresolved, and an
+// unproven pick only counts when the item has no resolved pick. Their sum
 // is the number of items ambiguous before discrimination; Unresolved is the
 // number remaining afterward. Pins fail on increases AND decreases.
 type sameNameCensus struct {
 	Alias      int      `json:"alias"`
 	Copy       int      `json:"copy"`
 	Unresolved int      `json:"unresolved"`
+	Unproven   int      `json:"unproven"`
 	Items      []string `json:"items"`
+}
+
+// sameNameBucketRank orders the item buckets by strength: a real defect wins
+// over a resolved pick, and a resolved pick wins over an out-of-scope one.
+func sameNameBucketRank(bucket string) int {
+	switch bucket {
+	case "unresolved":
+		return 3
+	case "alias":
+		return 2
+	case "copy":
+		return 1
+	case "unproven":
+		return 0
+	}
+	return -1
 }
 
 // wantSameNameCensus pins the per-set census as JSON. Measured 2026-10-06 on
 // the fix that emits an exact ref for same-kind and cross-seat duplicates and
-// a copy marker for a unique token-or-card pick. Re-measured as ITEMS rather
-// than picks (multi-pick decisions previously inflated these counts).
+// a copy marker for a unique token-or-card pick, and re-measured once alias
+// emission was restricted to refs XMage's alias binding reconstructs exactly
+// (setup battlefield permanents and tokens by creation order). An ambiguous
+// pick whose ref is rank-derived (an anonymous library/hand card) has no
+// sound answer and is counted Unproven, never Alias: the driver would bind a
+// different physical card. Re-measured as ITEMS rather than picks (multi-pick
+// decisions previously inflated these counts).
 var wantSameNameCensus = map[string]string{
-	"BIG": `{"alias":1,"copy":0,"unresolved":0,"items":null}`,
-	"BLB": `{"alias":4,"copy":0,"unresolved":0,"items":null}`,
-	"DFT": `{"alias":3,"copy":0,"unresolved":0,"items":null}`,
-	"DSK": `{"alias":27,"copy":0,"unresolved":0,"items":null}`,
-	"ECL": `{"alias":5,"copy":0,"unresolved":0,"items":null}`,
-	"EOE": `{"alias":2,"copy":0,"unresolved":0,"items":null}`,
-	"FDN": `{"alias":2,"copy":1,"unresolved":0,"items":null}`,
-	"FIN": `{"alias":4,"copy":0,"unresolved":0,"items":null}`,
-	"FRA": `{"alias":2,"copy":0,"unresolved":0,"items":null}`,
-	"HOB": `{"alias":2,"copy":0,"unresolved":0,"items":null}`,
-	"LCI": `{"alias":5,"copy":0,"unresolved":0,"items":null}`,
-	"MKM": `{"alias":1,"copy":0,"unresolved":0,"items":null}`,
-	"MSH": `{"alias":4,"copy":0,"unresolved":0,"items":null}`,
-	"OTJ": `{"alias":2,"copy":1,"unresolved":0,"items":null}`,
-	"SOS": `{"alias":5,"copy":0,"unresolved":0,"items":null}`,
-	"SPM": `{"alias":3,"copy":0,"unresolved":0,"items":null}`,
-	"TDM": `{"alias":5,"copy":0,"unresolved":0,"items":null}`,
-	"TLA": `{"alias":3,"copy":1,"unresolved":0,"items":null}`,
-	"TMT": `{"alias":4,"copy":0,"unresolved":0,"items":null}`,
-	"WOE": `{"alias":3,"copy":0,"unresolved":0,"items":null}`,
+	"BIG": `{"alias":0,"copy":0,"unresolved":0,"unproven":1,"items":null}`,
+	"BLB": `{"alias":0,"copy":0,"unresolved":0,"unproven":4,"items":null}`,
+	"DFT": `{"alias":0,"copy":0,"unresolved":0,"unproven":3,"items":null}`,
+	"DSK": `{"alias":1,"copy":0,"unresolved":0,"unproven":26,"items":null}`,
+	"ECL": `{"alias":0,"copy":0,"unresolved":0,"unproven":5,"items":null}`,
+	"EOE": `{"alias":1,"copy":0,"unresolved":0,"unproven":1,"items":null}`,
+	"FDN": `{"alias":0,"copy":1,"unresolved":0,"unproven":2,"items":null}`,
+	"FIN": `{"alias":0,"copy":0,"unresolved":0,"unproven":4,"items":null}`,
+	"FRA": `{"alias":0,"copy":0,"unresolved":0,"unproven":2,"items":null}`,
+	"HOB": `{"alias":0,"copy":0,"unresolved":0,"unproven":2,"items":null}`,
+	"LCI": `{"alias":0,"copy":0,"unresolved":0,"unproven":5,"items":null}`,
+	"MKM": `{"alias":1,"copy":0,"unresolved":0,"unproven":0,"items":null}`,
+	"MSH": `{"alias":1,"copy":0,"unresolved":0,"unproven":3,"items":null}`,
+	"OTJ": `{"alias":1,"copy":1,"unresolved":0,"unproven":1,"items":null}`,
+	"SOS": `{"alias":0,"copy":0,"unresolved":0,"unproven":5,"items":null}`,
+	"SPM": `{"alias":1,"copy":0,"unresolved":0,"unproven":2,"items":null}`,
+	"TDM": `{"alias":0,"copy":0,"unresolved":0,"unproven":5,"items":null}`,
+	"TLA": `{"alias":1,"copy":1,"unresolved":0,"unproven":2,"items":null}`,
+	"TMT": `{"alias":2,"copy":0,"unresolved":0,"unproven":2,"items":null}`,
+	"WOE": `{"alias":0,"copy":0,"unresolved":0,"unproven":3,"items":null}`,
 }
 
 // refName strips a scenario ref to the object name.
@@ -242,12 +269,19 @@ func runSameNameAnswerCensus(t *testing.T, start, end int) {
 				return
 			}
 			itemBucket := ""
+			setBucket := func(bucket string) {
+				if sameNameBucketRank(bucket) > sameNameBucketRank(itemBucket) {
+					itemBucket = bucket
+				}
+			}
 			for _, d := range res.Decisions {
 				for k := range d.Picks {
-					if !oraclegen.IsNameSelection(d, k) {
+					if k >= len(d.PickRefs) || sameNameCandidates(d.PickRefs[k], d.OptionRefs) < 2 {
 						continue
 					}
-					if k >= len(d.PickRefs) || sameNameCandidates(d.PickRefs[k], d.OptionRefs) < 2 {
+					// The pre-existing mechanism exclusions (arrange, library search)
+					// stay out of scope, exactly as before.
+					if !oraclegen.InNameMatchMechanism(d, k) {
 						continue
 					}
 					ref := d.PickRefs[k]
@@ -267,6 +301,14 @@ func runSameNameAnswerCensus(t *testing.T, start, end int) {
 					if answer == "" {
 						continue
 					}
+					// An unanswerable same-name pick (a rank-derived library/hand
+					// ref XMage cannot bind) is out of the fix's reach, but it must
+					// stay visible: count it as unproven, never silently drop it
+					// and never call it resolved.
+					if oraclegen.ClassifySameName(d, k).Unanswerable {
+						setBucket("unproven")
+						continue
+					}
 					bucket, matches := classifyAnswer(answer, ref, d.OptionRefs)
 					if bucket == "unresolved" {
 						// The answer named something, but not exactly the
@@ -275,9 +317,7 @@ func runSameNameAnswerCensus(t *testing.T, start, end int) {
 					}
 					// Count ITEMS, not picks: multi-pick dialogs or several
 					// decisions in one item must not inflate the pre-fix census.
-					if itemBucket == "" || bucket == "unresolved" || bucket == "alias" && itemBucket == "copy" {
-						itemBucket = bucket
-					}
+					setBucket(bucket)
 				}
 			}
 			switch itemBucket {
@@ -288,6 +328,8 @@ func runSameNameAnswerCensus(t *testing.T, start, end int) {
 			case "unresolved":
 				c.Unresolved++
 				c.Items = append(c.Items, id)
+			case "unproven":
+				c.Unproven++
 			}
 		}
 		for _, name := range printed.Cards {
@@ -311,7 +353,7 @@ func runSameNameAnswerCensus(t *testing.T, start, end int) {
 		sort.Strings(c.Items)
 		b, _ := json.Marshal(c)
 		got[set] = string(b)
-		t.Logf("%s before=%d after=%d %s", set, c.Alias+c.Copy+c.Unresolved, c.Unresolved, got[set])
+		t.Logf("%s before=%d after=%d %s", set, c.Alias+c.Copy+c.Unresolved+c.Unproven, c.Unresolved, got[set])
 	}
 	for _, set := range sets {
 		if got[set] != wantSameNameCensus[set] {

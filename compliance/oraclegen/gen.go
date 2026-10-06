@@ -1732,6 +1732,23 @@ type SameNamePick struct {
 	Distinct   int    // distinct same-name offered refs, pick included
 	CopyMarker string // "[only copy]"/"[no copy]" when the copy filter is unique
 	Alias      string // "@<ref>" when only the exact ref separates the candidates
+	// Unanswerable is set when the copy filter is not unique AND the pick's
+	// ref is not an identity XMage can bind (a rank-derived library/hand
+	// card). There is no sound answer; the census counts the item as
+	// unproven rather than resolved.
+	Unanswerable bool
+}
+
+// pickRefExact reports whether pick k's ref is an identity XMage's alias
+// binding reconstructs exactly: a token, or a setup battlefield permanent.
+// A rank-derived ref (an anonymous library/hand card) is not. A hand-built
+// decision that omits the provenance list is treated as exact (its refs are
+// synthesized identity fixtures, not live ranks).
+func pickRefExact(d rules.OracleDecision, k int) bool {
+	if k >= 0 && k < len(d.PickRefsInexact) {
+		return !d.PickRefsInexact[k]
+	}
+	return true
 }
 
 // ClassifySameName reports how pick k of d is disambiguated.
@@ -1772,16 +1789,19 @@ func ClassifySameName(d rules.OracleDecision, k int) SameNamePick {
 	}
 	// Two or more candidates of the same kind (or a card and a token plus a
 	// same-kind sibling): the copy filter leaves more than one. Only the
-	// pick's own scenario ref identifies it.
+	// pick's own scenario ref identifies it, and only when XMage can bind
+	// that ref by identity. A rank-derived ref would bind the WRONG object
+	// (or nothing), so it is not emitted: the item is unanswerable.
+	if !pickRefExact(d, k) {
+		p.Unanswerable = true
+		return p
+	}
 	p.Alias = "@" + ref
 	return p
 }
 
-// IsNameSelection reports whether pick k of d is answered by an object name
-// or scenario ref that XMage's own name matching consumes (makeChoose,
-// chooseTarget, TargetDiscard). It is the scope of the same-name census.
-//
-// Excluded are the two mechanisms that do NOT reach a name match:
+// InNameMatchMechanism reports whether pick k of d reaches an XMage name /
+// scenario-ref match at all. Excluded are the mechanisms that do NOT:
 //
 //   - an arrange order (Surveil/Scry/Dig "put them back"): XMage shows the
 //     looked-at cards as an ordering list; two identical basics are
@@ -1791,11 +1811,10 @@ func ClassifySameName(d rules.OracleDecision, k int) SameNamePick {
 //     computer player resolves it and the card's identity among identical
 //     same-named basics does not change the compared state.
 //
-// Both are out of the brief's scope ("an original and its token copy, or two
-// copies of a card") and counting them would demand a discriminator XMage
-// cannot use. The remaining picks are the ones where two same-named objects
-// can be confused for real.
-func IsNameSelection(d rules.OracleDecision, k int) bool {
+// It is the outer scope of the same-name census. IsNameSelection additionally
+// drops a pick no exact answer can identify (an inexact ref whose copy filter
+// leaves several same-kind candidates).
+func InNameMatchMechanism(d rules.OracleDecision, k int) bool {
 	if d.Kind == "order" {
 		return false
 	}
@@ -1807,6 +1826,16 @@ func IsNameSelection(d rules.OracleDecision, k int) bool {
 		return false
 	}
 	return true
+}
+
+// IsNameSelection reports whether pick k of d is answered by an object name
+// or scenario ref that XMage's own name matching consumes (makeChoose,
+// chooseTarget, TargetDiscard) AND an exact answer exists. It is the scope
+// of the same-name census: every in-scope ambiguous pick must resolve, and a
+// pick with no exact answer (ClassifySameName.Unanswerable) is counted as
+// unproven, never as resolved.
+func IsNameSelection(d rules.OracleDecision, k int) bool {
+	return InNameMatchMechanism(d, k) && !ClassifySameName(d, k).Unanswerable
 }
 
 // SameNameAmbiguity is ClassifySameName's boolean summary: whether the pick
