@@ -99,7 +99,6 @@ func TestTeamworkCastCostAndPaidProvenance(t *testing.T) {
 	a := seedBattlefield(t, e, reg, "Goblin Piker")
 	b := seedBattlefield(t, e, reg, "Grizzly Bears")
 	spare := seedBattlefield(t, e, reg, "Grizzly Bears")
-	moveSeededCard(t, e, 1, searchCorpusCard(t, reg, "Grizzly Bears"), state.ZBattlefield)
 	hero := searchMoveByName(t, e, "Go Nuts!", state.ZHand)
 	addMana(t, e, 0, "G")
 	cast := castOptMode(t, e.Pending().Options, hero, "teamworked")

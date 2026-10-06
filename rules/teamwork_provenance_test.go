@@ -13,7 +13,6 @@ import (
 // cost's provenance. Both readers must see the same value as the inherited bit.
 func TestTeamworkPaidStackCopyReadsCostProvenance(t *testing.T) {
 	e, _, reg := conspireEngine(t, "Go Nuts!", "Grizzly Bears")
-	moveSeededCard(t, e, 1, searchCorpusCard(t, reg, "Grizzly Bears"), state.ZBattlefield)
 	a := seedBattlefield(t, e, reg, "Goblin Piker")
 	b := seedBattlefield(t, e, reg, "Grizzly Bears")
 	spell := searchMoveByName(t, e, "Go Nuts!", state.ZHand)
