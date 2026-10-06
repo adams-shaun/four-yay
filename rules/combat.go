@@ -448,8 +448,17 @@ func (e *Engine) finishAttackers(chosen []decision.Option, player state.PlayerID
 		}
 		return keys[i].battle < keys[j].battle
 	})
+	attackEventStart := len(e.L.Events)
 	for _, k := range keys {
 		e.emit(events.Event{Kind: events.DeclareAttackers, Player: k.player, Obj: k.battle, IDs: byDef[k]})
+	}
+	// Every defender-specific event has now folded, so intervening-if checks
+	// observe the complete simultaneous declaration (including attackers in
+	// later-sorted defender groups).
+	for i := attackEventStart; i < len(e.L.Events); i++ {
+		if ev := e.L.Events[i]; ev.Kind == events.DeclareAttackers {
+			e.checkTriggers(&ev, nil, 0, 0, false)
+		}
 	}
 	// CR 508.1f: declaring attackers is ONE turn-based action, so the taps it
 	// applies are ONE tapping action for the aggregate Mode$ TapAll trigger
