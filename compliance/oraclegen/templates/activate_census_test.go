@@ -26,11 +26,10 @@ var activateCensusSets = []string{"BIG", "EOE", "FDN", "FRA"}
 // them).
 //
 // Re-measured for the loyalty-headroom/target-fixture ticket
-// (cli-20261006T035108Z-725d3fdb) on top of the activation-cost fixtures: a
-// loyalty cost above the printed loyalty now gets setup counters and the
-// legendary / +1/+1-counter creature fixtures serve more targets (EOE +1,
-// FDN +4, FRA +6 served); FRA Hexhaven Dueling Arena #0.1 is the named
-// attackedThisTurn skip.
+// (cli-20261006T035108Z-725d3fdb): a loyalty cost above the printed loyalty
+// now gets setup counters and the legendary / +1/+1-counter creature
+// fixtures serve more targets (EOE +1, FDN +4, FRA +6 served); FRA Hexhaven
+// Dueling Arena #0.1 is the named attackedThisTurn skip.
 var wantActivateCensus = map[string]map[string]int{
 	"BIG": {
 		"served:activate.battlefield":             10,
@@ -41,24 +40,24 @@ var wantActivateCensus = map[string]map[string]int{
 	},
 	"EOE": {
 		"served:activate.battlefield":                 31,
-		"served:activate.mana":                        3,
+		"served:activate.mana":                        4,
 		"skip:activate cost gap: ExileFromGrave<...>": 1,
 		"skip:activate cost gap: Sac<...>":            3,
 		"skip:activate cost gap: SubCounter<...>":     1,
-		"skip:activate cost gap: tapXType<...>":       2,
+		"skip:activate cost gap: tapXType<X>":         1,
 		"skip:activate no fixture":                    1,
 		"skip:activate xmage text ambiguous":          20,
 	},
 	"FDN": {
-		"served:activate.battlefield":             72,
-		"served:activate.mana":                    50,
-		"skip:activate cost gap: AddCounter<...>": 2,
-		"skip:activate cost gap: Return<...>":     1,
-		"skip:activate cost gap: Sac<...>":        6,
-		"skip:activate cost gap: SubCounter<...>": 4,
-		"skip:activate cost gap: tapXType<...>":   2,
-		"skip:activate no fixture":                5,
-		"skip:activate xmage text ambiguous":      2,
+		"served:activate.battlefield":                          73,
+		"served:activate.mana":                                 50,
+		"skip:activate cost gap: AddCounter<...>":              2,
+		"skip:activate cost gap: Return<...>":                  1,
+		"skip:activate cost gap: Sac<...>":                     6,
+		"skip:activate cost gap: SubCounter<...>":              4,
+		"skip:activate cost gap: tapXType<unsupported-filter>": 1,
+		"skip:activate no fixture":                             5,
+		"skip:activate xmage text ambiguous":                   2,
 	},
 	"FRA": {
 		"served:activate.battlefield":        65,

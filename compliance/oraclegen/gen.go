@@ -294,28 +294,57 @@ func CharmCombinations(f *cards.Face) []CharmCombination {
 	}
 	var out []CharmCombination
 	var selected []CharmMode
-	var visit func(int, int)
-	visit = func(start, count int) {
-		if len(selected) == count {
-			combo := CharmCombination{Modes: append([]CharmMode(nil), selected...)}
-			for _, mode := range selected {
-				combo.Slots = append(combo.Slots, ChainSlotSpecs(f, mode.svar)...)
+	// emit appends the current selection as one combination.
+	emit := func() {
+		combo := CharmCombination{Modes: append([]CharmMode(nil), selected...)}
+		for _, mode := range selected {
+			combo.Slots = append(combo.Slots, ChainSlotSpecs(f, mode.svar)...)
+		}
+		out = append(out, combo)
+	}
+	// allDistinct reports whether the current selection repeats no mode.
+	allDistinct := func() bool {
+		seen := make(map[string]bool, len(selected))
+		for _, mode := range selected {
+			if seen[mode.svar] {
+				return false
 			}
-			out = append(out, combo)
+			seen[mode.svar] = true
+		}
+		return true
+	}
+	// visit enumerates combinations of count modes from start. distinct
+	// constrains the walk to strictly increasing positions (repeat-free
+	// combinations only); otherwise positions may repeat, and the leaf
+	// skips any all-distinct selection so the two walks do not overlap.
+	var visit func(start, count int, distinct bool)
+	visit = func(start, count int, distinct bool) {
+		if len(selected) == count {
+			if !distinct && allDistinct() {
+				return
+			}
+			emit()
 			return
 		}
 		for i := start; i < len(modes); i++ {
 			selected = append(selected, modes[i])
 			next := i
-			if !repeat {
+			if distinct {
 				next++
 			}
-			visit(next, count)
+			visit(next, count, distinct)
 			selected = selected[:len(selected)-1]
 		}
 	}
+	// Within each pick count the repeat-free combinations come first, in
+	// Choices$ order; only a CanRepeatModes$ charm then adds the repeating
+	// ones. A non-repeat charm takes the single distinct walk, so its output
+	// is byte-identical to the historical one.
 	for count := minCount; count <= pickCount; count++ {
-		visit(0, count)
+		visit(0, count, true)
+		if repeat {
+			visit(0, count, false)
+		}
 	}
 	return out
 }
