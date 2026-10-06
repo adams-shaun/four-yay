@@ -890,11 +890,11 @@ public class ScenarioReplay extends CardTestPlayerBase {
         return hasTargetAdjuster(ability) && ability.getAllSelectedTargets().isEmpty();
     }
 
-    /** Whether the card's spell ability is targetless until its adjuster runs. */
-    private static boolean spellNeedsQueuedCastTargets(String name) {
+    /** The card's spell ability, or null when the name does not resolve. */
+    private static Ability spellAbility(String name) {
         CardInfo info = CardRepository.instance.findCard(name);
         Card c = info == null ? null : info.createCard();
-        return c != null && needsQueuedCastTargets(c.getSpellAbility());
+        return c == null ? null : c.getSpellAbility();
     }
 
     /**
@@ -921,26 +921,22 @@ public class ScenarioReplay extends CardTestPlayerBase {
         return false;
     }
 
-    /** Whether the card's spell ability has its first target in a later mode. */
-    private static boolean spellFirstTargetInLaterMode(String name) {
-        CardInfo info = CardRepository.instance.findCard(name);
-        Card c = info == null ? null : info.createCard();
-        return c != null && firstTargetInLaterMode(c.getSpellAbility());
-    }
-
-    /** Whether the card's spell ability has a divided-amount target. */
-    private static boolean spellTargetsDivided(String name) {
-        CardInfo info = CardRepository.instance.findCard(name);
-        Card c = info == null ? null : info.createCard();
-        if (c == null) {
+    /** Whether an ability has a divided-amount target (TargetAmount). */
+    static boolean targetsDivided(Ability ability) {
+        if (ability == null) {
             return false;
         }
-        for (mage.target.Target t : c.getSpellAbility().getAllSelectedTargets()) {
+        for (mage.target.Target t : ability.getAllSelectedTargets()) {
             if (t instanceof mage.target.TargetAmount) {
                 return true;
             }
         }
         return false;
+    }
+
+    /** Whether the card's spell ability has a divided-amount target. */
+    private static boolean spellTargetsDivided(String name) {
+        return targetsDivided(spellAbility(name));
     }
 
     /** Whether the card's spell ability has exactly one target object and
@@ -1281,9 +1277,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     cast.add(card);
                     return;
                 }
-                boolean adjusted = spellNeedsQueuedCastTargets(card);
-                if (!tg.isEmpty() && castQueuedTargets(turn, phase, p, card, tg, adjusted,
-                        spellFirstTargetInLaterMode(card), spellTargetsDivided(card))) {
+                if (!tg.isEmpty() && castQueuedTargets(turn, phase, p, card, tg, spellAbility(card))) {
                     // Cast with its targets queued: see castQueuedTargets.
                 } else if (tg.size() == 1 && isSeatRef(tg.get(0)) && !hasGift(card)) {
                     castSpell(turn, phase, p, card, seat(seatOf(tg.get(0))));
@@ -1486,7 +1480,14 @@ public class ScenarioReplay extends CardTestPlayerBase {
      * cast carries none. Returns false, doing nothing, for every other cast.
      */
     boolean castQueuedTargets(int turn, PhaseStep phase, TestPlayer p, String card, List<String> tg,
-            boolean adjusted, boolean firstTargetInLaterMode, boolean divided) {
+            Ability ability) {
+        // Derive every routing flag HERE, from the one ability, so a caller
+        // cannot drop the modal-first-target-in-a-later-mode term: the test
+        // drives this method with a real card's spell ability, and a routing
+        // term removed anywhere in it makes that test fail.
+        boolean adjusted = needsQueuedCastTargets(ability);
+        boolean firstTargetInLaterMode = firstTargetInLaterMode(ability);
+        boolean divided = targetsDivided(ability);
         if (!queueAdjustedCastTargets(adjusted || firstTargetInLaterMode, divided, tg.size())) {
             return false;
         }

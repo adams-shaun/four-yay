@@ -61,7 +61,7 @@ public final class ScenarioReplaySplitRoomTest {
     }
 
     private static final Class<?>[] ROUTE_TYPES = {int.class, PhaseStep.class, TestPlayer.class, String.class,
-            java.util.List.class, boolean.class, boolean.class, boolean.class};
+            java.util.List.class, mage.abilities.Ability.class};
 
     private static Object field(ScenarioReplay driver, String name) throws Exception {
         Field f = ScenarioReplay.class.getDeclaredField(name);
@@ -177,30 +177,35 @@ public final class ScenarioReplaySplitRoomTest {
         equal(false, ScenarioReplay.firstTargetInLaterMode(eagles.getSpellAbility()));
         equal(false, ScenarioReplay.firstTargetInLaterMode(null));
         // The production cast routing (castQueuedTargets, the cast step's first
-        // branch), driven with the flags the cast step derives from the card.
+        // branch), driven through the SAME method the cast step calls, with the
+        // real spell ability each card produces. The routing decision derives
+        // every flag from that ability inside castQueuedTargets, so dropping the
+        // modal term anywhere in it fails this test instead of passing silently.
         // Cosmium: the target is queued and the cast carries no inline target.
         java.util.List<String> tgt = java.util.List.of("p1:Glorious Anthem");
         RecordingDriver route = routeDriver();
         equal(true, call(route, "castQueuedTargets", ROUTE_TYPES, 1, PhaseStep.PRECOMBAT_MAIN, null,
-                "Cosmium Confluence", tgt, false, ScenarioReplay.firstTargetInLaterMode(confluence.getSpellAbility()), false));
+                "Cosmium Confluence", tgt, confluence.getSpellAbility()));
         equal(java.util.List.of("Glorious Anthem"), route.queued);
         equal(java.util.List.of("Cosmium Confluence"), route.casts);
         equal(false, ((java.util.Set<?>) field(route, "adjustedCasts")).contains("Cosmium Confluence"));
         // An adjuster card is queued AND registered as adjusted.
         RecordingDriver adj = routeDriver();
         equal(true, call(adj, "castQueuedTargets", ROUTE_TYPES, 1, PhaseStep.PRECOMBAT_MAIN, null,
-                "The Eagles Are Coming!", tgt, true, false, false));
+                "The Eagles Are Coming!", tgt, eagles.getSpellAbility()));
         equal(java.util.List.of("Glorious Anthem"), adj.queued);
         equal(true, ((java.util.Set<?>) field(adj, "adjustedCasts")).contains("The Eagles Are Coming!"));
-        // Ordinary (Abrade), divided, and targetless casts keep their own routes:
-        // nothing queued, nothing cast here.
-        boolean abradeLater = ScenarioReplay.firstTargetInLaterMode(abrade.getSpellAbility());
+        // Ordinary (Abrade), divided (Biogenic Upgrade's TargetAmount), and
+        // targetless casts keep their own routes: nothing queued, nothing cast.
+        mage.cards.b.BiogenicUpgrade biogenic = new mage.cards.b.BiogenicUpgrade(UUID.randomUUID(),
+                new CardSetInfo("Biogenic Upgrade", "RNA", "1", Rarity.UNCOMMON));
+        equal(true, ScenarioReplay.targetsDivided(biogenic.getSpellAbility()));
         for (Object[] c : new Object[][]{
-                {tgt, false, abradeLater, false}, {tgt, true, true, true}, {tgt, false, true, true},
-                {java.util.List.<String>of(), true, true, false}}) {
+                {abrade.getSpellAbility(), tgt}, {biogenic.getSpellAbility(), tgt},
+                {confluence.getSpellAbility(), java.util.List.<String>of()}}) {
             RecordingDriver other = routeDriver();
             equal(false, call(other, "castQueuedTargets", ROUTE_TYPES, 1, PhaseStep.PRECOMBAT_MAIN, null,
-                    "Abrade", c[0], c[1], c[2], c[3]));
+                    "Abrade", c[1], c[0]));
             equal(java.util.List.of(), other.queued);
             equal(java.util.List.of(), other.casts);
         }
