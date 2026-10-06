@@ -70,6 +70,16 @@ func activateAbility(reg *cards.Registry, f *cards.Face, name string, req levelb
 		return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: "activate cost gap: " + gap}
 	}
 	slots := oraclegen.AbilitySlotSpecs(f, sa)
+	for _, sl := range slots {
+		// "Target creature that attacked this turn" needs a combat prelude
+		// (attack, then back to a main phase for a sorcery-speed ability)
+		// this template does not script; name the shape rather than report
+		// a generic fixture miss.
+		if attackedThisTurn(sl.Filter) {
+			return oraclegen.Item{}, &oraclegen.Skip{Card: name,
+				Reason: "activate target gap: attackedThisTurn needs a combat prelude (" + sl.Filter + ")"}
+		}
+	}
 	it, ok := activateWith(reg, f, name, req, idx, prefix, pool, sa.ParamStr(cards.PKCost), zone, slots)
 	if !ok {
 		return oraclegen.Item{}, &oraclegen.Skip{Card: name,
@@ -93,6 +103,10 @@ func activateWith(reg *cards.Registry, f *cards.Face, name string, req levelb.Re
 			p0.Battlefield = appendFixtureUnique(p0.Battlefield, name)
 		}
 		addActivationCostFixtures(&p0, cost)
+		if extra := loyaltyHeadroom(f, f.Abilities[idx]); extra > 0 {
+			p0 = oraclegen.WithCounters(p0, name, "LOYALTY", extra)
+		}
+		setupBackFace(&p0, name, req)
 		sc := oraclegen.Scenario{
 			Setup:        map[string]oraclegen.Seat{"p0": p0, "p1": *fx.P1()},
 			SetupAnswers: oraclegen.OpeningHandAnswers(f),
@@ -135,6 +149,71 @@ func activateWith(reg *cards.Registry, f *cards.Face, name string, req levelb.Re
 		return it, true
 	}
 	return oraclegen.Item{}, false
+}
+
+// loyaltyHeadroom is how many loyalty counters the source needs at setup
+// beyond its printed loyalty for the ability to be activatable: a loyalty
+// cost can't be paid with too few counters (CR 606.6), so a minus ability
+// above the printed loyalty needs the difference, and an ultimate gated on
+// "N or more loyalty counters among <type>s you control" (Jace, Reality
+// Sculptor's CheckSVar$ Y | SVarCompare$ GE25 over
+// Count$Valid Jace.YouCtrl$CardCounters.LOYALTY) needs N on the source when
+// the source is of that type. Zero for a card without numeric printed
+// loyalty.
+func loyaltyHeadroom(f *cards.Face, sa *cards.SA) int {
+	printed, err := strconv.Atoi(strings.TrimSpace(f.Loyalty))
+	if err != nil {
+		return 0
+	}
+	need := 0
+	for _, tok := range costTokens(sa.ParamStr(cards.PKCost)) {
+		if strings.HasPrefix(tok, "SubCounter<") && loyaltyCounter(tok) {
+			n, _ := strconv.Atoi(tok[len("SubCounter<"):strings.IndexByte(tok, '/')])
+			need = max(need, n)
+		}
+	}
+	need = max(need, loyaltyGate(f, sa))
+	return max(0, need-printed)
+}
+
+// loyaltyGate reads an activation restriction counting loyalty counters
+// among permanents of the source's own type (CheckSVar$ <V> |
+// SVarCompare$ GE<n>, V = Count$Valid <Type>.YouCtrl$CardCounters.LOYALTY)
+// and returns n, or 0 when the ability has no such gate.
+func loyaltyGate(f *cards.Face, sa *cards.SA) int {
+	cmp, ok := strings.CutPrefix(strings.TrimSpace(sa.Params["SVarCompare"]), "GE")
+	if !ok {
+		return 0
+	}
+	n, err := strconv.Atoi(cmp)
+	if err != nil {
+		return 0
+	}
+	body := strings.TrimSpace(f.SVars[strings.TrimSpace(sa.Params["CheckSVar"])])
+	valid, ok := strings.CutPrefix(body, "Count$Valid ")
+	if !ok {
+		return 0
+	}
+	filter, counted, ok := strings.Cut(valid, "$")
+	if !ok || !strings.EqualFold(counted, "CardCounters.LOYALTY") {
+		return 0
+	}
+	typ := strings.SplitN(strings.TrimSpace(filter), ".", 2)[0]
+	if !oraclegen.HasType(f, typ) {
+		return 0
+	}
+	return n
+}
+
+// attackedThisTurn reports whether a target filter demands a creature that
+// attacked this turn.
+func attackedThisTurn(filter string) bool {
+	for _, part := range strings.FieldsFunc(filter, func(r rune) bool { return r == '.' || r == '+' || r == ',' }) {
+		if strings.EqualFold(strings.TrimSpace(part), "attackedThisTurn") {
+			return true
+		}
+	}
+	return false
 }
 
 // activateStepIndex returns the index of the scenario's activate step. The

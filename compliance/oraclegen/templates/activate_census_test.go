@@ -23,11 +23,19 @@ var activateCensusSets = []string{"BIG", "EOE", "FDN", "FRA"}
 // classifier change that changes a count shows up as a diff, and so does a
 // stale pin. activate.zone:<Z> requirements (an activation zone other than
 // hand or graveyard) are gaps the level-B classifier owns, so they are not
-// counted here (compliance/levelb/census_test.go pins them). The hand and
-// graveyard sub-families are served by this template (ticket levelb-fra-
-// activate-zones): FRA's 11 no-fixture skips now include Gideon's Memorial #0.1
-// (an attacking or blocking creature target), Proctor of Potential #0.0 and
-// Grim Repriser #0.0 (an "activate only if ..." condition no setup satisfies).
+// counted here (compliance/levelb/census_test.go pins them).
+//
+// The activate.hand and activate.graveyard sub-families are served by this
+// template (ticket levelb-fra-activate-zones): the card starts in p0's hand
+// or graveyard and the activate step owns its channel-style cost.
+//
+// Re-measured for the loyalty-headroom/target-fixture ticket
+// (cli-20261006T035108Z-725d3fdb) merged with the zone work: a loyalty cost
+// above the printed loyalty now gets setup counters, and the legendary /
+// +1/+1-counter creature fixtures serve more targets (FDN and FRA
+// battlefield counts rose by the +4/+6 main measured); the attackedThisTurn
+// combat-prelude shape is still a named skip, and the remaining hand- and
+// graveyard-zone requirements merge into the no-fixture bucket.
 var wantActivateCensus = map[string]map[string]int{
 	"BIG": {
 		"served:activate.battlefield":             10,
@@ -38,17 +46,17 @@ var wantActivateCensus = map[string]map[string]int{
 		"skip:activate no fixture":                1,
 	},
 	"EOE": {
-		"served:activate.battlefield":                 30,
+		"served:activate.battlefield":                 31,
 		"served:activate.mana":                        4,
 		"skip:activate cost gap: ExileFromGrave<...>": 1,
 		"skip:activate cost gap: Sac<...>":            3,
 		"skip:activate cost gap: SubCounter<...>":     1,
 		"skip:activate cost gap: tapXType<X>":         1,
-		"skip:activate no fixture":                    2,
+		"skip:activate no fixture":                    1,
 		"skip:activate xmage text ambiguous":          20,
 	},
 	"FDN": {
-		"served:activate.battlefield":                          69,
+		"served:activate.battlefield":                          73,
 		"served:activate.graveyard":                            2,
 		"served:activate.mana":                                 50,
 		"skip:activate cost gap: AddCounter<...>":              2,
@@ -56,16 +64,17 @@ var wantActivateCensus = map[string]map[string]int{
 		"skip:activate cost gap: Sac<...>":                     6,
 		"skip:activate cost gap: SubCounter<...>":              4,
 		"skip:activate cost gap: tapXType<unsupported-filter>": 1,
-		"skip:activate no fixture":                             9,
+		"skip:activate no fixture":                             5,
 		"skip:activate xmage text ambiguous":                   2,
 	},
 	"FRA": {
-		"served:activate.battlefield":        59,
+		"served:activate.battlefield":        65,
 		"served:activate.graveyard":          7,
 		"served:activate.hand":               8,
 		"served:activate.mana":               24,
-		"skip:activate no fixture":           11,
+		"skip:activate no fixture":           4,
 		"skip:activate xmage text ambiguous": 10,
+		"skip:activate target gap: attackedThisTurn needs a combat prelude (Creature.attackedThisTurn)": 1,
 	},
 }
 

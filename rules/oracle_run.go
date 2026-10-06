@@ -24,6 +24,7 @@ package rules
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -67,11 +68,16 @@ type oracleScenario struct {
 type oracleSeat struct {
 	Hand        []string `json:"hand,omitempty"`
 	Battlefield []string `json:"battlefield,omitempty"`
-	Tapped      []string `json:"tapped,omitempty"`
-	Graveyard   []string `json:"graveyard,omitempty"`
-	Library     []string `json:"library,omitempty"`
-	Exile       []string `json:"exile,omitempty"`
-	Command     []string `json:"command,omitempty"`
+	// BackFace names battlefield cards setup places on their back face (face
+	// index 1), by emitting an events.FlipFace after the battlefield move. It
+	// lets a permanent start transformed without a transform game action (the
+	// setup shortcut a DoubleFaced/Modal face-1 scenario needs).
+	BackFace  []string `json:"back_face,omitempty"`
+	Tapped    []string `json:"tapped,omitempty"`
+	Graveyard []string `json:"graveyard,omitempty"`
+	Library   []string `json:"library,omitempty"`
+	Exile     []string `json:"exile,omitempty"`
+	Command   []string `json:"command,omitempty"`
 	// LibraryTop puts these cards on top of the library, first = top.
 	LibraryTop []string `json:"library_top,omitempty"`
 	// Sideboard is the seat's cards outside the game (Config.Sideboards),
@@ -85,6 +91,36 @@ type oracleSeat struct {
 	// so the scenario still replays from its log like every other setup op.
 	Mana string `json:"mana,omitempty"`
 	Life *int32 `json:"life,omitempty"`
+	// Counters puts counters on this seat's battlefield placements at setup:
+	// card name -> counter kind (gorge spelling: LOYALTY, P1P1) -> how many,
+	// ADDED to whatever the card enters with (a planeswalker's printed
+	// loyalty). Like Tapped it applies to every placement of that name. It
+	// stands in for an unspecified outside effect, as logged CounterChange
+	// events, so the scenario still replays from its log.
+	Counters map[string]map[string]int32 `json:"counters,omitempty"`
+}
+
+// setupCounters lists the counters a seat's setup puts on a battlefield
+// placement named name, kinds sorted so the emitted events are deterministic.
+func setupCounters(s oracleSeat, name string) []events.Event {
+	var out []events.Event
+	for card, kinds := range s.Counters {
+		if cards.NormalizeName(card) != cards.NormalizeName(name) {
+			continue
+		}
+		for kind, n := range kinds {
+			if n != 0 {
+				out = append(out, events.Event{Kind: events.CounterChange, Counter: normCounter(kind), Amount: n})
+			}
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].Counter != out[j].Counter {
+			return out[i].Counter < out[j].Counter
+		}
+		return out[i].Amount < out[j].Amount
+	})
+	return out
 }
 
 type oracleStep struct {
@@ -470,11 +506,27 @@ func (r *oracleRun) build(sc oracleScenario) error {
 			}
 			if pl.zone == state.ZBattlefield {
 				setupBattlefield = append(setupBattlefield, id)
+				// A back-face battlefield card starts transformed: FlipFace's
+				// Amount is the destination face index (1), applied through
+				// events.Apply like every other setup op, so the replay
+				// reconstructs the same face from the log.
+				for _, back := range sc.Setup[fmt.Sprintf("p%d", p)].BackFace {
+					if cards.NormalizeName(back) == cards.NormalizeName(pl.name) {
+						e.emit(events.Event{Kind: events.FlipFace, Obj: id, Amount: 1})
+						break
+					}
+				}
 			}
 			for _, tapped := range sc.Setup[fmt.Sprintf("p%d", p)].Tapped {
 				if cards.NormalizeName(tapped) == cards.NormalizeName(pl.name) {
 					e.emit(events.Event{Kind: events.Tap, Obj: id})
 					break
+				}
+			}
+			if pl.zone == state.ZBattlefield {
+				for _, ev := range setupCounters(sc.Setup[fmt.Sprintf("p%d", p)], pl.name) {
+					ev.Obj = id
+					e.emit(ev)
 				}
 			}
 			if pl.top {
@@ -850,7 +902,15 @@ func (r *oracleRun) answer(d *decision.Decision, why string) error {
 		used := map[int]bool{}
 		var choices []int
 		for _, p := range a.Pick {
-			idx, err := r.matchPick(d, p, used)
+			// A Repeatable modes decision accepts the same option index more
+			// than once (CanRepeatModes$ True, e.g. "Draw" twice): a repeated
+			// pick must SUBMIT the same index again, so each mode pick sees a
+			// fresh one-use map. Every other kind keeps its one-use rule.
+			pickUsed := used
+			if d.Kind == decision.KModes && d.Repeatable {
+				pickUsed = map[int]bool{}
+			}
+			idx, err := r.matchPick(d, p, pickUsed)
 			if err != nil {
 				return err
 			}

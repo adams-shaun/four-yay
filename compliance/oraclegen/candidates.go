@@ -354,6 +354,10 @@ type cand struct {
 	attachTo string
 	// pre are steps inserted before the card's cast.
 	pre []Step
+	// counterKind/counterN put counters on the candidate at setup (a
+	// "creature with a +1/+1 counter on it" filter).
+	counterKind string
+	counterN    int
 }
 
 // It reads the registry for subtype and qualifier filters the fixed type list
@@ -437,6 +441,18 @@ func candidatesFor(reg *cards.Registry, filter, parentTarget string) []cand {
 		}
 		return out
 	}
+	if base == "creature" {
+		// A predicate no generic creature carries gets one creature that
+		// does: a legendary one (Yoshimaru's "target legendary creature"),
+		// or one with the counters the filter demands (Tomik's "creature
+		// with a +1/+1 counter on it"), placed at setup.
+		if filterPredicate(filter, "Legendary") {
+			return withRole([]cand{{seat: opp, zone: "battlefield", card: "Isamaru, Hound of Konda"}})
+		}
+		if kind, n, ok := counterDemand(filter); ok {
+			return withRole([]cand{{seat: opp, zone: "battlefield", card: "Grizzly Bears", counterKind: kind, counterN: n}})
+		}
+	}
 	creatures := []cand{{seat: opp, zone: "battlefield", card: "Grizzly Bears"}, {seat: opp, zone: "battlefield", card: "Serra Angel"}, {seat: opp, zone: "battlefield", card: "Ornithopter"}, {seat: opp, zone: "battlefield", card: "Llanowar Elves"}, {seat: opp, zone: "battlefield", card: "Hill Giant"}}
 	switch base {
 	case "any":
@@ -468,6 +484,25 @@ func candidatesFor(reg *cards.Registry, filter, parentTarget string) []cand {
 		return []cand{{seat: opp, zone: "graveyard", card: "Shock"}, {seat: "p0", zone: "graveyard", card: "Shock"}}
 	}
 	return nil
+}
+
+// counterDemand reads a counters_GE<n>_<KIND> predicate (Forge's "with at
+// least n KIND counters on it") from a target filter's first alternative.
+func counterDemand(filter string) (kind string, n int, ok bool) {
+	first := strings.SplitN(filter, ",", 2)[0]
+	for _, part := range strings.FieldsFunc(first, func(r rune) bool { return r == '.' || r == '+' }) {
+		rest, found := strings.CutPrefix(strings.TrimSpace(part), "counters_GE")
+		if !found {
+			continue
+		}
+		num, k, found := strings.Cut(rest, "_")
+		v, err := strconv.Atoi(num)
+		if !found || err != nil || v < 1 || k == "" {
+			return "", 0, false
+		}
+		return k, v, true
+	}
+	return "", 0, false
 }
 
 // isCardTypeBase reports whether a filter's first alternative names a card
@@ -913,6 +948,9 @@ func place(fx *fixture, c cand) {
 		switch c.zone {
 		case "battlefield":
 			s.Battlefield = append(s.Battlefield, c.card)
+			if c.counterN > 0 {
+				*s = WithCounters(*s, c.card, c.counterKind, c.counterN)
+			}
 		case "graveyard":
 			s.Graveyard = append(s.Graveyard, c.card)
 		case "exile":
@@ -990,6 +1028,7 @@ func clone(s Seat) Seat {
 		Battlefield: append([]string(nil), s.Battlefield...), Tapped: append([]string(nil), s.Tapped...), Hand: append([]string(nil), s.Hand...),
 		Graveyard: append([]string(nil), s.Graveyard...), Exile: append([]string(nil), s.Exile...),
 		Library: append([]string(nil), s.Library...), LibraryTop: append([]string(nil), s.LibraryTop...),
+		Counters: cloneCounters(s.Counters),
 	}
 }
 
