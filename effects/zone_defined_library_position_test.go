@@ -11,9 +11,12 @@ func TestDefinedLibraryPositionFetchesDoNotShuffle(t *testing.T) {
 	for _, tc := range []struct {
 		name, defined string
 		position      int
+		shuffle       string
+		wantShuffles  int
 	}{
 		{name: "top", defined: "TopOfLibrary", position: 0},
 		{name: "bottom", defined: "BottomOfLibrary", position: 2},
+		{name: "explicit shuffle", defined: "TopOfLibrary", position: 0, shuffle: " | Shuffle$ True", wantShuffles: 1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			h := newHost(t, 2)
@@ -33,7 +36,7 @@ func TestDefinedLibraryPositionFetchesDoNotShuffle(t *testing.T) {
 			}
 
 			Resolve(h, &Ctx{Controller: 0, Source: source.ID}, sa(t,
-				"DB$ ChangeZone | Origin$ Library | Destination$ Graveyard | Defined$ "+tc.defined))
+				"DB$ ChangeZone | Origin$ Library | Destination$ Graveyard | Defined$ "+tc.defined+tc.shuffle))
 
 			if got := h.g.Obj(selected).Zone; got != state.ZGraveyard {
 				t.Fatalf("selected library card zone = %s, want graveyard", got)
@@ -44,8 +47,8 @@ func TestDefinedLibraryPositionFetchesDoNotShuffle(t *testing.T) {
 					shuffles++
 				}
 			}
-			if shuffles != 0 {
-				t.Fatalf("%s position fetch emitted %d Shuffle events, want zero: %+v", tc.name, shuffles, h.log)
+			if shuffles != tc.wantShuffles {
+				t.Fatalf("%s position fetch emitted %d Shuffle events, want %d: %+v", tc.name, shuffles, tc.wantShuffles, h.log)
 			}
 		})
 	}
