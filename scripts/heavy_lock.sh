@@ -21,6 +21,9 @@
 #       -s       if the LOCK WAIT runs out, log it and exit 0 (the work is
 #                regenerable, e.g. make ledger) instead of exiting 75
 #       exit 75 = the lock was not obtained in time; <cmd> never ran.
+#       <cmd> sees GORGE_HEAVY_LOCK_HELD=<lock path>; a nested `run` (or any
+#       script that checks it, e.g. ledger-lane.sh) then runs without locking
+#       again instead of waiting on its own ancestor.
 #       The timeout is distinguished from a command that itself exits 75 by a
 #       start marker the wrapper removes just before it execs <cmd>.
 #
@@ -69,6 +72,13 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
 			printf 'heavy_lock.sh run: no command given (did you forget --?)\n' >&2
 			exit 2
 		}
+		# Re-entrant: a command already running under this lock (marked by
+		# GORGE_HEAVY_LOCK_HELD, exported below) would otherwise wait on its own
+		# ancestor until -w ran out -- the post_merge `make ledger` hook did
+		# exactly that through ledger-lane.sh, stalling the post-merge suite.
+		if [ "${GORGE_HEAVY_LOCK_HELD:-}" = "$GORGE_HEAVY_LOCK" ]; then
+			exec "$@"
+		fi
 		mkdir -p "$(dirname "$GORGE_HEAVY_LOCK")"
 		# flock -E 75 conflates "lock wait timed out" with "the command itself
 		# exited 75", and the `-s` caller (post_merge `make ledger`) would then
@@ -80,7 +90,7 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
 		started=$(mktemp "${TMPDIR:-/tmp}/heavy-lock.started.XXXXXX")
 		flock_args=(-o -E 75)
 		[ -n "$wait_s" ] && flock_args+=(-w "$wait_s")
-		flock "${flock_args[@]}" "$GORGE_HEAVY_LOCK" bash -c 'rm -f -- "$1"; shift; exec "$@"' _ "$started" "$@"
+		flock "${flock_args[@]}" "$GORGE_HEAVY_LOCK" env GORGE_HEAVY_LOCK_HELD="$GORGE_HEAVY_LOCK" bash -c 'rm -f -- "$1"; shift; exec "$@"' _ "$started" "$@"
 		rc=$?
 		# The wrapper removes the marker before it execs the command, so the marker
 		# is ABSENT iff <cmd> really ran; a timed-out wait leaves it PRESENT.

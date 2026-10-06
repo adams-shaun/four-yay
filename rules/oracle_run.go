@@ -520,6 +520,13 @@ func (r *oracleRun) build(sc oracleScenario) error {
 			if pl.zone == state.ZBattlefield {
 				r.exactRefs[ref] = true
 			}
+			backFace := false
+			for _, back := range sc.Setup[fmt.Sprintf("p%d", p)].BackFace {
+				if cards.NormalizeName(back) == cards.NormalizeName(pl.name) {
+					backFace = true
+					break
+				}
+			}
 			if from := e.G.Obj(id).Zone; from != pl.zone {
 				pendingBefore := len(e.pendingTriggers)
 				e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: from, To: pl.zone})
@@ -539,7 +546,7 @@ func (r *oracleRun) build(sc oracleScenario) error {
 					tail := append([]pendingTrigger(nil), e.pendingTriggers[pendingBefore:]...)
 					for _, pt := range tail {
 						t, _ := e.triggerOf(pt)
-						if setupPlacementDropsTrigger(t, pt.Chapter) {
+						if setupPlacementDropsTrigger(t, pt.Chapter && backFace) {
 							continue
 						}
 						kept = append(kept, pt)
@@ -553,11 +560,8 @@ func (r *oracleRun) build(sc oracleScenario) error {
 				// Amount is the destination face index (1), applied through
 				// events.Apply like every other setup op, so the replay
 				// reconstructs the same face from the log.
-				for _, back := range sc.Setup[fmt.Sprintf("p%d", p)].BackFace {
-					if cards.NormalizeName(back) == cards.NormalizeName(pl.name) {
-						e.emit(events.Event{Kind: events.FlipFace, Obj: id, Amount: 1})
-						break
-					}
+				if backFace {
+					e.emit(events.Event{Kind: events.FlipFace, Obj: id, Amount: 1})
 				}
 			}
 			for _, tapped := range sc.Setup[fmt.Sprintf("p%d", p)].Tapped {

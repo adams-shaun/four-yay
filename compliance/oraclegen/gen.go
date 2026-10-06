@@ -995,24 +995,20 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSt
 				as = append(as, XAnswer{d.Seat, "choice", yn})
 				break
 			}
+			if d.Resume == "sacrifice" && d.Min == 0 && len(d.Picks) > 0 {
+				// An accepted optional sacrifice ("any opponent may sacrifice
+				// a creature"): XMage asks chooseUse before the pick
+				// (DesecrationDemon.java:77, DoIfCostPaid), so the pick needs
+				// a "yes" ahead of it. The decline already scripts "no".
+				as = append(as, XAnswer{d.Seat, "choice", "yes"})
+			}
 			if len(d.Picks) > 1 && allChoiceQueue(d) {
 				// One makeChoose dialog consumes ONE definition, whose own
 				// parser splits on '^' into the multi-card selection (Dig's
 				// "put two of them into your hand", a discard-two). Emitting
 				// one answer per pick would let each pick answer a separate
 				// dialog and leave the rest as an unused leftover.
-				labels := make([]string, 0, len(d.Picks))
-				for k, label := range d.Picks {
-					if label == "" && k < len(d.PickRefs) {
-						label = oraclediffRefName(d.PickRefs[k])
-					}
-					label = disambiguatedObjectChoice(d, k, label)
-					if colour, ok := manaColourLabel(label); ok {
-						label = colour
-					}
-					labels = append(labels, label)
-				}
-				as = append(as, XAnswer{d.Seat, "choice", strings.Join(labels, "^")})
+				as = append(as, XAnswer{d.Seat, "choice", JoinedChoice(d)})
 			} else {
 				for k, label := range d.Picks {
 					switch pickQueue(d, k, label) {
@@ -1859,6 +1855,42 @@ func namesObject(label, ref string) bool {
 		return true
 	}
 	return strings.EqualFold(label, oraclediffRefName(ref))
+}
+
+// ExactRefAlias is the "@ref" answer that names decision d's pick k when its
+// name alone matches more than one offered object, or "" when the name is
+// unambiguous (ClassifySameName). Cost paths that script a batch as one answer
+// per pick use it so each single binds the exact object, as JoinedChoice does
+// for the joined answer.
+func ExactRefAlias(d rules.OracleDecision, k int) string {
+	if k >= len(d.Picks) || k >= len(d.PickRefs) {
+		return ""
+	}
+	p := ClassifySameName(d, k)
+	if p.Alias != "" && namesObject(d.Picks[k], d.PickRefs[k]) {
+		return p.Alias
+	}
+	return ""
+}
+
+// JoinedChoice is the one "^"-joined answer XAnswersForScenario scripts for a
+// multi-pick decision that one makeChoose dialog consumes: each pick spelled as
+// XMage's dialog lists it (a same-name object by its exact ref, a mana colour
+// by its colour name). Callers that drop or match that answer use it, so they
+// see the same spelling the scenario carries.
+func JoinedChoice(d rules.OracleDecision) string {
+	labels := make([]string, 0, len(d.Picks))
+	for k, label := range d.Picks {
+		if label == "" && k < len(d.PickRefs) {
+			label = oraclediffRefName(d.PickRefs[k])
+		}
+		label = disambiguatedObjectChoice(d, k, label)
+		if colour, ok := manaColourLabel(label); ok {
+			label = colour
+		}
+		labels = append(labels, label)
+	}
+	return strings.Join(labels, "^")
 }
 
 // disambiguatedObjectChoice returns the choice-queue answer for pick k: the

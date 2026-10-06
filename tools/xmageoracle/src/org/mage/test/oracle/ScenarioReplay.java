@@ -11,6 +11,7 @@ import mage.ConditionalMana;
 import mage.Mana;
 import mage.abilities.Ability;
 import mage.abilities.Mode;
+import mage.abilities.common.AttacksEachCombatStaticAbility;
 import mage.abilities.common.SimpleStaticAbility;
 import mage.abilities.mana.ActivatedManaAbilityImpl;
 import mage.abilities.costs.AlternativeSourceCosts;
@@ -279,10 +280,6 @@ public class ScenarioReplay extends CardTestPlayerBase {
         /** Consume the generator's choice-queue selection and kept-card order.
          * Null means this decision was scripted through the ordinary target queue. */
         private Cards scriptedLibrarySelection(Cards cards, Game game) {
-            List<String> queue = getChoices();
-            if (queue.isEmpty()) {
-                return null;
-            }
             // Cards#getCards is a Set and does not promise library order.
             // Reconstruct the looked-at prefix from Library's ordered view.
             List<Card> lookedAtOrder = new ArrayList<>();
@@ -292,12 +289,17 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 }
             }
             Set<Card> available = new java.util.LinkedHashSet<>(lookedAtOrder);
+            List<String> queue = librarySelectionQueue(getChoices(), getTargets(),
+                    answer -> findByName(available, answer) != null);
+            if (queue == null) {
+                return null;
+            }
             Cards selected = new CardsImpl();
             boolean scripted = false;
             boolean selectionEnded = false;
             while (!queue.isEmpty()) {
                 String answer = queue.get(0);
-                if (TestPlayer.CHOICE_SKIP.equals(answer)) {
+                if (isLibrarySelectionSkip(answer)) {
                     queue.remove(0);
                     scripted = true;
                     selectionEnded = true;
@@ -360,6 +362,31 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 }
             }
             return selected;
+        }
+
+        /**
+         * Library selection is exposed by XMage's chooser as a target-shaped
+         * generator answer, but surveil/scry are implemented here through the
+         * choice queue. Move only a leading target skip into that queue when no
+         * card/skip answer already addresses this library selection; ordinary
+         * target skips remain on their target queue.
+         */
+        static List<String> librarySelectionQueue(List<String> choices, List<String> targets,
+                java.util.function.Predicate<String> namesLookedAtCard) {
+            if (!choices.isEmpty() && (TestPlayer.CHOICE_SKIP.equals(choices.get(0))
+                    || namesLookedAtCard.test(choices.get(0)))) {
+                return choices;
+            }
+            if (!targets.isEmpty() && TestPlayer.TARGET_SKIP.equals(targets.get(0))) {
+                targets.remove(0);
+                choices.add(0, TestPlayer.CHOICE_SKIP);
+                return choices;
+            }
+            return choices.isEmpty() ? null : choices;
+        }
+
+        private static boolean isLibrarySelectionSkip(String answer) {
+            return TestPlayer.CHOICE_SKIP.equals(answer) || TestPlayer.TARGET_SKIP.equals(answer);
         }
 
         private Card findByName(Set<Card> cards, String name) {
@@ -1876,6 +1903,11 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     break;
                 case CMD_WAIT_RESOLVE_ONE:
                     waitStackResolved(turn, phase, playerA, true);
+                    // The pair resolves the stack's top object, so a cast
+                    // step's spell has left the stack: a later cast that
+                    // names it targets its permanent, not a spell that will
+                    // never be on the stack (see dropLastCast).
+                    dropLastCast();
                     break;
                 case CMD_YIELD_PRIORITY:
                     runCode(cmd, turn, phase, playerA, (info, pl, g) -> pl.pass(g));
@@ -1905,7 +1937,26 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 }
                 // XMage's attack() queues a selectAttackers command at
                 // DECLARE_ATTACKERS; the checkpoint stays on this turn.
-                for (String a : names(st, "attackers")) {
+                List<String> attackers = names(st, "attackers");
+                if (!attackers.isEmpty() && allMustAttack(attackers)) {
+                    // Every attacker carries an AttacksEachCombatStaticAbility:
+                    // XMage's checkAttackRequirements declares and taps it
+                    // before selectAttackers runs, so getAvailableAttackers is
+                    // empty on the first pass and selectAttackers (which would
+                    // consume the queued attack command) is skipped. Queue no
+                    // attack(): XMage declares them itself. Fail loudly if the
+                    // scenario names a defender XMage would not force -- a
+                    // must-attack effect (not goad) attacks any legal defender,
+                    // which in this two-seat harness is the opponent.
+                    int defenderSeat = seatOf(str(st, "defender"));
+                    if (defenderSeat == seatIdx) {
+                        throw new IllegalArgumentException("attack step " + stepIdx
+                                + " is a must-attack creature with its own controller as defender");
+                    }
+                    phase = PhaseStep.DECLARE_ATTACKERS;
+                    return;
+                }
+                for (String a : attackers) {
                     attack(turn, p, combatName(a), seat(seatOf(str(st, "defender"))));
                 }
                 phase = PhaseStep.DECLARE_ATTACKERS;
@@ -2160,6 +2211,11 @@ public class ScenarioReplay extends CardTestPlayerBase {
             case "resolve":
                 // gorge's resolve op passes priority until the stack is empty.
                 waitStackResolved(turn, phase, p);
+                // waitStackResolved empties the stack, so every cast recorded
+                // on it is gone. A later cast targeting one of those names is
+                // targeting the permanent (the setup alias still names it),
+                // not a spell that is no longer on the stack.
+                cast.clear();
                 return;
             default:
                 throw new IllegalArgumentException("op " + op + " unsupported");
@@ -2371,6 +2427,44 @@ public class ScenarioReplay extends CardTestPlayerBase {
             }
         }
         return n;
+    }
+
+    /** Whether every named attacker is a card XMage forces to attack (an
+     * AttacksEachCombatStaticAbility), so checkAttackRequirements declares and
+     * taps it before selectAttackers, which then skips the queued attack
+     * command on its first pass. Anything that is not such a card means the
+     * ordinary attack() path must run. */
+    private boolean allMustAttack(List<String> attackers) {
+        for (String ref : attackers) {
+            if (!isMustAttackName(combatName(ref))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** Whether the named card carries XMage's AttacksEachCombatStaticAbility.
+     * Structural and name-based, the way spellAbility and isSpreeCard resolve
+     * a name through CardRepository, so a card printed after this driver is
+     * covered by what it actually is, not a list of names. */
+    private static boolean isMustAttackName(String name) {
+        CardInfo info = CardRepository.instance.findCard(name);
+        Card c = info == null ? null : info.createCard();
+        return isMustAttackCard(c);
+    }
+
+    /** Card-based and package-private so a contract test can pin it without
+     * the card repository (which needs H2). */
+    static boolean isMustAttackCard(Card c) {
+        return c != null && c.getAbilities().containsClass(AttacksEachCombatStaticAbility.class);
+    }
+
+    /** Forget a cast whose spell has left the stack, so a later cast that
+     * names it falls through to the setup alias naming its permanent. */
+    private void dropLastCast() {
+        if (!cast.isEmpty()) {
+            cast.remove(cast.size() - 1);
+        }
     }
 
     /** Front-name setup refs keep their identity; name-based battlefield

@@ -61,7 +61,7 @@ var wantCensus = map[string]map[string]int{
 		"static.continuous":              64,
 		"static.cost":                    9,
 		"static.gap:CantPreventDamage":   1,
-		"static.gap:Panharmonicon":       1,
+		"static.panharmonicon":           1,
 		"static.gap:TapPowerValue":       1,
 		"trigger.attacks":                7,
 		"trigger.attacks-attached":       2,

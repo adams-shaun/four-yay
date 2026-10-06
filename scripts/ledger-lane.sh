@@ -41,8 +41,11 @@ TMP=$(mktemp "$OUT.XXXXXX") || exit 2
 trap 'rm -f "$TMP"' EXIT
 
 # -E 99: a lock timeout is distinguishable from go test's own exit 1 (FAIL).
-flock -o -E 99 -w "$WAIT" "$LOCK" \
-	"${scope[@]}" env GOMAXPROCS=2 GOMEMLIMIT=1536MiB \
+# Under `heavy_lock.sh run` (the post_merge hook) the caller already holds this
+# lock; taking it again would wait on our own ancestor until $WAIT ran out.
+lock=(flock -o -E 99 -w "$WAIT" "$LOCK")
+[ "${GORGE_HEAVY_LOCK_HELD:-}" = "$LOCK" ] && lock=()
+"${lock[@]}" "${scope[@]}" env GOMAXPROCS=2 GOMEMLIMIT=1536MiB \
 	go test -timeout 2m ./rules -run TestCR -v >"$TMP"
 rc=$?
 if [ "$rc" -eq 99 ]; then
