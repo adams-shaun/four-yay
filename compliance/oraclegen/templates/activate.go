@@ -1,15 +1,18 @@
 // Level-B activate template (spec
 // docs/superpowers/specs/2026-10-05-compliance-level-b.md section 2.1; ticket
-// L5). It serves the activate.battlefield and activate.mana requirements: the
-// card on p0's battlefield, the ability's targets from the ordinary fixture
+// L5). It serves the activate.battlefield and activate.mana requirements --
+// and the channel-style activate.hand and activate.graveyard ones -- with the
+// card on p0's battlefield (or in p0's hand or graveyard), the ability's targets from the ordinary fixture
 // cross product, one `activate` step naming the ability by IR index, and a
 // resolve for a non-mana ability.
 //
 // v1 cost tokens: mana, T, Q, PayLife<n>, one-card Discard, Sac (self or
-// filtered other permanent), Exile<1/CARDNAME>, tapXType<2/Artifact>, and a
-// source loyalty AddCounter/SubCounter, and a SubCounter/RemoveAnyCounter
-// that takes literal counters off the source itself (the setup places them).
-// Anything else is a cost gap. The XMage
+// filtered other permanent), Exile<1/CARDNAME>, and in the matching zone
+// Discard / ExileFromHand / ExileFromGrave of the source itself (plus one
+// other graveyard creature card), supported tapXType fixture
+// shapes, a source loyalty AddCounter/SubCounter, and a
+// SubCounter/RemoveAnyCounter that takes literal counters off the source
+// itself (the setup places them). Anything else is a cost gap. The XMage
 // rule-text prefix rides the Item's XAbility slice (parallel to Steps), so
 // the runner -- which decodes steps strictly -- never sees it.
 package templates
@@ -22,6 +25,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/compliance/levelb"
 	"github.com/adams-shaun/gorge/compliance/oraclegen"
+	"github.com/adams-shaun/gorge/rules"
 )
 
 // ActivateAbility activates one activated ability and resolves it. Its own
@@ -30,7 +34,21 @@ var ActivateAbility = Template{ID: "activate", Version: 1}
 
 // activateSubs are the level-B sub-families this template serves.
 func activateSubs(sub string) bool {
-	return sub == "activate.battlefield" || sub == "activate.mana"
+	return sub == "activate.battlefield" || sub == "activate.mana" ||
+		sub == "activate.hand" || sub == "activate.graveyard"
+}
+
+// activationZone names the zone p0's card starts in for a served sub-family:
+// "hand" and "graveyard" for the channel-style abilities, "battlefield" for
+// every other one (activate.mana included).
+func activationZone(sub string) string {
+	switch sub {
+	case "activate.hand":
+		return "hand"
+	case "activate.graveyard":
+		return "graveyard"
+	}
+	return "battlefield"
 }
 
 // activateAbility builds the scenario serving one activate requirement.
@@ -48,12 +66,23 @@ func activateAbility(reg *cards.Registry, f *cards.Face, name string, req levelb
 	if !ok {
 		return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: "activate xmage text ambiguous"}
 	}
-	pool, gap := activationCost(sa.ParamStr(cards.PKCost))
+	zone := activationZone(req.Sub)
+	pool, gap := activationCostIn(sa.ParamStr(cards.PKCost), zone)
 	if gap != "" {
 		return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: "activate cost gap: " + gap}
 	}
 	slots := oraclegen.AbilitySlotSpecs(f, sa)
-	it, ok := activateWith(reg, f, name, req, idx, prefix, pool, sa.ParamStr(cards.PKCost), slots)
+	for _, sl := range slots {
+		// "Target creature that attacked this turn" needs a combat prelude
+		// (attack, then back to a main phase for a sorcery-speed ability)
+		// this template does not script; name the shape rather than report
+		// a generic fixture miss.
+		if attackedThisTurn(sl.Filter) {
+			return oraclegen.Item{}, &oraclegen.Skip{Card: name,
+				Reason: "activate target gap: attackedThisTurn needs a combat prelude (" + sl.Filter + ")"}
+		}
+	}
+	it, ok := activateWith(reg, f, name, req, idx, prefix, pool, sa.ParamStr(cards.PKCost), zone, slots)
 	if !ok {
 		return oraclegen.Item{}, &oraclegen.Skip{Card: name,
 			Reason: fmt.Sprintf("activate no fixture gorge can activate (targets %v)", filterStrings(slots))}
@@ -63,13 +92,24 @@ func activateAbility(reg *cards.Registry, f *cards.Face, name string, req levelb
 
 // activateWith tries every fixture for the ability's target plan and returns
 // the named level-B item.
-func activateWith(reg *cards.Registry, f *cards.Face, name string, req levelb.Requirement, idx int, prefix, mana, cost string, slots []oraclegen.Slot) (oraclegen.Item, bool) {
+func activateWith(reg *cards.Registry, f *cards.Face, name string, req levelb.Requirement, idx int, prefix, mana, cost, zone string, slots []oraclegen.Slot) (oraclegen.Item, bool) {
 	for _, fx := range oraclegen.Fixtures(reg, slots) {
 		abilityIndex := idx
 		p0 := *fx.P0()
-		p0.Battlefield = appendFixtureUnique(p0.Battlefield, name)
+		switch zone {
+		case "hand":
+			p0.Hand = appendFixtureUnique(p0.Hand, name)
+		case "graveyard":
+			p0.Graveyard = appendFixtureUnique(p0.Graveyard, name)
+		default:
+			p0.Battlefield = appendFixtureUnique(p0.Battlefield, name)
+		}
 		addActivationCostFixtures(&p0, cost)
 		addActivationCounterFixtures(&p0, name, cost)
+		if extra := loyaltyHeadroom(f, f.Abilities[idx]); extra > 0 {
+			p0 = oraclegen.WithCounters(p0, name, "LOYALTY", int32(extra))
+		}
+		setupBackFace(&p0, name, req)
 		sc := oraclegen.Scenario{
 			Setup:        map[string]oraclegen.Seat{"p0": p0, "p1": *fx.P1()},
 			SetupAnswers: oraclegen.OpeningHandAnswers(f),
@@ -106,12 +146,77 @@ func activateWith(reg *cards.Registry, f *cards.Face, name string, req levelb.Re
 		if len(it.XAnswers) == 0 {
 			it.XAnswers = make([][]oraclegen.XAnswer, len(sc.Steps))
 		}
-		addActivationCostAnswers(it.XAnswers, activateStepIndex(sc.Steps), cost)
+		addActivationCostAnswers(it.XAnswers, activateStepIndex(sc.Steps), cost, res.Decisions)
 		it.XAbility = make([]string, len(sc.Steps))
 		it.XAbility[activateStepIndex(sc.Steps)] = prefix
 		return it, true
 	}
 	return oraclegen.Item{}, false
+}
+
+// loyaltyHeadroom is how many loyalty counters the source needs at setup
+// beyond its printed loyalty for the ability to be activatable: a loyalty
+// cost can't be paid with too few counters (CR 606.6), so a minus ability
+// above the printed loyalty needs the difference, and an ultimate gated on
+// "N or more loyalty counters among <type>s you control" (Jace, Reality
+// Sculptor's CheckSVar$ Y | SVarCompare$ GE25 over
+// Count$Valid Jace.YouCtrl$CardCounters.LOYALTY) needs N on the source when
+// the source is of that type. Zero for a card without numeric printed
+// loyalty.
+func loyaltyHeadroom(f *cards.Face, sa *cards.SA) int {
+	printed, err := strconv.Atoi(strings.TrimSpace(f.Loyalty))
+	if err != nil {
+		return 0
+	}
+	need := 0
+	for _, tok := range costTokens(sa.ParamStr(cards.PKCost)) {
+		if strings.HasPrefix(tok, "SubCounter<") && loyaltyCounter(tok) {
+			n, _ := strconv.Atoi(tok[len("SubCounter<"):strings.IndexByte(tok, '/')])
+			need = max(need, n)
+		}
+	}
+	need = max(need, loyaltyGate(f, sa))
+	return max(0, need-printed)
+}
+
+// loyaltyGate reads an activation restriction counting loyalty counters
+// among permanents of the source's own type (CheckSVar$ <V> |
+// SVarCompare$ GE<n>, V = Count$Valid <Type>.YouCtrl$CardCounters.LOYALTY)
+// and returns n, or 0 when the ability has no such gate.
+func loyaltyGate(f *cards.Face, sa *cards.SA) int {
+	cmp, ok := strings.CutPrefix(strings.TrimSpace(sa.Params["SVarCompare"]), "GE")
+	if !ok {
+		return 0
+	}
+	n, err := strconv.Atoi(cmp)
+	if err != nil {
+		return 0
+	}
+	body := strings.TrimSpace(f.SVars[strings.TrimSpace(sa.Params["CheckSVar"])])
+	valid, ok := strings.CutPrefix(body, "Count$Valid ")
+	if !ok {
+		return 0
+	}
+	filter, counted, ok := strings.Cut(valid, "$")
+	if !ok || !strings.EqualFold(counted, "CardCounters.LOYALTY") {
+		return 0
+	}
+	typ := strings.SplitN(strings.TrimSpace(filter), ".", 2)[0]
+	if !oraclegen.HasType(f, typ) {
+		return 0
+	}
+	return n
+}
+
+// attackedThisTurn reports whether a target filter demands a creature that
+// attacked this turn.
+func attackedThisTurn(filter string) bool {
+	for _, part := range strings.FieldsFunc(filter, func(r rune) bool { return r == '.' || r == '+' || r == ',' }) {
+		if strings.EqualFold(strings.TrimSpace(part), "attackedThisTurn") {
+			return true
+		}
+	}
+	return false
 }
 
 // activateStepIndex returns the index of the scenario's activate step. The
@@ -124,69 +229,6 @@ func activateStepIndex(steps []oraclegen.Step) int {
 		}
 	}
 	return 0
-}
-
-// activationCost classifies one activated ability's Cost$ under the v1 token
-// whitelist. pool is the mana part's pool letters (PoolFor), or "" for a
-// cost with no mana. gap is the offending token's head (with an ellipsis for
-// its bracket payload) when the cost carries a token v1 does not pay, so a
-// caller can Skip naming it.
-func activationCost(cost string) (pool, gap string) {
-	var mana []string
-	for _, tok := range costTokens(cost) {
-		head := tok
-		if i := strings.IndexByte(tok, '<'); i >= 0 {
-			head = tok[:i]
-		}
-		switch head {
-		case "T", "Q":
-			continue
-		case "PayLife":
-			if isNumericBracket(tok) {
-				continue
-			}
-		case "Sac":
-			if sacSelf(tok) || sacOtherFixtureSupported(tok) {
-				continue
-			}
-		case "Discard":
-			if discardFixtureSupported(tok) {
-				continue
-			}
-		case "Exile":
-			if selfZoneCost(tok) {
-				continue
-			}
-		case "tapXType":
-			if tapXTypeFixtureSupported(tok) {
-				continue
-			}
-		case "AddCounter", "SubCounter":
-			if loyaltyCounter(tok) {
-				continue
-			}
-			if _, _, ok := sourceCounterCost(tok); ok {
-				continue
-			}
-		case "RemoveAnyCounter":
-			if _, _, ok := sourceCounterCost(tok); ok {
-				continue
-			}
-		}
-		if _, why := oraclegen.PoolFor(tok); why == "" {
-			mana = append(mana, tok)
-			continue
-		}
-		return "", costHead(tok)
-	}
-	if len(mana) == 0 {
-		return "", ""
-	}
-	p, why := oraclegen.PoolFor(strings.Join(mana, " "))
-	if why != "" {
-		return "", costHead(strings.Join(mana, " "))
-	}
-	return p, ""
 }
 
 // costTokens splits a Forge cost string on whitespace, keeping a token's
@@ -282,17 +324,16 @@ func selfZoneCost(tok string) bool {
 	return len(parts) >= 2 && parts[0] == "1" && strings.EqualFold(parts[1], "CARDNAME")
 }
 
-func tapXTypeFixtureSupported(tok string) bool {
+// graveyardCreatureCost recognises ExileFromGrave<1/Creature.Other[/text]>:
+// one creature card from the graveyard other than the source, which the
+// fixture supplies as Grizzly Bears.
+func graveyardCreatureCost(tok string) bool {
 	payload, ok := bracketPayload(tok)
 	if !ok {
 		return false
 	}
 	parts := strings.Split(payload, "/")
-	if len(parts) != 2 || strings.ToLower(parts[1]) != "artifact" {
-		return false
-	}
-	n, err := strconv.Atoi(parts[0])
-	return err == nil && n == 2
+	return len(parts) >= 2 && parts[0] == "1" && strings.EqualFold(parts[1], "Creature.Other")
 }
 
 func bracketPayload(tok string) (string, bool) {
@@ -305,7 +346,7 @@ func bracketPayload(tok string) (string, bool) {
 
 // addActivationCostAnswers scripts XMage's cost selector with the same
 // deterministic fixture objects used by the engine-side payment path.
-func addActivationCostAnswers(answers [][]oraclegen.XAnswer, step int, cost string) {
+func addActivationCostAnswers(answers [][]oraclegen.XAnswer, step int, cost string, decisions []rules.OracleDecision) {
 	if step < 0 || step >= len(answers) {
 		return
 	}
@@ -317,11 +358,18 @@ func addActivationCostAnswers(answers [][]oraclegen.XAnswer, step int, cost stri
 		var picks []string
 		switch head {
 		case "Discard":
+			if selfZoneCost(tok) {
+				break
+			}
 			payload, _ := bracketPayload(tok)
 			if strings.Contains(strings.ToLower(payload), "legendary") {
 				picks = []string{"Ajani, Caller of the Pride"}
 			} else {
 				picks = []string{"Wastes"}
+			}
+		case "ExileFromGrave":
+			if graveyardCreatureCost(tok) {
+				picks = []string{"Grizzly Bears"}
 			}
 		case "Sac":
 			if !sacSelf(tok) {
@@ -333,10 +381,6 @@ func addActivationCostAnswers(answers [][]oraclegen.XAnswer, step int, cost stri
 				} else if strings.Contains(strings.ToLower(payload), "land") {
 					picks = []string{"Forest"}
 				}
-			}
-		case "tapXType":
-			if tapXTypeFixtureSupported(tok) {
-				picks = []string{"Ornithopter", "Sol Ring"}
 			}
 		}
 		for _, pick := range picks {
@@ -352,6 +396,7 @@ func addActivationCostAnswers(answers [][]oraclegen.XAnswer, step int, cost stri
 			}
 		}
 	}
+	addTapXTypeAnswers(answers, step, cost, decisions)
 }
 
 // addActivationCostFixtures supplies the explicit cards needed by supported
@@ -366,11 +411,18 @@ func addActivationCostFixtures(p0 *oraclegen.Seat, cost string) {
 		}
 		switch head {
 		case "Discard":
+			if selfZoneCost(tok) {
+				break
+			}
 			payload, _ := bracketPayload(tok)
 			if strings.Contains(strings.ToLower(payload), "legendary") {
 				p0.Hand = appendFixtureUnique(p0.Hand, "Ajani, Caller of the Pride")
 			} else {
 				p0.Hand = appendFixtureUnique(p0.Hand, "Wastes")
+			}
+		case "ExileFromGrave":
+			if graveyardCreatureCost(tok) {
+				p0.Graveyard = appendFixtureUnique(p0.Graveyard, "Grizzly Bears")
 			}
 		case "Sac":
 			if !sacSelf(tok) {
@@ -383,13 +435,9 @@ func addActivationCostFixtures(p0 *oraclegen.Seat, cost string) {
 					p0.Battlefield = appendFixtureUnique(p0.Battlefield, "Forest")
 				}
 			}
-		case "tapXType":
-			if tapXTypeFixtureSupported(tok) {
-				p0.Battlefield = appendFixtureUnique(p0.Battlefield, "Ornithopter")
-				p0.Battlefield = appendFixtureUnique(p0.Battlefield, "Sol Ring")
-			}
 		}
 	}
+	addTapXTypeFixtures(p0, cost)
 }
 
 // loyaltyCounter reports whether tok is an AddCounter<N/LOYALTY> or

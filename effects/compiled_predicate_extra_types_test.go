@@ -42,6 +42,7 @@ func TestCompiledPredicateExtraTypesAware(t *testing.T) {
 		Source:            ids["myBear"],
 		PredicatePrograms: ps,
 		ExtraTypes:        []string{"Creature", "Goblin", "Land"},
+		ExtraTypesOwner:   ids["myLand"],
 	}
 
 	if got := ps.Evaluate("Creature.YouCtrl", g, land, sc); got != PredicateYes {

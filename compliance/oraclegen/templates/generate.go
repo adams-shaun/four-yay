@@ -21,8 +21,8 @@ type Template struct {
 	Version int    // bump when the template's output changes
 }
 
-func (t Template) item(card string, sc oraclegen.Scenario) oraclegen.Item {
-	return oraclegen.NewItem(card, t.ID, t.Version, sc)
+func (t Template) item(f *cards.Face, card string, sc oraclegen.Scenario) oraclegen.Item {
+	return oraclegen.NewItem(f, card, t.ID, t.Version, sc)
 }
 
 // All lists every template.

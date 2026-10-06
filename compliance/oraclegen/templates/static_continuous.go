@@ -51,27 +51,32 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 	if !ok || len(c.Faces) == 0 {
 		return skip("card not in corpus")
 	}
-	if requestedFace(c, name) != f {
-		return skip("face is not the castable face")
-	}
 	st := staticAt(f, req)
 	if st == nil {
 		return skip("slot " + req.Slot + " is not a static")
 	}
 	kind, need, gated := staticCounterGate(st)
 	var base oraclegen.Item
-	if gated {
+	switch {
+	case req.Face > 0:
+		// A face-1 static is served by setup-on-back-face, not by casting:
+		// the card cannot be cast on its back face (that is out of scope),
+		// so it is placed there directly and observed from genesis.
+		base = staticBackFaceScenario(f, name, req)
+	case requestedFace(c, name) != f:
+		return skip("face is not the castable face")
+	case gated:
 		// The card starts on the battlefield holding the counters its gate
 		// names, so the effect is already on at the first checkpoint.
 		base = counterGatedBase(f, name, kind, need)
-	} else if oraclegen.HasType(f, "Land") {
+	case oraclegen.HasType(f, "Land"):
 		base = playLandWith(reg, name, f, func(setup map[string]oraclegen.Seat) {
 			p0 := setup["p0"]
 			p0.Battlefield = appendFixtureUnique(p0.Battlefield, staticProbe)
 			setup["p0"] = p0
 			oraclegen.Baseline(setup, f)
 		})
-	} else {
+	default:
 		mana, why := oraclegen.PoolFor(f.ManaCost)
 		if why != "" {
 			return skip(why)
@@ -79,6 +84,11 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 		it, sk := castResolveWith(reg, f, name, mana, []string{staticProbe})
 		if sk != nil {
 			return skip(sk.Reason)
+		}
+		if oraclegen.HasType(f, "Equipment") {
+			it.Steps = append(it.Steps, oraclegen.Step{
+				Op: "attach", Seat: 0, Card: "p0:" + name, AttachedTo: "p0:" + staticProbe,
+			})
 		}
 		base = it
 	}
@@ -102,21 +112,44 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 	return it, nil
 }
 
+// staticBackFaceScenario is the setup-only scenario for a static on a face
+// after 0: the card on p0's battlefield in its back face, the probe on both
+// seats, and no steps. The static is live from the first checkpoint, so the
+// final snapshot is where its effect shows. The probe is placed by Baseline on
+// p1 and appended here on p0, matching the cast-based path's probe layout.
+func staticBackFaceScenario(f *cards.Face, name string, req levelb.Requirement) oraclegen.Item {
+	p0 := oraclegen.Seat{Battlefield: []string{name}}
+	setupBackFace(&p0, name, req)
+	p0.Battlefield = appendFixtureUnique(p0.Battlefield, staticProbe)
+	sc := oraclegen.Scenario{
+		Setup:        map[string]oraclegen.Seat{"p0": p0, "p1": {}},
+		SetupAnswers: oraclegen.OpeningHandAnswers(f),
+	}
+	oraclegen.Baseline(sc.Setup, f)
+	return StaticApplies.item(f, name, sc)
+}
+
 // staticObserved reports whether the final snapshot shows a continuous effect:
 // a probe off its printed 2/2 with no keywords, or the card (p0's) off its
-// printed P/T or evergreen keywords. typed also counts the card turning into a
+// printed P/T or evergreen keywords. The card is matched by its active face's
+// printed name (f.Name), so a face-after-0 static whose permanent reports the
+// back-face name is still recognised. typed also counts the card turning into a
 // creature it is not printed as (a Spacecraft's station, a Vehicle's crew
 // condition); only the counter-gated path asks for it, so every other static
 // is judged exactly as before.
 func staticObserved(s rules.OracleSnapshot, f *cards.Face, name string, typed bool) bool {
 	printedKW := oraclediff.EvergreenKeywords(f.Keywords)
+	cardName := f.Name
+	if cardName == "" {
+		cardName = name
+	}
 	for _, p := range s.Permanents {
 		switch {
 		case p.Name == staticProbe:
 			if p.PT != staticProbePT || oraclediff.EvergreenKeywords(p.Keywords) != "" {
 				return true
 			}
-		case p.Controller == 0 && p.Name == name:
+		case p.Controller == 0 && p.Name == cardName:
 			if p.PT != "" && f.PT != "" && !strings.Contains(f.PT, "*") && p.PT != f.PT {
 				return true
 			}

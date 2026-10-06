@@ -14,6 +14,12 @@ func TestActivateCostTokenShapes(t *testing.T) {
 		{"2 T Sac<1/Artifact.Other/another artifact>", "CC", ""},
 		{"5 T Exile<1/CARDNAME>", "CCCCC", ""},
 		{"tapXType<2/Artifact>", "", ""},
+		{"tapXType<Any/Creature.Other+withTotalPowerGE 3>", "", ""},
+		{"tapXType<1/Elf>", "", ""},
+		{"tapXType<2/Permanent>", "", ""},
+		{"tapXType<X/Artifact>", "", "tapXType<X>"},
+		{"tapXType<2/Permanent.token>", "", "tapXType<token-filter>"},
+		{"tapXType<1/Mount.Other;Vehicle.Other>", "", "tapXType<unsupported-filter>"},
 		{"Return<1/CARDNAME>", "", "Return<...>"},
 	}
 	for _, tc := range cases {
@@ -36,7 +42,7 @@ func TestActivateCostFixtureShapes(t *testing.T) {
 		{"Edgar, Ancient Bloodlord", "activate#0.0", "{2}, Sacrifice another creature or planeswalker", "Llanowar Elves", "battlefield"},
 		{"Hungering Puppetbeast", "activate#0.0", "{1}, Sacrifice another artifact", "Ornithopter", "battlefield"},
 		{"Marwyn, the Clearcutter", "activate#0.0", "{2}, {T}, Sacrifice an artifact or land", "Ornithopter", "battlefield"},
-		{"The Echoverse Fulcrum", "activate#0.0", "{5}, {T}, Exile The Echoverse Fulcrum", "", ""},
+		{"The Echoverse Fulcrum", "activate#0.0", "{5}, {T}, Exile {this}", "", ""},
 		{"Tenured Tethermage", "activate#0.0", "Tap two untapped artifacts you control", "Sol Ring", "battlefield"},
 	}
 	for _, tc := range cases {

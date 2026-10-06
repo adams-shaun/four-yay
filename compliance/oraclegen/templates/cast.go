@@ -178,7 +178,9 @@ func castWithProbes(reg *cards.Registry, f *cards.Face, name, mana string, slots
 				for _, probe := range probes {
 					fx.P0().Battlefield = appendFixtureUnique(fx.P0().Battlefield, probe)
 				}
-				sc := buildStackScenario(f, name, physicalName(reg, name), mana, pre, fx, slots, stackIdx, answers)
+				// Apply face-derived scenario defaults before probing the cast.
+				it := CastResolve.item(f, name, buildStackScenario(f, name, physicalName(reg, name), mana, pre, fx, slots, stackIdx, answers))
+				sc := it.Scenario
 				if oraclegen.ShufflesBackAndDraws(f) {
 					oraclegen.UniformShuffleSetup(&sc, name)
 				}
@@ -200,7 +202,7 @@ func castWithProbes(reg *cards.Registry, f *cards.Face, name, mana string, slots
 							sc, res = yes, res2
 						}
 					}
-					it := CastResolve.item(name, sc)
+					it.Scenario = sc
 					it.XAnswers = oraclegen.XAnswersForScenario(res, sc, oraclegen.ModeNumbers(f), castSteps)
 					if n := oraclegen.OptionalCostCastNo(f, mana); n > 0 {
 						// XMage asks "pay the additional cost?" at the head of the

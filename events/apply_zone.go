@@ -123,6 +123,16 @@ func foldMoveZone(g *state.Game, e *Event) {
 		if e.To == state.ZStack && o.Face() != nil {
 			o.StackKind, o.StackKindKnown = state.StackKindSpell, true
 		}
+		if e.Kind == PutOnStack {
+			// Record the zone and caster of this cast on the object, so
+			// rules' latestCastOrigin reads the field instead of scanning
+			// the whole log backwards on every call. A later PutOnStack
+			// overwrites it (latest cast wins); the reverse move below does
+			// NOT clear it, because the reverse scan it replaces still finds
+			// this PutOnStack in the log after a CR 733.1 reversal. The fold
+			// is the one writer, so a log-only replay derives the same pair.
+			o.LatestCastFrom, o.LatestCastBy, o.HasLatestCast = e.From, e.Player, true
+		}
 
 		if e.To == state.ZStack && IsFaceDownEntry(moveCounter) {
 			// CR 708.4: a face-down CAST's spell sits on the stack with no
@@ -373,6 +383,10 @@ func move(g *state.Game, id state.ObjID, from, to state.Zone, countersRemain boo
 	// not drawn. The Draw fold re-stamps it after this Move.
 	if to != state.ZStack {
 		o.DrawnTurn = 0
+		// The as-cast battlefield snapshot belongs to the spell on the stack:
+		// any move off it (resolution, counter, fizzle, an aborted cast's
+		// reversal) ends it, so a stable ObjID never reuses a stale freeze.
+		o.CastBattlefield = nil
 	}
 	if enteredFrom == state.ZExile && to != state.ZExile {
 		// Forge's exiledCards association is a zone relationship, not an

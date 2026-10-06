@@ -174,9 +174,13 @@ using the engine's composed cost, not printed mana value. Targeted spells are
 included when the cost is independent of target choice; the player still
 chooses targets normally before mana activation.
 
-V1 does not suggest plans for X, hybrid, Phyrexian or snow costs; additional
-non-mana costs (except a spell ability's own fixed-count mandatory sacrifice,
-below); kicker or other optional/alternative casting methods; alternate
+V1 does not suggest plans for X, hybrid or snow costs. A Phyrexian cost is
+admitted: the witness binds the mana half (`pay.PlanManaHalf`), and each pip's
+colour or two-life face is answered afterwards by the CR 601.2b pip ask; a
+colour-face answer that changes the cast's cost falls back to the manual
+window. Additional non-mana costs (except a spell ability's own fixed-count
+mandatory sacrifice, below); kicker or other optional/alternative casting
+methods; alternate
 faces; casts from graveyard/exile/command; target-dependent pricing; convoke,
 improvise, delve or similar contributions; or mana-spent-sensitive spell riders
 such as converge, sunburst, or a bonus tied to mana provenance. These remain
@@ -784,7 +788,7 @@ must exercise the real offer/Submit/activation/payment paths where specified.
 | PP-05 | True colorless and generic remain distinct. A colored source cannot pay `{C}`; it can pay generic. Fixed multi-output production leaves the correct surplus. |
 | PP-06 | Simple dork/rock production works; tapped, sick-without-haste (CR 302.6, via the shared gate), phased, wrong-controller and activation-prohibited sources are excluded. A sick source with haste is admitted when otherwise legal. |
 | PP-07 | Forbidden timing, absent mandatory targets and CantBeCast continue to suppress planned casts even with abundant mana. The engine computes the effective fixed taxed/reduced cost. |
-| PP-08 | X, hybrid/Phyrexian/snow, additional/alternative costs (including a spell ability's `Cost$` Sac/Discard/PayLife/Exile/tapXType parts and a cost static's non-mana extra), Spree/Tiered, Gift, Replicate/Multikicker/Squad, printed or granted Convoke/Improvise/Delve, target-dependent pricing and every mana-spent reader (converge, sunburst, `CastTotalManaSpent`, `ConditionManaSpent$`, `Count$Adamant`, `Count$EachSpentToCast`, `Count$TotalManaSpent`, `ManaSpentBy`) receive no plan. Their legacy offers/asks remain unchanged. |
+| PP-08 | X, hybrid/snow (Phyrexian is admitted: the witness funds only the mana half and the pips ride the CR 601.2b ask), additional/alternative costs (including a spell ability's `Cost$` Sac/Discard/PayLife/Exile/tapXType parts and a cost static's non-mana extra), Spree/Tiered, Gift, Replicate/Multikicker/Squad, printed or granted Convoke/Improvise/Delve, target-dependent pricing and every mana-spent reader (converge, sunburst, `CastTotalManaSpent`, `ConditionManaSpent$`, `Count$Adamant`, `Count$EachSpentToCast`, `Count$TotalManaSpent`, `ManaSpentBy`) receive no plan. Their legacy offers/asks remain unchanged. |
 | PP-09 | Deferred-tier producers (§3.2) never fund a plan; riders outside the last-resort shapes (targets, control change, each-player life loss, poison, counters), conditional and special production are deferred. Interference is scoped per source: an opponent's Mana Vault, City of Brass or Claustrophobia leaves a basic-land plan unchanged; a source matched by another object's tap/mana trigger or `ProduceMana` replacement is deferred; only an unprovable global effect (a `ManaConvert` static reaching the payer, an unscoped effect-created `ProduceMana` replacement) declines with `global_mana_effect`. No restricted pool metadata is erased. |
 | PP-10 | Inspecting/reinspecting offers changes no log, RNG, state or Seq. Node/size limits terminate deterministically; no partial plan is offered. The query outcome distinguishes unsupported, insufficient and search-limit, with a detail; the statistics sink counts outcomes, details, nodes, offers, planned submissions and fallbacks by reason without an event. |
 | PP-11 | Planned casts require empty Choices/Rest, the proper actor/Seq/kind, and an offered action/plan. Unknown version, ID, ability, forged quantities, duplicate source, changed incarnation and mixed selectors reject before mutation. Legacy validation still holds. |

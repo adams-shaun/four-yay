@@ -31,16 +31,54 @@ const xValue = 2
 type Seat struct {
 	Battlefield []string `json:"battlefield,omitempty"`
 	Tapped      []string `json:"tapped,omitempty"`
-	Hand        []string `json:"hand,omitempty"`
-	Graveyard   []string `json:"graveyard,omitempty"`
-	Exile       []string `json:"exile,omitempty"`
-	Library     []string `json:"library,omitempty"`
-	LibraryTop  []string `json:"library_top,omitempty"`
-	// Counters puts counters on this seat's battlefield cards: card name ->
-	// counter kind -> amount (the runner's setup field of the same name).
+	// BackFace names battlefield cards setup places on their back face (face
+	// index 1). It is emitted as a FlipFace event, so the placement replays
+	// from the log like every other setup op. A name that is not also in
+	// Battlefield is an error: only a permanent already on the battlefield can
+	// be flipped.
+	BackFace   []string `json:"back_face,omitempty"`
+	Hand       []string `json:"hand,omitempty"`
+	Graveyard  []string `json:"graveyard,omitempty"`
+	Exile      []string `json:"exile,omitempty"`
+	Library    []string `json:"library,omitempty"`
+	LibraryTop []string `json:"library_top,omitempty"`
+	// Counters puts counters on this seat's battlefield cards at setup:
+	// card name -> counter kind (LOYALTY, P1P1) -> how many, added to what
+	// the card enters with. Like Tapped it names every placement of that
+	// card. A planeswalker's loyalty headroom and a "creature with a +1/+1
+	// counter" target fixture ride it.
 	Counters map[string]map[string]int32 `json:"counters,omitempty"`
 	// Speed is the seat's starting speed, 0..4 (the runner's setup field).
 	Speed int32 `json:"speed,omitempty"`
+}
+
+// WithCounters returns s with n more counters of kind on its card name. The
+// map is copied, so a fixture's seat is never mutated through a shared map.
+func WithCounters(s Seat, name, kind string, n int32) Seat {
+	s.Counters = cloneCounters(s.Counters)
+	if s.Counters == nil {
+		s.Counters = map[string]map[string]int32{}
+	}
+	if s.Counters[name] == nil {
+		s.Counters[name] = map[string]int32{}
+	}
+	s.Counters[name][kind] += n
+	return s
+}
+
+func cloneCounters(m map[string]map[string]int32) map[string]map[string]int32 {
+	if m == nil {
+		return nil
+	}
+	out := make(map[string]map[string]int32, len(m))
+	for card, kinds := range m {
+		k := make(map[string]int32, len(kinds))
+		for kind, n := range kinds {
+			k[kind] = n
+		}
+		out[card] = k
+	}
+	return out
 }
 
 // Step is one scenario step (a subset of the runner's op set).
@@ -88,10 +126,24 @@ type Step struct {
 // TriggerOnStack names a source ref whose trigger must (Want true, the
 // default) or must not (Want false) be a stack entry; StackSize pins the
 // stack length. Both read as rules/oracle_run.go's oracleExpect fields do.
+type Offered struct {
+	Seat  int    `json:"seat"`
+	Kind  string `json:"kind"`
+	Card  string `json:"card"`
+	Label string `json:"label,omitempty"`
+}
+
+type CanBlock struct {
+	Blocker  string `json:"blocker"`
+	Attacker string `json:"attacker"`
+}
+
 type Expect struct {
-	TriggerOnStack string `json:"trigger_on_stack,omitempty"`
-	StackSize      *int   `json:"stack_size,omitempty"`
-	Want           *bool  `json:"want,omitempty"`
+	TriggerOnStack string    `json:"trigger_on_stack,omitempty"`
+	StackSize      *int      `json:"stack_size,omitempty"`
+	Offered        *Offered  `json:"offered,omitempty"`
+	CanBlock       *CanBlock `json:"can_block,omitempty"`
+	Want           *bool     `json:"want,omitempty"`
 }
 
 // Answer is a queued answer for gorge's runner (kind = decision kind).
@@ -103,6 +155,7 @@ type Answer struct {
 // Scenario is one generated scenario in the runner's schema.
 type Scenario struct {
 	Name  string          `json:"name"`
+	Turn  int             `json:"turn,omitempty"`
 	CR    []string        `json:"cr"`
 	Why   string          `json:"why"`
 	Setup map[string]Seat `json:"setup"`
@@ -249,28 +302,57 @@ func CharmCombinations(f *cards.Face) []CharmCombination {
 	}
 	var out []CharmCombination
 	var selected []CharmMode
-	var visit func(int, int)
-	visit = func(start, count int) {
-		if len(selected) == count {
-			combo := CharmCombination{Modes: append([]CharmMode(nil), selected...)}
-			for _, mode := range selected {
-				combo.Slots = append(combo.Slots, ChainSlotSpecs(f, mode.svar)...)
+	// emit appends the current selection as one combination.
+	emit := func() {
+		combo := CharmCombination{Modes: append([]CharmMode(nil), selected...)}
+		for _, mode := range selected {
+			combo.Slots = append(combo.Slots, ChainSlotSpecs(f, mode.svar)...)
+		}
+		out = append(out, combo)
+	}
+	// allDistinct reports whether the current selection repeats no mode.
+	allDistinct := func() bool {
+		seen := make(map[string]bool, len(selected))
+		for _, mode := range selected {
+			if seen[mode.svar] {
+				return false
 			}
-			out = append(out, combo)
+			seen[mode.svar] = true
+		}
+		return true
+	}
+	// visit enumerates combinations of count modes from start. distinct
+	// constrains the walk to strictly increasing positions (repeat-free
+	// combinations only); otherwise positions may repeat, and the leaf
+	// skips any all-distinct selection so the two walks do not overlap.
+	var visit func(start, count int, distinct bool)
+	visit = func(start, count int, distinct bool) {
+		if len(selected) == count {
+			if !distinct && allDistinct() {
+				return
+			}
+			emit()
 			return
 		}
 		for i := start; i < len(modes); i++ {
 			selected = append(selected, modes[i])
 			next := i
-			if !repeat {
+			if distinct {
 				next++
 			}
-			visit(next, count)
+			visit(next, count, distinct)
 			selected = selected[:len(selected)-1]
 		}
 	}
+	// Within each pick count the repeat-free combinations come first, in
+	// Choices$ order; only a CanRepeatModes$ charm then adds the repeating
+	// ones. A non-repeat charm takes the single distinct walk, so its output
+	// is byte-identical to the historical one.
 	for count := minCount; count <= pickCount; count++ {
-		visit(0, count)
+		visit(0, count, true)
+		if repeat {
+			visit(0, count, false)
+		}
 	}
 	return out
 }
@@ -440,10 +522,35 @@ func SlotIsStack(filter string) bool {
 	return true
 }
 
+// firstThreeTurnScenarioTurn recognizes the compiled first-three-turns cast
+// lockout. Fixtures cast as seat 0 in a two-seat game, so global turn 2*4-1
+// is that seat's fourth turn (TurnsTaken >= 4), when the lockout ends.
+func firstThreeTurnScenarioTurn(f *cards.Face) (int, bool) {
+	if f == nil {
+		return 0, false
+	}
+	for _, st := range f.Statics {
+		if st.Mode != "CantBeCast" || st.Params["SVarCompare"] != "LE3" {
+			continue
+		}
+		v := st.Params["CheckSVar"]
+		if body, ok := f.SVars[v]; ok {
+			v = body
+		}
+		if v == "Count$YourTurns" {
+			return 7, true
+		}
+	}
+	return 0, false
+}
+
 // NewItem names a template's scenario. The template's version is part of
 // the id and the scenario name, so bumping one template's version stales
 // only that template's verdicts (compliance/oraclegen/templates).
-func NewItem(card, template string, version int, sc Scenario) Item {
+func NewItem(f *cards.Face, card, template string, version int, sc Scenario) Item {
+	if turn, ok := firstThreeTurnScenarioTurn(f); ok {
+		sc.Turn = turn
+	}
 	sc.Name = fmt.Sprintf("gen%d-%s", version, template)
 	sc.CR = []string{"601.2"}
 	sc.Why = "generated level-A scenario"
@@ -657,10 +764,18 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSt
 			namedSearch[d.Step] = true
 		}
 	}
-	for _, d := range ds {
+	routing := newAnswerRouting(ds)
+	for i, d := range ds {
 		if d.Step < 0 || d.Step >= steps || (d.Via == "target" && castSteps[d.Step]) {
 			// A cast step's own targets reach XMage through castSpell; a
 			// target decision posed at a resolve step is scripted below.
+			continue
+		}
+		if as, owned := routing.route(i); owned {
+			if len(as) > 0 {
+				out[d.Step] = append(out[d.Step], as...)
+				any = true
+			}
 			continue
 		}
 		if pickKind(d, 0) == "name" && namedSearch[d.Step] && len(d.Picks) == 1 {
@@ -1260,7 +1375,7 @@ func yesNo(d rules.OracleDecision) (string, bool) {
 func hasTargetPick(d rules.OracleDecision) bool {
 	for k := range d.Picks {
 		switch pickKind(d, k) {
-		case "permanent", "player":
+		case "permanent", "player", "opponent_choice":
 			return true
 		}
 	}
@@ -1272,7 +1387,7 @@ func hasTargetPick(d rules.OracleDecision) bool {
 // choice queue.
 func pickKind(d rules.OracleDecision, k int) string {
 	if k >= 0 && k < len(d.PickKinds) {
-		if d.Resume == "opp_pick" && d.PickKinds[k] == "player" {
+		if (d.Resume == "opp_pick" || d.Resume == "choice") && d.PickKinds[k] == "player" {
 			// The TargetingPlayer$ Opponent flow's controller-facing
 			// which-opponent ask: XMage's ChoicePlayer, the choice queue.
 			return "opponent_choice"

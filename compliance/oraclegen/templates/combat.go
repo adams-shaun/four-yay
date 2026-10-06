@@ -28,7 +28,7 @@ func combatRequirement(reg *cards.Registry, f *cards.Face, name string, req leve
 	var sc oraclegen.Scenario
 	switch req.Sub {
 	case "combat.attack":
-		sc = combatScenario(f, name, []oraclegen.Step{
+		sc = combatScenario(f, name, req, []oraclegen.Step{
 			{Op: "attack", Seat: 0, Defender: "p1", Attackers: []string{"p0:" + name}},
 			{Op: "block", Seat: 1, Blocks: [][2]string{{"p1:" + combatBlocker, "p0:" + name}}},
 			{Op: "pass_to", Seat: 0, Step: "main2"},
@@ -43,10 +43,7 @@ func combatRequirement(reg *cards.Registry, f *cards.Face, name string, req leve
 		if !f.IsCreature() {
 			return skip("block not offered")
 		}
-		sc = combatScenario(f, name, []oraclegen.Step{
-			// The runner currently begins on p0's turn; move to p1's next
-			// upkeep explicitly before declaring p1's attack.
-			{Op: "pass_to", Seat: 0, Step: "upkeep", Active: "p1"},
+		sc = combatScenario(f, name, req, []oraclegen.Step{
 			{Op: "attack", Seat: 1, Defender: "p0", Attackers: []string{"p1:" + combatBlocker}},
 			{Op: "block", Seat: 0, Blocks: [][2]string{{"p0:" + name, "p1:" + combatBlocker}}},
 			{Op: "pass_to", Seat: 0, Step: "main2", Active: "p1"},
@@ -80,10 +77,12 @@ func combatRequirement(reg *cards.Registry, f *cards.Face, name string, req leve
 	return it, nil
 }
 
-func combatScenario(f *cards.Face, name string, steps []oraclegen.Step) oraclegen.Scenario {
+func combatScenario(f *cards.Face, name string, req levelb.Requirement, steps []oraclegen.Step) oraclegen.Scenario {
+	p0 := oraclegen.Seat{Battlefield: []string{name}}
+	setupBackFace(&p0, name, req)
 	sc := oraclegen.Scenario{
 		Setup: map[string]oraclegen.Seat{
-			"p0": {Battlefield: []string{name}},
+			"p0": p0,
 			"p1": {Battlefield: []string{combatBlocker}},
 		},
 		SetupAnswers: oraclegen.OpeningHandAnswers(f),

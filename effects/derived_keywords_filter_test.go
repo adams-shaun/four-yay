@@ -36,7 +36,7 @@ func TestKeywordPredicatesReadPublishedDerivedKeywords(t *testing.T) {
 		t.Error("without a table the printed (flightless) Bear must match withoutFlying")
 	}
 	// A bound per-candidate list outranks the table.
-	sc.ExtraKeywords = []string{}
+	sc.ExtraKeywords, sc.ExtraKeywordsOwner = []string{}, bear
 	if !MatchesSpecCtx(g, "Creature.withoutFlying", bear, sc) {
 		t.Error("a bound empty ExtraKeywords must outrank the table entry")
 	}

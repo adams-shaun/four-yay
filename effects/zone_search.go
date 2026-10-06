@@ -507,10 +507,12 @@ type libraryFetch struct {
 // Object selectors from Hand and Graveyard already use effChangeZone's normal
 // object path. Library is the exceptional origin because it otherwise enters
 // effSearchLibrary. A Defined$ yielding only player targets still belongs to
-// the search-owner path below. Each touched owner is shuffled once, even when
-// another sub-effect already moved every fetched object: Nissa's Pilgrimage's
-// final fetch-list step is the script's shuffle point after its chosen Forest
-// entered the battlefield.
+// the search-owner path below. Each owner whose library this fetch moves a
+// card out of is shuffled once; a fetch that moves no card from an owner's
+// library shuffles nothing (Gathering Stone's empty Remembered DBToHand must
+// not reorder the top card its chained TopOfLibrary mill reads). Nissa's
+// Pilgrimage's shuffle rides its search tail and, when its fetch list still
+// names a library card, this path.
 //
 // Optional$ True is a choice over the whole known fetch list, not permission
 // to silently move it. Kenessos's DBBottom is the corpus example: after its
@@ -687,7 +689,18 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParam
 				}
 			}
 		}
-		if !preserveDeferredRest {
+		// A TopOfLibrary/BottomOfLibrary fetch is a position read, not a
+		// search, so it owes no shuffle -- unless the script says Shuffle$ True.
+		// Likewise a Defined$ fetch that moved nothing from this owner's
+		// library is not a library search and shuffles nothing. Gathering
+		// Stone's DBToHand is the carrier: its `Defined$ Remembered` still
+		// holds the trigger's own self-referent (the fire-time capture, on the
+		// battlefield), so this owner's fetch list is empty -- and shuffling
+		// here reordered the library before the chained `Defined$ TopOfLibrary`
+		// mill read its top card, milling a deeper card instead of the peeked
+		// one. A fetch that did move library cards keeps its mandatory shuffle
+		// (Nissa's Pilgrimage's "Then shuffle" rides this path).
+		if !preserveDeferredRest && (cz.ShuffleTrue || (!cz.DefinedLibraryPosition && len(moved) > 0)) {
 			shuffleLibrary(h, cz, f.owner)
 		}
 		placeLibraryObjects(h, c, cz, f.owner, moved, to)

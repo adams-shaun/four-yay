@@ -8,15 +8,18 @@ import (
 
 // CompareKeywords is the one legal value of oraclegen.Item.Compare for now:
 // a permanent's key gains its evergreen keywords.
-const CompareKeywords = "keywords"
+const (
+	CompareKeywords = "keywords"
+	CompareOffered  = "offered"
+)
 
 // ValidateCompare rejects any Compare field outside the one legal value.
 // The option vocabulary is closed; a new value must be added here (and to the
 // comparator's wantsCompare readers) before an item may name it.
 func ValidateCompare(compare []string) error {
 	for _, c := range compare {
-		if c != CompareKeywords {
-			return fmt.Errorf("unknown compare field %q (only %q is recognised)", c, CompareKeywords)
+		if c != CompareKeywords && c != CompareOffered {
+			return fmt.Errorf("unknown compare field %q (recognised: %q, %q)", c, CompareKeywords, CompareOffered)
 		}
 	}
 	return nil

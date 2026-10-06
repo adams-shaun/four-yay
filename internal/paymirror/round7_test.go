@@ -25,9 +25,9 @@ import (
 //     Malakir's trigger from the float-sacrificed Eldrazi Spawn
 //     (follow_up_unmappable); A's order is kept over the rest and the end
 //     state passes floatTriggerOnly (expected float_trigger_precedes_cast).
-//   - 5108 (constructed): Warping Wail's exile mode's only target is the
-//     Eldrazi Scion paying for it (follow_up_unmappable on the modes ask,
-//     now expected float_removed_every_target, CR 700.2a).
+//   - 5108 (constructed): admitting Dismember's Phyrexian cost to auto-pay
+//     changes the bot's cast trajectory, so the old seq-675 Warping Wail
+//     finding is no longer reached; all reported casts remain mirrored.
 //
 // fb-20260927T163321Z-69285807 re-pinned the commander seeds (4038, 6191)
 // after the command-zone payment-plan fix: a commander in the command zone
@@ -68,7 +68,7 @@ func TestRoundSevenFindingsMirror(t *testing.T) {
 		{4038, []string{"ulalek-eldrazi", "rakdos-muscle-scam-exe", "vivi-ornitier-cedh", "foundations-calling-all-angels"}, true, 0, ""},
 		{6085, []string{"vivi-ornitier-cedh", "ulalek-eldrazi", "deadly-disguise", "rakdos-muscle-scam-exe"}, true, 173, "expected:float_then_cast:float_removed_every_target"},
 		{6191, []string{"foundations-wretched-ranks", "avengers-assemble", "ulalek-eldrazi", "hearthhull-worldseed-landfall"}, true, 9987, "expected:float_then_cast:float_trigger_precedes_cast"},
-		{5108, []string{"eldrazi-stompy", "mono-red-prowess"}, false, 675, "expected:float_then_cast:float_removed_every_target"},
+		{5108, []string{"eldrazi-stompy", "mono-red-prowess"}, false, 0, ""},
 	} {
 		reports := round6Game(t, d, GameSpec{Seed: tc.seed, Decks: tc.decks, Commander: tc.commander, Policy: "bot"})
 		found := false

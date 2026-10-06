@@ -220,6 +220,7 @@ var kindInfo = [NumKinds]KindInfo{
 	ManifestDreadAction:   {Name: "manifest_dread_action", Trigger: TriggerFullMatch, Describe: "{player} manifests dread"},
 	CollectEvidenceAction: {Name: "collect_evidence_action", Trigger: TriggerFullMatch, Describe: "{player} collects evidence"},
 	AbilityTriggered:      {Name: "ability_triggered", Trigger: TriggerFullMatch, Describe: "{obj}'s ability was triggered"},
+	CastBattlefield:       {Name: "cast_battlefield", Trigger: TriggerNone, Describe: "{obj} was cast with the battlefield as it stood"},
 }
 
 // Info returns k's descriptor; ok is false for a value past the enum.

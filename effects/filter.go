@@ -573,6 +573,9 @@ func keywordPredicateMatches(o *state.Object, kp keywordPredicate, sc *SpecConte
 		return keywordInCtx(o, kp.keyword, sc)
 	}
 	list := sc.ExtraKeywords
+	if list != nil && (o == nil || o.ID != sc.ExtraKeywordsOwner) {
+		list = nil
+	}
 	if list == nil && o != nil {
 		for i := range sc.Layers.DerivedKeywords {
 			if sc.Layers.DerivedKeywords[i].ID == o.ID {
@@ -611,6 +614,9 @@ func keywordPredicateMatches(o *state.Object, kp keywordPredicate, sc *SpecConte
 // flying); otherwise the printed face plus keyword counters.
 func keywordInCtx(o *state.Object, kw string, sc *SpecContext) bool {
 	list := sc.ExtraKeywords
+	if list != nil && (o == nil || o.ID != sc.ExtraKeywordsOwner) {
+		list = nil
+	}
 	if list == nil && o != nil {
 		for i := range sc.Layers.DerivedKeywords {
 			if sc.Layers.DerivedKeywords[i].ID == o.ID {
@@ -2295,7 +2301,7 @@ func matchesBase(g *state.Game, base string, o *state.Object, sc SpecContext) bo
 		// "a permanent with affinity" (Sojourner's Enforcermite), not as
 		// a card type. Prefer the layer-derived keyword list when rules has
 		// supplied one; the printed face is the effects-tier fallback.
-		if sc.ExtraKeywords != nil {
+		if sc.ExtraKeywords != nil && o.ID == sc.ExtraKeywordsOwner {
 			for _, k := range sc.ExtraKeywords {
 				if strings.EqualFold(cards.KeywordHead(k), "Affinity") {
 					return true
@@ -2433,6 +2439,10 @@ type SpecContext struct {
 	// SpecContext field makes escape analysis leak the whole context (its
 	// Resolve closure included) to the heap on every hot-path construction.
 	ExtraTypes []string
+	// ExtraTypesOwner is the ONE object ExtraTypes describes. Only that object
+	// reads the list as authoritative; any other object a predicate inspects
+	// (Aura.Other, a Self/Other comparison) keeps the printed-face read.
+	ExtraTypesOwner state.ObjID
 	// ExtraKeywords optionally supplies the layer-derived KEYWORD list for the
 	// ONE object the spec is being matched against (a value slice, same
 	// rationale as ExtraTypes). When non-nil it is authoritative for the
@@ -2442,6 +2452,10 @@ type SpecContext struct {
 	// (kw:Flanking's blocker check, Cavalry Master's `withFlanking` lord).
 	// nil keeps the object-alone read (printed face plus counters).
 	ExtraKeywords []string
+	// ExtraKeywordsOwner is the ONE object ExtraKeywords describes. Only that
+	// object reads the list as authoritative; any other object a relational
+	// predicate inspects keeps the published-table/printed-face read.
+	ExtraKeywordsOwner state.ObjID
 	// TargetableObjects is the rules tier's immutable snapshot of objects this
 	// triggered spell can currently target under full rules legality.
 	TargetableObjects []state.ObjID
@@ -2515,6 +2529,9 @@ func (sc *SpecContext) TargetBinding() ([]state.Target, bool) {
 type ObjectTypes struct {
 	ID    state.ObjID
 	Types []string
+	// AllCreatureTypes is the finished layer-4 semantic marker; a false
+	// value must not fall back to the object's printed CDA.
+	AllCreatureTypes bool
 }
 
 // ObjectPower binds one object's layer-derived current power.

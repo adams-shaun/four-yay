@@ -804,6 +804,19 @@ type Object struct {
 	CrewedVehicles []ObjID
 	CrewedTurn     int32
 
+	// LatestCastFrom and LatestCastBy record the zone and caster of this
+	// object's LATEST events.PutOnStack: the same pair a reverse scan of the
+	// event log returns (rules' latestCastOrigin). The fold in events.Apply
+	// writes them on every PutOnStack, so a log-only replay derives the same
+	// values and a clone carries them by value; unlike PreStackEntry* they are
+	// NOT cleared by the reverse move, because the PutOnStack the scan finds
+	// remains in the log after a CR 733.1 reversal. HasLatestCast is false
+	// only until an object's first PutOnStack (a card cheated into play was
+	// never cast).
+	LatestCastFrom Zone
+	LatestCastBy   PlayerID
+	HasLatestCast  bool
+
 	// preStackEntry* carries a card's entry history only while it is on the
 	// stack. events.Apply captures it before PutOnStack overwrites the public
 	// fields, then restores and clears it for CR 733.1's logged reverse move.
@@ -1267,6 +1280,13 @@ type Object struct {
 	// re-asking -- copy it with CloneChosenModes, which keeps that
 	// distinction.
 	ChosenModes []string
+	// CastBattlefield is the frozen as-cast battlefield of a spell whose
+	// script reads Count$LastStateBattlefieldWithFallback (see
+	// CastBattlefield): nil when no snapshot was taken, non-nil-and-empty for
+	// an authoritative empty battlefield. Immutable and shared by clones and
+	// stack copies; folded only by events.Apply and cleared when the object
+	// leaves the stack.
+	CastBattlefield *CastBattlefield
 
 	// ModeChoices is the persistent per-object log a Charm's ChoiceRestriction$
 	// reads (task charm-choice-restriction): every mode this object has chosen
@@ -1515,11 +1535,11 @@ type Object struct {
 	// DoorLock/DoorUnlock events alone update this per-face lock bitset.
 	LockedDoors uint8
 
-	// _ pads the Object to 1152 bytes (18 64-byte cache lines), so in the
+	// _ pads the Object to 1280 bytes (20 64-byte cache lines), so in the
 	// page-aligned Objs arena every object's hot head (the fields declared
 	// first) starts on a line of its own. Purely layout: it is never read or
 	// written. A field added above must re-pad it (TestObjectCacheLinePadded).
-	_ [11]byte
+	_ [123]byte
 }
 
 // DoorUnlocked reports the designation of a printed Room face. The cast

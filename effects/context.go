@@ -771,6 +771,15 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 		return ownersOf(g, c.Remembered), true
 	case definedSpecTargetedController:
 		return controllersOf(g, c.Targets), true
+	case definedSpecTargetedPlayer:
+		players := targetedPlayers(c)
+		if len(players) > 0 {
+			return players, true
+		}
+		// Forge's TargetedPlayer falls back to a target object's controller
+		// when the chain has no player target (Blightning targeting a
+		// planeswalker is the corpus case).
+		return controllersOf(g, c.Targets), true
 	case definedSpecTargetedOwner:
 		// The OWNER (CR 108.3) of the resolving ability's targets, not their
 		// controller: Chaos Warp's DBDig sub-ability ("The owner of target
@@ -1895,6 +1904,7 @@ func copyTargets(s []state.Target) []state.Target {
 	return append([]state.Target(nil), s...)
 }
 
+// Contract: docs/superpowers/specs/2026-09-22-engine-contracts.md, “Trigger remembered readers intentionally differ.”
 // resolvedRemembered removes trigger-captured referents that Forge's source
 // card remembered list does not contain. Forge's Defined$ Remembered reads the
 // host card's remembered list; this engine seeds the trigger REFERENT into
@@ -2266,6 +2276,7 @@ const (
 	definedSpecNonRememberedController
 	definedSpecRememberedOwner
 	definedSpecTargetedController
+	definedSpecTargetedPlayer
 	definedSpecTargetedOwner
 	definedSpecChosenController
 	definedSpecChosenCardController
@@ -2347,7 +2358,7 @@ var definedSpecCodes = state.NewStrCodes(
 	state.StrEntry[definedSpecCode]{Key: "OppNonRememberedController", Val: definedSpecNonRememberedController},
 	state.StrEntry[definedSpecCode]{Key: "RememberedOwner", Val: definedSpecRememberedOwner},
 	state.StrEntry[definedSpecCode]{Key: "TargetedController", Val: definedSpecTargetedController},
-	state.StrEntry[definedSpecCode]{Key: "TargetedPlayer", Val: definedSpecTargetedController},
+	state.StrEntry[definedSpecCode]{Key: "TargetedPlayer", Val: definedSpecTargetedPlayer},
 	state.StrEntry[definedSpecCode]{Key: "TargetedOwner", Val: definedSpecTargetedOwner},
 	state.StrEntry[definedSpecCode]{Key: "ChosenController", Val: definedSpecChosenController},
 	state.StrEntry[definedSpecCode]{Key: "ChosenCardController", Val: definedSpecChosenCardController},

@@ -111,8 +111,17 @@ func crAbortUnchanged(t *testing.T, e *Engine, before *state.Game, start int, na
 		got := e.G.Obj(old.ID)
 		if got == nil {
 			t.Errorf("CR 733.1 %s seq %d: object %d disappeared", name, start, old.ID)
-		} else if !reflect.DeepEqual(old, *got) {
-			t.Errorf("CR 733.1 %s seq %d: object %d (%s) not restored (chosen number %d -> %d)", name, start, old.ID, old.Face().Name, old.ChosenNumber, got.ChosenNumber)
+		} else {
+			// LatestCast* is append-only event history: PutOnStack remains in
+			// the log after CR 733.1 reverses the proposal, so the folded pair
+			// intentionally matches the latest logged cast rather than rolling
+			// back with the object's reversible characteristics.
+			oldState, gotState := old, *got
+			oldState.LatestCastFrom, oldState.LatestCastBy, oldState.HasLatestCast = 0, 0, false
+			gotState.LatestCastFrom, gotState.LatestCastBy, gotState.HasLatestCast = 0, 0, false
+			if !reflect.DeepEqual(oldState, gotState) {
+				t.Errorf("CR 733.1 %s seq %d: object %d (%s) not restored (chosen number %d -> %d)", name, start, old.ID, old.Face().Name, old.ChosenNumber, got.ChosenNumber)
+			}
 		}
 	}
 	if !slices.Equal(before.Stack, e.G.Stack) || len(before.Objs) != len(e.G.Objs) || e.cast != nil || e.choosing != chooseNone || len(e.pendingTriggers) != 0 || e.drainAwaitsTarget {

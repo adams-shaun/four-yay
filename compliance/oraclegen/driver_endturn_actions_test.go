@@ -19,8 +19,8 @@ func TestScenarioReplayEndTurnTracksMultiActionSkippedStep(t *testing.T) {
 	for _, required := range []string{
 		"int beforeA = playerA.getActions().size();",
 		"int beforeB = playerB.getActions().size();",
-		"step(st, op);",
-		"runCode(cp, TURN, phase, playerA,",
+		"step(st, op, i);",
+		"runCode(cp, turn, phase, playerA,",
 		"playerA.getActions().subList(beforeA, playerA.getActions().size())",
 		"playerB.getActions().subList(beforeB, playerB.getActions().size())",
 		"remainingA.addAll(queuedA.get(i));",
@@ -33,8 +33,8 @@ func TestScenarioReplayEndTurnTracksMultiActionSkippedStep(t *testing.T) {
 	// Check the queue capture surrounds the whole step (and its checkpoint),
 	// not just the checkpoint; cast-with-mana has more than one action.
 	for _, ordered := range [][]string{
-		{"int beforeA =", "step(st, op);", "runCode(cp, TURN", "queuedA.add("},
-		{"int beforeB =", "step(st, op);", "runCode(cp, TURN", "queuedB.add("},
+		{"int beforeA =", "step(st, op, i);", "runCode(cp, turn", "queuedA.add("},
+		{"int beforeB =", "step(st, op, i);", "runCode(cp, turn", "queuedB.add("},
 	} {
 		at := 0
 		for _, s := range ordered {
@@ -47,7 +47,7 @@ func TestScenarioReplayEndTurnTracksMultiActionSkippedStep(t *testing.T) {
 		}
 	}
 	cast := java[strings.Index(java, "case \"cast\":"):strings.Index(java, "case \"play\":")]
-	if !strings.Contains(cast, "runCode(\"mana \" + mana") || !strings.Contains(cast, "castSpell(TURN, phase, p, card") {
+	if !strings.Contains(cast, "runCode(\"mana \" + mana") || !strings.Contains(cast, "castSpell(turn, phase, p, card") {
 		t.Fatal("test requires a cast-with-mana that schedules actions besides its checkpoint")
 	}
 	if strings.Contains(queue, "unusedActions == skippedSteps") {

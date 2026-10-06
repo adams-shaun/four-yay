@@ -445,7 +445,7 @@ func (e *Engine) matchesSpec(spec string, id state.ObjID, sc effects.SpecContext
 		facts := specBindFacts(spec)
 		if o := e.G.Obj(id); o != nil && (specDerivedVerify || facts.reads) {
 			d := e.Derived(id)
-			sc.ExtraKeywords = d.Keywords
+			sc.ExtraKeywords, sc.ExtraKeywordsOwner = d.Keywords, id
 			// The numeric power/basePower predicates read the same derived
 			// values the rest of the engine does: the candidate's current P/T
 			// and its base P/T through layer 7b (CR 613.4). Binding both here

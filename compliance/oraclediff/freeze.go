@@ -76,7 +76,7 @@ func FreezeOpts(res rules.OracleResult, compare []string, ignore ...string) []co
 	changed := map[string]bool{}
 	for _, v := range vs[1:] {
 		for k, f := range v {
-			if k >= len(vs[0]) || vs[0][k] != f {
+			if k >= len(vs[0]) || !fieldEqual(vs[0][k], f) {
 				changed[f.name] = true
 			}
 		}
@@ -124,7 +124,7 @@ func MeetsOpts(frozen []compliance.Frozen, res rules.OracleResult, compare []str
 		if !ok {
 			return false, fmt.Sprintf("%s %s: gorge has no such field now", fz.At, fz.Field)
 		}
-		if got != fz.Value {
+		if !fieldEqual(field{fz.Field, got}, field{fz.Field, fz.Value}) {
 			return false, fmt.Sprintf("%s %s: gorge now %q, frozen %q", strings.TrimSpace(fz.At), fz.Field, got, fz.Value)
 		}
 	}

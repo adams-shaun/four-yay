@@ -1,11 +1,9 @@
 // Level-B static template (spec
 // docs/superpowers/specs/2026-10-05-compliance-level-b.md section 7). It
-// serves the static modes whose effect is observable without an "offered"
-// observation: DisableTriggers, seen from the stack, and
-// CombatDamageToughness, seen from combat damage. A candidate is served only
-// when the two scenarios differ -- the observation scenario (the card on the
-// battlefield) and a control (the probe alone) -- so an item never asserts a
-// static the engine does not implement. Every other static mode stays a gap.
+// serves statics observed through stack/state differences, combat damage,
+// attack/block legality and priority options. A legality candidate is served
+// only when its control proves the action is available without the static and
+// its observation proves the restriction is active.
 //
 // Both observations ride an existing checkpoint: the stack snapshot for
 // DisableTriggers, the players' life for combat damage. DisableTriggers is a
@@ -32,7 +30,7 @@ var StaticObserved = Template{ID: "static", Version: 1}
 // staticSubs are the level-B static sub-families this template serves.
 func staticSubs(sub string) bool {
 	switch sub {
-	case "static.disable-triggers", "static.combat-damage-toughness":
+	case "static.disable-triggers", "static.combat-damage-toughness", "static.can-attack-defender", "static.can-attack-defender-svar", "static.cant-block-by", "static.cant-be-cast-threshold", "static.cant-be-cast-combat", "static.cant-be-activated-combat":
 		return true
 	}
 	return false
@@ -59,6 +57,16 @@ func staticRequirement(reg *cards.Registry, f *cards.Face, name string, req leve
 		return disableTriggersItem(reg, f, name, req)
 	case "static.combat-damage-toughness":
 		return combatDamageToughnessItem(reg, f, name, req)
+	case "static.can-attack-defender", "static.can-attack-defender-svar":
+		return canAttackDefenderItem(reg, f, name, req)
+	case "static.cant-block-by":
+		return cantBlockByItem(reg, f, name, req)
+	case "static.cant-be-cast-threshold":
+		return staticCastOffer(reg, f, name, req, false)
+	case "static.cant-be-cast-combat":
+		return staticCastOffer(reg, f, name, req, true)
+	case "static.cant-be-activated-combat":
+		return cantBeActivatedItem(reg, f, name, req)
 	}
 	return skip("no observation for " + req.Sub)
 }
@@ -68,11 +76,20 @@ func staticRequirement(reg *cards.Registry, f *cards.Face, name string, req leve
 // battlefield, and p1's baseline permanent.
 func staticScenario(f *cards.Face, name string, battlefield []string, hand []string, steps []oraclegen.Step) oraclegen.Scenario {
 	p0 := oraclegen.Seat{Hand: append([]string(nil), hand...)}
+	// Oracle scenarios need enough library to survive the full turn that a
+	// combat-decision checkpoint may traverse.
+	for i := 0; i < 20; i++ {
+		p0.Library = append(p0.Library, "Plains")
+	}
 	for _, b := range battlefield {
 		p0.Battlefield = appendFixtureUnique(p0.Battlefield, b)
 	}
+	p1 := oraclegen.Seat{}
+	for i := 0; i < 20; i++ {
+		p1.Library = append(p1.Library, "Plains")
+	}
 	sc := oraclegen.Scenario{
-		Setup:        map[string]oraclegen.Seat{"p0": p0, "p1": {}},
+		Setup:        map[string]oraclegen.Seat{"p0": p0, "p1": p1},
 		SetupAnswers: oraclegen.OpeningHandAnswers(f),
 		Steps:        append([]oraclegen.Step(nil), steps...),
 	}
@@ -135,6 +152,9 @@ func disableTriggersItem(reg *cards.Registry, f *cards.Face, name string, req le
 	steps := append([]oraclegen.Step{cast}, pass...)
 	steps[len(steps)-1].Expect = []oraclegen.Expect{{TriggerOnStack: "p0:" + disableTriggerProbe, Want: &want}}
 	sc := staticScenario(f, name, []string{name}, []string{disableTriggerProbe}, steps)
+	p0 := sc.Setup["p0"]
+	setupBackFace(&p0, name, req)
+	sc.Setup["p0"] = p0
 	res, ok := runStatic(reg, sc)
 	if !ok || len(res.Fails) != 0 {
 		return skip("the expectation does not hold")
@@ -175,6 +195,9 @@ func combatDamageToughnessItem(reg *cards.Registry, f *cards.Face, name string, 
 	}
 	// Observation: the card on the battlefield raises the damage to toughness.
 	sc := staticScenario(f, name, []string{name, toughnessAttacker}, nil, steps)
+	p0 := sc.Setup["p0"]
+	setupBackFace(&p0, name, req)
+	sc.Setup["p0"] = p0
 	res, ok := runStatic(reg, sc)
 	if !ok || len(res.Fails) != 0 {
 		return skip("observation scenario does not replay")
