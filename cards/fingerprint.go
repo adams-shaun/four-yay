@@ -2,23 +2,10 @@ package cards
 
 import (
 	"crypto/sha256"
-	"embed"
 	"encoding/hex"
 	"sort"
 	"strings"
 )
-
-// compilerSources embeds every .go file in this package so CompilerFingerprint
-// can hash the source the running binary was actually built from. It is the
-// package's own parse/compile source that determines the IR a cache holds, so
-// two builds that differ anywhere in cards/ must never share an IR cache file
-// (see CachePath).
-//
-// The pattern also matches _test.go files; computeCompilerFingerprint skips
-// them, so a test-only edit does not invalidate a corpus cache.
-//
-//go:embed *.go
-var compilerSources embed.FS
 
 // CompilerFingerprint identifies the cards package source this binary was
 // compiled from: a 32-hex-character SHA-256 over the sorted (name, contents)
