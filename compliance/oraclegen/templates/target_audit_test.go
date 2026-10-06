@@ -2,7 +2,9 @@ package templates
 
 import (
 	"os"
+	"reflect"
 	"runtime"
+	"strings"
 	"sync"
 	"testing"
 
@@ -13,15 +15,150 @@ import (
 
 const fullTargetAuditEnv = "GORGE_ORACLEGEN_FULL_TARGET_AUDIT"
 
-// targetAuditCards keeps ordinary package gates focused while leaving the
-// full, pinned-corpus generation/replay audit explicitly available via
-// GORGE_ORACLEGEN_FULL_TARGET_AUDIT=1 go test -run 'TestGeneratedTargetsAreGorgeChoices|TestGeneratedMandatoryCastTargetsSurvive' ./compliance/oraclegen/templates/.
-func targetAuditCards(t *testing.T, reg *cards.Registry) []string {
-	t.Helper()
-	if os.Getenv(fullTargetAuditEnv) == "1" {
-		return targetCarriers(t, reg)
+// representativeTargetCards keeps ordinary package gates focused: two
+// corpus cards whose cast requires a creature target, which the two named
+// target audits check by default. The exhaustive pinned-corpus audit is the
+// TestTargetAuditChunkNN family below.
+var representativeTargetCards = []string{"Conduct Electricity", "Repulsive Mutation"}
+
+// targetAuditChunks is how many independent tests the exhaustive target
+// audit is sharded into. The audit generates and replays every identity in
+// target-carriers.json (~6k cards); run as one test it took 64-101 s wall and
+// ~100-155 CPU-s under the per-test budget's 2 vCPU (2026-10-05), over the
+// <= 1 min, <= 2 vCPU, <= 2 GB budget. Chunk i covers
+// carriers[i*n/K : (i+1)*n/K], so the chunks partition the pinned census
+// exactly -- a census that grows grows every chunk and never drops a carrier
+// (TestTargetAuditChunksPartitionTheCensus) -- and each chunk applies BOTH
+// target audits to each carrier's single Generate + replay.
+//
+// Run the full audit with
+//
+//	GORGE_ORACLEGEN_FULL_TARGET_AUDIT=1 go test -run 'TestTargetAuditChunk' ./compliance/oraclegen/templates/
+//
+// or one chunk with -run 'TestTargetAuditChunk03$'. The chunks are uneven:
+// Unite the Coalition alone costs ~45 s at 2 vCPU (126 repeat-mode charm
+// plans, each failing the runner's one-use-per-label mode matcher), so its
+// chunk is the one to watch.
+const targetAuditChunks = 12
+
+// targetAuditChunk returns chunk i's carrier slice.
+func targetAuditChunk(carriers []string, i int) []string {
+	n := len(carriers)
+	return carriers[i*n/targetAuditChunks : (i+1)*n/targetAuditChunks]
+}
+
+// runTargetAuditChunk is one shard of the exhaustive target audit.
+func runTargetAuditChunk(t *testing.T, i int) {
+	if os.Getenv(fullTargetAuditEnv) != "1" {
+		t.Skipf("opt-in exhaustive target audit: set %s=1", fullTargetAuditEnv)
 	}
-	return []string{"Conduct Electricity", "Repulsive Mutation"}
+	reg := loadGenRegistry(t)
+	chunk := targetAuditChunk(targetCarriers(t, reg), i)
+	if len(chunk) == 0 {
+		t.Fatalf("precondition: target audit chunk %d is empty", i)
+	}
+	replayed, mandatory := 0, 0
+	for _, c := range targetAuditCases(t, reg, chunk) {
+		if c.skip != nil {
+			continue // Census still pins skipped carriers; no scenario was emitted.
+		}
+		replayed++
+		checkGorgeChoseTargets(t, c)
+		mandatory += checkCastTargetsSurvive(t, c)
+	}
+	t.Logf("target audit chunk %d: %d carriers, %d scenarios replayed, %d mandatory target decisions", i, len(chunk), replayed, mandatory)
+}
+
+func TestTargetAuditChunk00(t *testing.T) { runTargetAuditChunk(t, 0) }
+func TestTargetAuditChunk01(t *testing.T) { runTargetAuditChunk(t, 1) }
+func TestTargetAuditChunk02(t *testing.T) { runTargetAuditChunk(t, 2) }
+func TestTargetAuditChunk03(t *testing.T) { runTargetAuditChunk(t, 3) }
+func TestTargetAuditChunk04(t *testing.T) { runTargetAuditChunk(t, 4) }
+func TestTargetAuditChunk05(t *testing.T) { runTargetAuditChunk(t, 5) }
+func TestTargetAuditChunk06(t *testing.T) { runTargetAuditChunk(t, 6) }
+func TestTargetAuditChunk07(t *testing.T) { runTargetAuditChunk(t, 7) }
+func TestTargetAuditChunk08(t *testing.T) { runTargetAuditChunk(t, 8) }
+func TestTargetAuditChunk09(t *testing.T) { runTargetAuditChunk(t, 9) }
+func TestTargetAuditChunk10(t *testing.T) { runTargetAuditChunk(t, 10) }
+func TestTargetAuditChunk11(t *testing.T) { runTargetAuditChunk(t, 11) }
+
+// TestTargetAuditChunksPartitionTheCensus holds the sharding to full
+// coverage: one TestTargetAuditChunkN per chunk, and the chunks,
+// concatenated, are exactly the pinned census.
+func TestTargetAuditChunksPartitionTheCensus(t *testing.T) {
+	reg := loadGenRegistry(t)
+	carriers := targetCarriers(t, reg)
+	var joined []string
+	for i := 0; i < targetAuditChunks; i++ {
+		joined = append(joined, targetAuditChunk(carriers, i)...)
+	}
+	if len(joined) != len(carriers) {
+		t.Fatalf("chunks cover %d of %d carriers", len(joined), len(carriers))
+	}
+	for i := range carriers {
+		if joined[i] != carriers[i] {
+			t.Fatalf("chunk concatenation diverges at %d: %q vs %q", i, joined[i], carriers[i])
+		}
+	}
+	if tests := len([]func(*testing.T){TestTargetAuditChunk00, TestTargetAuditChunk01, TestTargetAuditChunk02,
+		TestTargetAuditChunk03, TestTargetAuditChunk04, TestTargetAuditChunk05, TestTargetAuditChunk06,
+		TestTargetAuditChunk07, TestTargetAuditChunk08, TestTargetAuditChunk09, TestTargetAuditChunk10,
+		TestTargetAuditChunk11}); tests != targetAuditChunks {
+		t.Fatalf("%d chunk tests for %d chunks", tests, targetAuditChunks)
+	}
+}
+
+// checkGorgeChoseTargets is TestGeneratedTargetsAreGorgeChoices' per-carrier
+// assertion: the emitted scenario names no target gorge did not choose.
+func checkGorgeChoseTargets(t *testing.T, c targetAuditCase) {
+	t.Helper()
+	if c.err != nil {
+		t.Errorf("%s: replay: %v", c.name, c.err)
+		return
+	}
+	for _, f := range c.fails {
+		if strings.Contains(f, rules.OracleUnusedTargetMarker) {
+			t.Errorf("%s emitted a scenario with a target gorge did not choose: %s", c.name, f)
+		}
+	}
+}
+
+// checkCastTargetsSurvive is TestGeneratedMandatoryCastTargetsSurvive's
+// per-carrier assertion: the replay is clean, every mandatory target
+// decision was answered, and each cast step's scenario targets are exactly
+// gorge's picks. It returns the mandatory target decisions it saw.
+func checkCastTargetsSurvive(t *testing.T, c targetAuditCase) (mandatory int) {
+	t.Helper()
+	name := c.name
+	if c.err != nil || len(c.fails) != 0 {
+		t.Errorf("%s: replay err=%v fails=%v", name, c.err, c.fails)
+		return 0
+	}
+	for i, st := range c.steps {
+		if st.op != "cast" {
+			continue
+		}
+		var picks []string
+		for _, d := range c.decisions {
+			if d.Step != i || d.Via != "target" {
+				continue
+			}
+			if d.Min > 0 {
+				mandatory++
+				if len(d.PickRefs) < d.Min {
+					t.Errorf("%s: mandatory target decision %+v was not answered", name, d)
+				}
+			}
+			picks = append(picks, d.PickRefs...)
+		}
+		if len(picks) == 0 && len(st.targets) == 0 {
+			continue
+		}
+		if !reflect.DeepEqual(st.targets, picks) {
+			t.Errorf("%s cast step %d: scenario targets %v, gorge picked %v", name, i, st.targets, picks)
+		}
+	}
+	return mandatory
 }
 
 // targetAuditCase is one carrier's Generate + replay outcome, trimmed to

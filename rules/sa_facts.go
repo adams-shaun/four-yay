@@ -66,5 +66,8 @@ func (ct *compiledText) factsOf(sa *cards.SA) *saFacts {
 	if f := effects.LoadSAFacts(sa); f != nil && f.SA == sa {
 		return f
 	}
-	return ct.saFacts[sa]
+	if f := ct.saFacts[sa]; f != nil || ct.base == nil {
+		return f
+	}
+	return ct.base.saFacts[sa]
 }
