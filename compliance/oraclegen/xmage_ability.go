@@ -66,7 +66,7 @@ func XMageAbility(f *cards.Face) (map[int]string, string) {
 	full := make([]string, len(nonKeyword))
 	base := make([]string, len(nonKeyword))
 	for k, i := range nonKeyword {
-		full[k] = selfRef(lines[k], f.Name)
+		full[k] = xmageRuleLine(lines[k], f.Name)
 		base[k] = linePrefix(lines[k], f.Name)
 		if loyalty := loyaltyCost(f.Abilities[i].ParamStr(cards.PKCost)); loyalty != "" {
 			colon := strings.Index(full[k], ": ")
@@ -268,13 +268,14 @@ func stripReminder(line string) string {
 }
 
 // linePrefix returns the text before the line's first ": ", the cost prefix
-// XMage matches on, with the card's name rewritten by selfRef.
+// XMage matches on, with the card's name rewritten by selfRef and the cost spelled as XMage
+// renders it (xmageCostText).
 func linePrefix(line, sourceName string) string {
 	i := strings.Index(line, ": ")
 	if i < 0 {
 		return ""
 	}
-	return selfRef(strings.TrimSpace(line[:i]), sourceName)
+	return xmageCostText(selfRef(strings.TrimSpace(line[:i]), sourceName))
 }
 
 // selfRef rewrites every mention of the card's name in text to {this}:

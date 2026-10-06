@@ -49,7 +49,8 @@ func TestActivateKeywordCostScenarios(t *testing.T) {
 	reg := loadGenRegistry(t)
 
 	t.Run("Flexible Waterbender", func(t *testing.T) {
-		assertActivateItem(t, reg, "Flexible Waterbender", "activate#0.0", "Waterbend {3}")
+		// XMage renders WaterbendCost as the lower-case mana-cost text "waterbend {3}".
+		assertActivateItem(t, reg, "Flexible Waterbender", "activate#0.0", "waterbend {3}")
 		it, _ := activateRequirement(t, reg, "Flexible Waterbender", "activate#0.0")
 		// Waterbend<3> is three generic mana in the pool: nothing is tapped.
 		if got := it.Scenario.Steps[0].Mana; got != "CCC" {
