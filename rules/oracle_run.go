@@ -697,6 +697,11 @@ func (r *oracleRun) submit(d *decision.Decision, choices []int, why string) erro
 				od.AltPayable = altPayableCount(r.e.cast, d, r.e.castable)
 			}
 		}
+		for _, option := range d.Options {
+			if option.Obj != 0 {
+				od.OptionRefs = append(od.OptionRefs, r.objRef(r.e.G.Obj(option.Obj)))
+			}
+		}
 		for _, c := range choices {
 			if c < 0 || c >= len(d.Options) {
 				continue

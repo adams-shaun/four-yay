@@ -97,6 +97,9 @@ type OracleDecision struct {
 	Picks    []string `json:"picks"`
 	PickIdx  []int    `json:"pick_idx"`
 	PickRefs []string `json:"pick_refs"`
+	// OptionRefs records game-object identities among the offered options. It
+	// lets downstream answer adapters disambiguate same-named object picks.
+	OptionRefs []string `json:"option_refs,omitempty"`
 	// ObjectPicks records only selected game-object identities, in submission
 	// order. Unlike a snapshot delta, these are the objects the player chose.
 	ObjectPicks []string `json:"object_picks,omitempty"`

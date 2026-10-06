@@ -1001,6 +1001,7 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSt
 					if label == "" && k < len(d.PickRefs) {
 						label = oraclediffRefName(d.PickRefs[k])
 					}
+					label = disambiguatedObjectChoice(d, k, label)
 					if colour, ok := manaColourLabel(label); ok {
 						label = colour
 					}
@@ -1031,6 +1032,7 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSt
 					if label == "" && k < len(d.PickRefs) {
 						label = oraclediffRefName(d.PickRefs[k])
 					}
+					label = disambiguatedObjectChoice(d, k, label)
 					if colour, ok := manaColourLabel(label); ok {
 						label = colour
 					}
@@ -1670,6 +1672,30 @@ func payment(picks []string) bool {
 
 func isSeat(s string) bool {
 	return len(s) >= 2 && s[0] == 'p' && strings.Trim(s[1:], "0123456789") == ""
+}
+
+// disambiguatedObjectChoice gives XMage's target queue the copy discriminator
+// it supports when a choice-queue object pick collides by name with another
+// offered object. The driver handles these markers only on the choice path.
+func disambiguatedObjectChoice(d rules.OracleDecision, k int, label string) string {
+	if k >= len(d.PickRefs) || !strings.Contains(d.PickRefs[k], ":") {
+		return label
+	}
+	ref := d.PickRefs[k]
+	name := oraclediffRefName(ref)
+	matches := 0
+	for _, candidate := range d.OptionRefs {
+		if strings.EqualFold(oraclediffRefName(candidate), name) {
+			matches++
+		}
+	}
+	if matches < 2 {
+		return label
+	}
+	if strings.Contains(ref, ":token:") {
+		return label + " [only copy]"
+	}
+	return label + " [no copy]"
 }
 
 // oraclediffRefName strips a scenario ref to the object name.

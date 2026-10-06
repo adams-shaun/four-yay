@@ -110,8 +110,12 @@ public final class ScenarioReplayAnswerRoutingTest {
         RecordingDriver d = (RecordingDriver) UNSAFE.allocateInstance(RecordingDriver.class);
         d.queues = new ArrayList<>();
         d.casts = new ArrayList<>();
-        set(d, "playerA", UNSAFE.allocateInstance(TestPlayer.class));
-        set(d, "playerB", UNSAFE.allocateInstance(TestPlayer.class));
+        TestPlayer a = (TestPlayer) UNSAFE.allocateInstance(TestPlayer.class);
+        TestPlayer b = (TestPlayer) UNSAFE.allocateInstance(TestPlayer.class);
+        set(a, "choices", new ArrayList<String>());
+        set(b, "choices", new ArrayList<String>());
+        set(d, "playerA", a);
+        set(d, "playerB", b);
         set(d, "gorgeName", "");
         set(d, "xmageName", "");
         set(d, "cast", new ArrayList<String>());
@@ -194,7 +198,7 @@ public final class ScenarioReplayAnswerRoutingTest {
         // target, mode or amount queues.
         RecordingDriver glyph = driver();
         scripted(glyph, answers("choice", "Grizzly Bears"));
-        equal(List.of("A:choice:Grizzly Bears"), glyph.queues);
+        equal(List.of("Grizzly Bears"), field(field(glyph, "playerA"), "choices"));
         System.out.println("PASS per-player creature choice is queued on the controller's choice queue (Glyphbridge)");
 
         // Threats Around Every Corner: manifest dread's pick from the top two
@@ -202,7 +206,16 @@ public final class ScenarioReplayAnswerRoutingTest {
         // is a TARGET answer, both for the controller, in answer order.
         RecordingDriver threats = driver();
         scripted(threats, answers("choice", "Jace Beleren", "target", "Forest"));
-        equal(List.of("A:choice:Jace Beleren", "A:target:Forest"), threats.queues);
+        equal(List.of("Jace Beleren"), field(field(threats, "playerA"), "choices"));
+        equal(List.of("A:target:Forest"), threats.queues);
         System.out.println("PASS manifest dread pick and basic land fetch route to the choice and target queues (Threats)");
+
+        // A same-name token copy uses XMage's supported copy discriminator.
+        // It must leave through the target queue; a bare choice label would
+        // resolve by name and could select the original instead.
+        RecordingDriver copy = driver();
+        scripted(copy, answers("choice", "Joo Dee, One of Many [only copy]"));
+        equal(List.of("A:target:Joo Dee, One of Many [only copy]"), copy.queues);
+        System.out.println("PASS same-name token copy choice uses XMage's [only copy] selector");
     }
 }

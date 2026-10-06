@@ -2043,7 +2043,12 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     // the corresponding gameplay step.
                     break;
                 case "choice":
-                    if (v.equals("yes") || v.equals("no")) {
+                    if (v.endsWith(" [no copy]") || v.endsWith(" [only copy]")) {
+                        // Object picks normally use the choice queue. When two
+                        // offered objects share a name, use XMage's supported
+                        // target discriminator so the exact copy is selected.
+                        addTarget(p, v);
+                    } else if (v.equals("yes") || v.equals("no")) {
                         setChoice(p, v.equals("yes"));
                     } else if (isSeatRef(v)) {
                         setChoice(p, seat(seatOf(v)).getName());
