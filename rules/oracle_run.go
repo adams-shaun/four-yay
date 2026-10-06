@@ -59,8 +59,8 @@ type oracleScenario struct {
 	Expect       []oracleExpect `json:"expect"`
 	// xmageFixture marks a generated compliance scenario
 	// (RunOracleScenarioJSON). Setup permanents are present before turn 1 in
-	// both engines; the driver clears XMage's seeded entry history. Never
-	// decoded from JSON.
+	// both engines (build drops the triggers their placement queued); the
+	// driver clears XMage's seeded entry history. Never decoded from JSON.
 	xmageFixture bool
 }
 
@@ -574,6 +574,14 @@ func (r *oracleRun) build(sc oracleScenario) error {
 				e.emit(events.Event{Kind: events.LifeChange, Player: pid, Amount: d})
 			}
 		}
+	}
+	if sc.xmageFixture {
+		// A generated scenario's setup is its starting position in both
+		// engines: XMage's addCard places a permanent without entering it, so
+		// the triggers gorge's placements queued (an ETB discard or token
+		// maker) never fire. Hand-authored scenarios keep them.
+		clear(e.pendingTriggers)
+		e.pendingTriggers, e.orderedTriggers = e.pendingTriggers[:0], 0
 	}
 	e.Advance()
 	r.answers = append([]oracleAnswer(nil), sc.SetupAnswers...)

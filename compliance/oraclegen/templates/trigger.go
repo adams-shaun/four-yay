@@ -251,6 +251,7 @@ func triggerWithFixture(reg *cards.Registry, f *cards.Face, name string, req lev
 	it = oraclegen.NewLevelBItem(name, req.Key, TriggerFires.Version, []string{"603.2"}, sc)
 	it.XAnswers = oraclegen.XAnswersForScenario(res, sc, oraclegen.ModeNumbers(f), castSteps)
 	it.XAnswers = scriptPreludeSacrifice(it.XAnswers, c.prelude, len(sc.Steps))
+	it.XAnswers = scriptCauseActivationCost(it.XAnswers, c, sc.Steps, res.Decisions)
 	// Ward is caused by targeting; decline its unless-pay mode so the probe
 	// does not depend on the opponent's ability to pay the ward cost.
 	for _, d := range res.Decisions {
@@ -298,4 +299,19 @@ func abilityOnStack(snaps []rules.OracleSnapshot, name, slot string) bool {
 		}
 	}
 	return false
+}
+
+// scriptCauseActivationCost carries the activate step's cost choices (the
+// creatures a Crew or Saddle cost taps) to XMage, which asks for them. The
+// standalone activate template exports them through the same helper; a cause
+// that activates before attacking gets no such ask from XAnswersForScenario.
+func scriptCauseActivationCost(xa [][]oraclegen.XAnswer, c triggerCause, steps []oraclegen.Step, decisions []rules.OracleDecision) [][]oraclegen.XAnswer {
+	if c.activateCost == "" {
+		return xa
+	}
+	if len(xa) == 0 {
+		xa = make([][]oraclegen.XAnswer, len(steps))
+	}
+	addActivationCostAnswers(xa, activateStepIndex(steps), c.activateCost, decisions)
+	return xa
 }

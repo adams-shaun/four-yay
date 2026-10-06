@@ -22,6 +22,7 @@ type triggerCause struct {
 	xability     []string                  // XMage rule-text prefix per step (an activate step); nil when no step activates
 	castSelfX    bool                      // the card is cast from hand with X first (an X creature that setup would leave 0/0)
 	opponentHand []string                  // probes held by p1 for opponent-cast causes
+	activateCost string                    // Forge cost of the activate step in steps (Crew/Saddle tap choice); "" when none
 }
 
 // Probe cards, each named with why. Spec hypothesis H4: the probe exists in
@@ -211,7 +212,7 @@ func attackActivationCause(reg *cards.Registry, f *cards.Face, name string, t *c
 	addActivationCostFixtures(&setup, cost)
 	battlefield := append([]string(nil), setup.Battlefield...)
 	attack := oraclegen.Step{Op: "attack", Seat: 0, Defender: "p1", Attackers: []string{"p0:" + name}}
-	return triggerCause{battlefield: battlefield, steps: []oraclegen.Step{activate, {Op: "resolve"}, attack}, xability: []string{prefix}}, true
+	return triggerCause{battlefield: battlefield, steps: []oraclegen.Step{activate, {Op: "resolve"}, attack}, xability: []string{prefix}, activateCost: cost}, true
 }
 
 // phaseStep maps the Phase$ vocabulary admitted by levelb to ParseStep's
