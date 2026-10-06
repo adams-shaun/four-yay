@@ -9,7 +9,8 @@
 #   scripts/forge-oracle-test-cast.sh [outdir]
 set -euo pipefail
 here=$(cd "$(dirname "$0")/.." && pwd)
-out=${1:-$here/.ds4/scratch/forge-oracle-test-cast}
+root=${FORGE_ORACLE_DIR:-$(sed -n 's/^FORGE_ORACLE_DIR *?= *//p' "$here/Makefile")}
+out=${1:-$root/runs/test-cast}
 mkdir -p "$out"
 decision='{"step":0,"seat":0,"kind":"target","picks":["Grizzly Bears (b)"],"pick_idx":[4],"pick_refs":["p1:Grizzly Bears"],"object_picks":["p1:Grizzly Bears"],"pick_kinds":["permanent"],"gorge_kind":"target","min":1,"max":1}'
 req() { # req ID MANA
@@ -25,6 +26,9 @@ check() { # check ROWFILE DESCRIPTION JQ-EXPRESSION (must print true)
 }
 f=$out/forge.jsonl
 check "$f" "no harness row" '.harness == null'
+check "$f" "row is a forge row" '.engine == "forge"'
+check "$f" "all checkpoints present" '[.snapshots[].checkpoint] == ["setup","step 0 (cast)","step 1 (resolve)"]'
+check "$f" "setup: Shock in hand and Bears on the battlefield" '.snapshots[0].players[0].hand == ["Shock"] and ([.snapshots[0].permanents[] | select(.name == "Grizzly Bears" and .controller == 1)] | length) == 1'
 check "$f" "cast step: Shock is the only stack item" '.snapshots[1].stack == [{"kind":"spell","source":"Shock","controller":0}]'
 check "$f" "cast step: the pool was spent" '[.snapshots[1].players[].pool] == ["",""]'
 check "$f" "resolve step: stack empty" '.snapshots[2].stack == []'

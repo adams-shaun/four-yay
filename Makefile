@@ -184,7 +184,7 @@ xmage-oracle-setup:
 	XMAGE_REF=$(XMAGE_REF) XMAGE_ORACLE_DIR=$(XMAGE_ORACLE_DIR) scripts/xmage-oracle-setup.sh
 .PHONY: forge-oracle-setup
 forge-oracle-setup:
-	FORGE_REF=$(FORGE_REF) FORGE_ORACLE_REF=$(FORGE_ORACLE_REF) FORGE_ORACLE_DIR=$(FORGE_ORACLE_DIR) scripts/forge-oracle-setup.sh
+	FORGE_REPO='$(FORGE_REPO)' FORGE_REF='$(FORGE_REF)' FORGE_ORACLE_REF='$(FORGE_ORACLE_REF)' FORGE_ORACLE_DIR='$(FORGE_ORACLE_DIR)' scripts/forge-oracle-setup.sh
 
 # compliance-pass runs the XMage compliance pass (gen, plan, XMage replay of
 # the stale scenarios only, diff -write into compliance/verdicts, summary)

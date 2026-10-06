@@ -38,14 +38,17 @@ clone=${FORGE_ORACLE_CLONE:-$root/forge}
 xmage=${XMAGE_ORACLE_DIR:-$(mk XMAGE_ORACLE_DIR)}
 jdk=${FORGE_ORACLE_JDK:-$xmage/jdk}
 [ -n "$root" ] || die "FORGE_ORACLE_DIR unset"
+root=$(realpath -m "$root")
+clone=$(realpath -m "$clone")
+jdk=$(realpath -m "$jdk")
 
 # Which tree supplies the scripts, and at which commit: the setup clone at the
 # pinned ref, or a candidate worktree at its own HEAD. Either way the checked
 # commit must be the one on disk, and the script dirs must be unmodified.
 if [ -n "${FORGE_ORACLE_SRC:-}" ]; then
-  top=$(git -C "$FORGE_ORACLE_SRC" rev-parse --show-toplevel) || die "FORGE_ORACLE_SRC $FORGE_ORACLE_SRC is not in a git worktree"
+  src=$(realpath "$FORGE_ORACLE_SRC")
+  top=$(git -C "$src" rev-parse --show-toplevel) || die "FORGE_ORACLE_SRC $src is not in a git worktree"
   ref=$(git -C "$top" rev-parse HEAD)
-  src=$FORGE_ORACLE_SRC
 else
   top=$clone
   want=${FORGE_ORACLE_REF:-$(mk FORGE_ORACLE_REF)}
@@ -56,6 +59,8 @@ else
 fi
 "$here/scripts/forge-oracle-setup.sh" --check-pin "$ref" "$top" >&2
 git -C "$top" diff --quiet HEAD -- forge-gui/res/cardsfolder forge-gui/res/tokenscripts || die "$top has uncommitted changes under forge-gui/res/{cardsfolder,tokenscripts}"
+# Untracked (even ignored) scripts are loaded too, but git diff cannot see them.
+[ -z "$(git -C "$top" ls-files --others -- forge-gui/res/cardsfolder forge-gui/res/tokenscripts)" ] || die "$top has untracked scripts under forge-gui/res/{cardsfolder,tokenscripts}"
 [ -d "$top/forge-gui/res" ] || die "no $top/forge-gui/res"
 [ -d "$src/src/main/java" ] || die "no driver source at $src/src/main/java"
 [ -s "$root/cp.txt" ] || die "no $root/cp.txt; run make forge-oracle-setup"
@@ -65,7 +70,7 @@ git -C "$top" diff --quiet HEAD -- forge-gui/res/cardsfolder forge-gui/res/token
 # classpath, so a candidate worktree never clobbers the pinned build.
 cp=$(cat "$root/cp.txt")
 sum=$({ cat "$root/cp.txt"; find "$src/src/main/java" -name '*.java' -print0 | sort -z | xargs -0 sha256sum | sed 's|  .*/src/main/java/|  |'; } | sha256sum | cut -c1-12)
-classes=${FORGE_ORACLE_CLASSES:-$root/driver}/$sum
+classes=$(realpath -m "${FORGE_ORACLE_CLASSES:-$root/driver}")/$sum
 if [ ! -f "$classes/.done" ]; then
   tmp=$classes.tmp.$$
   rm -rf "$tmp" && mkdir -p "$tmp"
@@ -80,7 +85,7 @@ if [ "$mode" = compile ]; then
   exit 0
 fi
 
-tmpdir=${FORGE_ORACLE_TMP:-$root/tmp}
+tmpdir=$(realpath -m "${FORGE_ORACLE_TMP:-$root/tmp}")
 mkdir -p "$tmpdir"
 out=$(realpath -m "$out")
 in=$(realpath "$in")
