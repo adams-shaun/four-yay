@@ -41,6 +41,38 @@ const defaultForgeOracleDir = "/mnt/sata/gorge-training/forgeoracle"
 
 // forgeRequest is one line of forge-req.jsonl. The Item is marshalled
 // exactly as gen wrote it, so its bytes (and gate.ItemSHA) are unchanged.
+//
+// The contract the Forge driver reads (DESIGN section 5.2 records the reasons):
+//
+//   - A divided allocation (Twin Bolt, Forked Bolt, distribute counters) is
+//     not a field: gorge poses it as its own decision AFTER the target ask,
+//     a "choose_n" with resume "damage_split", whose options are the chosen
+//     targets in order (pick_refs) and whose pick_idx repeats a target's
+//     index once per point it receives. min == max == the total. The target
+//     ask's own "divided" is the literal total only for a triggered ability
+//     and is 0 for a spell cast from hand, so the driver sums the split.
+//   - A card ref's ordinal ("p0:Wastes#27") counts gorge's object order,
+//     which the deal shuffles. Name and owner are the identity; the driver
+//     resolves within the candidates Forge offers, which are one zone.
+//   - Decisions are exported verbatim. pay_<C>, pay_generic and pay_life are
+//     pick kinds of gorge's hybrid/Phyrexian pip ask, and a mana-ability
+//     "activate" pick is a payment-window choice; Forge asks neither, so the
+//     driver does not count them as leftover.
+//   - arrange: the picks are the cards kept on top in pick order; the
+//     pick_kinds name where the unpicked go (bottom, graveyard, exile, hand),
+//     in offered order. hideaway_bottom and dig_bottom leave none unpicked:
+//     every offered card goes to the bottom and the picks give its order.
+//   - trigger_cost_pay and trigger_cost_decline answer the payment of a
+//     triggered ability's cost; gift_decline declines a gift (gift_promise
+//     names the opponent in its label).
+//   - A cost is paid only if a decision records it: gen's Step carries no
+//     kicked or cast_mode, so a cast is the plain one (or the face the card
+//     ref names) unless a logged optional-cost decision says otherwise.
+//   - abilities is keyed by the decimal step index.
+//   - library_top is not compared when a seat's setup names library cards
+//     (see forgeIgnore).
+//   - A Forge row may echo request_sha, the sha256 of this line's bytes
+//     without the newline; forge-diff drops a row whose echo differs.
 type forgeRequest struct {
 	ID          string         `json:"id"`
 	ScenarioSHA string         `json:"scenario_sha"`
@@ -237,11 +269,13 @@ func forgeDiff(reg *cards.Registry, reqPath, forgePath, cacheDir, out string) (m
 	}
 	cache := oraclediff.Cache{Dir: cacheDir}
 	fres := map[string]oraclediff.XResult{}
+	echoed := map[string]string{}
 	if forgePath != "" {
 		if err := readLines(forgePath, func(b []byte) error {
 			var r struct {
 				oraclediff.XResult
-				Engine string `json:"engine"`
+				Engine     string `json:"engine"`
+				RequestSHA string `json:"request_sha"`
 			}
 			if err := json.Unmarshal(b, &r); err != nil {
 				return err
@@ -251,6 +285,7 @@ func forgeDiff(reg *cards.Registry, reqPath, forgePath, cacheDir, out string) (m
 				return fmt.Errorf("row %q is not a Forge row (engine %q)", r.ID, r.Engine)
 			}
 			fres[r.ID] = r.XResult
+			echoed[r.ID] = r.RequestSHA
 			return nil
 		}); err != nil {
 			return nil, err
@@ -272,6 +307,13 @@ func forgeDiff(reg *cards.Registry, reqPath, forgePath, cacheDir, out string) (m
 		sha := gate.Hash(b)
 		row := ForgeRow{ID: it.ID, Card: it.Card, Template: it.Template, RequestSHA: sha, ScenarioSHA: rq.ScenarioSHA}
 		x, ok := fres[it.ID]
+		missMsg := "no Forge result"
+		if echo := echoed[it.ID]; ok && echo != "" && echo != sha {
+			// The row answers another version of this request (an older
+			// export): caching it under this sha would poison the cache.
+			ok = false
+			missMsg = fmt.Sprintf("stale Forge row: it echoes request_sha %s, this request is %s", short12(echo), short12(sha))
+		}
 		if ok && cacheDir != "" {
 			if err := cache.Put(sha, x); err != nil {
 				return err
@@ -280,10 +322,10 @@ func forgeDiff(reg *cards.Registry, reqPath, forgePath, cacheDir, out string) (m
 			x, ok = cache.Get(sha)
 		}
 		if !ok {
-			row.Verdict = oraclediff.Verdict{Status: oraclediff.Harness, Engine: "forge", Msg: "no Forge result"}
+			row.Verdict = oraclediff.Verdict{Status: oraclediff.Harness, Engine: "forge", Msg: missMsg}
 		} else {
 			g, gerr := rules.RunOracleScenarioJSON(reg, it.Raw())
-			row.Verdict = oraclediff.CompareOpts(g, gerr, x, it.Compare, it.Ignore...)
+			row.Verdict = oraclediff.CompareOpts(g, gerr, x, it.Compare, forgeIgnore(it)...)
 			if row.Verdict.Engine == "xmage" {
 				row.Verdict.Engine = "forge"
 			}
@@ -307,6 +349,23 @@ func forgeDiff(reg *cards.Registry, reqPath, forgePath, cacheDir, out string) (m
 		return nil, err
 	}
 	return counts, of.Close()
+}
+
+// forgeIgnore is the item's own ignore list plus library_top when a seat's
+// setup names library cards. Gorge's deal shuffles the library the named
+// cards were mixed into (measured: Library ["Forest","Plains","Shock"] leaves
+// Plains fifth from the top and Forest outside the window), while the Forge
+// driver puts them under the filler, so the order cannot agree. A seat that
+// names only library_top is a deterministic top (named cards, then filler),
+// so it stays compared.
+func forgeIgnore(it oraclegen.Item) []string {
+	out := append([]string(nil), it.Ignore...)
+	for _, seat := range it.Setup {
+		if len(seat.Library) > 0 {
+			return append(out, "library_top")
+		}
+	}
+	return out
 }
 
 // refuseRepoPath rejects an output path inside the repository (the nearest
