@@ -924,6 +924,7 @@ func registerAnimateEffects(h Host, c *Ctx, id state.ObjID, ag animateGrant) {
 			Source: id, Affects: "Card.Self", Controller: c.Controller,
 			Layer: state.LPT, Sub: state.SubSet,
 			SetPower: ag.pw, SetToughness: ag.tf, HasSet: true,
+			SetPowerPresent: ag.hasPower, SetToughnessPresent: ag.hasTough, StaticSet: true,
 			// The P/T grant lives as long as the type grant: a
 			// Duration$ Permanent animation is WHOLLY permanent
 			// (Stalking Stones's 3/3 lasts indefinitely), never

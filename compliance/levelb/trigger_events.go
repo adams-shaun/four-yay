@@ -6,6 +6,13 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 )
 
+// ClassLevelGainedSub is the level-B sub-family of a "When this Class becomes
+// level N" trigger (CR 716.2e). Its cause is the Class's own level-up
+// activator, so the recipe in compliance/oraclegen/templates is separate from
+// every event cause. Exported so the recipe and this classifier share one
+// spelling.
+const ClassLevelGainedSub = "trigger.class-level-gained"
+
 // classifyEventTrigger names the sub-family of the trigger shapes whose cause
 // a p0-only recipe can produce on turn 1 beyond the original v1 table (spec
 // docs/superpowers/specs/2026-10-05-compliance-level-b.md section 2.2): a
@@ -73,6 +80,12 @@ func classifyEventTrigger(t *cards.Trigger) (sub string, ok bool) {
 	case cards.TriggerAttackersDeclaredOneTarget:
 		if namesYouCtrl(t.ParamStr(cards.PKValidAttackers)) && strings.EqualFold(t.ParamStr(cards.PKAttackedTarget), "Player") {
 			return "trigger.attacks-one-target", true
+		}
+	case cards.TriggerClassLevelGained:
+		// "When this Class becomes level N": the card's own Class. The body
+		// carries ClassBand$ N (the level that fires it).
+		if namesSelf(t.ParamStr(cards.PKValidCard)) {
+			return ClassLevelGainedSub, true
 		}
 	}
 	return "", false

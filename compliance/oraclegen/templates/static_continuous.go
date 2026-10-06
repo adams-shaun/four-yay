@@ -87,6 +87,7 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 		it := oraclegen.NewLevelBItem(name, req.Key, StaticApplies.Version, []string{"611.3", "613"}, base.Scenario)
 		it.XAnswers = base.XAnswers
 		it.Ignore = base.Ignore
+		it.XAbility = base.XAbility
 		it.Compare = []string{oraclediff.CompareKeywords}
 		return it, true
 	}
@@ -142,9 +143,6 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 	}
 	if gap := staticProbeCapGap(probePlan); gap != "" {
 		return skip(gap)
-	}
-	if st.HasParam(cards.PKClassBand) {
-		return skip(staticClassReason)
 	}
 	if gap := staticOffBattlefieldGrantGap(st); gap != "" {
 		return skip(gap)
@@ -232,6 +230,20 @@ func staticBase(reg *cards.Registry, c *cards.Card, f *cards.Face, name string, 
 			})
 		}
 		base = it
+	}
+	if band := classStaticBand(&st); band >= 2 {
+		// A ClassBand$ static is live only from its level on. The card is on
+		// the battlefield by now (cast, played or placed), so raise the Class
+		// through its own level-up activators before the effect is observed at
+		// the final checkpoint. A face that cannot build the prelude keeps a
+		// named skip.
+		steps, xab, ok := classLevelPrelude(f, name, band)
+		if !ok {
+			return base, staticClassReason
+		}
+		base.Steps = append(base.Steps, steps...)
+		base.XAbility = growXAbility(base.XAbility, len(base.Steps))
+		copy(base.XAbility[len(base.Steps)-len(xab):], xab)
 	}
 	if staticGatedOnMaxSpeed(&st) {
 		withMaxSpeed(base.Setup)
