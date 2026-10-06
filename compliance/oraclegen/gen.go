@@ -98,6 +98,7 @@ type Answer struct {
 // Scenario is one generated scenario in the runner's schema.
 type Scenario struct {
 	Name  string          `json:"name"`
+	Turn  int             `json:"turn,omitempty"`
 	CR    []string        `json:"cr"`
 	Why   string          `json:"why"`
 	Setup map[string]Seat `json:"setup"`
@@ -435,10 +436,21 @@ func SlotIsStack(filter string) bool {
 	return true
 }
 
+// RequiresTurnFour identifies cards whose Oracle cast restriction ends after
+// their controller's third turn.
+func RequiresTurnFour(card string) bool {
+	return card == "Jace Reawakened" || card == "Spider-Man 2099"
+}
+
 // NewItem names a template's scenario. The template's version is part of
 // the id and the scenario name, so bumping one template's version stales
 // only that template's verdicts (compliance/oraclegen/templates).
 func NewItem(card, template string, version int, sc Scenario) Item {
+	// These cards explicitly cannot be cast during their controller's first
+	// three turns. Their generated cast fixture must start after that window.
+	if RequiresTurnFour(card) {
+		sc.Turn = 7
+	}
 	sc.Name = fmt.Sprintf("gen%d-%s", version, template)
 	sc.CR = []string{"601.2"}
 	sc.Why = "generated level-A scenario"
