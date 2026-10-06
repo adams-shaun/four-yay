@@ -89,6 +89,42 @@ func TestXMageAbilityPrefixSelectionCorpus(t *testing.T) {
 	}
 }
 
+// TestXMageAbilityPrefixesAreCorpusUnique is the startsWith-selection ratchet:
+// every selector emitted for every mapped face must be incomparable by prefix.
+func TestXMageAbilityPrefixesAreCorpusUnique(t *testing.T) {
+	reg := testutil.CorpusRegistry(t)
+	mappedFaces := 0
+	for _, card := range reg.Cards {
+		for _, face := range card.Faces {
+			got, why := oraclegen.XMageAbility(face)
+			if why != "" {
+				continue
+			}
+			mappedFaces++
+			selectors := make([]string, 0, len(got))
+			for slot := range face.Abilities {
+				if selector, ok := got[slot]; ok {
+					if selector == "" {
+						t.Fatalf("%s: mapped an empty selector", face.Name)
+					}
+					selectors = append(selectors, selector)
+				}
+			}
+			for i, a := range selectors {
+				for j := i + 1; j < len(selectors); j++ {
+					b := selectors[j]
+					if strings.HasPrefix(a, b) || strings.HasPrefix(b, a) {
+						t.Errorf("%s: selectors %q and %q are not startsWith-unique", face.Name, a, b)
+					}
+				}
+			}
+		}
+	}
+	if mappedFaces == 0 {
+		t.Fatal("precondition: corpus produced no mapped faces")
+	}
+}
+
 func assertXMagePrefixSelectsOnly(t *testing.T, prefix string, own int, lines []string) {
 	t.Helper()
 	for j, line := range lines {

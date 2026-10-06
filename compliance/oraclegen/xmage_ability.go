@@ -60,7 +60,6 @@ func XMageAbility(f *cards.Face) (map[int]string, string) {
 	}
 	out := make(map[int]string, len(f.Abilities))
 	seen := make(map[string]bool)
-	needsUnique := !intrinsicHasLine
 	// full and base live in the same {this}-rewritten text space, so a shared
 	// self-referential cost ("{T}, Sacrifice {this}") is seen as shared and an
 	// extension into the rule text never copies the printed name.
@@ -70,7 +69,6 @@ func XMageAbility(f *cards.Face) (map[int]string, string) {
 		full[k] = selfRef(lines[k], f.Name)
 		base[k] = linePrefix(lines[k], f.Name)
 		if loyalty := loyaltyCost(f.Abilities[i].ParamStr(cards.PKCost)); loyalty != "" {
-			needsUnique = true
 			colon := strings.Index(full[k], ": ")
 			if colon < 0 {
 				return nil, "activate xmage text ambiguous"
@@ -78,9 +76,6 @@ func XMageAbility(f *cards.Face) (map[int]string, string) {
 			full[k] = loyalty + ": " + strings.TrimSpace(full[k][colon+2:])
 			base[k] = loyalty
 		}
-	}
-	for k := range base {
-		needsUnique = needsUnique || sharedBase(base, k)
 	}
 	// Ordinal matching excludes line-less intrinsics, but startsWith selection
 	// must include them. Assemble EVERY selectable line before extending any
@@ -107,12 +102,9 @@ func XMageAbility(f *cards.Face) (map[int]string, string) {
 		full = append(full, text)
 	}
 	for k, i := range nonKeyword {
-		prefix := base[k]
-		if needsUnique {
-			prefix = extendPrefix(prefix, full, k)
-			if conflictsWithOtherLine(prefix, k, full) || namesShortName(prefix[len(base[k]):], f.Name) {
-				return nil, "activate xmage text ambiguous"
-			}
+		prefix := extendPrefix(base[k], full, k)
+		if conflictsWithOtherLine(prefix, k, full) || namesShortName(prefix[len(base[k]):], f.Name) {
+			return nil, "activate xmage text ambiguous"
 		}
 		if prefix == "" || seen[prefix] {
 			return nil, "activate xmage text ambiguous"
@@ -122,15 +114,13 @@ func XMageAbility(f *cards.Face) (map[int]string, string) {
 	}
 	// A unique full-line match must also be unique against every emitted
 	// prefix; fail closed if a prefix ever leaves its own line's text space.
-	if needsUnique {
-		prefixes := make([]string, len(nonKeyword))
-		for k, i := range nonKeyword {
-			prefixes[k] = out[i]
-		}
-		for k, prefix := range prefixes {
-			if !strings.HasPrefix(full[k], prefix) || conflictsWithOtherLine(prefix, k, prefixes) {
-				return nil, "activate xmage text ambiguous"
-			}
+	prefixes := make([]string, len(nonKeyword))
+	for k, i := range nonKeyword {
+		prefixes[k] = out[i]
+	}
+	for k, prefix := range prefixes {
+		if !strings.HasPrefix(full[k], prefix) || conflictsWithOtherLine(prefix, k, prefixes) {
+			return nil, "activate xmage text ambiguous"
 		}
 	}
 	return out, ""
@@ -159,18 +149,6 @@ func loyaltyCost(cost string) string {
 		}
 	}
 	return ""
-}
-
-// sharedBase identifies faces that the legacy mapper skipped for duplicate
-// costs. Together with loyalty and line-less intrinsics, these faces need a
-// startsWith-unique mapping. Other faces preserve their legacy prefixes.
-func sharedBase(base []string, own int) bool {
-	for i, b := range base {
-		if i != own && b == base[own] {
-			return true
-		}
-	}
-	return false
 }
 
 // extendPrefix lengthens prefix one word at a time into its own full line
