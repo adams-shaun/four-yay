@@ -848,9 +848,9 @@ func (e *Engine) attackRestrictGroup(defender state.PlayerID) (string, int) {
 // Decision.Validate only checks the shape of each selected option, so reject
 // other combinations here before the intent is recorded or consumed. Multiple blockers
 // may still choose the same attacker, but CR 702.111b requires either zero or
-// at least two of them when that attacker has Menace. The build has no model
-// for effects that let one creature block additional attackers; this limit
-// must become capability-aware when such effects are implemented.
+// at least two of them when that attacker has Menace. The only modelled
+// additional-block capability is a single BlockAllDefined$ resolution that
+// defines several attackers (combat.MustBlockAllPair).
 func (e *Engine) validateBlockers(d *decision.Decision, in decision.Intent) error {
 	blockCounts := make(map[state.ObjID]int, len(in.Choices))
 	chosen := d.Chosen(in)
@@ -1178,8 +1178,13 @@ func (e *Engine) askBlockers() {
 				selected[d.Options[ci].Obj] = true
 			}
 		}
+		// Only a pair that obeys the blocker's requirement is published
+		// Required. A DefinedAttacker$-bound duty is obeyed by blocking THAT
+		// attacker, not by blocking another one (CR 509.1c), so its other
+		// pairs stay optional and do not count toward the quota; unbound
+		// duties mark every pair BlockMust and are unaffected.
 		for i := range d.Options {
-			d.Options[i].Required = selected[d.Options[i].Obj]
+			d.Options[i].Required = selected[d.Options[i].Obj] && d.Options[i].BlockMust
 		}
 		e.ask(d)
 		return

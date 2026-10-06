@@ -141,14 +141,14 @@ func TestMustBlockCorpusMagneticWebDefinedSetDeclaration(t *testing.T) {
 			t.Fatalf("engine accepted declaration omitting required blocker: %v", choices)
 		}
 	}
-	// Ordinary MustBlock permits the same creature to satisfy its duty by
-	// blocking a different attacker. That alternative is not itself a named
-	// required pair (BlockMust remains false on the other option).
-	in.Choices = []int{other.Index}
-	if err := d.Validate(in); err != nil {
-		t.Fatalf("decision rejected ordinary alternative: %v", err)
+	// The duty names the triggered attacker: blocking the other attacker
+	// obeys no requirement while blocking the named one was possible, so the
+	// declaration is illegal (CR 509.1c) and that pair is not Required.
+	if other.Required {
+		t.Fatalf("pair against the unnamed attacker published Required: %+v", other)
 	}
-	if err := e.validateBlockers(d, in); err != nil {
-		t.Fatalf("engine rejected ordinary alternative: %v", err)
+	in.Choices = []int{other.Index}
+	if err := e.validateBlockers(d, in); err == nil {
+		t.Fatal("engine accepted blocking the unnamed attacker instead of the named one")
 	}
 }

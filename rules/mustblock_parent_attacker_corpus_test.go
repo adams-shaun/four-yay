@@ -6,6 +6,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
+	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/rules/combat"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -63,13 +64,108 @@ func TestMustBlockCorpusHuntDownParentTargetAttacker(t *testing.T) {
 			t.Fatalf("engine accepted declaration without required blocker: %v", choices)
 		}
 	}
-	// An ordinary MustBlock can be discharged by another legal attacker;
-	// that does not make the unrelated pair a NAMED required pair.
-	in.Choices = []int{other.Index}
-	if err := d.Validate(in); err != nil {
-		t.Fatalf("decision rejected ordinary alternative: %v", err)
+	// The duty names the parent target: blocking the unrelated attacker
+	// obeys no requirement while the named block was possible, so the
+	// declaration is illegal (CR 509.1c) and that pair is not Required.
+	if other.Required {
+		t.Fatalf("pair against the unrelated attacker published Required: %+v", other)
 	}
-	if err := e.validateBlockers(d, in); err != nil {
-		t.Fatalf("engine rejected ordinary alternative: %v", err)
+	in.Choices = []int{other.Index}
+	if err := e.validateBlockers(d, in); err == nil {
+		t.Fatal("engine accepted blocking the unrelated attacker instead of the parent target")
+	}
+}
+
+// The same ParentTarget attacker binding through a REAL cast of corpus Hunt
+// Down: the root Pump's cast-time target is the attacker, the DBMustBlock
+// link's own target (asked at resolution) is the blocker. This pins the Ctx
+// split the hand-built test above assumes against the live resolution walk.
+func TestMustBlockCorpusHuntDownRealCastBindsParentAttacker(t *testing.T) {
+	reg := freshCorpusRegistry(t, "h/hunt_down.txt", "g/grizzly_bears.txt", "f/forest.txt")
+	e, _ := etbreplEngine(t, reg, "Hunt Down", "Grizzly Bears", "Grizzly Bears")
+	attacker := searchMoveByName(t, e, "Grizzly Bears", state.ZBattlefield)
+	unrelated := searchMoveByName(t, e, "Grizzly Bears", state.ZBattlefield)
+	blocker := searchMoveByNameSeat(t, e, 1, "Grizzly Bears", state.ZBattlefield)
+	bystander := searchMoveByNameSeat(t, e, 1, "Grizzly Bears", state.ZBattlefield)
+	if attacker == unrelated || blocker == bystander || e.G.Obj(blocker).Controller != 1 || e.G.Obj(attacker).Controller != 0 {
+		t.Fatal("precondition: two distinct seat-0 bears and two distinct seat-1 bears required")
+	}
+	spell := searchMoveByName(t, e, "Hunt Down", state.ZHand)
+	addMana(t, e, 0, "G")
+	submitChoices(t, e, castOptionFor(t, e, spell).Index)
+	d := e.Pending()
+	if d == nil || d.Kind != decision.KTarget {
+		t.Fatalf("precondition: casting Hunt Down posed %+v, want the root target ask", d)
+	}
+	pick := -1
+	for _, o := range d.Options {
+		if o.Obj == attacker {
+			pick = o.Index
+		}
+	}
+	if pick < 0 {
+		t.Fatalf("precondition: attacker-to-be not offered as Hunt Down's root target: %+v", d.Options)
+	}
+	submitChoices(t, e, pick)
+	for i := 0; i < 20 && len(e.G.Stack) > 0; i++ {
+		d = e.Pending()
+		if d == nil {
+			t.Fatal("no decision with Hunt Down on the stack")
+		}
+		if d.Kind == decision.KPriority {
+			passPriority(t, e)
+			continue
+		}
+		pick = -1
+		for _, o := range d.Options {
+			if o.Obj == blocker {
+				pick = o.Index
+			}
+		}
+		if pick < 0 {
+			t.Fatalf("precondition: child blocker target not offered: %+v", d)
+		}
+		submitChoices(t, e, pick)
+	}
+	if len(e.G.Stack) != 0 {
+		t.Fatal("precondition: Hunt Down did not finish resolving")
+	}
+	found := 0
+	for _, ce := range e.active() {
+		if ce.Restriction != "MustBlock" {
+			continue
+		}
+		found++
+		if ce.MustBlockAttacker != attacker || len(ce.Remembered) != 1 || ce.Remembered[0] != blocker || ce.MustBlockAllAttackers {
+			t.Fatalf("Hunt Down duty bound wrong pair: attacker=%d remembered=%v all=%v (want %d / [%d])",
+				ce.MustBlockAttacker, ce.Remembered, ce.MustBlockAllAttackers, attacker, blocker)
+		}
+	}
+	if found != 1 {
+		t.Fatalf("Hunt Down registered %d MustBlock duties, want 1", found)
+	}
+	for _, id := range []state.ObjID{attacker, unrelated} {
+		e.G.Obj(id).SummonSick = false
+	}
+	e.emit(events.Event{Kind: events.DeclareAttackers, Player: 1, IDs: []state.ObjID{attacker, unrelated}})
+	e.G.Step = state.StepDeclareBlockers
+	b := asBoard(e)
+	if !combat.MustBlockPairRequired(b, blocker, attacker) || combat.MustBlockPairRequired(b, blocker, unrelated) ||
+		combat.MustBlockCandidates(b, 1)[bystander] {
+		t.Fatal("real-cast Hunt Down duty not scoped to the parent target attacker and the chosen blocker")
+	}
+	bd := askBlockersFresh(t, e)
+	if bd == nil {
+		t.Fatal("precondition: no blockers decision")
+	}
+	pair, other := findBlockOption(bd, blocker, attacker), findBlockOption(bd, blocker, unrelated)
+	if pair == nil || other == nil || !pair.Required || other.Required || bd.RequiredQuota() != 1 {
+		t.Fatalf("real-cast Hunt Down offered pairs incorrect: %+v", bd.Options)
+	}
+	if err := e.validateBlockers(bd, decision.Intent{Player: bd.Player, Seq: bd.Seq, Choices: []int{pair.Index}}); err != nil {
+		t.Fatalf("engine rejected the parent-target block: %v", err)
+	}
+	if err := e.validateBlockers(bd, decision.Intent{Player: bd.Player, Seq: bd.Seq, Choices: []int{other.Index}}); err == nil {
+		t.Fatal("engine accepted blocking the unrelated attacker instead")
 	}
 }

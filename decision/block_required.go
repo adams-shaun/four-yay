@@ -74,8 +74,9 @@ func (d *Decision) blockRequiredCore() []int {
 			}
 		}
 		if ordinary.required {
-			// A required blocker may legally choose any offered attacker, not
-			// only the pair that carries the requirement (CR 509.1c).
+			// A required blocker searches all its offered pairs (another
+			// pair may serve a Min$ team), but only pairs that obey its
+			// requirement count toward the maximum (CR 509.1c).
 			ordinary.opts = allOrdinary
 			candidates = append(candidates, ordinary)
 		} else if len(ordinary.opts) != 0 {
