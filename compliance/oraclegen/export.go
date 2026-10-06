@@ -87,6 +87,18 @@ func Fixtures(reg *cards.Registry, slots []SlotSpec) []Fixture { return fixtures
 // or says why it cannot.
 func PoolFor(cost string) (string, string) { return poolFor(cost) }
 
+// SubtypeCard returns a real card of a subtype word: a quiet non-legendary
+// creature when the registry has one, else the first card carrying the
+// subtype. It is the same lookup subtypeBattlefield uses for a target
+// candidate, exported for setup fixtures that place a permanent of a subtype
+// the fixed tables do not name.
+func SubtypeCard(reg *cards.Registry, subtype string) (string, bool) {
+	if name, ok := registryQuietSubtype(reg, subtype); ok {
+		return name, true
+	}
+	return registrySubtype(reg, subtype)
+}
+
 // TargetSlots lists the ValidTgts$ filters along the spell ability chain.
 func TargetSlots(f *cards.Face) []string { return targetSlots(f) }
 

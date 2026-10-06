@@ -73,6 +73,17 @@ var activateCensusSets = []string{"BIG", "EOE", "FDN", "FRA"}
 // Re-measured for cli-20261006T110935Z-0968a39b: seeded setup permanents
 // no longer fire ETB triggers. Command Bridge activate#0.0 is now served
 // instead of a no-fixture skip (EOE mana 16 -> 17, no-fixture 1 -> 0).
+//
+// Re-measured for the activation-restriction prelude ticket
+// (cli-20261006T132127Z-088fce64): an activated ability whose offer gate
+// (IsPresent$, CheckSVar$, Activation$) was false on the bare scenario now
+// gets the board/graveyard/turn-history setup the gate names (see
+// activate_restriction.go). Merged with main's counter fixtures, which had
+// already taken FDN battlefield 81 -> 84; the prelude adds one more
+// (FDN battlefield 84 -> 85). FRA battlefield 70 -> 71 and graveyard 7 -> 8
+// (no-fixture 5 -> 2). The FRA Proctor of Potential's scry/surveil gate has no
+// setup and is now a named restriction gap instead of the generic no-fixture
+// bucket.
 var wantActivateCensus = map[string]map[string]int{
 	"BIG": {
 		"served:activate.battlefield":        11,
@@ -90,19 +101,20 @@ var wantActivateCensus = map[string]map[string]int{
 		"skip:activate xmage text ambiguous":      6,
 	},
 	"FDN": {
-		"served:activate.battlefield":                          84,
+		"served:activate.battlefield":                          85,
 		"served:activate.graveyard":                            2,
 		"served:activate.mana":                                 53,
 		"skip:activate cost gap: tapXType<unsupported-filter>": 1,
-		"skip:activate no fixture":                             6,
+		"skip:activate no fixture":                             5,
 	},
 	"FRA": {
-		"served:activate.battlefield":             70,
-		"served:activate.graveyard":               7,
-		"served:activate.hand":                    8,
-		"served:activate.mana":                    27,
-		"skip:activate cost gap: SubCounter<...>": 1,
-		"skip:activate no fixture":                5,
+		"served:activate.battlefield":                                      71,
+		"served:activate.graveyard":                                        8,
+		"served:activate.hand":                                             8,
+		"served:activate.mana":                                             27,
+		"skip:activate cost gap: SubCounter<...>":                          1,
+		"skip:activate no fixture":                                         2,
+		"skip:activation restriction: SVar (Count$YouScryThisTurn/Plus.Y)": 1,
 		"skip:activate target gap: attackedThisTurn needs a combat prelude (Creature.attackedThisTurn)": 1,
 	},
 }
