@@ -298,9 +298,7 @@ func newEngineShell(cfg Config, random *rng) *Engine {
 		e.intentBuf = spare.intents[:0]
 	}
 	e.G.Tokens = cfg.Tokens
-	e.setNameInPool = poolHasSetNameStatic(cfg)
-	e.layer4InPool = poolHasLayer4Static(cfg)
-	e.controlStaticInPool = poolHasControlStatic(cfg)
+	e.setNameInPool, e.layer4InPool, e.controlStaticInPool = poolGates(cfg)
 	e.trigGrant.free = true // held per object as they appear (trigger_grantfree.go)
 	e.G.NameUniverse = cfg.NameUniverse
 	e.G.NamedCorpus = cfg.NamedCorpus
