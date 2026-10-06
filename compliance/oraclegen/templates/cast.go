@@ -187,8 +187,9 @@ func castWithProbes(reg *cards.Registry, f *cards.Face, name, mana string, slots
 				// Apply face-derived scenario defaults before probing the cast.
 				it := CastResolve.item(f, name, buildStackScenario(f, name, physicalName(reg, name), mana, pre, fx, slots, stackIdx, answers))
 				sc := it.Scenario
-				if oraclegen.ShufflesBackAndDraws(f) {
-					oraclegen.UniformShuffleSetup(&sc, name)
+				uniformShuffleDraw := false
+				if oraclegen.ShufflesBackAndDraws(f) || oraclegen.ShufflesThenDraws(f) {
+					uniformShuffleDraw = oraclegen.UniformShuffleSetup(&sc, name)
 				}
 				if n, res, ok := oraclegen.Settle(reg, sc); ok {
 					for i := 0; i < n; i++ {
@@ -209,6 +210,9 @@ func castWithProbes(reg *cards.Registry, f *cards.Face, name, mana string, slots
 						}
 					}
 					it.Scenario = sc
+					if oraclegen.ShufflesThenDraws(f) && !uniformShuffleDraw {
+						it.Compare = append(it.Compare, oraclegen.CompareHandCount)
+					}
 					it.XAnswers = oraclegen.XAnswersForScenario(res, sc, oraclegen.ModeNumbers(f), castSteps)
 					if len(stackIdx) == 0 {
 						// A stack slot shifts the fixture's slot indices, so the

@@ -131,10 +131,14 @@ func fields(s rules.OracleSnapshot, xmage bool, compare []string) []field {
 	noLibraryOrder := wantsCompare(compare, CompareNoLibraryOrder)
 	for i, p := range s.Players {
 		pf := func(f string) string { return fmt.Sprintf("p%d.%s", i, f) }
+		hand := list(p.Hand, true)
+		if wantsCompare(compare, CompareHandCount) {
+			hand = fmt.Sprint(len(p.Hand))
+		}
 		out = append(out,
 			field{pf("life"), fmt.Sprint(p.Life)},
 			field{pf("counters"), counters(p.Counters)},
-			field{pf("hand"), list(p.Hand, true)},
+			field{pf("hand"), hand},
 			field{pf("graveyard"), list(p.Graveyard, false)},
 			field{pf("exile"), list(p.Exile, true)},
 			field{pf("library_count"), fmt.Sprint(p.LibraryCount)},

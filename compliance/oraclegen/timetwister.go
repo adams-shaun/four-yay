@@ -24,6 +24,18 @@ func ShufflesBackAndDraws(f *cards.Face) bool {
 	return false
 }
 
+// ShufflesThenDraws reports a face whose Oracle text shuffles cards into a
+// library and then draws from it. Those draws are random in XMage, so generated
+// scenarios should use a uniform source and library when the setup permits it.
+func ShufflesThenDraws(f *cards.Face) bool {
+	if f == nil {
+		return false
+	}
+	text := strings.ToLower(f.Oracle)
+	shuffle := strings.Index(text, "shuffle")
+	return shuffle >= 0 && strings.Index(text[shuffle+len("shuffle"):], "draw") >= 0
+}
+
 // UniformShuffleLibraries makes a shuffle-back-and-draw deterministic on both
 // engines. Gorge's shuffle is seeded and XMage's is not, so a seat that
 // shuffles a returned card into a library of Wastes and draws seven may or
@@ -34,28 +46,32 @@ func ShufflesBackAndDraws(f *cards.Face) bool {
 // hand (it is on the stack, never shuffled). A seat with no such card keeps
 // the Wastes filler (its draws are already uniform); a seat with several
 // distinct names is left alone.
-func UniformShuffleLibraries(fx *Fixture, cast string) {
-	uniformShuffle([]*Seat{fx.P0(), fx.P1()}, cast)
+func UniformShuffleLibraries(fx *Fixture, cast string) bool {
+	return uniformShuffle([]*Seat{fx.P0(), fx.P1()}, cast)
 }
 
 // UniformShuffleSetup is UniformShuffleLibraries over a built scenario's
 // setup, after every fixture card (targets, opponents' creatures) is placed.
-func UniformShuffleSetup(sc *Scenario, cast string) {
+func UniformShuffleSetup(sc *Scenario, cast string) bool {
 	p0, ok0 := sc.Setup["p0"]
 	p1, ok1 := sc.Setup["p1"]
-	uniformShuffle([]*Seat{&p0, &p1}, cast)
+	uniform := uniformShuffle([]*Seat{&p0, &p1}, cast)
 	if ok0 {
 		sc.Setup["p0"] = p0
 	}
 	if ok1 {
 		sc.Setup["p1"] = p1
 	}
+	return uniform
 }
 
-func uniformShuffle(seats []*Seat, cast string) {
+func uniformShuffle(seats []*Seat, cast string) bool {
+	uniform := true
 	for i, s := range seats {
 		var names []string
-		names = append(names, s.Battlefield...)
+		// Only hand and graveyard cards are returned by Timetwister-style
+		// effects. A different permanent on the battlefield does not make the
+		// random draw non-uniform.
 		names = append(names, s.Graveyard...)
 		skipped := false
 		for _, n := range s.Hand {
@@ -69,13 +85,19 @@ func uniformShuffle(seats []*Seat, cast string) {
 		for _, n := range names {
 			distinct[n] = true
 		}
-		if len(distinct) != 1 || len(s.Library) > 0 || len(s.LibraryTop) > 0 {
+		if len(distinct) > 1 || len(s.Library) > 0 || len(s.LibraryTop) > 0 {
+			uniform = false
+			continue
+		}
+		if len(distinct) == 0 {
 			continue
 		}
 		named := len(s.Battlefield) + len(s.Hand) + len(s.Graveyard) + len(s.Exile)
 		if named >= fixtureDeckSize {
+			uniform = false
 			continue
 		}
 		s.Library = Repeat(names[0], fixtureDeckSize-named)
 	}
+	return uniform
 }

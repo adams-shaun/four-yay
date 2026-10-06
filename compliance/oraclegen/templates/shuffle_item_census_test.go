@@ -36,6 +36,7 @@ func TestShuffleEmittedItemCensus(t *testing.T) {
 	folded := compliance.FoldedNames(reg)
 	has := func(name string) bool { _, ok := reg.Lookup(name); return ok }
 	got := make(map[string]int, len(sets))
+	shuffleDrawRoutes := make(map[string][2]int, len(sets)) // [uniform fixture, hand-count compare]
 	foundFblthp := false
 	for _, set := range sets {
 		printed, err := compliance.LoadPrinted(filepath.Join(root, "printed"), set)
@@ -43,6 +44,7 @@ func TestShuffleEmittedItemCensus(t *testing.T) {
 			t.Fatal(err)
 		}
 		got[set] = 0
+		shuffleDrawRoutes[set] = [2]int{}
 		seen := map[string]bool{}
 		for _, name := range printed.Cards {
 			name, ok := compliance.CorpusNameFold(has, folded, name)
@@ -74,6 +76,17 @@ func TestShuffleEmittedItemCensus(t *testing.T) {
 				if marks != 1 {
 					t.Fatalf("%s: got %d library-order marks, want exactly one", item.ID, marks)
 				}
+				if oraclegen.ShufflesThenDraws(card.Faces[req.Face]) {
+					if hasCompare(item.Compare, oraclegen.CompareHandCount) {
+						route := shuffleDrawRoutes[set]
+						route[1]++
+						shuffleDrawRoutes[set] = route
+					} else {
+						route := shuffleDrawRoutes[set]
+						route[0]++
+						shuffleDrawRoutes[set] = route
+					}
+				}
 				got[set]++
 				t.Logf("%s %s", set, item.ID)
 				if set == "FRA" && item.ID == "Fblthp, Impossibly Lost/trigger#0.0/v1" {
@@ -88,4 +101,22 @@ func TestShuffleEmittedItemCensus(t *testing.T) {
 	if !reflect.DeepEqual(got, wantShuffleItemCensus) {
 		t.Fatalf("shuffle emitted-item census changed: got %#v, want %#v", got, wantShuffleItemCensus)
 	}
+	wantShuffleDrawRoutes := map[string][2]int{
+		"BIG": {0, 0}, "BLB": {0, 0}, "DFT": {0, 0}, "DSK": {0, 0}, "ECL": {0, 0},
+		"EOE": {1, 0}, "FDN": {0, 0}, "FIN": {0, 0}, "FRA": {1, 0}, "HOB": {2, 0},
+		"LCI": {0, 0}, "MKM": {0, 0}, "MSH": {0, 0}, "OTJ": {0, 0}, "SOS": {0, 0},
+		"SPM": {0, 0}, "TDM": {0, 0}, "TLA": {0, 0}, "TMT": {0, 0}, "WOE": {0, 0},
+	}
+	if !reflect.DeepEqual(shuffleDrawRoutes, wantShuffleDrawRoutes) {
+		t.Fatalf("shuffle-then-draw route census changed: got %#v, want %#v", shuffleDrawRoutes, wantShuffleDrawRoutes)
+	}
+}
+
+func hasCompare(options []string, want string) bool {
+	for _, option := range options {
+		if option == want {
+			return true
+		}
+	}
+	return false
 }
