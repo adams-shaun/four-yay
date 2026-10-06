@@ -153,6 +153,7 @@ func activateWith(reg *cards.Registry, f *cards.Face, name string, req levelb.Re
 			it.XAnswers = make([][]oraclegen.XAnswer, len(sc.Steps))
 		}
 		addActivationCostAnswers(it.XAnswers, activateStepIndex(sc.Steps), cost, res.Decisions)
+		addSetupColourAnswers(it.XAnswers, res.Decisions)
 		it.XAbility = make([]string, len(sc.Steps))
 		it.XAbility[activateStepIndex(sc.Steps)] = prefix
 		return it, true
@@ -392,6 +393,27 @@ func addActivationCostAnswers(answers [][]oraclegen.XAnswer, step int, cost stri
 		}
 	}
 	addTapXTypeAnswers(answers, step, cost, decisions)
+}
+
+// addSetupColourAnswers scripts the colour gorge chose as a setup-placed
+// permanent entered ("As ~ enters, choose a color": Crossroads Village,
+// Heraldic Banner). XMage poses the same ETB colour dialog when it puts the
+// card on the battlefield at game start, before any step, and answers it at
+// random when its choice queue is empty. The queue is first-in first-out and
+// every step's answers are queued before the game starts, so the colour goes
+// FIRST on step 0's answers.
+func addSetupColourAnswers(answers [][]oraclegen.XAnswer, decisions []rules.OracleDecision) {
+	if len(answers) == 0 {
+		return
+	}
+	var setup []oraclegen.XAnswer
+	for _, d := range decisions {
+		if d.Step >= 0 || d.Resume != "etb" || len(d.Picks) != 1 || len(d.PickKinds) != 1 || d.PickKinds[0] != "color" {
+			continue
+		}
+		setup = append(setup, oraclegen.XAnswer{Seat: d.Seat, Kind: "choice", Value: d.Picks[0]})
+	}
+	answers[0] = append(setup, answers[0]...)
 }
 
 // addActivationCostFixtures supplies the explicit cards needed by supported

@@ -1537,8 +1537,14 @@ func triggerRule(label string) string {
 }
 
 // manaColourLabel maps gorge's "Add W" mana option to the colour name
-// XMage's colour chooser shows (its Choice key is "White", not "Add W").
+// XMage's colour chooser shows (its Choice key is "White", not "Add W"). A
+// colour option of a costed mana ability names the cost first ("Pay 1: Add W",
+// "Pay 2 life: Add W": pay.ManaAbilityCostPrefix), and XMage asks the same
+// colour dialog for it, so the cost prefix is dropped before matching.
 func manaColourLabel(label string) (string, bool) {
+	if i := strings.LastIndex(label, ": "); i >= 0 {
+		label = label[i+2:]
+	}
 	if strings.HasPrefix(label, "Add ") && len(label) == 5 {
 		return manaColour(label[4])
 	}
@@ -1568,6 +1574,11 @@ func payment(picks []string) bool {
 	}
 	for _, p := range picks {
 		if !strings.HasPrefix(p, "Pay ") {
+			return false
+		}
+		// "Pay 1: Add W" is a costed mana ability's colour pick, a real
+		// XMage colour dialog, not a hybrid/phyrexian payment half.
+		if _, colour := manaColourLabel(p); colour {
 			return false
 		}
 	}
