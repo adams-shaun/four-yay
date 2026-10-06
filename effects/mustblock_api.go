@@ -23,16 +23,40 @@ func effMustBlock(h Host, c *Ctx, sa *cards.SA) {
 		return
 	}
 	spec := strings.TrimSpace(sa.ParamStr(cards.PKDefinedAttacker))
-	attackers := DefinedSpec(h, c, spec)
-	if spec == "" || len(attackers) != 1 || attackers[0].IsPlayer || attackers[0].Obj == 0 {
+	var attackers []state.Target
+	if spec == "" {
+		// Forge's default attacker is the resolving source (Vortex Elemental,
+		// Auriok Siege Sled, and the other self-lure abilities).
+		attackers = []state.Target{{Obj: c.Source}}
+	} else {
+		attackers = DefinedSpec(h, c, spec)
+	}
+	if len(attackers) == 0 {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "MustBlock DefinedAttacker$ unresolved"})
 		return
 	}
-	attacker := attackers[0].Obj
-	if o := h.Game().Obj(attacker); o == nil || o.Zone != state.ZBattlefield {
+	attackerIDs := make([]state.ObjID, 0, len(attackers))
+	seenAttackers := make(map[state.ObjID]bool)
+	for _, attacker := range attackers {
+		if attacker.IsPlayer || attacker.Obj == 0 || seenAttackers[attacker.Obj] {
+			continue
+		}
+		if o := h.Game().Obj(attacker.Obj); o == nil || o.Zone != state.ZBattlefield {
+			continue
+		}
+		seenAttackers[attacker.Obj] = true
+		attackerIDs = append(attackerIDs, attacker.Obj)
+	}
+	if len(attackerIDs) == 0 {
+		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "MustBlock DefinedAttacker$ unresolved"})
 		return
 	}
 	dur := sa.ParamStr(cards.PKDuration)
+	// BlockAllDefined names all attackers in THIS resolution. A single
+	// Fighter Class trigger names only one attacker: two independent triggers
+	// cannot combine to grant a blocker permission to block both (CR 509.1a).
+	// Blaze of Glory defines the entire attacking set in one resolution.
+	blockAll := isTrue(sa.ParamStr(cards.PKBlockAllDefined)) && len(attackerIDs) > 1
 	for _, target := range Defined(h, c, sa) {
 		if target.IsPlayer {
 			continue
@@ -41,11 +65,14 @@ func effMustBlock(h Host, c *Ctx, sa *cards.SA) {
 		if o == nil || o.Zone != state.ZBattlefield {
 			continue
 		}
-		h.AddContinuous(state.ContinuousEffect{
-			Source: c.Source, Controller: c.Controller, UntilEOT: effectUntilEOT(h, c.Source, dur), Duration: dur,
-			Restriction: "MustBlock", RestrictParams: map[string]string{"ValidCreature": "Card.IsRemembered"},
-			Remembered: []state.ObjID{target.Obj}, MustBlockAttacker: attacker,
-		})
+		for _, attacker := range attackerIDs {
+			h.AddContinuous(state.ContinuousEffect{
+				Source: c.Source, Controller: c.Controller, UntilEOT: effectUntilEOT(h, c.Source, dur), Duration: dur,
+				Restriction: "MustBlock", RestrictParams: map[string]string{"ValidCreature": "Card.IsRemembered"},
+				Remembered: []state.ObjID{target.Obj}, MustBlockAttacker: attacker,
+				MustBlockAllAttackers: blockAll,
+			})
+		}
 	}
 }
 

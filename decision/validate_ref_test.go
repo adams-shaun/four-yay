@@ -77,7 +77,7 @@ func (d *Decision) validateRef(in Intent) error {
 			acc = SetPropMerge(d.SetPropMode, acc, add)
 		}
 	}
-	for _, c := range in.Choices {
+	for choicePos, c := range in.Choices {
 		if c < 0 || c >= len(d.Options) {
 			return fmt.Errorf("choice %d out of range (%d options)", c, len(d.Options))
 		}
@@ -108,6 +108,9 @@ func (d *Decision) validateRef(in Intent) error {
 				seenGroups[g] = c
 			}
 			groupCount[g]++
+		}
+		if d.Kind == KBlockers && !d.BlockPairAdmits(in.Choices[:choicePos], c) {
+			return fmt.Errorf("blocker %d cannot block multiple attackers outside BlockAllDefined pairs", d.Options[c].Obj)
 		}
 	}
 	// The cumulative-budget rule (Decision.MaxSum): the chosen options'
@@ -407,7 +410,7 @@ func TestValidateMatchesMapReference(t *testing.T) {
 func TestValidateAllocatesNothing(t *testing.T) {
 	d := &Decision{Seq: 3, Player: 1, Kind: KBlockers, Min: 0, Max: 4}
 	for i := 0; i < 8; i++ {
-		d.Options = append(d.Options, Option{Index: i, Group: string(rune('a' + i/2))})
+		d.Options = append(d.Options, Option{Index: i, Obj: state.ObjID(i + 1), Group: string(rune('a' + i/2))})
 	}
 	ok := Intent{Seq: 3, Player: 1, Choices: []int{0, 2, 4, 7}}
 	if err := d.Validate(ok); err != nil {

@@ -82,12 +82,12 @@ func StillMeets(reg *cards.Registry, it oraclegen.Item, row compliance.VerdictRo
 		return false, "gorge replay: " + err.Error()
 	}
 	if len(row.Frozen) > 0 {
-		if ok, why := oraclediff.Meets(row.Frozen, res, it.Ignore...); !ok {
+		if ok, why := oraclediff.MeetsOpts(row.Frozen, res, it.Compare, it.Ignore...); !ok {
 			return false, "gorge no longer meets the frozen expectation: " + why
 		}
 		return true, ""
 	}
-	if Hash([]byte(oraclediff.Canonical(res.Snapshots, it.Ignore...))) != row.CanonSHA {
+	if Hash([]byte(oraclediff.CanonicalOpts(res.Snapshots, it.Compare, it.Ignore...))) != row.CanonSHA {
 		return false, "gorge no longer meets the frozen expectation"
 	}
 	return true, ""
@@ -100,5 +100,5 @@ func Freeze(reg *cards.Registry, it oraclegen.Item) ([]compliance.Frozen, error)
 	if err != nil {
 		return nil, err
 	}
-	return oraclediff.Freeze(res, it.Ignore...), nil
+	return oraclediff.FreezeOpts(res, it.Compare, it.Ignore...), nil
 }

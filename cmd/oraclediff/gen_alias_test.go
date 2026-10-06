@@ -13,7 +13,7 @@ import (
 
 func TestGenUsesCanonicalCorpusNameForXMageAlias(t *testing.T) {
 	out := filepath.Join(t.TempDir(), "spm.jsonl")
-	if err := runGen(filepath.Join("..", "..", ".cards"), filepath.Join("..", "..", "compliance", "manifests", "SPM.json"), out); err != nil {
+	if err := runGen(filepath.Join("..", "..", ".cards"), filepath.Join("..", "..", "compliance", "manifests", "SPM.json"), out, "A"); err != nil {
 		t.Fatal(err)
 	}
 	f, err := os.Open(out)

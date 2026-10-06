@@ -63,7 +63,7 @@ func GorgeCanon(reg *cards.Registry, it oraclegen.Item) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return Hash([]byte(oraclediff.Canonical(res.Snapshots, it.Ignore...))), nil
+	return Hash([]byte(oraclediff.CanonicalOpts(res.Snapshots, it.Compare, it.Ignore...))), nil
 }
 
 // HandScenarios lists the cards that have a hand-authored oracle scenario

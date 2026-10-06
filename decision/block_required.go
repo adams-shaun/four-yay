@@ -49,32 +49,42 @@ func (d *Decision) blockRequiredCore() []int {
 		blocks[p].required = blocks[p].required || o.BlockMust || o.Required
 		blocks[p].opts = append(blocks[p].opts, i)
 	}
-	// Required creatures first; ordinary blockers need only be considered
-	// as helpers for a required block with a multi-blocker minimum, or as a
-	// satisfier of an attacker requirement.
-	var candidates []blocker
+	// Required creatures first; BlockMustAll options are separate required
+	// blocker-attacker pairs, allowing one explicitly permitted blocker to
+	// satisfy several defined attacker duties. Ordinary MustBlock options
+	// remain one unit per blocker. Other blockers are helpers only for a
+	// multi-blocker minimum or an attacker-oriented requirement.
+	var candidates, helpers []blocker
 	for _, b := range blocks {
-		if b.required {
-			candidates = append(candidates, b)
+		var ordinary blocker
+		ordinary.id = b.id
+		var allOrdinary []int
+		for _, i := range b.opts {
+			o := d.Options[i]
+			if o.BlockMustAll {
+				candidates = append(candidates, blocker{id: b.id, opts: []int{i}, required: true})
+				continue
+			}
+			allOrdinary = append(allOrdinary, i)
+			if o.BlockMust || o.Required {
+				ordinary.required = true
+			}
+			if minAttackers[o.Attacker] || atkReq[o.Attacker] {
+				ordinary.opts = append(ordinary.opts, i)
+			}
+		}
+		if ordinary.required {
+			// A required blocker searches all its offered pairs (another
+			// pair may serve a Min$ team), but only pairs that obey its
+			// requirement count toward the maximum (CR 509.1c).
+			ordinary.opts = allOrdinary
+			candidates = append(candidates, ordinary)
+		} else if len(ordinary.opts) != 0 {
+			helpers = append(helpers, ordinary)
 		}
 	}
 	requiredCount := len(candidates)
-	for _, b := range blocks {
-		if b.required {
-			continue
-		}
-		var helper blocker
-		helper.id = b.id
-		for _, i := range b.opts {
-			o := d.Options[i]
-			if minAttackers[o.Attacker] || atkReq[o.Attacker] {
-				helper.opts = append(helper.opts, i)
-			}
-		}
-		if len(helper.opts) != 0 {
-			candidates = append(candidates, helper)
-		}
-	}
+	candidates = append(candidates, helpers...)
 	counts := make(map[state.ObjID]int)
 	satAtk := make(map[state.ObjID]bool)
 	lifeBound := d.PayerLifeBound()
@@ -117,6 +127,21 @@ func (d *Decision) blockRequiredCore() []int {
 		try := func(ci int) {
 			o := d.Options[ci]
 			if len(chosen) >= d.maxChoices() || (d.HasBudget() && spent+o.Value > d.MaxSum) {
+				return
+			}
+			// The search must publish a declaration accepted by Validate:
+			// ordinary pairs are exclusive per blocker, while BlockAllDefined
+			// permits multiple pairs only up to the explicit group cap.
+			groupN := 0
+			if !d.BlockPairAdmits(chosen, ci) {
+				return
+			}
+			for _, old := range chosen {
+				if o.Group != "" && d.Options[old].Group == o.Group {
+					groupN++
+				}
+			}
+			if o.BlockMustAll && o.Group != "" && groupN >= d.GroupCapFor(o.Group) {
 				return
 			}
 			// The combined non-mana LIFE charge bound is enforced INSIDE the
@@ -206,23 +231,26 @@ func (d *Decision) blockRequirementsSatisfied(choices []int) int {
 			continue
 		}
 		o := &d.Options[c]
-		blockUnit, atkUnit := o.BlockMust || o.Required, o.AttackMust
+		blockUnit, allPairUnit, atkUnit := !o.BlockMustAll && (o.BlockMust || o.Required), o.BlockMustAll, o.AttackMust
 		for _, p := range choices[:k] {
-			if !blockUnit && !atkUnit {
+			if !blockUnit && !allPairUnit && !atkUnit {
 				break
 			}
 			if p < 0 || p >= len(d.Options) {
 				continue
 			}
 			q := &d.Options[p]
-			if blockUnit && (q.BlockMust || q.Required) && q.Obj == o.Obj {
+			if blockUnit && !q.BlockMustAll && (q.BlockMust || q.Required) && q.Obj == o.Obj {
 				blockUnit = false
+			}
+			if allPairUnit && q.BlockMustAll && q.Obj == o.Obj && q.Attacker == o.Attacker {
+				allPairUnit = false
 			}
 			if atkUnit && q.AttackMust && q.Attacker == o.Attacker {
 				atkUnit = false
 			}
 		}
-		if blockUnit {
+		if blockUnit || allPairUnit {
 			n++
 		}
 		if atkUnit {
@@ -252,18 +280,50 @@ func (d *Decision) blockRequiredCoreChargeFeasible() []int {
 	return d.blockRequiredCore()
 }
 
+// BlockPairAdmits is the shared incremental KBlockers multi-block rule:
+// only two pairs explicitly marked BlockAllDefined may share a blocker.
+// GroupCapFor remains the separate upper bound on how many such pairs fit.
+func (d *Decision) BlockPairAdmits(chosen []int, ci int) bool {
+	if d.Kind != KBlockers || ci < 0 || ci >= len(d.Options) {
+		return true
+	}
+	o := d.Options[ci]
+	for _, old := range chosen {
+		if old < 0 || old >= len(d.Options) {
+			continue
+		}
+		q := d.Options[old]
+		if q.Obj == o.Obj && (!q.BlockMustAll || !o.BlockMustAll) {
+			return false
+		}
+	}
+	return true
+}
+
 func (d *Decision) blockAnswerLegal(choices []int) bool {
 	if len(choices) > d.maxChoices() || !d.blockCountLegal(choices) {
 		return false
 	}
-	sum := 0
-	groups := make(map[string]bool)
-	for _, ci := range choices {
-		o := d.Options[ci]
-		if o.Group != "" && groups[o.Group] {
+	for i, ci := range choices {
+		if !d.Repeatable {
+			for _, old := range choices[:i] {
+				if old == ci {
+					return false
+				}
+			}
+		}
+		if !d.BlockPairAdmits(choices[:i], ci) {
 			return false
 		}
-		groups[o.Group] = true
+	}
+	sum := 0
+	groups := make(map[string]int)
+	for _, ci := range choices {
+		o := d.Options[ci]
+		if o.Group != "" && !d.GroupAdmits(groups, o.Group) {
+			return false
+		}
+		groups[o.Group]++
 		sum += o.Value
 	}
 	return !d.HasBudget() || sum <= d.MaxSum
