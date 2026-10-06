@@ -2,6 +2,7 @@ package oraclegen_test
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -48,6 +49,34 @@ func TestGeneratedFirstThreeTurnClausesOnFourthControllerTurn(t *testing.T) {
 			}
 			if !found {
 				t.Fatalf("scenario did not resolve %s onto battlefield", name)
+			}
+
+			// Precondition for the assertion above: the card's first-three-turn
+			// clause is real. Re-run the SAME generated scenario forced to turn 1
+			// and require the cast be refused; if the engine stopped enforcing the
+			// clause, the turn-7 success would still pass but this would not, so
+			// the fixture cannot silently become vacuous.
+			var raw map[string]json.RawMessage
+			if err := json.Unmarshal(item.Raw(), &raw); err != nil {
+				t.Fatal(err)
+			}
+			raw["turn"] = json.RawMessage("1")
+			turn1, err := json.Marshal(raw)
+			if err != nil {
+				t.Fatal(err)
+			}
+			turn1Res, err := rules.RunOracleScenarioJSON(reg, turn1)
+			if err != nil {
+				t.Fatal(err)
+			}
+			refused := false
+			for _, f := range turn1Res.Fails {
+				if strings.Contains(f, "not offered") {
+					refused = true
+				}
+			}
+			if !refused {
+				t.Fatalf("%s was castable on turn 1 (fails = %v): the first-three-turn clause is not enforced, so the turn-7 fixture proves nothing", name, turn1Res.Fails)
 			}
 		})
 	}

@@ -516,17 +516,23 @@ func (r *oracleRun) build(sc oracleScenario) error {
 	}
 	e.Advance()
 	r.answers = append([]oracleAnswer(nil), sc.SetupAnswers...)
-	// A setup mana seed lands the moment the drive enters turn 1's first main
-	// phase (before the trigger it funds is answered) and never earlier: a
-	// pool added during an earlier step would empty at that step's end
-	// (CR 500.4), and the first-main-phase trigger is posed in main1.
+	// A setup mana seed lands the moment the drive enters the requested turn's
+	// first main phase (before the trigger it funds is answered) and never
+	// earlier: a pool added during an earlier step would empty at that step's
+	// end (CR 500.4), and the first-main-phase trigger is posed in main1.
 	seededMana := false
 	// Drive to the requested turn's first main phase. Triggers that setup
 	// placements caused resolve here under the fallback answers; the transcript names
 	// every one.
 	setupEntered := false
 	for i := 0; i < 400; i++ {
-		if sc.xmageFixture && !setupEntered && e.G.Turn == targetTurn && e.G.Step == state.StepMain1 {
+		// SetupEntered restores the pre-TurnChange entry history the setup
+		// placements lost; events.Apply only folds it at turn 1, where XMage's
+		// seeded battlefield likewise counts as entered. At a requested later
+		// turn neither side marks the setup permanents entered THIS turn (they
+		// entered long before), so emitting it there would log provenance the
+		// fold drops: only emit when the checkpoint is turn 1.
+		if sc.xmageFixture && !setupEntered && targetTurn == 1 && e.G.Turn == targetTurn && e.G.Step == state.StepMain1 {
 			for _, id := range setupBattlefield {
 				e.emit(events.Event{Kind: events.SetupEntered, Obj: id})
 			}
