@@ -105,26 +105,28 @@ func (s *slab[T]) retire(poison func([]T)) {
 	s.reset()
 }
 
-// nextEra is submitCommit's entry into the next decision generation. Only a
-// live arena (the default) has generations; a search simulation's arena is
-// Release-scoped and never flips.
-func arenaNextEra(a *decisionArena) {
+// arenaFlipEra is submitCommit's entry into the next decision generation. It
+// flips a live arena to the other generation and returns a function that
+// retires the generation just left behind (the answered decisions, which no
+// live reader may touch any more). Only a live arena (the default) has
+// generations; a search simulation's arena is Release-scoped and never flips.
+//
+// The caller DEFERS the returned retire. A tape resolution can unwind out of
+// submitCommit with a panic (the resolve kernel suspends at a stop-ask), and
+// an unwind that skipped the retire would leave the flip unmatched: the next
+// re-execution flips again, so neither generation is ever cleared and the
+// arena grows with the game. Deferring the retire keeps the flip and its
+// clear inseparable on every exit path.
+func arenaFlipEra(a *decisionArena) func() {
 	if a == nil || !a.live {
-		return
+		return func() {}
 	}
+	old := a.cur
 	a.cur = 1 - a.cur
-}
-
-// arenaRetireEra is submitCommit's tail: the generation the submit just left
-// behind (the answered decisions, which no live reader may touch any more)
-// is cleared for reuse.
-func arenaRetireEra(a *decisionArena) {
-	if a == nil || !a.live {
-		return
+	return func() {
+		a.gens[old].opts.retire(poisonOptions)
+		a.gens[old].decs.retire(poisonDecisions)
 	}
-	g := &a.gens[1-a.cur]
-	g.opts.retire(poisonOptions)
-	g.decs.retire(poisonDecisions)
 }
 
 // arenaRelocateDecision copies d into the arena's current generation. A

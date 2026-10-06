@@ -311,10 +311,12 @@ func submitCommit(e *Engine, d *decision.Decision, in decision.Intent) {
 	// The answered decision's generation is closed for new asks: flip to the
 	// other one so this Submit's handlers build into a fresh generation while
 	// d -- still read below -- stays in the one just left behind, untouched.
-	// That generation is retired at the very end of submitCommit, once the
-	// handlers and Advance are done with d (decision_arena_live.go).
+	// The retire of that left-behind generation is DEFERRED, so it runs even
+	// when a tape resolution unwinds out of this function with a panic (the
+	// resolve kernel's stop-ask); a skipped retire would leave the flip
+	// unmatched and the arena growing with the game (decision_arena_live.go).
 	if a := e.decArena; a != nil && a.owner == e {
-		arenaNextEra(a)
+		defer arenaFlipEra(a)()
 	}
 	if in.Announce != nil {
 		action, _ := pay.ActionFor(d, in.Announce.ActionID)
@@ -387,11 +389,6 @@ func submitCommit(e *Engine, d *decision.Decision, in decision.Intent) {
 		e.checkStateBased()
 	}
 	e.Advance()
-	// The decisions posed before this Submit are past the contract now: clear
-	// (or, in verify mode, poison) their generation for reuse.
-	if a := e.decArena; a != nil && a.owner == e {
-		arenaRetireEra(a)
-	}
 }
 
 // drawCard draws for the turn structure, sharing effects.DrawFor with the
