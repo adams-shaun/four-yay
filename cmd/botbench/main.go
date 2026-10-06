@@ -860,10 +860,7 @@ func playMatchTraced(cfg rules.Config, pols []string, seats []seat.Seat, maxTurn
 	if cov != nil {
 		cov.game()
 	}
-	spare, _ := sparePool.Get().(*rules.Spare)
-	if spare == nil {
-		spare = new(rules.Spare)
-	}
+	spare := sparePool.Get()
 	cfg.Spare = spare
 	o, e, err := playMatchOnceTraced(cfg, pols, seats, maxTurns, maxIntents, collect, cov, trace, meta)
 	if err == nil && cov != nil {
@@ -879,8 +876,7 @@ func playMatchTraced(cfg rules.Config, pols []string, seats []seat.Seat, maxTurn
 		// This is the finished engine's last use: its seats, trace and
 		// coverage walk are done with it, so its log and object arrays go
 		// back for the next game (rules.Spare -- reuse never changes a game).
-		*spare = e.Release()
-		sparePool.Put(spare)
+		sparePool.Put(spare, e)
 	}
 	return o, err
 }
@@ -889,7 +885,7 @@ func playMatchTraced(cfg rules.Config, pols []string, seats []seat.Seat, maxTurn
 // between the games a worker plays back to back. Which spare a game draws
 // is scheduling-dependent, but invisible (rules.Spare's contract), so the
 // run's output is byte-identical with or without it.
-var sparePool sync.Pool
+var sparePool gbench.SparePool
 
 // playMatchOnce is playMatch's game loop; it returns the engine so the
 // action-coverage walk can read the finished log and state.
