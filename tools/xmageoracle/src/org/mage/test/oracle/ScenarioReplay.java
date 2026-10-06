@@ -10,6 +10,7 @@ import com.google.gson.JsonPrimitive;
 import mage.ConditionalMana;
 import mage.Mana;
 import mage.abilities.Ability;
+import mage.abilities.Mode;
 import mage.abilities.common.SimpleStaticAbility;
 import mage.abilities.mana.ActivatedManaAbilityImpl;
 import mage.abilities.costs.AlternativeSourceCosts;
@@ -896,6 +897,37 @@ public class ScenarioReplay extends CardTestPlayerBase {
         return c != null && needsQueuedCastTargets(c.getSpellAbility());
     }
 
+    /**
+     * Whether a modal spell's first target lives in a later mode: the card's
+     * first mode (the one XMage's up-front {@code $target=} check reads, since
+     * the scenario's chosen modes are not selected yet) has no target, but
+     * another mode does. Inline {@code $target=} then throws "Ability has no
+     * targets" (Cosmium Confluence: modes 1 and 2 are targetless, mode 3
+     * destroys target enchantment). The target is queued instead and consumed
+     * when the chosen mode's target is asked for. A card whose first mode has a
+     * target already validates inline, and a targetless card has no later mode
+     * target, so neither is rerouted.
+     */
+    static boolean firstTargetInLaterMode(Ability ability) {
+        if (ability == null || ability.getModes().size() < 2 || ability.getModes().getMode() == null
+                || !ability.getModes().getMode().getTargets().isEmpty()) {
+            return false;
+        }
+        for (Mode m : ability.getModes().values()) {
+            if (!m.getTargets().isEmpty()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Whether the card's spell ability has its first target in a later mode. */
+    private static boolean spellFirstTargetInLaterMode(String name) {
+        CardInfo info = CardRepository.instance.findCard(name);
+        Card c = info == null ? null : info.createCard();
+        return c != null && firstTargetInLaterMode(c.getSpellAbility());
+    }
+
     /** Whether the card's spell ability has a divided-amount target. */
     private static boolean spellTargetsDivided(String name) {
         CardInfo info = CardRepository.instance.findCard(name);
@@ -1249,15 +1281,20 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     cast.add(card);
                     return;
                 }
-                if (!tg.isEmpty() && queueAdjustedCastTargets(spellNeedsQueuedCastTargets(card), spellTargetsDivided(card), tg.size())) {
+                boolean adjusted = spellNeedsQueuedCastTargets(card);
+                if (!tg.isEmpty() && queueAdjustedCastTargets(adjusted || spellFirstTargetInLaterMode(card), spellTargetsDivided(card), tg.size())) {
                     // An adjuster may add the SpellAbility's target slots only
-                    // after cast setup. Inline $target is validated too early
-                    // (against the unadjusted, targetless ability), so queue
-                    // scenario targets for the chooser that runs during casting.
+                    // after cast setup, and a modal spell's first target may
+                    // live in a mode after the first. Inline $target is
+                    // validated too early (against the unadjusted ability's
+                    // first mode, which has no target), so queue scenario
+                    // targets for the chooser that runs during casting.
                     for (String t : tg) {
                         queueCastTarget(p, t);
                     }
-                    adjustedCasts.add(card);
+                    if (adjusted) {
+                        adjustedCasts.add(card);
+                    }
                     castSpell(turn, phase, p, card);
                 } else if (tg.size() == 1 && isSeatRef(tg.get(0)) && !hasGift(card)) {
                     castSpell(turn, phase, p, card, seat(seatOf(tg.get(0))));

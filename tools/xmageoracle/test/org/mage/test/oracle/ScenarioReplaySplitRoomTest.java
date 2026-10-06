@@ -126,6 +126,24 @@ public final class ScenarioReplaySplitRoomTest {
         equal(true, ScenarioReplay.hasTargetAdjuster(withBaseTarget.getSpellAbility()));
         equal(false, withBaseTarget.getSpellAbility().getAllSelectedTargets().isEmpty());
         equal(false, ScenarioReplay.needsQueuedCastTargets(withBaseTarget.getSpellAbility()));
+        // A modal spell whose only target is in a later mode (Cosmium Confluence:
+        // modes 1 and 2 targetless, mode 3 destroys target enchantment) fails the
+        // inline $target= check against the first mode, so it is queued instead.
+        mage.cards.c.CosmiumConfluence confluence = new mage.cards.c.CosmiumConfluence(UUID.randomUUID(),
+                new CardSetInfo("Cosmium Confluence", "LCI", "1", Rarity.RARE));
+        equal(true, confluence.getSpellAbility().getModes().getMode().getTargets().isEmpty());
+        equal(true, confluence.getSpellAbility().getModes().size() > 1);
+        equal(true, ScenarioReplay.firstTargetInLaterMode(confluence.getSpellAbility()));
+        // Unaffected shapes: a modal spell whose first mode already has a target
+        // (Cryptic Command's first mode, Abrade) keeps the inline path, as does a
+        // single-mode targeted spell and a single-mode targetless one.
+        mage.cards.a.Abrade abrade = new mage.cards.a.Abrade(UUID.randomUUID(),
+                new CardSetInfo("Abrade", "LCI", "1", Rarity.COMMON));
+        equal(true, abrade.getSpellAbility().getModes().size() > 1);
+        equal(false, abrade.getSpellAbility().getModes().getMode().getTargets().isEmpty());
+        equal(false, ScenarioReplay.firstTargetInLaterMode(abrade.getSpellAbility()));
+        equal(false, ScenarioReplay.firstTargetInLaterMode(eagles.getSpellAbility()));
+        equal(false, ScenarioReplay.firstTargetInLaterMode(null));
         equal(true, ScenarioReplay.targetSlotNeedsSkip(
                 java.util.List.of(new TargetPermanent(0, Integer.MAX_VALUE, new FilterPermanent())), 1));
         equal(false, ScenarioReplay.targetSlotNeedsSkip(java.util.List.of(new TargetPermanent()), 1));
