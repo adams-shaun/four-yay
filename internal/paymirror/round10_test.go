@@ -26,8 +26,8 @@ import (
 //     (agent-20261001T043732Z-8f099a06: a token mint now fires ChangesZone)
 //     moved the game's trajectory, so the Veiled Crocodile cast no longer
 //     occurs and the state_differs route no longer reproduces end to end; the
-//     Homarid Spawning Bed cast survives at seq 6392 (was 5830 before the
-//     October 5 main merge), equivalent
+//     Homarid Spawning Bed cast survives at seq 6402 (was 5830 before the
+//     October 5 main merge, then 6392), equivalent
 //     on its float_then_cast route, and the root cause stays pinned by the
 //     unit test rules/state_trigger_remembered_test.go.
 //   - 11828 seq 4243 (Vorinclex, Voice of Hunger), random2
@@ -65,6 +65,10 @@ import (
 // token-entry fix (agent-20261001T043732Z-8f099a06) then moves seed 12468's
 // trajectory again, from seq 7227 to 5830; verdict unchanged. After the
 // October 5 main merge it reaches seq 6392, with the same card and verdict.
+// agent-20261005T145310Z-51bd48f2 (wasDealtExcessDamageThisTurn) appends a
+// replay-visible ExcessDamage history event per excess-damage recipient and
+// renumbers it to seq 6402; every planned cast and verdict is unchanged
+// modulo seq.
 func TestRoundTenFindingsMirror(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	d, err := LoadDecks(reg)
@@ -93,7 +97,7 @@ func TestRoundTenFindingsMirror(t *testing.T) {
 		t.Fatalf("testdata holds %d specs, want 4", len(specs))
 	}
 	want := map[uint64]map[uint64]string{ // seed -> seq -> verdict key ("" = equivalent)
-		12468: {6392: ""},
+		12468: {6402: ""},
 		11828: {},
 		12603: {2298: ""},
 		10877: {2834: ""},

@@ -16,8 +16,9 @@ import (
 // gets its root-caused verdict (the history of every pin is in the deleted
 // TestRoundNineFindingsMirror's doc, round9_test.go at 19fa2a40d):
 //
-//   - 10860 seq 3238: Worldly Tutor (the Command Tower production fix),
-//     equivalent;
+//   - 10860 seq 3239: Worldly Tutor (the Command Tower production fix),
+//     equivalent (seq 3238 until the ExcessDamage history event,
+//     agent-20261005T145310Z-51bd48f2, renumbered the game);
 //   - 11056: the Artisan finding is no longer reached; a clean,
 //     control-equivalent game;
 //   - 10056 seq 6128: Lagomos, Hand of Hatred, equivalent;
@@ -52,7 +53,7 @@ func TestRoundNineFindingsMirrorKernel(t *testing.T) {
 		t.Fatalf("testdata holds %d specs, want 4", len(specs))
 	}
 	want := map[uint64]map[uint64]string{ // seed -> seq -> verdict key ("" = equivalent)
-		10860: {3238: ""},
+		10860: {3239: ""},
 		11056: {},
 		10056: {6128: ""},
 		8175:  {},
