@@ -3,7 +3,7 @@ import { rendererFor } from './renderer';
 
 /**
  * dock.ts is the prompt dock's placement (UI rework spec §4: "docked at the
- * top of the rail by default … Floating is a layout setting; the prompt is
+ * top of the rail … Floating is a layout setting; the prompt is
  * dragged by its grip, and the position is saved in the layout profile").
  * The optional near-table placement ('table') pins question prompts just
  * above the gilt action button. Payment decisions use the rail even when
@@ -66,6 +66,8 @@ export interface Box { left: number; right: number; top: number; bottom: number 
 /** TableAnchor is the near-table dock's fixed-position edges (px from the viewport's right and bottom) and its height cap. */
 export interface TableAnchor { right: number; bottom: number; maxHeight: number }
 
+/** OBSTACLE_GAP is the clear space a prompt keeps from the persistent Feedback button. */
+export const OBSTACLE_GAP = 8;
 const TABLE_GAP = 8;
 const TABLE_INSET = 12;
 const TABLE_TOP_ROOM = 16;
@@ -76,9 +78,12 @@ const TABLE_MIN_HEIGHT = 160;
  * button and just above it, growing upward no higher than the board's top.
  * With no action button mounted it sits in the board's bottom-right corner.
  */
-export function tableAnchor(action: Box | null, board: Box, vp: Viewport): TableAnchor {
+export function tableAnchor(action: Box | null, board: Box, vp: Viewport, obstacle: Box | null = null): TableAnchor {
   const right = action ? vp.w - action.right : vp.w - board.right + TABLE_INSET;
-  const bottom = action ? vp.h - action.top + TABLE_GAP : vp.h - board.bottom + TABLE_INSET;
+  let bottom = action ? vp.h - action.top + TABLE_GAP : vp.h - board.bottom + TABLE_INSET;
+  // The dock is far wider than the obstacle, so any dock whose right edge is
+  // past the obstacle's left edge spans it: lift the dock above it.
+  if (obstacle && vp.w - right > obstacle.left) bottom = Math.max(bottom, vp.h - obstacle.top + OBSTACLE_GAP);
   const maxHeight = Math.max(TABLE_MIN_HEIGHT, vp.h - bottom - (board.top + TABLE_TOP_ROOM));
   return { right: Math.round(right), bottom: Math.round(bottom), maxHeight: Math.round(maxHeight) };
 }
@@ -130,4 +135,33 @@ export function clampPosition(p: DockPoint, size: { w: number; h: number }, view
     x: Math.round(Math.min(Math.max(p.x, Math.min(0, viewport.w - size.w)), maxX)),
     y: Math.round(Math.min(Math.max(p.y, 0), maxY)),
   };
+}
+
+/** overlaps reports a positive-area intersection (touching edges do not count). */
+export function overlaps(a: Box, b: Box): boolean {
+  return a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+}
+
+/**
+ * placeFloating is the ONE rule for where a floating dock may sit, shared by
+ * restore, resize, pointer drag and keyboard nudge: clampPosition keeps the
+ * grip reachable, then a dock that would cover `obstacle` (the persistent
+ * Feedback button, with OBSTACLE_GAP around it) is moved the shortest way
+ * out — up above it or left of it, whichever stays on screen. The saved
+ * fractions are never rewritten by restore or resize (only a drag or nudge
+ * saves a position). The floating CSS caps the height
+ * at the obstacle's top, so moving up is always possible in practice; if
+ * neither exit fits, the dock goes as high as the viewport allows.
+ */
+export function placeFloating(p: DockPoint, size: { w: number; h: number }, vp: Viewport, obstacle: Box | null): DockPoint {
+  const c = clampPosition(p, size, vp);
+  if (obstacle === null) return c;
+  const o = { left: obstacle.left - OBSTACLE_GAP, right: obstacle.right + OBSTACLE_GAP, top: obstacle.top - OBSTACLE_GAP, bottom: obstacle.bottom + OBSTACLE_GAP };
+  if (!overlaps({ left: c.x, right: c.x + size.w, top: c.y, bottom: c.y + size.h }, o)) return c;
+  const up = { x: c.x, y: Math.round(o.top - size.h) };
+  const left = { x: Math.round(o.left - size.w), y: c.y };
+  const exits = [up, left].filter((e) => e.y >= 0 && e.x >= Math.min(0, vp.w - size.w));
+  if (exits.length === 0) return { x: c.x, y: 0 };
+  const dist = (e: DockPoint) => Math.abs(e.x - c.x) + Math.abs(e.y - c.y);
+  return exits.reduce((best, e) => (dist(e) < dist(best) ? e : best));
 }

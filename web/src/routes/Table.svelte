@@ -24,6 +24,7 @@
   import HotkeyHint from '../components/HotkeyHint.svelte';
   import { layoutStore } from '../lib/layouts.svelte';
   import PromptDock from '../components/prompts/PromptDock.svelte';
+  import PromptRailSlot from '../components/prompts/PromptRailSlot.svelte';
   import { effectivePlacement, profilePlacement } from '../lib/prompts/dock';
   import RailResizer from '../components/RailResizer.svelte';
   import {
@@ -533,9 +534,9 @@
              (layoutStore.prompt, which PromptDock reads). ONE dock: priority
              stays with the ACTIONS / gilt action button. -->
         {#if promptPlacement !== 'dock-bottom'}
-          <div class="prompt-dock" data-prompt-dock-slot data-placement={promptPlacement}>
+          <PromptRailSlot placement="dock" clearFeedback={railSide !== 'left'}>
             {#if panel && seatCtx && controlsLive && m.view}<PromptDock view={m.view} logic={panel} seat={seatCtx.seat} />{/if}
-          </div>
+          </PromptRailSlot>
         {/if}
         <div class="rail-main">
         <!-- The concede control (when a concede option is pending) is passed
@@ -625,9 +626,9 @@
           <div class="log"><Transcript dvr={m.dvr} identities={logIdentities} cardColour={logCardColour} cards={logCards} notes={panel?.autoLog ?? []} onSeek={seated ? () => {} : (seq) => m.dispatch({ type: 'scrub', seq })} /></div>
         </section>
         {#if promptPlacement === 'dock-bottom'}
-          <div class="prompt-dock bottom" data-prompt-dock-slot data-placement={promptPlacement}>
+          <PromptRailSlot placement="dock-bottom" clearFeedback={railSide !== 'left'}>
             {#if panel && seatCtx && controlsLive && m.view}<PromptDock view={m.view} logic={panel} seat={seatCtx.seat} />{/if}
-          </div>
+          </PromptRailSlot>
         {/if}
         {#if railSide !== 'hidden'}
           <RailResizer side={railSide} width={railWidth} onDrag={(width) => (railPreview = width)} onWidth={(width) => layoutStore.setRailWidth(width)} onReset={() => layoutStore.resetRailWidth(m.seats.length)} />
@@ -763,10 +764,6 @@
     overflow: visible;
     color: var(--ink-inst);
   }
-  .prompt-dock:empty {
-    display: none;
-  }
-  .prompt-dock.bottom { flex: 0 0 auto; max-height: 45%; overflow: auto; border-top: 1px solid var(--edge-inst); }
   .rail-main {
     flex: 1 1 0;
     min-height: 0;

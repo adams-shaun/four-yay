@@ -175,7 +175,10 @@ export function defaultSplit(seats: number): number {
   return PRESET_SHAPES.focus8.table.split;
 }
 
-/** defaultProfile is the shipped layout: the Duel preset with the default cards, hand and panels. */
+/**
+ * defaultProfile is the shipped layout: the Duel preset with the default cards, hand and panels.
+ * Prompts default to the lower slot of the rail ('dock-bottom'; 'dock' is the rail's top).
+ */
 export function defaultProfile(): LayoutProfile {
   return withPreset(
     {
@@ -184,7 +187,7 @@ export function defaultProfile(): LayoutProfile {
       regions: cloneRegions(PRESET_SHAPES.duel.regions),
       cards: { stacking: true, overflow: 'overlap', artBelow: 58, outlines: false },
       hand: { visible: 0.72, scale: HAND_SCALE_DEFAULT, raise: true },
-      panels: { rail: 'right', railWidth: defaultRailWidth(), log: 'remember', prompt: { placement: 'dock', x: 0.6, y: 0.12 } },
+      panels: { rail: 'right', railWidth: defaultRailWidth(), log: 'remember', prompt: { placement: 'dock-bottom', x: 0.6, y: 0.12 } },
     },
     'duel',
   );
