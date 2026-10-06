@@ -151,8 +151,8 @@ func TestActivatePlaneswalkerLoyalty(t *testing.T) {
 	if f.Loyalty == "" || f.Loyalty == "0" {
 		t.Fatalf("precondition: %s printed loyalty = %q", f.Name, f.Loyalty)
 	}
-	assertActivateItem(t, reg, "Ajani, Caller of the Pride", "activate#0.0", "[+1]")
-	assertActivateItem(t, reg, "Ajani, Caller of the Pride", "activate#0.1", "[-3]")
+	assertActivateItem(t, reg, "Ajani, Caller of the Pride", "activate#0.0", "+1")
+	assertActivateItem(t, reg, "Ajani, Caller of the Pride", "activate#0.1", "-3")
 }
 
 // TestActivateSacrificeSelf covers a cost of Sac<1/CARDNAME>: the source
@@ -179,7 +179,7 @@ func TestActivateSacrificeSelf(t *testing.T) {
 }
 
 // TestActivateLoyaltyManaUsesStack pins the CR 605.1b subtlety: a Mana-API
-// ability with a loyalty cost (Chandra, Flameshaper's "[+2]: Add {R}{R}{R}")
+// ability with a loyalty cost (Chandra, Flameshaper's "+2: Add {R}{R}{R}")
 // is not a mana ability, so its scenario carries a resolve step even though
 // its sub-family is activate.mana.
 func TestActivateLoyaltyManaUsesStack(t *testing.T) {
@@ -200,7 +200,7 @@ func TestActivateLoyaltyManaUsesStack(t *testing.T) {
 	if resolves == 0 {
 		t.Fatal("a loyalty-cost mana ability uses the stack and needs a resolve step")
 	}
-	assertActivateItem(t, reg, "Chandra, Flameshaper", "activate#0.0", "[+2]")
+	assertActivateItem(t, reg, "Chandra, Flameshaper", "activate#0.0", "+2")
 }
 
 // TestActivateCostGapNamesTheToken checks the v1 cost whitelist's fail-closed

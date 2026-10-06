@@ -622,6 +622,8 @@ func (r *oracleRun) submit(d *decision.Decision, choices []int, why string) erro
 		}
 	}
 	r.logf("  [%s] p%d %s -> %q", why, d.Player, d.Kind, labels)
+	var chain trigChainMark
+	recorded := -1
 	if kind, ok := oracleDecisionKind(d.Kind); ok {
 		od := OracleDecision{Step: r.step, Seat: int(d.Player), Kind: kind, Options: len(d.Options), Picks: labels,
 			PickIdx: append([]int{}, choices...), PickRefs: []string{}, Via: why, GorgeKind: string(d.Kind), Resume: d.ResumeKind, Min: d.Min, Max: d.Max}
@@ -637,6 +639,9 @@ func (r *oracleRun) submit(d *decision.Decision, choices []int, why string) erro
 			// Permanent.nonLand+OppCtrl): XMage poses no ask for the
 			// controller's own seat.
 			od.PerOpponent = strings.Contains(effects.TargetsOf(d.ResumeSA).ValidTgts, "OppCtrl")
+		}
+		if d.Kind == decision.KTarget && d.ResumeSA != nil {
+			od.Divided = effects.DividedTotal(d.ResumeSA)
 		}
 		if len(d.Options) > 0 {
 			od.First = d.Options[0].Label
@@ -661,10 +666,15 @@ func (r *oracleRun) submit(d *decision.Decision, choices []int, why string) erro
 				od.PickRefs = append(od.PickRefs, o.Label)
 			}
 		}
+		chain = markTrigChain(r.e.trigSub, d)
 		r.decisions = append(r.decisions, od)
+		recorded = len(r.decisions) - 1
 	}
 	if err := r.e.Submit(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: choices}); err != nil {
 		return harnessf("submit %s %v: %v (options %s)", d.Kind, choices, err, optionDump(d))
+	}
+	if recorded >= 0 {
+		r.decisions[recorded].UnposedSlots = chain.unposed(r.e.trigSub)
 	}
 	return nil
 }

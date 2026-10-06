@@ -3,8 +3,10 @@ package rules
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -75,6 +77,12 @@ type OracleSnapStack struct {
 	Kind       string `json:"kind"`   // "spell" or "ability"
 	Source     string `json:"source"` // ref of the spell, or of the ability's source
 	Controller int    `json:"controller"`
+	// Trigger is the index into the source face's Triggers of the printed
+	// trigger that put this ability on the stack ("" for a spell, an
+	// activated ability, or a trigger that is not one of the face's own).
+	// It lets the generator tell which of a card's triggers fired. The
+	// comparator does not read it.
+	Trigger string `json:"trigger,omitempty"`
 }
 
 // OracleDecision is one non-priority decision the scenario answered.
@@ -119,6 +127,16 @@ type OracleDecision struct {
 	// PerOpponent marks a per-player target ask whose filter admits only
 	// opponents' objects: XMage asks no target for the controller's seat.
 	PerOpponent bool `json:"per_opponent,omitempty"`
+	// Divided is the literal DividedAsYouChoose$ total of a target ask whose
+	// ability divides its amount among the targets (distribute counters,
+	// divided damage). XMage poses that slot as a TargetAmount and needs the
+	// amount with each target, even a lone one gorge never split.
+	Divided int `json:"divided,omitempty"`
+	// UnposedSlots counts the "up to N" target slots of a triggered ability's
+	// chain that the engine settled with an empty answer right after this
+	// decision, without posing them (no legal candidate). XMage still asks
+	// each such slot, so the generator closes it with a target skip.
+	UnposedSlots int `json:"unposed_slots,omitempty"`
 	// AltPayable counts the options of an AlternateAdditionalCost either-or
 	// ask (option kind "altaddcost") the cast could pay. XMage's OrCost poses
 	// its chooseUse only when two or more of its costs can be paid, so the
@@ -254,11 +272,31 @@ func (r *oracleRun) snapshot(checkpoint string) OracleSnapshot {
 		if o.Ability != nil {
 			it.Kind = "ability"
 			src = g.Obj(o.Source)
+			it.Trigger = stackTriggerSlot(src, o.Ability)
 		}
 		it.Source = r.objRef(src)
 		s.Stack = append(s.Stack, it)
 	}
 	return s
+}
+
+// stackTriggerSlot is the index of the face trigger whose compiled effect is
+// sa (the pointer TriggerPush mints, as findTriggerForAbilityFace matches it),
+// or "" when sa is not one of src's face triggers.
+func stackTriggerSlot(src *state.Object, sa *cards.SA) string {
+	if src == nil {
+		return ""
+	}
+	f := src.Face()
+	if f == nil {
+		return ""
+	}
+	for i := range f.Triggers {
+		if f.Triggers[i].Effect == sa {
+			return strconv.Itoa(i)
+		}
+	}
+	return ""
 }
 
 // objRef names o by the ref resolve maps back to o right now, so a snapshot

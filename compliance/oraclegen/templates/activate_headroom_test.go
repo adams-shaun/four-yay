@@ -40,9 +40,9 @@ func TestActivateLoyaltyHeadroom(t *testing.T) {
 		name, key, prefix string
 		cost              int
 	}{
-		{"Ajani Resolute", "activate#0.1", "[-4]", 4},
-		{"Ajani Resolute", "activate#0.2", "[-10]", 10},
-		{"The Theorist, Jace Beleren", "activate#0.2", "[-6]", 6},
+		{"Ajani Resolute", "activate#0.1", "-4", 4},
+		{"Ajani Resolute", "activate#0.2", "-10", 10},
+		{"The Theorist, Jace Beleren", "activate#0.2", "-6", 6},
 	} {
 		printed := printedLoyalty(t, reg, tc.name)
 		if printed >= tc.cost {
@@ -69,7 +69,7 @@ func TestActivateLoyaltyGate(t *testing.T) {
 	if sa := c.Faces[0].Abilities[2]; sa.Params["SVarCompare"] != "GE25" {
 		t.Fatalf("precondition: %s ability 2 SVarCompare = %q, want GE25", name, sa.Params["SVarCompare"])
 	}
-	assertActivateItem(t, reg, name, "activate#0.2", "[0]")
+	assertActivateItem(t, reg, name, "activate#0.2", "0")
 	if got := setupLoyalty(t, reg, name, "activate#0.2"); got != 25-printed {
 		t.Fatalf("%s setup loyalty = %d, want 25 - %d", name, got, printed)
 	}

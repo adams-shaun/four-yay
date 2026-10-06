@@ -52,6 +52,9 @@ func TargetsOf(sa *cards.SA) *TargetParams { return params.TargetsOf(sa) }
 // dividedParam is DividedAsYouChoose$ as written (params.DividedParam).
 func dividedParam(sa *cards.SA) (ParamText, bool) { return params.DividedParam(sa) }
 
+// DividedTotal is the literal DividedAsYouChoose$ total (params.DividedTotal).
+func DividedTotal(sa *cards.SA) int { return params.DividedTotal(sa) }
+
 // SpecTargetsStack reports whether a TargetType$/ValidTgts$ value names a
 // stack object (params.SpecTargetsStack).
 func SpecTargetsStack(spec string) bool { return params.SpecTargetsStack(spec) }

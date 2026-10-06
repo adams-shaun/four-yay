@@ -18,10 +18,16 @@ type answerRouting struct {
 	ds       []rules.OracleDecision
 	soleCost map[int]bool // the cost pick that follows a one-payable OrCost ask
 	opponent map[int]int  // decision index -> opponent seat the controller selects first
+	// splitTarget maps a "damage_split" decision index to the divided-target
+	// decision it divides; targetSplit is the inverse. The two are paired by
+	// recipient set, never by step and seat alone.
+	splitTarget map[int]int
+	targetSplit map[int]int
 }
 
 func newAnswerRouting(ds []rules.OracleDecision) *answerRouting {
-	r := &answerRouting{ds: ds, soleCost: map[int]bool{}, opponent: map[int]int{}}
+	r := &answerRouting{ds: ds, soleCost: map[int]bool{}, opponent: map[int]int{},
+		splitTarget: map[int]int{}, targetSplit: map[int]int{}}
 	for i := range ds {
 		if soleAltCost(ds[i]) && i+1 < len(ds) && sameAsker(ds[i], ds[i+1]) && len(ds[i+1].ObjectPicks) == 1 {
 			r.soleCost[i+1] = true
@@ -53,7 +59,67 @@ func newAnswerRouting(ds []rules.OracleDecision) *answerRouting {
 			first[d.Step] = -1
 		}
 	}
+	// A divided-damage target ask announces its recipients; the shares arrive
+	// later as the engine's own "damage_split" KChoose, whose options are
+	// exactly those recipients (effects/damage_deal.go builds them from the
+	// chosen Defined$ list). Pair the two by that recipient set so the split
+	// answers land at the target ask's own queue position -- searching by step
+	// and seat alone lets an unrelated same-step split (a second trigger
+	// resolving in the same step) steal the answers, and a split's allocation
+	// must precede the chain skips the target ask carries. Each split is
+	// claimed at most once, and the nearest preceding unclaimed target wins.
+	claimed := map[int]bool{}
+	for i := range ds {
+		d := ds[i]
+		if d.Kind != "target" || d.Divided <= 0 || len(d.PickRefs) < 2 {
+			continue
+		}
+		for j := i + 1; j < len(ds); j++ {
+			n := ds[j]
+			if n.Resume != "damage_split" || claimed[j] || !sameAsker(d, n) {
+				continue
+			}
+			if !sameRecipients(d.PickRefs, n.PickRefs) {
+				continue
+			}
+			r.splitTarget[j] = i
+			r.targetSplit[i] = j
+			claimed[j] = true
+			break
+		}
+	}
 	return r
+}
+
+// sameRecipients reports whether two pick-ref lists name the same set of
+// targets. A damage_split repeats one ref per point of damage assigned, so
+// duplicates are expected and only the distinct refs matter.
+func sameRecipients(a, b []string) bool {
+	distinct := func(refs []string) map[string]bool {
+		m := map[string]bool{}
+		for _, r := range refs {
+			m[r] = true
+		}
+		return m
+	}
+	x, y := distinct(a), distinct(b)
+	if len(x) != len(y) {
+		return false
+	}
+	for k := range x {
+		if !y[k] {
+			return false
+		}
+	}
+	return true
+}
+
+// ownsSplit reports a "damage_split" decision whose shares the paired divided
+// target ask already emitted at its own queue position. Emitting them again
+// would duplicate every "^X=" answer.
+func (r *answerRouting) ownsSplit(i int) bool {
+	_, ok := r.splitTarget[i]
+	return ok
 }
 
 // soleAltCost reports an AlternateAdditionalCost either-or ask that only one
