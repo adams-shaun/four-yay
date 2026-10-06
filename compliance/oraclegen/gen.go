@@ -1674,28 +1674,48 @@ func isSeat(s string) bool {
 	return len(s) >= 2 && s[0] == 'p' && strings.Trim(s[1:], "0123456789") == ""
 }
 
-// disambiguatedObjectChoice gives XMage's target queue the copy discriminator
-// it supports when a choice-queue object pick collides by name with another
-// offered object. The driver handles these markers only on the choice path.
+// disambiguatedObjectChoice appends the copy discriminator XMage's
+// TestPlayer.makeChoose parses (no space before the bracket) when a
+// choice-queue object pick collides by name with another offered object. The
+// driver handles these markers only on the choice path.
 func disambiguatedObjectChoice(d rules.OracleDecision, k int, label string) string {
+	_, marker := SameNameAmbiguity(d, k)
+	return label + marker
+}
+
+// SameNameAmbiguity reports whether pick k of d names an object that shares
+// its name with another offered object, and the XMage discriminator that
+// separates them. The discriminator is the token-or-card distinction XMage's
+// choice parser understands: "[only copy]" for a token among same-named
+// cards, "[no copy]" for a card among same-named tokens. Same-named objects
+// of one kind (two cards, two tokens) get "": XMage has nothing to separate
+// them by and the bare name stays, as before.
+func SameNameAmbiguity(d rules.OracleDecision, k int) (ambiguous bool, marker string) {
 	if k >= len(d.PickRefs) || !strings.Contains(d.PickRefs[k], ":") {
-		return label
+		return false, ""
 	}
 	ref := d.PickRefs[k]
 	name := oraclediffRefName(ref)
-	matches := 0
+	pickToken := strings.Contains(ref, ":token:")
+	matches, otherKind := 0, 0
 	for _, candidate := range d.OptionRefs {
 		if strings.EqualFold(oraclediffRefName(candidate), name) {
 			matches++
+			if strings.Contains(candidate, ":token:") != pickToken {
+				otherKind++
+			}
 		}
 	}
 	if matches < 2 {
-		return label
+		return false, ""
 	}
-	if strings.Contains(ref, ":token:") {
-		return label + " [only copy]"
+	switch {
+	case otherKind == 0:
+		return true, ""
+	case pickToken:
+		return true, "[only copy]"
 	}
-	return label + " [no copy]"
+	return true, "[no copy]"
 }
 
 // oraclediffRefName strips a scenario ref to the object name.

@@ -214,8 +214,8 @@ public final class ScenarioReplayAnswerRoutingTest {
         // choice queue. The discriminator is interpreted there by TestPlayer;
         // routing it to targets leaves the sacrifice answer unconsumed.
         RecordingDriver copy = driver();
-        scripted(copy, answers("choice", "Joo Dee, One of Many [only copy]"));
-        equal(List.of("Joo Dee, One of Many [only copy]"), field(field(copy, "playerA"), "choices"));
+        scripted(copy, answers("choice", "Joo Dee, One of Many[only copy]"));
+        equal(List.of("Joo Dee, One of Many[only copy]"), field(field(copy, "playerA"), "choices"));
         equal(List.of(), copy.queues);
         System.out.println("PASS same-name token copy choice uses XMage's choice queue");
     }
