@@ -783,10 +783,17 @@ public class ScenarioReplay extends CardTestPlayerBase {
             case "attach": {
                 String card = str(st, "card");
                 String bearer = str(st, "attached_to");
-                runCode("attach " + card + " to " + bearer, TURN, phase, p, (info, pl, g) -> {
+                // Queued on the active player: a runCode for the non-active seat would
+                // run only when it next gets priority, after this step's snapshot.
+                runCode("attach " + card + " to " + bearer, TURN, phase, playerA, (info, pl, g) -> {
                     Permanent attachment = permanentRef(g, card);
                     Permanent target = permanentRef(g, bearer);
-                    attachment.attachTo(target, g);
+                    // Card.addAttachment links both sides (the bearer's
+                    // attachment list and the attachment's attachedTo) and
+                    // applies XMage's own legality checks.
+                    if (!target.addAttachment(attachment.getId(), null, g)) {
+                        throw new IllegalStateException("attach " + card + " to " + bearer + " refused");
+                    }
                 });
                 return;
             }
