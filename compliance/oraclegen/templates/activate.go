@@ -231,7 +231,6 @@ func activateStepIndex(steps []oraclegen.Step) int {
 	return 0
 }
 
-
 // costTokens splits a Forge cost string on whitespace, keeping a token's
 // `<...>` payload together: Sac<1/CARDNAME/this creature> and
 // tapXType<Any/Creature.Other+withTotalPowerGE1> carry spaces a naive

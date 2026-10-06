@@ -49,11 +49,11 @@ var activateCensusSets = []string{"BIG", "EOE", "FDN", "FRA"}
 // so the SubCounter<...> gap is gone (BIG and FDN battlefield counts rise).
 var wantActivateCensus = map[string]map[string]int{
 	"BIG": {
-		"served:activate.battlefield":      11,
-		"served:activate.hand":             2,
-		"served:activate.mana":             4,
+		"served:activate.battlefield":        11,
+		"served:activate.hand":               2,
+		"served:activate.mana":               4,
 		"skip:activate cost gap: Sac<token>": 1,
-		"skip:activate no fixture":          1,
+		"skip:activate no fixture":           1,
 	},
 	"EOE": {
 		"served:activate.battlefield":                 33,
