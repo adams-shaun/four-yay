@@ -492,9 +492,9 @@ func TestRequirementsClassificationTable(t *testing.T) {
 			want: []Requirement{{Key: "static#0.0", Family: "static", Face: 0, Slot: "0", Sub: "static.gap:CantBeCast", Gap: "static mode CantBeCast"}},
 		},
 		{
-			name: "High Noon CantBeCast NumLimitEachTurn is a named gap",
+			name: "High Noon CantBeCast NumLimitEachTurn is served",
 			c:    cardOf(&cards.Face{Types: []string{"Creature"}, Statics: []cards.Static{stat("CantBeCast", map[string]string{"ValidCard": "Card", "Caster": "Player", "NumLimitEachTurn": "1"})}}),
-			want: []Requirement{{Key: "static#0.0", Family: "static", Face: 0, Slot: "0", Sub: "static.gap:CantBeCast", Gap: "static CantBeCast NumLimitEachTurn is not modelled by gorge (its first spell is refused too)"}},
+			want: []Requirement{{Key: "static#0.0", Family: "static", Face: 0, Slot: "0", Sub: "static.cant-be-cast-limit"}},
 		},
 		{
 			name: "Sorcerous Spyglass CantBeActivated chosen name is a named gap",

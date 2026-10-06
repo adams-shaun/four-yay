@@ -20,6 +20,8 @@ func cantBeShape(f *cards.Face, st *cards.Static) (sub string, ok bool) {
 		switch {
 		case paramsAre(st, map[string]string{"ValidCard": "Card", "Condition": "PlayerTurn", "Caster": "Opponent"}):
 			return "static.cant-be-cast-opponent-turn", true
+		case paramsAre(st, map[string]string{"ValidCard": "Card", "Caster": "Player", "NumLimitEachTurn": "1"}):
+			return "static.cant-be-cast-limit", true
 		case paramsAre(st, map[string]string{"ValidCard": "Card.Self", "EffectZone": "All", "Caster": "Player.Active", "SVarCompare": "LE3"}, "CheckSVar") && yourTurnsSVar(f, st.Params["CheckSVar"]):
 			return "static.cant-be-cast-first-turns", true
 		}
@@ -47,9 +49,6 @@ func cantBeNamedGap(st *cards.Static) string {
 	case "cantbecast":
 		if strings.Contains(strings.ToLower(st.Params["Caster"]), "attackedyou") {
 			return "static CantBeCast attacked-you condition"
-		}
-		if _, ok := st.Params["NumLimitEachTurn"]; ok {
-			return "static CantBeCast NumLimitEachTurn is not modelled by gorge (its first spell is refused too)"
 		}
 	}
 	return ""

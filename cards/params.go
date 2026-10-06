@@ -774,6 +774,9 @@ const (
 	// ChooseCard's ImprintChosen$ rider records selected card IDs on the
 	// source's non-exile imprint association.
 	PKImprintChosen
+	// CantBeCast's NumLimitEachTurn$ rider (High Noon's "can't cast more than
+	// one spell each turn"). Appended so earlier ordinals stay stable.
+	PKNumLimitEachTurn
 	paramKeyCount
 )
 
@@ -1536,6 +1539,7 @@ var paramKeyNames = [paramKeyCount]string{
 	PKTriggeredOwnAbility:              "TriggeredOwnAbility",
 	PKValidDestination:                 "ValidDestination",
 	PKValidSpellAbility:                "ValidSpellAbility",
+	PKNumLimitEachTurn:                 "NumLimitEachTurn",
 }
 
 // String is the key's Forge text.

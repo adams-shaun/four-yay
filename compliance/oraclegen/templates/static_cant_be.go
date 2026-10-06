@@ -45,18 +45,20 @@ func serveOffered(reg *cards.Registry, f *cards.Face, name, mode string, req lev
 // Shot ({R/P}, payable with life, so no mana pool is needed).
 func cantBeCastOpponentTurnItem(reg *cards.Registry, f *cards.Face, name string, req levelb.Requirement) (oraclegen.Item, *oraclegen.Skip) {
 	sc := staticScenario(f, name, []string{name}, nil, []oraclegen.Step{{Op: "pass", Seat: 0, Expect: offeredNot(1, "cast", "p1:"+opponentCastProbe)}})
-	p1 := sc.Setup["p1"]
+	p0, p1 := sc.Setup["p0"], sc.Setup["p1"]
+	setupBackFace(&p0, name, req)
 	p1.Hand = []string{opponentCastProbe}
-	sc.Setup["p1"] = p1
+	sc.Setup["p0"], sc.Setup["p1"] = p0, p1
 	return serveOffered(reg, f, name, "CantBeCast", req, "601.2", sc, func() string { return sourceRemovedControlFails(reg, sc, name) })
 }
 
 // cantBeActivatedOpponentTurnItem: the same pass, p1 holding Mogg Fanatic.
 func cantBeActivatedOpponentTurnItem(reg *cards.Registry, f *cards.Face, name string, req levelb.Requirement) (oraclegen.Item, *oraclegen.Skip) {
 	sc := staticScenario(f, name, []string{name}, nil, []oraclegen.Step{{Op: "pass", Seat: 0, Expect: offeredNot(1, "activate", "p1:"+activatedProbe)}})
-	p1 := sc.Setup["p1"]
+	p0, p1 := sc.Setup["p0"], sc.Setup["p1"]
+	setupBackFace(&p0, name, req)
 	p1.Battlefield = append(p1.Battlefield, activatedProbe)
-	sc.Setup["p1"] = p1
+	sc.Setup["p0"], sc.Setup["p1"] = p0, p1
 	return serveOffered(reg, f, name, "CantBeActivated", req, "602.2", sc, func() string { return sourceRemovedControlFails(reg, sc, name) })
 }
 
@@ -65,6 +67,9 @@ func cantBeActivatedOpponentTurnItem(reg *cards.Registry, f *cards.Face, name st
 func cantBeActivatedAllItem(reg *cards.Registry, f *cards.Face, name string, req levelb.Requirement) (oraclegen.Item, *oraclegen.Skip) {
 	step := oraclegen.Step{Op: "pass_to", Seat: 0, Decision: "priority", Expect: offeredNot(0, "activate", "p0:"+activatedProbe)}
 	sc := staticScenario(f, name, []string{name, activatedProbe}, nil, []oraclegen.Step{step})
+	p0 := sc.Setup["p0"]
+	setupBackFace(&p0, name, req)
+	sc.Setup["p0"] = p0
 	return serveOffered(reg, f, name, "CantBeActivated", req, "602.2", sc, func() string { return sourceRemovedControlFails(reg, sc, name) })
 }
 
@@ -74,6 +79,9 @@ func cantBeActivatedAllItem(reg *cards.Registry, f *cards.Face, name string, req
 // naming the removed Aura, so it leaves the Aura in the library-side hand-less
 // setup and drops the cast and resolve steps with it.
 func cantBeActivatedEnchantedItem(reg *cards.Registry, f *cards.Face, name string, req levelb.Requirement) (oraclegen.Item, *oraclegen.Skip) {
+	if req.Face > 0 {
+		return staticSkip(name, "CantBeActivated", "enchanted-permanent observation casts the front face")
+	}
 	mana, why := oraclegen.PoolFor(f.ManaCost)
 	if why != "" {
 		return staticSkip(name, "CantBeActivated", "aura cost unpayable: "+why)
@@ -102,6 +110,9 @@ func cantBeActivatedEnchantedItem(reg *cards.Registry, f *cards.Face, name strin
 // control is the same offer in p0's fourth turn (turn 7), reached by three hops
 // to p0's next main1.
 func cantBeCastFirstTurnsItem(reg *cards.Registry, f *cards.Face, name string, req levelb.Requirement) (oraclegen.Item, *oraclegen.Skip) {
+	if req.Face > 0 {
+		return staticSkip(name, "CantBeCast", "first-turns observation casts the front face")
+	}
 	pool, why := oraclegen.PoolFor(f.ManaCost)
 	if why != "" {
 		return staticSkip(name, "CantBeCast", "spell cost unpayable: "+why)
@@ -130,4 +141,21 @@ func cantBeCastFirstTurnsItem(reg *cards.Registry, f *cards.Face, name string, r
 		}
 		return ""
 	})
+}
+
+// cantBeCastLimitItem (High Noon, NumLimitEachTurn$ 1): p0 casts a zero-cost
+// spell, which resolves, and a second zero-cost spell is then not offered. Two
+// DIFFERENT spells avoid same-name refs. The control is the source-removed
+// replay, where the same checkpoint offers the second spell.
+func cantBeCastLimitItem(reg *cards.Registry, f *cards.Face, name string, req levelb.Requirement) (oraclegen.Item, *oraclegen.Skip) {
+	steps := []oraclegen.Step{
+		{Op: "cast", Seat: 0, Card: "p0:" + limitFirstProbe},
+		{Op: "resolve"},
+		{Op: "pass_to", Seat: 0, Decision: "priority", Expect: offeredNot(0, "cast", "p0:"+limitSecondProbe)},
+	}
+	sc := staticScenario(f, name, []string{name}, []string{limitFirstProbe, limitSecondProbe}, steps)
+	p0 := sc.Setup["p0"]
+	setupBackFace(&p0, name, req)
+	sc.Setup["p0"] = p0
+	return serveOffered(reg, f, name, "CantBeCast", req, "601.2", sc, func() string { return sourceRemovedControlFails(reg, sc, name) })
 }

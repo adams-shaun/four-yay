@@ -1487,7 +1487,7 @@ func (e *Engine) recheckIllegal(pc *pendingCast) bool {
 				// answered with, or a cast offered under a false gate would abort
 				// here (and vice versa). It subsumes the checkSVarHolds the caller
 				// used to run separately.
-				if !e.continuousGateHolds(sv) || !e.restrictionGateHolds(sv, pc.card) {
+				if !e.continuousGateHolds(sv) || !e.restrictionGateHolds(sv, pc.card) || !castLimitReached(e.L.Events, sv, pc.player, pc.card, func(spec string, id state.ObjID) bool { return e.matchesSpec(spec, id, e.staticSpecCtx(sv)) }) {
 					continue
 				}
 				sc := e.specCtx(sv.Source, sv.Controller)

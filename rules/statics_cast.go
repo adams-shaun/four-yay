@@ -144,7 +144,7 @@ func (e *Engine) castRestrictedUsing(statics []staticView, p state.PlayerID, id 
 		// the checkSVarHolds the caller used to run separately, and the
 		// duplicate ClassBand$/Condition$ reads inside restrictionGateHolds
 		// below are pure state reads with identical semantics.
-		if !e.continuousGateHolds(sv) || !e.restrictionGateHolds(sv, id) {
+		if !e.continuousGateHolds(sv) || !e.restrictionGateHolds(sv, id) || !castLimitReached(e.L.Events, sv, p, 0, func(spec string, id state.ObjID) bool { return e.matchesSpec(spec, id, e.staticSpecCtx(sv)) }) {
 			continue
 		}
 		spec := sv.ParamStr(cards.PKValidCard)

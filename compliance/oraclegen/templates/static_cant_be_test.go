@@ -112,7 +112,6 @@ func TestStaticCantBeNamedSkips(t *testing.T) {
 	reg := loadGenRegistry(t)
 	for name, want := range map[string]string{
 		"Sorcerous Spyglass": "chosen-name needs an as-enters name choice",
-		"High Noon":          "NumLimitEachTurn is not modelled by gorge",
 	} {
 		c, ok := reg.Lookup(name)
 		if !ok {
@@ -126,6 +125,54 @@ func TestStaticCantBeNamedSkips(t *testing.T) {
 		}
 		if !found {
 			t.Fatalf("%s carries no static requirement with gap %q", name, want)
+		}
+	}
+}
+
+func TestCantBeCastLimitHighNoon(t *testing.T) {
+	reg := loadGenRegistry(t)
+	it, card := cantBeItem(t, "High Noon", "static#0.0", "static.cant-be-cast-limit", "cast", 0)
+	if card != "p0:Memnite" {
+		t.Fatalf("second-spell probe %q", card)
+	}
+	// Precondition: the first spell IS cast before the observation, so the
+	// refusal below is the second-spell limit, not a blanket lockout.
+	if it.Steps[0].Op != "cast" || it.Steps[0].Card != "p0:Ornithopter" {
+		t.Fatalf("first step %+v, want the Ornithopter cast", it.Steps[0])
+	}
+	if why := sourceRemovedControlFails(reg, it.Scenario, it.Card); why != "" {
+		t.Fatalf("control does not offer Memnite: %s", why)
+	}
+}
+
+// TestCantBeCastOpponentTurnJenniferWaltersBackFace pins that the back-face
+// requirement is observed on the back face: the replay's battlefield names The
+// Sensational She-Hulk for static#1.0 and Jennifer Walters for static#0.0.
+func TestCantBeCastOpponentTurnJenniferWaltersBackFace(t *testing.T) {
+	reg := loadGenRegistry(t)
+	for _, tc := range []struct {
+		key, onBattlefield string
+		backFace           bool
+	}{
+		{"static#0.0", "Jennifer Walters", false},
+		{"static#1.0", "The Sensational She-Hulk", true},
+	} {
+		it := staticItemFor(t, reg, "Jennifer Walters", tc.key, "static.cant-be-cast-opponent-turn")
+		if got := containsString(it.Setup["p0"].BackFace, "Jennifer Walters"); got != tc.backFace {
+			t.Fatalf("%s: back_face %v, want in-list=%v", tc.key, it.Setup["p0"].BackFace, tc.backFace)
+		}
+		res, ok := runStatic(reg, it.Scenario)
+		if !ok || len(res.Fails) != 0 || len(res.Snapshots) == 0 {
+			t.Fatalf("%s: scenario does not hold: %v", tc.key, res.Fails)
+		}
+		found := false
+		for _, perm := range res.Snapshots[len(res.Snapshots)-1].Permanents {
+			if perm.Controller == 0 && perm.Name == tc.onBattlefield {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatalf("%s: p0's battlefield has no %q in the final snapshot", tc.key, tc.onBattlefield)
 		}
 	}
 }
