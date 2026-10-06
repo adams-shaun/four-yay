@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"resolve","field":"p0.library_top","diff":"gorge+[Forest] xmage+[Ornithopter]"},"key":"activate | resolve | p0.library_top | gorge+[Forest] xmage+[Ornithopter]","cards":1}
-{"card":"Repurposing Bay","template":"activate#0.0","status":"diverge","api":"-","sets":["DFT"],"detail":"step 1 (resolve) p0.library_top: gorge \"[Wastes, Wastes, Jace Beleren, Forest, Wastes]\", xmage \"[Wastes, Jace Beleren, Ornithopter, Wastes, Wastes]\""}

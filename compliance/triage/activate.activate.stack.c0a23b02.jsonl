@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"activate","field":"stack","diff":"gorge=[ability:$CARD@p0] xmage=[ability:Yiazmat, Ultimate Mark@p0]"},"key":"activate | activate | stack | gorge=[ability:$CARD@p0] xmage=[ability:Yiazmat, Ultimate Mark@p0]","cards":1}
-{"card":"Sidequest: Hunt the Mark","template":"activate#1.0","status":"diverge","api":"ChangesZone:Destroy+Phase:Token","sets":["FIN"],"detail":"step 0 (activate) stack: gorge \"[ability:Sidequest: Hunt the Mark@p0]\", xmage \"[ability:Yiazmat, Ultimate Mark@p0]\""}

@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"pass_to","field":"p0.exile","diff":"gorge+[] xmage+[Grizzly Bears]"},"key":"trigger | pass_to | p0.exile | gorge+[] xmage+[Grizzly Bears]","cards":1}
+{"card":"Sanar, Innovative First-Year","template":"trigger#0.0","status":"diverge","api":"Phase:DigUntil","sets":["ECL"],"detail":"step 0 (pass_to) p0.exile: gorge \"[Jace Beleren]\", xmage \"[Grizzly Bears, Jace Beleren]\""}

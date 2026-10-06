@@ -1,0 +1,2 @@
+{"shape":{"template":"combat","op":"pass_to","field":"p0.library_top","diff":"gorge+[Glorious Anthem] xmage+[$LIB]"},"key":"combat | pass_to | p0.library_top | gorge+[Glorious Anthem] xmage+[$LIB]","cards":1}
+{"card":"Hexhaven Invigorator","template":"combat#0.block","status":"diverge","api":"DamageDoneOnce:ChangeZone","sets":["FRA"],"detail":"step 2 (pass_to) p0.library_top: gorge \"[Wastes, Wastes, Jace Beleren, Glorious Anthem, Wastes]\", xmage \"[Wastes, Jace Beleren, Wastes, Wastes, Wastes]\""}

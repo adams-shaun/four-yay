@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"activate","field":"stack","diff":"gorge=[ability:$CARD@p0] xmage=[ability:Watertight Gondola@p0]"},"key":"activate | activate | stack | gorge=[ability:$CARD@p0] xmage=[ability:Watertight Gondola@p0]","cards":1}
-{"card":"Waterlogged Hulk","template":"activate#1.0","status":"diverge","api":"-","sets":["LCI"],"detail":"step 0 (activate) stack: gorge \"[ability:Waterlogged Hulk@p0]\", xmage \"[ability:Watertight Gondola@p0]\""}

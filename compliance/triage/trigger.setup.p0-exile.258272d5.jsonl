@@ -1,2 +1,0 @@
-{"shape":{"template":"trigger","op":"setup","field":"p0.exile","diff":"gorge+[Venomous Words] xmage+[]"},"key":"trigger | setup | p0.exile | gorge+[Venomous Words] xmage+[]","cards":1}
-{"card":"Scathing Shadelock","template":"trigger#0.0","status":"diverge","api":"Phase:AlterAttribute","sets":["SOS"],"detail":"setup p0.exile: gorge \"[Venomous Words]\", xmage \"[]\""}

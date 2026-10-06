@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"harness","field":"xmage","diff":"IllegalArgumentException: […] Couldn't find a card: A-Baba Lysaga, Night Witch"},"key":"trigger | harness | xmage | IllegalArgumentException: […] Couldn't find a card: A-Baba Lysaga, Night Witch","cards":1}
+{"card":"Double Down","template":"trigger#0.0","status":"harness","api":"SpellCast:CopySpellAbility","sets":["OTJ"],"detail":"xmage: IllegalArgumentException: [TEST] Couldn't find a card: A-Baba Lysaga, Night Witch"}

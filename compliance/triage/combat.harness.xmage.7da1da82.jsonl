@@ -1,8 +1,7 @@
-{"shape":{"template":"combat","op":"harness","field":"xmage","diff":"AssertionError: Player PlayerA must have N actions but found N"},"key":"combat | harness | xmage | AssertionError: Player PlayerA must have N actions but found N","cards":7}
+{"shape":{"template":"combat","op":"harness","field":"xmage","diff":"AssertionError: Player PlayerA must have N actions but found N"},"key":"combat | harness | xmage | AssertionError: Player PlayerA must have N actions but found N","cards":6}
 {"card":"Ares, God of War","template":"combat#0.attack","status":"harness","api":"ChangesZone:ChangeZone","sets":["MSH"],"detail":"xmage: AssertionError: Player PlayerA must have 0 actions but found 1"}
 {"card":"Flamewake Phoenix","template":"combat#0.attack","status":"harness","api":"Phase:ChangeZone","sets":["FDN"],"detail":"xmage: AssertionError: Player PlayerA must have 0 actions but found 1"}
 {"card":"Hazoret, Godseeker","template":"combat#0.attack","status":"harness","api":"-","sets":["DFT"],"detail":"xmage: AssertionError: Player PlayerA must have 0 actions but found 2"}
 {"card":"Juggernaut","template":"combat#0.attack","status":"harness","api":"-","sets":["FDN"],"detail":"xmage: AssertionError: Player PlayerA must have 0 actions but found 1"}
-{"card":"Mechan Shieldmate","template":"combat#0.attack","status":"harness","api":"-","sets":["EOE"],"detail":"xmage: AssertionError: Player PlayerA must have 0 actions but found 2"}
 {"card":"Red Herring","template":"combat#0.attack","status":"harness","api":"-","sets":["MKM"],"detail":"xmage: AssertionError: Player PlayerA must have 0 actions but found 1"}
 {"card":"Summon: Bahamut","template":"combat#0.block","status":"harness","api":"-","sets":["FIN"],"detail":"xmage: AssertionError: Player PlayerA must have 0 actions but found 2"}

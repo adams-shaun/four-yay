@@ -1,0 +1,2 @@
+{"shape":{"template":"static","op":"resolve","field":"p0.hand","diff":"gorge+[Ornithopter] xmage+[$LIB]"},"key":"static | resolve | p0.hand | gorge+[Ornithopter] xmage+[$LIB]","cards":1}
+{"card":"Weftwalking","template":"static#0.0","status":"diverge","api":"ChangesZone:ChangeZoneAll","sets":["EOE"],"detail":"step 1 (resolve) p0.hand: gorge \"[Ornithopter, Wastes, Wastes, Wastes, Wastes, Wastes, Wastes]\", xmage \"[Wastes, Wastes, Wastes, Wastes, Wastes, Wastes, Wastes]\""}
