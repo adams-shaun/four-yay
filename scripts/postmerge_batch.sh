@@ -30,7 +30,7 @@ CULPRITS=${CULPRITS:-$repo/.ds4/postmerge-culprits.log}
 OUT=$repo/.ds4/postmerge-full.out
 PAUSE=${PAUSE:-$repo/.ds4/orchestrator/pause}
 wt=$repo/.worktrees/postmerge-full
-SCOPE=(systemd-run --user --scope -q -p MemoryMax=24G env GOMEMLIMIT=16GiB GOGC=200 GORGE_ORACLEGEN_FULL_TARGET_AUDIT=1)
+SCOPE=(systemd-run --user --scope -q -p MemoryMax=24G env GOMEMLIMIT=16GiB GOGC=200 GOFLAGS="-p=2 -trimpath" GORGE_ORACLEGEN_FULL_TARGET_AUDIT=1)
 
 say() { echo "$(date '+%F %T') $*" | tee -a "$LOG"; }
 
