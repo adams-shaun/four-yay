@@ -10,7 +10,8 @@ import (
 )
 
 // All nine graveyard sources in the brief must be tried from their trigger
-// zone, including the two whose separate conditions this ticket cannot meet.
+// zone, including the two whose separate conditions this ticket cannot meet
+// (Darklight Phoenix is named by its phase condition, the narrower reason).
 func TestTriggerETBProbeGraveyardSources(t *testing.T) {
 	reg := loadGenRegistry(t)
 	for _, tc := range []struct{ name, sub, skip string }{
@@ -21,7 +22,7 @@ func TestTriggerETBProbeGraveyardSources(t *testing.T) {
 		{"Shambling Cie'th", "trigger.spell-cast", ""},
 		{"Wolfbat", "trigger.drawn", ""},
 		{"Furious Forebear", "trigger.dies-other", ""},
-		{"Darklight Phoenix", "trigger.phase", "trigger did not fire from the graveyard"},
+		{"Darklight Phoenix", "trigger.phase", "trigger condition: turn history (X)"},
 		{"Persistent Marshstalker", "trigger.attacks", "trigger did not fire from the graveyard"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

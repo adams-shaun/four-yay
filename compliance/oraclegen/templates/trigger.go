@@ -8,6 +8,7 @@
 package templates
 
 import (
+	"sort"
 	"strconv"
 	"strings"
 
@@ -97,6 +98,14 @@ func triggerFires(reg *cards.Registry, f *cards.Face, name string, req levelb.Re
 				return skip(reason)
 			}
 		}
+		if f.Triggers[idx].ParamStr(cards.PKClassBand) != "" {
+			return skip("condition: class level")
+		}
+		if req.Sub == "trigger.phase" {
+			if reason := phaseConditionSkip(&f.Triggers[idx], f.SVars); reason != "" {
+				return skip(reason)
+			}
+		}
 		if triggerFromGraveyard(f, req) {
 			// The card sat in the graveyard, where the trigger functions,
 			// and its own condition (a threshold, an event count) still
@@ -126,10 +135,44 @@ func triggerScenario(f *cards.Face, name string, c triggerCause, req levelb.Requ
 	for _, b := range c.battlefield {
 		p0.Battlefield = appendFixtureUnique(p0.Battlefield, b)
 	}
+	for _, card := range c.graveyard {
+		p0.Graveyard = appendFixtureUnique(p0.Graveyard, card)
+	}
+	for _, card := range c.tapped {
+		if card == "__SOURCE__" {
+			card = name
+		}
+		p0.Battlefield = appendFixtureUnique(p0.Battlefield, card)
+		p0.Tapped = appendFixtureUnique(p0.Tapped, card)
+	}
+	counterCards := make([]string, 0, len(c.counters))
+	for card := range c.counters {
+		counterCards = append(counterCards, card)
+	}
+	sort.Strings(counterCards)
+	for _, card := range counterCards {
+		kinds := c.counters[card]
+		if card == "__SOURCE__" {
+			card = name
+		}
+		counterKinds := make([]string, 0, len(kinds))
+		for kind := range kinds {
+			counterKinds = append(counterKinds, kind)
+		}
+		sort.Strings(counterKinds)
+		for _, kind := range counterKinds {
+			count := kinds[kind]
+			p0 = oraclegen.WithCounters(p0, card, kind, count)
+		}
+	}
+	scenarioSteps := triggerSteps(f, name, c, steps, fx)
+	if len(c.prelude) > 0 {
+		scenarioSteps = append(append([]oraclegen.Step(nil), c.prelude...), scenarioSteps...)
+	}
 	sc := oraclegen.Scenario{
 		Setup:        map[string]oraclegen.Seat{"p0": p0, "p1": p1},
 		SetupAnswers: oraclegen.OpeningHandAnswers(f),
-		Steps:        triggerSteps(f, name, c, steps, fx),
+		Steps:        scenarioSteps,
 	}
 	if c.castSelfX {
 		sc.Setup["p0"] = oraclegen.WithHand(sc.Setup["p0"], name)
@@ -193,7 +236,8 @@ func triggerWithFixture(reg *cards.Registry, f *cards.Face, name string, req lev
 	it.XAnswers = oraclegen.XAnswersForScenario(res, sc, oraclegen.ModeNumbers(f), castSteps)
 	if c.xability != nil {
 		it.XAbility = make([]string, len(sc.Steps))
-		copy(it.XAbility[len(triggerSteps(f, name, c, nil, fx)):], c.xability)
+		offset := len(c.prelude) + len(triggerSteps(f, name, c, nil, fx))
+		copy(it.XAbility[offset:], c.xability)
 	}
 	return it, true, true
 }
