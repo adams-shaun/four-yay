@@ -1,5 +1,0 @@
-{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: Sacrifice this creature"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: Sacrifice this creature","cards":4}
-{"card":"Budding Insurgent","template":"activate#0.0","status":"harness","api":"-","sets":["FRA"],"detail":"xmage: AssertionError: Can't find ability to activate command: Sacrifice this creature"}
-{"card":"Bulwark Ox","template":"activate#0.0","status":"harness","api":"Attacks:PutCounter","sets":["DFT"],"detail":"xmage: AssertionError: Can't find ability to activate command: Sacrifice this creature"}
-{"card":"Earth Kingdom Protectors","template":"activate#0.0","status":"harness","api":"-","sets":["TLA"],"detail":"xmage: AssertionError: Can't find ability to activate command: Sacrifice this creature"}
-{"card":"Guerrilla Gorilla","template":"activate#0.0","status":"harness","api":"-","sets":["MSH"],"detail":"xmage: AssertionError: Can't find ability to activate command: Sacrifice this creature"}

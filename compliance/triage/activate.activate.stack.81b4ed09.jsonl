@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"activate","field":"stack","diff":"gorge=[ability:$CARD@p0] xmage=[ability:Magicked Card@p0]"},"key":"activate | activate | stack | gorge=[ability:$CARD@p0] xmage=[ability:Magicked Card@p0]","cards":1}
-{"card":"Sidequest: Card Collection","template":"activate#1.0","status":"diverge","api":"ChangesZone:Draw+Phase:SetState","sets":["FIN"],"detail":"step 0 (activate) stack: gorge \"[ability:Sidequest: Card Collection@p0]\", xmage \"[ability:Magicked Card@p0]\""}

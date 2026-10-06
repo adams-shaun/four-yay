@@ -1,10 +1,11 @@
 package host
 
 import (
-	"os"
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/adams-shaun/gorge/internal/testbudget"
 )
 
 // TestMain closes the shared finished match below once, after every test
@@ -15,18 +16,18 @@ import (
 // test parallel the run thrashed instead — 99s, 82s of it system time.
 // Parallelism is bounded by matchSlots instead.
 func TestMain(m *testing.M) {
-	code := m.Run()
-	sharedFixture.mu.Lock()
-	if sharedFixture.r != nil {
-		sharedFixture.r.Close()
-	}
-	sharedFixture.mu.Unlock()
-	modalFixture.mu.Lock()
-	if modalFixture.r != nil {
-		modalFixture.r.Close()
-	}
-	modalFixture.mu.Unlock()
-	os.Exit(code)
+	testbudget.Main(m, func() {
+		sharedFixture.mu.Lock()
+		if sharedFixture.r != nil {
+			sharedFixture.r.Close()
+		}
+		sharedFixture.mu.Unlock()
+		modalFixture.mu.Lock()
+		if modalFixture.r != nil {
+			modalFixture.r.Close()
+		}
+		modalFixture.mu.Unlock()
+	})
 }
 
 // matchSlots bounds how many tests -- i.e. matches, each ~1GB peak and one

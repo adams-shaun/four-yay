@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"activate","field":"stack","diff":"gorge=[ability:$CARD@p0] xmage=[ability:Balamb Garden, Airborne@p0]"},"key":"activate | activate | stack | gorge=[ability:$CARD@p0] xmage=[ability:Balamb Garden, Airborne@p0]","cards":1}
-{"card":"Balamb Garden, SeeD Academy","template":"activate#1.0","status":"diverge","api":"-","sets":["FIN"],"detail":"step 0 (activate) stack: gorge \"[ability:Balamb Garden, SeeD Academy@p0]\", xmage \"[ability:Balamb Garden, Airborne@p0]\""}

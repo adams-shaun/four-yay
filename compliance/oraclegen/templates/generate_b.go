@@ -18,7 +18,26 @@ import (
 // template serves its sub-family yet. Both reasons carry the "level B: "
 // prefix so the gate's level-A wording ("no generated scenario (...)") reads
 // as a template gap and adopt.Bucket classifies it unchanged.
-func GenerateB(reg *cards.Registry, name string, req levelb.Requirement) (oraclegen.Item, *oraclegen.Skip) {
+func GenerateB(reg *cards.Registry, name string, req levelb.Requirement) (item oraclegen.Item, skip *oraclegen.Skip) {
+	// Level-B builders all converge here, unlike level-A's Template.item.
+	// Apply the face-level structural opt-in centrally so trigger, activate,
+	// combat and static items cannot silently omit it. Preserve any options
+	// the family builder already attached.
+	defer func() {
+		if item.ID == "" {
+			return
+		}
+		c, ok := reg.Lookup(name)
+		if !ok || req.Face < 0 || req.Face >= len(c.Faces) || !oraclegen.CanShuffleLibrary(c.Faces[req.Face]) {
+			return
+		}
+		for _, option := range item.Compare {
+			if option == oraclegen.CompareNoLibraryOrder {
+				return
+			}
+		}
+		item.Compare = append(item.Compare, oraclegen.CompareNoLibraryOrder)
+	}()
 	if req.Gap != "" {
 		return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: "level B: " + req.Gap}
 	}

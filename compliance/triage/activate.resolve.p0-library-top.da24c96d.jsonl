@@ -1,2 +1,2 @@
 {"shape":{"template":"activate","op":"resolve","field":"p0.library_top","diff":"gorge+[Forest, Jace Beleren] xmage+[$LIB, Plains]"},"key":"activate | resolve | p0.library_top | gorge+[Forest, Jace Beleren] xmage+[$LIB, Plains]","cards":1}
-{"card":"Burnished Hart","template":"activate#0.0","status":"diverge","api":"-","sets":["FDN"],"detail":"step 1 (resolve) p0.library_top: gorge \"[Wastes, Jace Beleren, Wastes, Wastes, Forest]\", xmage \"[Wastes, Wastes, Wastes, Wastes, Plains]\""}
+{"card":"Zog, Triceraton Castaway","template":"activate#0.0","status":"diverge","api":"ChangesZone:Pump","sets":["TMT"],"detail":"step 1 (resolve) p0.library_top: gorge \"[Wastes, Jace Beleren, Wastes, Wastes, Forest]\", xmage \"[Plains, Wastes, Wastes, Wastes, Wastes]\""}

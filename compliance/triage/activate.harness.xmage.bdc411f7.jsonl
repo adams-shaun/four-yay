@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: Nosh — {N}, {T}, Sacrifice this artifact"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: Nosh — {N}, {T}, Sacrifice this artifact","cards":1}
-{"card":"Bagel and Schmear","template":"activate#0.1","status":"harness","api":"-","sets":["SPM"],"detail":"xmage: AssertionError: Can't find ability to activate command: Nosh — {2}, {T}, Sacrifice this artifact"}

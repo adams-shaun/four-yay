@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"resolve","field":"p0.library_top","diff":"gorge+[Forest, Jace Beleren] xmage+[Ornithopter, Shock]"},"key":"activate | resolve | p0.library_top | gorge+[Forest, Jace Beleren] xmage+[Ornithopter, Shock]","cards":1}
+{"card":"Maelstrom of the Spirit Dragon","template":"activate#0.2","status":"diverge","api":"-","sets":["TDM"],"detail":"step 1 (resolve) p0.library_top: gorge \"[Wastes, Jace Beleren, Wastes, Wastes, Forest]\", xmage \"[Ornithopter, Wastes, Wastes, Shock, Wastes]\""}

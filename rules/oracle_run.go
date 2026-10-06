@@ -190,6 +190,7 @@ type oracleExpect struct {
 	StackSize      *int              `json:"stack_size,omitempty"`
 	Offered        *oracleOffered    `json:"offered,omitempty"`
 	CanBlock       *oracleCanBlock   `json:"can_block,omitempty"`
+	CanAttack      *oracleCanAttack  `json:"can_attack,omitempty"`
 	Count          *oracleCount      `json:"count,omitempty"`
 	Eq             *int              `json:"eq,omitempty"`
 	Want           *bool             `json:"want,omitempty"`
@@ -617,6 +618,16 @@ func (r *oracleRun) build(sc oracleScenario) error {
 	// Drive to the requested turn's first main phase. Only triggers caused by
 	// setup actions that XMage itself performs are drained here; fixture
 	// battlefield placements have already had their entry triggers dropped.
+	//
+	// Only a generated compliance scenario (xmageFixture) stops at the FIRST
+	// priority even with a non-empty stack -- that is the exact point XMage's
+	// ScenarioReplay pauses at for its "setup" snapshot (runCode("setup",
+	// TURN, MAIN, ...)), so a beginning-of-first-main-phase trigger (and a
+	// Saga's precombat-main chapter trigger) is still on the stack at the
+	// setup checkpoint, not already resolved under the fallback. Every other
+	// scenario keeps the empty-stack stop: its fixture is written for the
+	// trigger to resolve during setup, and there is no XMage snapshot to
+	// align with.
 	for i := 0; i < 400*turn; i++ {
 		if !seededMana && e.G.Turn == targetTurn && e.G.Step == state.StepMain1 {
 			seededMana = true
@@ -630,8 +641,9 @@ func (r *oracleRun) build(sc oracleScenario) error {
 		if d == nil || e.G.Over {
 			return harnessf("game stopped during setup")
 		}
-		if d.Kind == decision.KPriority && e.G.Step == state.StepMain1 && e.G.Turn == targetTurn && len(e.G.Stack) == 0 {
-			r.logf("setup done: turn %d %s, stack empty", e.G.Turn, e.G.Step)
+		if d.Kind == decision.KPriority && e.G.Step == state.StepMain1 && e.G.Turn == targetTurn &&
+			(len(e.G.Stack) == 0 || sc.xmageFixture) {
+			r.logf("setup done: turn %d %s, stack %d", e.G.Turn, e.G.Step, len(e.G.Stack))
 			return nil
 		}
 		if err := r.answer(d, "setup"); err != nil {
@@ -1719,6 +1731,13 @@ func (r *oracleRun) check(x oracleExpect) []string {
 				failf("%s can block %s = %v, want %v", x.CanBlock.Blocker, x.CanBlock.Attacker, found, r.wantBool(x))
 			}
 		}
+	}
+	if x.CanAttack != nil {
+		id, err := r.resolve(x.CanAttack.Attacker)
+		if err != nil {
+			return []string{err.Error()}
+		}
+		bad = append(bad, canAttackFails(e.Pending(), id, x.CanAttack.Attacker, r.wantBool(x))...)
 	}
 	if x.Count != nil {
 		z, ok := oracleZones[x.Count.Zone]

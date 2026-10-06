@@ -1,0 +1,3 @@
+{"shape":{"template":"trigger","op":"harness","field":"xmage","diff":"IllegalArgumentException: […] Couldn't find a card: A-Midnight Assassin"},"key":"trigger | harness | xmage | IllegalArgumentException: […] Couldn't find a card: A-Midnight Assassin","cards":2}
+{"card":"Arnyn, Deathbloom Botanist","template":"trigger#0.0","status":"harness","api":"ChangesZone:LoseLife","sets":["SOS"],"detail":"xmage: IllegalArgumentException: [TEST] Couldn't find a card: A-Midnight Assassin"}
+{"card":"The Serpent Society","template":"trigger#0.0","status":"harness","api":"ChangesZone:Sacrifice+BecomesTarget:Ward","sets":["MSH"],"detail":"xmage: IllegalArgumentException: [TEST] Couldn't find a card: A-Midnight Assassin"}

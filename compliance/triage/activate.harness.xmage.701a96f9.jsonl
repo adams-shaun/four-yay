@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: {N}{R}, Sacrifice this artifact"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: {N}{R}, Sacrifice this artifact","cards":1}
-{"card":"Mouser Foundry","template":"activate#0.0","status":"harness","api":"ChangesZone:Token","sets":["TMT"],"detail":"xmage: AssertionError: Can't find ability to activate command: {4}{R}, Sacrifice this artifact"}

@@ -6,9 +6,8 @@
 // It has three subcommands, wired together by scripts/postmerge_full.sh:
 //
 //	testbudget exec <test-binary> [args...]
-//	    A `go test -exec` wrapper. Runs the binary and, when
-//	    GORGE_TESTBUDGET_RSS_DIR is set, records its peak RSS (KiB) in one
-//	    file per package directory under that directory.
+//	    An ad-hoc wrapper that runs a binary and records its peak RSS (KiB)
+//	    when GORGE_TESTBUDGET_RSS_DIR is set.
 //
 //	go test -json ... | testbudget tee -events events.json
 //	    Reprints the plain `go test` text (failing tests' output and every

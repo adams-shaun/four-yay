@@ -24,11 +24,20 @@ import (
 // attack, so the scenario no longer replays. EOE attack 48 -> 47 and
 // scenario-does-not-replay 1 -> 2 (the other is Monoist Sentry, whose plain
 // Defender genuinely cannot attack).
+//
+// Re-measured for the combat-legality ticket (cli-20261006T132127Z-b96121b3):
+// a Defender creature whose attack gorge refuses is now served by an
+// attacker-not-offered observation (combat_legality.go) instead of skipping,
+// and a creature with an unconditional "CARDNAME can't block" is served by a
+// blocker-not-offered one. EOE both Defender rows (Mechan Shieldmate,
+// Monoist Sentry) moved from scenario-does-not-replay to served; FDN four
+// Defender attack rows did, and two CantBlock rows moved from block-not-offered
+// to served; FRA's one Defender row did.
 var wantCombatCensus = map[string]map[string]int{
 	"BIG": {"served:combat.attack": 4, "served:combat.block": 4},
-	"EOE": {"served:combat.attack": 47, "served:combat.block": 49, "skip:combat scenario does not replay": 2},
-	"FDN": {"served:combat.attack": 123, "served:combat.block": 122, "skip:combat block not offered": 5, "skip:combat scenario does not replay": 4},
-	"FRA": {"served:combat.attack": 62, "served:combat.block": 62, "skip:combat block not offered": 1, "skip:combat scenario does not replay": 1},
+	"EOE": {"served:combat.attack": 49, "served:combat.block": 49},
+	"FDN": {"served:combat.attack": 127, "served:combat.block": 124, "skip:combat block not offered": 3},
+	"FRA": {"served:combat.attack": 63, "served:combat.block": 62, "skip:combat block not offered": 1},
 }
 
 func TestCombatCensusB(t *testing.T) {

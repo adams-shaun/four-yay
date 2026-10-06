@@ -1,2 +1,0 @@
-{"shape":{"template":"trigger","op":"setup","field":"p0.life","diff":"gorge-xmage=-2"},"key":"trigger | setup | p0.life | gorge-xmage=-2","cards":1}
-{"card":"Zuko, Conflicted","template":"trigger#0.0","status":"diverge","api":"Phase:Charm","sets":["TLA"],"detail":"setup p0.life: gorge \"18\", xmage \"20\""}

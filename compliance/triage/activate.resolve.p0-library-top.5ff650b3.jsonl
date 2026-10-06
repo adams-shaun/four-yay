@@ -1,0 +1,3 @@
+{"shape":{"template":"activate","op":"resolve","field":"p0.library_top","diff":"gorge+[Glorious Anthem] xmage+[$LIB]"},"key":"activate | resolve | p0.library_top | gorge+[Glorious Anthem] xmage+[$LIB]","cards":2}
+{"card":"Evolving Wilds","template":"activate#0.0","status":"diverge","api":"-","sets":["ECL","FDN","TDM","WOE"],"detail":"step 1 (resolve) p0.library_top: gorge \"[Wastes, Wastes, Jace Beleren, Glorious Anthem, Wastes]\", xmage \"[Jace Beleren, Wastes, Wastes, Wastes, Wastes]\""}
+{"card":"Point the Way","template":"activate#0.0","status":"diverge","api":"-","sets":["DFT"],"detail":"step 1 (resolve) p0.library_top: gorge \"[Wastes, Wastes, Jace Beleren, Glorious Anthem, Wastes]\", xmage \"[Wastes, Wastes, Jace Beleren, Wastes, Wastes]\""}

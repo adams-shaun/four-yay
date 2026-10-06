@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"activate","field":"stack","diff":"gorge=[ability:$CARD@p0] xmage=[ability:Guidestone Compass@p0]"},"key":"activate | activate | stack | gorge=[ability:$CARD@p0] xmage=[ability:Guidestone Compass@p0]","cards":1}
-{"card":"Lodestone Needle","template":"activate#1.0","status":"diverge","api":"ChangesZone:Tap","sets":["LCI"],"detail":"step 0 (activate) stack: gorge \"[ability:Lodestone Needle@p0]\", xmage \"[ability:Guidestone Compass@p0]\""}

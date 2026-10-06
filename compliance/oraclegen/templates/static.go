@@ -30,7 +30,7 @@ var StaticObserved = Template{ID: "static", Version: 1}
 // staticSubs are the level-B static sub-families this template serves.
 func staticSubs(sub string) bool {
 	switch sub {
-	case "static.disable-triggers", "static.combat-damage-toughness", "static.can-attack-defender", "static.can-attack-defender-svar", "static.cant-block-by", "static.cant-be-cast-threshold", "static.cant-be-cast-combat", "static.cant-be-activated-combat":
+	case "static.disable-triggers", "static.combat-damage-toughness", "static.can-attack-defender", "static.can-attack-defender-svar", "static.cant-block-by", "static.cant-be-cast-threshold", "static.cant-be-cast-combat", "static.cant-be-activated-combat", "static.cant-block-self", "static.cant-block-by-self", "static.min-blockers":
 		return true
 	}
 	return false
@@ -61,6 +61,12 @@ func staticRequirement(reg *cards.Registry, f *cards.Face, name string, req leve
 		return canAttackDefenderItem(reg, f, name, req)
 	case "static.cant-block-by":
 		return cantBlockByItem(reg, f, name, req)
+	case "static.cant-block-self":
+		return cantBlockSelfItem(reg, f, name, req)
+	case "static.cant-block-by-self":
+		return unblockableItem(reg, f, name, req)
+	case "static.min-blockers":
+		return minBlockersItem(reg, f, name, req)
 	case "static.cant-be-cast-threshold":
 		return staticCastOffer(reg, f, name, req, false)
 	case "static.cant-be-cast-combat":

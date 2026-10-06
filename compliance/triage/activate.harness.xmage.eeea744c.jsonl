@@ -1,9 +1,0 @@
-{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: Waterbend {N}"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: Waterbend {N}","cards":8}
-{"card":"Aang's Iceberg","template":"activate#0.0","status":"harness","api":"ChangesZone:ChangeZone","sets":["TLA"],"detail":"xmage: AssertionError: Can't find ability to activate command: Waterbend {3}"}
-{"card":"Aang, Swift Savior","template":"activate#0.0","status":"harness","api":"ChangesZone:Airbend","sets":["TLA"],"detail":"xmage: AssertionError: Can't find ability to activate command: Waterbend {8}"}
-{"card":"Flexible Waterbender","template":"activate#0.0","status":"harness","api":"-","sets":["TLA"],"detail":"xmage: AssertionError: Can't find ability to activate command: Waterbend {3}"}
-{"card":"Foggy Swamp Vinebender","template":"activate#0.0","status":"harness","api":"-","sets":["TLA"],"detail":"xmage: AssertionError: Can't find ability to activate command: Waterbend {5}"}
-{"card":"Geyser Leaper","template":"activate#0.0","status":"harness","api":"-","sets":["TLA"],"detail":"xmage: AssertionError: Can't find ability to activate command: Waterbend {4}"}
-{"card":"Katara, Bending Prodigy","template":"activate#0.0","status":"harness","api":"Phase:PutCounter","sets":["TLA"],"detail":"xmage: AssertionError: Can't find ability to activate command: Waterbend {6}"}
-{"card":"Water Tribe Rallier","template":"activate#0.0","status":"harness","api":"-","sets":["TLA"],"detail":"xmage: AssertionError: Can't find ability to activate command: Waterbend {5}"}
-{"card":"Waterbender Ascension","template":"activate#0.0","status":"harness","api":"DamageDone:PutCounter","sets":["TLA"],"detail":"xmage: AssertionError: Can't find ability to activate command: Waterbend {4}"}

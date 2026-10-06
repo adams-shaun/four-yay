@@ -126,6 +126,26 @@ func (e *Engine) finishEnteredStep() {
 	if e.G.Step == state.StepDraw && e.drawStepTurnAction() {
 		return
 	}
+	// CR 505.4 / 703.4f (Sagas, kw:Chapter): immediately after the active
+	// player's precombat main phase begins, that player puts a lore counter
+	// on each Saga they control. The ETB half is granted in events.Move (the
+	// same every-entry-site convention the planeswalker starting loyalty
+	// uses); advanceSagas here is the precombat-main half -- one lore counter
+	// per Saga the ACTIVE player controls, once per turn, including the
+	// game's first turn (whose draw CR 103.8a skips, but whose Saga action is
+	// unaffected). The chapter triggers queue off the CounterChange events it
+	// emits (rules' chapter check). If an AddCounter replacement parks a
+	// CR 616.1 order choice on one of those placements, the step's priority
+	// is deferred to the answer's resume, exactly as the draw's Dredge ask
+	// defers it.
+	if e.G.Step == state.StepMain1 && int(e.G.Active) < len(e.G.Players) &&
+		!e.G.Players[e.G.Active].Lost {
+		prior := e.pending
+		e.advanceSagas(e.G.Active)
+		if e.pending != nil && e.pending != prior {
+			return
+		}
+	}
 	// CR 728.1: the rad-counter drain is an inherent triggered ability.
 	if e.G.Step == state.StepMain1 && int(e.G.Active) < len(e.G.Players) &&
 		!e.G.Players[e.G.Active].Lost && e.G.Players[e.G.Active].Counter("RAD") > 0 {
@@ -398,14 +418,10 @@ func (e *Engine) finishUntapStep(next int) bool {
 //	whether to replace the draw (findings-sol4 MAJOR;
 //	dredge_turn_draw_test.go is the committed probe).
 //
-// CR 702.151a (Sagas, kw:Chapter): "As this Saga enters and after your draw
-// step, add a lore counter." The ETB half is granted in events.Move (the
-// same every-entry-site convention the planeswalker starting loyalty uses);
-// advanceSagas here is the after-your-draw-step half -- one lore counter per
-// Saga the ACTIVE player controls, once per turn, after the draw. The
-// chapter triggers queue off the CounterChange events it emits (rules' chapter
-// check). Skipped when the draw itself ended the game (e.G.Over), mirroring
-// every other post-state-change guard in this file.
+// The Saga lore counter is NOT part of this action (CR 505.4/703.4f puts it
+// at the beginning of the precombat main phase, not after the draw step):
+// advanceSagas is run from finishEnteredStep's StepMain1 branch, so the
+// game's first turn -- whose draw CR 103.8a skips -- still takes it.
 func (e *Engine) drawStepTurnAction() bool {
 	if e.G.Step != state.StepDraw || (len(e.G.Players) == 2 && e.G.Turn <= 1) ||
 		e.G.Players[e.G.Active].Lost {
@@ -419,13 +435,9 @@ func (e *Engine) drawStepTurnAction() bool {
 	if e.pending != nil {
 		// The draw suspended on a mid-draw ask (a Dredge replacement's
 		// KModes choice): the step's priority comes from the answer's
-		// path (the kernel's answered draw -> Advance -> priorityRound), so the emit below must not grant it twice. The
-		// after-draw Saga grant is likewise deferred: it belongs after the
-		// step's draw actually lands, and the dredge answer re-drives the
-		// turn structure before that priority.
+		// path (the kernel's answered draw -> Advance -> priorityRound), so the emit below must not grant it twice.
 		return true
 	}
-	e.advanceSagas(e.G.Active)
 	return false
 }
 

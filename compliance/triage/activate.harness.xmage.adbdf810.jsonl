@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: {N}{G}, Exile this enchantment"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: {N}{G}, Exile this enchantment","cards":1}
-{"card":"Sapling Nursery","template":"activate#0.0","status":"harness","api":"ChangesZone:Token","sets":["ECL"],"detail":"xmage: AssertionError: Can't find ability to activate command: {1}{G}, Exile this enchantment"}
