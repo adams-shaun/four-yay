@@ -410,7 +410,7 @@ clean-worktrees:
 # Derived, never hand-maintained: the conformance lane's own -v output, AGENTS.md's
 # approximations table, and the orchestrator's tracked issue files (.ds4/issues/*,
 # top level only — inbox/ is the un-triaged drop zone). Writes .ds4/ledger.json
-# (git-excluded). The lane runs cached (no -count=1), capped and under the heavy
+# (git-excluded). The lane runs cached (no -count=1), capped and under its own
 # lock: see scripts/ledger-lane.sh.
 ledger:
 	scripts/ledger-lane.sh .ds4/lane-rules.txt
