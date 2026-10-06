@@ -29,13 +29,15 @@ import "github.com/adams-shaun/gorge/decision"
 //     Advance that follow pose any new decisions there, while d -- the
 //     answered decision the handlers still read -- stays in the generation
 //     just left behind, untouched.
-//   - At the very end of submitCommit, once handlers and Advance are done
-//     with d, the left-behind generation is retired: cleared (releasing the
-//     strings and slices the dead decisions held), or, in the poison verify
-//     mode, overwritten with a sentinel. So a decision posed in era k is
-//     retired at the end of the Submit that follows it: it is valid through
-//     the whole next Submit, which is strictly more than the contract
-//     promises.
+//   - At the end of submitCommit, once handlers and Advance are done with d,
+//     the left-behind generation is retired: cleared (releasing the strings
+//     and slices the dead decisions held), or, in the poison verify mode,
+//     overwritten with a sentinel. The retire is DEFERRED (arenaFlipEra) so
+//     it also runs when a tape resolution unwinds out of submitCommit with a
+//     panic; a flip whose retire was skipped would leave the slab growing.
+//     So a decision posed in era k is retired at the end of the Submit that
+//     follows it: it is valid through the whole next Submit, which is
+//     strictly more than the contract promises.
 //   - A decision that is DEFERRED behind a commander-zone ask
 //     (drainDeferredAsks) is relocated into the current generation when it is
 //     finally posed, so a deferred decision is never left in a generation the
