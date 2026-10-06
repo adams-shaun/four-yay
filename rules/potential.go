@@ -426,7 +426,7 @@ func (e *Engine) PotentialActions(p state.PlayerID) []decision.PotentialAction {
 		a := decision.PotentialAction{
 			Kind: o.Kind, Obj: o.Obj, Ability: o.Ability, Mode: o.Mode, Label: o.Label,
 		}
-		if o.Kind == "cast" && o.Mode == "" && o.AltCostIndex == 0 {
+		if o.Kind == optCast && o.Mode == "" && o.AltCostIndex == 0 {
 			if _, proven := unpayable[o.Obj]; proven {
 				no := false
 				a.Payable = &no
