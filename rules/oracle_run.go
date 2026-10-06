@@ -511,7 +511,32 @@ func (r *oracleRun) build(sc oracleScenario) error {
 			}
 			r.refs[ref] = id
 			if from := e.G.Obj(id).Zone; from != pl.zone {
+				pendingBefore := len(e.pendingTriggers)
 				e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: from, To: pl.zone})
+				if sc.xmageFixture && pl.zone == state.ZBattlefield {
+					// XMage fixture setup places battlefield cards with addCard,
+					// which does not queue entry triggers; drop exactly the
+					// entry-shaped triggers this placement queued and keep every
+					// other trigger, including the CounterAdded triggers a
+					// planeswalker's entry loyalty counters fire on an already-
+					// placed permanent (setupPlacementDropsTrigger).
+					kept := e.pendingTriggers[:pendingBefore]
+					ordered := min(e.orderedTriggers, pendingBefore)
+					// Copy the tail first: appending to kept writes back into
+					// e.pendingTriggers[pendingBefore:], the very slice this loop
+					// reads, and a dropped trigger would shift later entries down
+					// under the iteration.
+					tail := append([]pendingTrigger(nil), e.pendingTriggers[pendingBefore:]...)
+					for _, pt := range tail {
+						t, _ := e.triggerOf(pt)
+						if setupPlacementDropsTrigger(t, pt.Chapter) {
+							continue
+						}
+						kept = append(kept, pt)
+					}
+					e.pendingTriggers = kept
+					e.orderedTriggers = ordered
+				}
 			}
 			if pl.zone == state.ZBattlefield {
 				// A back-face battlefield card starts transformed: FlipFace's
@@ -583,27 +608,6 @@ func (r *oracleRun) build(sc oracleScenario) error {
 		}
 		emitSetupSpeed(e.emit, p, e.G.Players[p].Speed, sc.Setup[fmt.Sprintf("p%d", p)])
 	}
-	if sc.xmageFixture {
-		// Generated scenarios start from a position XMage creates with
-		// addCard, which does not fire enters-the-battlefield triggers. Other
-		// setup triggers (for example, CounterAddedOnce from loyalty setup)
-		// do fire there and must remain queued.
-		kept := e.pendingTriggers[:0]
-		ordered := 0
-		for i, pt := range e.pendingTriggers {
-			tr, ok := e.triggerOf(pt)
-			destination, hasDestination := tr.ParamCode(cards.PKDestination)
-			if ok && tr.ModeKind() == cards.TriggerChangesZone && hasDestination &&
-				effects.Destination(destination).Zone() == state.ZBattlefield {
-				continue
-			}
-			kept = append(kept, pt)
-			if i < e.orderedTriggers {
-				ordered++
-			}
-		}
-		e.pendingTriggers, e.orderedTriggers = kept, ordered
-	}
 	e.Advance()
 	r.answers = append([]oracleAnswer(nil), sc.SetupAnswers...)
 	// A setup mana seed lands the moment the drive enters the requested turn's
@@ -611,9 +615,12 @@ func (r *oracleRun) build(sc oracleScenario) error {
 	// earlier: a pool added during an earlier step would empty at that step's
 	// end (CR 500.4), and the first-main-phase trigger is posed in main1.
 	seededMana := false
-	// Drive to the requested turn's first main phase. Only a generated
-	// compliance scenario (xmageFixture) stops at the FIRST priority even
-	// with a non-empty stack -- that is the exact point XMage's
+	// Drive to the requested turn's first main phase. Only triggers caused by
+	// setup actions that XMage itself performs are drained here; fixture
+	// battlefield placements have already had their entry triggers dropped.
+	//
+	// Only a generated compliance scenario (xmageFixture) stops at the FIRST
+	// priority even with a non-empty stack -- that is the exact point XMage's
 	// ScenarioReplay pauses at for its "setup" snapshot (runCode("setup",
 	// TURN, MAIN, ...)), so a beginning-of-first-main-phase trigger (and a
 	// Saga's precombat-main chapter trigger) is still on the stack at the
