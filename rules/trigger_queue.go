@@ -1165,11 +1165,30 @@ func (e *Engine) pushTrigger(pt pendingTrigger) {
 	e.drainAwaitsTarget = e.Pending() != nil && !e.drainAwaitsModes
 }
 
+// triggerTaggedFace reports whether pt's T: line lives on a printed card face
+// the source no longer shows, so its TriggerPush must be tagged with that face
+// and triggerOf must read it from o.Card.Faces rather than the active Face().
+// The shape it exists for: a transformed double-faced card that left the
+// battlefield is front face up (CR 712.8a), but its dies trigger is the back
+// face's. One home for the rule -- triggerPushAmount's pack and triggerOf's
+// decode both read it, so the two can never disagree.
+//
+// The comparison is on the PRINTED FaceIdx, not on Face(): an object under a
+// copy effect shows its CopyFace as the active face, and a copy's trigger line
+// lives on that active face -- the compiled *cards.SA is the copy's own line,
+// not any of the copier's Card.Faces -- so a copy must never take the tagged
+// branch (its FaceIdx still indexes the copier's printed card). The tie-break
+// is what keeps Galian Beast's back-face dies trigger working without turning
+// a Clone's copied "you may" trigger into a mandatory one.
+func triggerTaggedFace(o *state.Object, pt pendingTrigger) bool {
+	return o != nil && o.Card != nil && o.CopyFace == nil && pt.FaceTag != 0 &&
+		pt.printed() && o.FaceIdx+1 != pt.FaceTag && int(pt.FaceTag) <= len(o.Card.Faces)
+}
+
 // triggerPushAmount is the TriggerPush Amount for pt: its line index, tagged
 // with the printed face when the source src no longer shows that face.
 func triggerPushAmount(src *state.Object, pt pendingTrigger) int32 {
-	if src != nil && pt.FaceTag != 0 && pt.printed() &&
-		src.FaceIdx+1 != pt.FaceTag {
+	if triggerTaggedFace(src, pt) {
 		return events.TriggerPushAmount(pt.FaceTag-1, pt.Idx)
 	}
 	return int32(pt.Idx)
@@ -1201,7 +1220,7 @@ func (e *Engine) triggerOf(pt pendingTrigger) (cards.Trigger, bool) {
 	var f *cards.Face
 	if pt.Merged > 0 {
 		f = o.MergedFaceAt(pt.Merged - 1)
-	} else if pt.FaceTag != 0 && pt.printed() && o.Card != nil && int(pt.FaceTag) <= len(o.Card.Faces) {
+	} else if triggerTaggedFace(o, pt) {
 		f = o.Card.Faces[pt.FaceTag-1]
 	} else {
 		f = o.Face()
