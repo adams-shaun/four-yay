@@ -31,6 +31,7 @@ enabled. Dispatching a model outside that set fails at launch.
 | Codex | `openai-codex` / `gpt-6-sol` | 272K / 128K | yes | ChatGPT plan | superseded by gpt-6.1-sol |
 | Codex | `openai-codex` / `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, `gpt-5.5`, `gpt-5.3-codex-spark` | 272K / 128K (spark 128K) | yes | ChatGPT plan | legacy; still enabled, not used by tiers |
 | DeepSeek | `deepinfra` / `deepseek-ai/DeepSeek-V4.1-Flash` | 1M / 384K | no | pay-per-token $0.14/$0.42 per M | escalation — cheapest paid seat, measured 145–190 tok/s |
+| Claude | `anthropic` / `claude-fable-5-1`, `claude-opus-5-5`, `claude-sonnet-5-5` | per pi catalog | yes | Anthropic extra usage | newest Claude models (enabled 2026-10-05); rescue |
 | Claude | `anthropic` / `claude-opus-4-8` | 1M / 128K | yes | Anthropic extra usage | rescue (currently blocked: no extra-usage credits) |
 
 There are TWO local providers, on different hosts:
