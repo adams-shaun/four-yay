@@ -10,29 +10,47 @@ import (
 )
 
 // wantStaticContinuousCensus pins, per set, how many static.continuous
-// requirements the static template serves and how many it skips. Every skip
-// is the one observability reason: gorge showed no effect on either probe or
-// on the card itself (an Elf/Pirate-only anthem, an ability-only Equipment, a
-// self static whose condition the fixture leaves false), or a
-// counter/speed-gated static that only grants an ability (staticGrantWaits). It
-// fails in both directions.
+// requirements the static template serves and how many it skips, keyed by the
+// skip reason. A skip is either the generic observability reason (gorge showed
+// no effect on any probe or the card: a conditional self static the fixture
+// leaves false, or a filter gorge does not apply) or a narrower named one (a
+// qualifier the setup cannot give a probe, a grant outside the compared
+// evergreen keywords, an amount counted from state the fixture does not make
+// observable, or a counter/speed-gated static that only grants an ability).
+// Re-pinned by levelb-static-probe-from-filter, which retries a row the Bear
+// shows nothing on with the probes its Affected$ filter names, and by
+// levelb-setup-counters-speed, which serves a self-counter-gated static with
+// its counters and a MaxSpeed static at speed 4. Measured 2026-10-06 after the
+// counter/speed merge onto the probe work: EOE served 16 -> 37 and its
+// "needs counters on the affected permanent" skip bucket 30 -> 0, with 9 of
+// those 30 granting only an ability (the named staticGrantWaits skip); FDN
+// served 39 -> 40 and its needs-counters bucket 3 -> 2. It fails in both
+// directions.
 var wantStaticContinuousCensus = map[string]map[string]int{
 	"BIG": {
 		"served": 2,
 		"skip:static effect not observable on a probe or the card": 1,
 	},
 	"EOE": {
-		"served": 36,
-		"skip:static effect not observable on a probe or the card":                     19,
+		"served": 37,
+		"skip:static effect not observable on a probe or the card":                     14,
+		"skip:static amount is a computed count the fixture does not make observable":  3,
 		"skip:static grants an ability, which waits for levelb-static-granted-ability": 9,
+		"skip:static grants only keywords outside the compared evergreen set":          1,
 	},
 	"FDN": {
-		"served": 27,
-		"skip:static effect not observable on a probe or the card": 48,
+		"served": 40,
+		"skip:static effect not observable on a probe or the card":                    29,
+		"skip:static amount is a computed count the fixture does not make observable": 4,
+		"skip:static needs counters on the affected permanent":                        2,
 	},
 	"FRA": {
-		"served": 10,
-		"skip:static effect not observable on a probe or the card": 29,
+		"served": 13,
+		"skip:static effect not observable on a probe or the card":                    19,
+		"skip:static amount is a computed count the fixture does not make observable": 3,
+		"skip:static grants only keywords outside the compared evergreen set":         1,
+		"skip:static needs a token (setup places none)":                               1,
+		"skip:static needs counters on the affected permanent":                        2,
 	},
 }
 
