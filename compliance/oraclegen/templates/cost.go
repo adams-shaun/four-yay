@@ -180,7 +180,7 @@ func parameterCostProbe(reg *cards.Registry, f *cards.Face, name string, idx int
 		case strings.Contains(desc, "creature card you own in exile and in your graveyard"):
 			p.graveyard = []string{"Grizzly Bears"}
 		case strings.Contains(desc, "each color among permanents you control"):
-			p.battlefield = []string{"Grizzly Bears", "Mischievous Snappers", "Goblin Piker"}
+			p.battlefield = append([]string(nil), costColourFixtures...)
 		case strings.Contains(desc, "greatest mana value among elementals you control"):
 			p.battlefield = affinityFixtures(reg, "Elemental", 1)
 			if len(p.battlefield) == 0 {
@@ -223,8 +223,7 @@ func parameterCostProbe(reg *cards.Registry, f *cards.Face, name string, idx int
 	present := st.Params["IsPresent"]
 	if present != "" {
 		head := strings.SplitN(present, ".", 2)[0]
-		fixtures := map[string]string{"Otter": "Mischievous Snappers", "Frog": "Frog Lizard", "Creature": "Grizzly Bears", "Artifact": "Silver Myr", "Kithkin": "Kithkin Greatheart", "land": "Forest", "Land": "Forest"}
-		card := fixtures[head]
+		card := costPresentFixtures[head]
 		if card != "" {
 			p.battlefield = appendUnique(p.battlefield, card)
 		}
