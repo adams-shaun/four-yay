@@ -93,13 +93,33 @@ func TestRequirementsClassificationTable(t *testing.T) {
 			}},
 		},
 		{
-			name: "activate from hand is a zone gap",
+			name: "activate from hand is its own sub-family",
 			c: cardOf(&cards.Face{Types: []string{"Creature"}, Abilities: []*cards.SA{
 				ab("Pump", map[string]string{"ActivationZone": "Hand"}),
 			}}),
 			want: []Requirement{{
 				Key: "activate#0.0", Family: "activate", Face: 0, Slot: "0",
-				Sub: "activate.zone:Hand", Gap: "activation zone Hand",
+				Sub: "activate.hand",
+			}},
+		},
+		{
+			name: "activate from graveyard is its own sub-family",
+			c: cardOf(&cards.Face{Types: []string{"Creature"}, Abilities: []*cards.SA{
+				ab("ChangeZone", map[string]string{"ActivationZone": "Graveyard"}),
+			}}),
+			want: []Requirement{{
+				Key: "activate#0.0", Family: "activate", Face: 0, Slot: "0",
+				Sub: "activate.graveyard",
+			}},
+		},
+		{
+			name: "activate from another zone stays a zone gap",
+			c: cardOf(&cards.Face{Types: []string{"Creature"}, Abilities: []*cards.SA{
+				ab("Pump", map[string]string{"ActivationZone": "Exile"}),
+			}}),
+			want: []Requirement{{
+				Key: "activate#0.0", Family: "activate", Face: 0, Slot: "0",
+				Sub: "activate.zone:Exile", Gap: "activation zone Exile",
 			}},
 		},
 		{
