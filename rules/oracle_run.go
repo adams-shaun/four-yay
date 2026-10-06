@@ -472,7 +472,7 @@ func (r *oracleRun) build(sc oracleScenario) error {
 				}
 			}
 			if pl.zone == state.ZBattlefield {
-				r.emitSetupCounters(sc.Setup[fmt.Sprintf("p%d", p)], pl.name, id)
+				emitSetupCounters(e.emit, sc.Setup[fmt.Sprintf("p%d", p)], pl.name, id)
 			}
 			if pl.top {
 				tops = append(tops, id)
@@ -518,7 +518,7 @@ func (r *oracleRun) build(sc oracleScenario) error {
 				e.emit(events.Event{Kind: events.LifeChange, Player: pid, Amount: d})
 			}
 		}
-		r.emitSetupSpeed(p, sc.Setup[fmt.Sprintf("p%d", p)])
+		emitSetupSpeed(e.emit, p, e.G.Players[p].Speed, sc.Setup[fmt.Sprintf("p%d", p)])
 	}
 	e.Advance()
 	// TurnChange cleared the pre-turn placement history. XMage's seeded

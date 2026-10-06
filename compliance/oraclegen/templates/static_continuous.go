@@ -21,6 +21,7 @@
 package templates
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -53,8 +54,17 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 	if requestedFace(c, name) != f {
 		return skip("face is not the castable face")
 	}
+	st := staticAt(f, req)
+	if st == nil {
+		return skip("slot " + req.Slot + " is not a static")
+	}
+	kind, need, gated := staticCounterGate(st)
 	var base oraclegen.Item
-	if oraclegen.HasType(f, "Land") {
+	if gated {
+		// The card starts on the battlefield holding the counters its gate
+		// names, so the effect is already on at the first checkpoint.
+		base = counterGatedBase(f, name, kind, need)
+	} else if oraclegen.HasType(f, "Land") {
 		base = playLandWith(reg, name, f, func(setup map[string]oraclegen.Seat) {
 			p0 := setup["p0"]
 			p0.Battlefield = appendFixtureUnique(p0.Battlefield, staticProbe)
@@ -72,11 +82,17 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 		}
 		base = it
 	}
+	if staticGatedOnMaxSpeed(st) {
+		withMaxSpeed(base.Setup)
+	}
 	res, err := rules.RunOracleScenarioJSON(reg, base.Raw())
 	if err != nil || len(res.Fails) != 0 || len(res.Snapshots) == 0 {
 		return skip("scenario does not replay")
 	}
-	if !staticObserved(res.Snapshots[len(res.Snapshots)-1], f, name) {
+	if !staticObserved(res.Snapshots[len(res.Snapshots)-1], f, name, gated) {
+		if (gated || staticGatedOnMaxSpeed(st)) && staticGrantsAbility(st) {
+			return skip(staticGrantWaits)
+		}
 		return skip("effect not observable on a probe or the card")
 	}
 	it := oraclegen.NewLevelBItem(name, req.Key, StaticApplies.Version, []string{"611.3", "613"}, base.Scenario)
@@ -88,8 +104,11 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 
 // staticObserved reports whether the final snapshot shows a continuous effect:
 // a probe off its printed 2/2 with no keywords, or the card (p0's) off its
-// printed P/T or evergreen keywords.
-func staticObserved(s rules.OracleSnapshot, f *cards.Face, name string) bool {
+// printed P/T or evergreen keywords. typed also counts the card turning into a
+// creature it is not printed as (a Spacecraft's station, a Vehicle's crew
+// condition); only the counter-gated path asks for it, so every other static
+// is judged exactly as before.
+func staticObserved(s rules.OracleSnapshot, f *cards.Face, name string, typed bool) bool {
 	printedKW := oraclediff.EvergreenKeywords(f.Keywords)
 	for _, p := range s.Permanents {
 		switch {
@@ -104,6 +123,41 @@ func staticObserved(s rules.OracleSnapshot, f *cards.Face, name string) bool {
 			if oraclediff.EvergreenKeywords(p.Keywords) != printedKW {
 				return true
 			}
+			if typed && !f.IsCreature() && hasString(p.Types, "Creature") {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// staticAt returns the static a requirement's slot indexes, or nil.
+func staticAt(f *cards.Face, req levelb.Requirement) *cards.Static {
+	i, err := strconv.Atoi(req.Slot)
+	if err != nil || i < 0 || i >= len(f.Statics) {
+		return nil
+	}
+	return &f.Statics[i]
+}
+
+// counterGatedBase is the scenario for a static gated on its own counters:
+// the card and the probe on p0's battlefield, the card holding need counters
+// of kind, and no steps -- the first checkpoint already shows the effect.
+func counterGatedBase(f *cards.Face, name, kind string, need int32) oraclegen.Item {
+	p0 := oraclegen.Seat{Battlefield: []string{name, staticProbe}}
+	p0 = withSetupCounters(p0, name, kind, need)
+	sc := oraclegen.Scenario{
+		Setup: map[string]oraclegen.Seat{"p0": p0, "p1": {}},
+		Steps: []oraclegen.Step{},
+	}
+	oraclegen.Baseline(sc.Setup, f)
+	return oraclegen.Item{Scenario: sc}
+}
+
+func hasString(xs []string, want string) bool {
+	for _, x := range xs {
+		if x == want {
+			return true
 		}
 	}
 	return false

@@ -36,6 +36,11 @@ type Seat struct {
 	Exile       []string `json:"exile,omitempty"`
 	Library     []string `json:"library,omitempty"`
 	LibraryTop  []string `json:"library_top,omitempty"`
+	// Counters puts counters on this seat's battlefield cards: card name ->
+	// counter kind -> amount (the runner's setup field of the same name).
+	Counters map[string]map[string]int32 `json:"counters,omitempty"`
+	// Speed is the seat's starting speed, 0..4 (the runner's setup field).
+	Speed int32 `json:"speed,omitempty"`
 }
 
 // Step is one scenario step (a subset of the runner's op set).

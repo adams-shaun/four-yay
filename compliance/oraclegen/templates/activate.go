@@ -7,7 +7,9 @@
 //
 // v1 cost tokens: mana, T, Q, PayLife<n>, one-card Discard, Sac (self or
 // filtered other permanent), Exile<1/CARDNAME>, tapXType<2/Artifact>, and a
-// source loyalty AddCounter/SubCounter. Anything else is a cost gap. The XMage
+// source loyalty AddCounter/SubCounter, and a SubCounter/RemoveAnyCounter
+// that takes literal counters off the source itself (the setup places them).
+// Anything else is a cost gap. The XMage
 // rule-text prefix rides the Item's XAbility slice (parallel to Steps), so
 // the runner -- which decodes steps strictly -- never sees it.
 package templates
@@ -67,6 +69,7 @@ func activateWith(reg *cards.Registry, f *cards.Face, name string, req levelb.Re
 		p0 := *fx.P0()
 		p0.Battlefield = appendFixtureUnique(p0.Battlefield, name)
 		addActivationCostFixtures(&p0, cost)
+		addActivationCounterFixtures(&p0, name, cost)
 		sc := oraclegen.Scenario{
 			Setup:        map[string]oraclegen.Seat{"p0": p0, "p1": *fx.P1()},
 			SetupAnswers: oraclegen.OpeningHandAnswers(f),
@@ -160,6 +163,13 @@ func activationCost(cost string) (pool, gap string) {
 			}
 		case "AddCounter", "SubCounter":
 			if loyaltyCounter(tok) {
+				continue
+			}
+			if _, _, ok := sourceCounterCost(tok); ok {
+				continue
+			}
+		case "RemoveAnyCounter":
+			if _, _, ok := sourceCounterCost(tok); ok {
 				continue
 			}
 		}

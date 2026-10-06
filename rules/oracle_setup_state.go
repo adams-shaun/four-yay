@@ -41,22 +41,22 @@ func validateSetupState(p int, s oracleSeat) error {
 // placement id (a card named name), as ordinary CounterChange events. Like
 // `tapped`, a counters entry applies to every placement of its name. Keys and
 // kinds go in sorted order so the log is deterministic.
-func (r *oracleRun) emitSetupCounters(s oracleSeat, name string, id state.ObjID) {
+func emitSetupCounters(emit func(events.Event) events.Event, s oracleSeat, name string, id state.ObjID) {
 	for _, key := range sortedSetupKeys(s.Counters) {
 		if cards.NormalizeName(key) != cards.NormalizeName(name) {
 			continue
 		}
 		for _, kind := range sortedSetupKeys(s.Counters[key]) {
-			r.e.emit(events.Event{Kind: events.CounterChange, Obj: id, Counter: kind, Amount: s.Counters[key][kind]})
+			emit(events.Event{Kind: events.CounterChange, Obj: id, Counter: kind, Amount: s.Counters[key][kind]})
 		}
 	}
 }
 
 // emitSetupSpeed raises the seat's speed to its setup value with one
 // SpeedChange event (a fresh seat starts at 0).
-func (r *oracleRun) emitSetupSpeed(p int, s oracleSeat) {
-	if d := s.Speed - r.e.G.Players[p].Speed; d != 0 {
-		r.e.emit(events.Event{Kind: events.SpeedChange, Player: state.PlayerID(p), Amount: d})
+func emitSetupSpeed(emit func(events.Event) events.Event, p int, current int32, s oracleSeat) {
+	if d := s.Speed - current; d != 0 {
+		emit(events.Event{Kind: events.SpeedChange, Player: state.PlayerID(p), Amount: d})
 	}
 }
 
