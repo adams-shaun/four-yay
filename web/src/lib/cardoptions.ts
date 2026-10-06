@@ -161,7 +161,8 @@ const LATER_KINDS: ReadonlySet<string> = new Set(['ability', 'granted', 'unlock'
  * payment action, so the float-gated plan-less cast is discoverable.
  *
  * fb-20261006T100405Z: a hand cast the ENGINE has proved unpayable
- * (PotentialAction.payable === false, rules.annotateCastPayability) is never
+ * (PotentialAction.payable === false, projected by
+ * rules.Engine.PotentialActions) is never
  * indexed -- its "tap other mana first" row promised a tapped-out cast no
  * amount of tapping could reach. The verdict is the server's own; the client
  * must not re-derive affordability from mana_cost (castable.ts).

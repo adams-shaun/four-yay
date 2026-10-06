@@ -301,6 +301,7 @@ func (d *Decision) CloneValue() Decision {
 // always non-nil. dst must not be d or share storage with it.
 func (d *Decision) CloneInto(dst *Decision) {
 	opts, reasons, pays := dst.Options[:0], dst.WindowReasons[:0], dst.PaymentActions[:0]
+	unpayable := dst.PotentialUnpayableCasts[:0]
 	fb, mp := dst.PaymentFallback, dst.ManaPayment
 	*dst = *d
 	dst.Options, dst.WindowReasons = nil, nil
@@ -317,6 +318,7 @@ func (d *Decision) CloneInto(dst *Decision) {
 		pays = append(pays, ClonePaymentAction(d.PaymentActions[i]))
 	}
 	dst.PaymentActions = pays
+	dst.PotentialUnpayableCasts = append(unpayable, d.PotentialUnpayableCasts...)
 	if d.PaymentFallback != nil {
 		if fb == nil {
 			fb = new(PaymentFallback)

@@ -6,6 +6,8 @@ import (
 
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/internal/testutil/feedback"
+	"github.com/adams-shaun/gorge/replay"
+	"github.com/adams-shaun/gorge/rules"
 	"github.com/adams-shaun/gorge/state"
 	"github.com/adams-shaun/gorge/view"
 )
@@ -21,7 +23,7 @@ import (
 // over-costed casts are marked Payable=false while the two affordable ones
 // (Chthonian Nightmare, Songs of the Damned) carry no verdict.
 func TestFeedbackRepro20261006T100405Z_4be7e4f7(t *testing.T) {
-	e := feedback.EngineAt(t, filepath.Join("testdata", "feedback", "20261006T100405Z-4be7e4f7"), -1)
+	e, oracle := engineWithBuiltDecision(t, filepath.Join("testdata", "feedback", "20261006T100405Z-4be7e4f7"))
 
 	// Precondition: the capture point really is the reported priority window.
 	d := e.Pending()
@@ -66,7 +68,10 @@ func TestFeedbackRepro20261006T100405Z_4be7e4f7(t *testing.T) {
 	// The oracle: the planner's own verdicts. The three over-costed casts
 	// are PROVEN unpayable; the two affordable ones are payable.
 	reason := map[state.ObjID]string{}
-	for _, p := range e.PotentialPaymentPlans(0) {
+	// (on a Clone taken before the builder ran: the planner fills the
+	// decision's cast-plan memo, which the projection under test must get from
+	// the offer builder alone.)
+	for _, p := range oracle.PotentialPaymentPlans(0) {
 		if p.Action.Kind == "cast" {
 			reason[p.Action.Obj] = p.Reason
 		}
@@ -127,6 +132,43 @@ func TestFeedbackRepro20261006T100405Z_4be7e4f7(t *testing.T) {
 			t.Errorf("view obj %d (%s): Payable = %v, want a proven false", id, e.G.Obj(id).Face().Name, boolPtrString(p))
 		}
 	}
+}
+
+// engineWithBuiltDecision replays the report to its final priority decision the
+// way a live host reaches it: an earlier priority decision of seat 0 was already
+// projected (view.Project reads PotentialActions, which demands the full
+// potential walk the offer builder then shares), and the final decision's offer
+// builder (EnsurePaymentActions, run by host/match.go before it projects the
+// view) has run. PotentialActions reads the builder's cast verdicts and plans
+// nothing itself, so a bare replay (no builder) would carry no verdict.
+func engineWithBuiltDecision(t *testing.T, dir string) (built, unbuilt *rules.Engine) {
+	t.Helper()
+	l, cfg, _, err := feedback.Load(dir)
+	if err != nil {
+		t.Fatalf("feedback: %v", err)
+	}
+	for k := len(l.Intents) - 1; k > 0; k-- {
+		e, err := replay.ReplayTo(l, cfg, k)
+		if err != nil {
+			t.Fatalf("replay to intent %d: %v", k, err)
+		}
+		if d := e.Pending(); d == nil || d.Kind != decision.KPriority || d.Player != 0 {
+			continue
+		}
+		e.PotentialActions(0) // the host's earlier projection: demands the full walk
+		for i := k; i < len(l.Intents); i++ {
+			if err := e.Submit(l.Intents[i]); err != nil {
+				t.Fatalf("replay intent %d: %v", i, err)
+			}
+		}
+		unbuilt = e.Clone()
+		if len(e.EnsurePaymentActions()) == 0 {
+			t.Fatalf("precondition: the offer builder produced no payment actions")
+		}
+		return e, unbuilt
+	}
+	t.Fatalf("no earlier priority decision of seat 0 to project")
+	return nil, nil
 }
 
 func boolPtrString(p *bool) string {

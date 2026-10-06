@@ -364,7 +364,7 @@ func (e *Engine) PaymentActionsForPriority(p state.PlayerID, seq uint64) []decis
 	// The builder's plans may be shared with the decision's cast-plan memo
 	// (planCastPaymentMemo); hand the caller its own copy, as
 	// EnsurePaymentActions does.
-	Out := e.paymentActionsForPriority(p, p, seq, nil)
+	Out, _ := e.paymentActionsForPriority(p, p, seq, nil)
 	if Out == nil {
 		return nil
 	}
@@ -391,16 +391,16 @@ func (e *Engine) PaymentActionsForPriority(p state.PlayerID, seq uint64) []decis
 // sources cannot afford, which the huge-pool walk admits, so the planner
 // only ever sees the candidates it saw before. Cost statics are collected
 // once and shared by every candidate.
-func (e *Engine) paymentActionsForPriority(p, idSeat state.PlayerID, seq uint64, options []decision.Option) []decision.PaymentAction {
+func (e *Engine) paymentActionsForPriority(p, idSeat state.PlayerID, seq uint64, options []decision.Option) ([]decision.PaymentAction, []state.ObjID) {
 	if e.G.Over {
-		return nil
+		return nil, nil
 	}
 	// Every candidate's plan is declined on a pool the planner cannot
 	// account for (planCastPaymentChecked), and that verdict reads only the
 	// player, so no walk can change the empty result.
 	if !pay.PlanPoolOK(&e.G.Players[p]) {
 		e.PaymentStats.RecordBuild(true)
-		return nil
+		return nil, nil
 	}
 	e.PaymentStats.RecordBuild(false)
 	// The builder's potential walk is what the priority walk's block record
@@ -428,6 +428,7 @@ func (e *Engine) paymentActionsForPriority(p, idSeat state.PlayerID, seq uint64,
 	statics := costStaticSource{e: e}
 	legal := paymentCastCandidates{e: e, p: p, priced: true}
 	var out []decision.PaymentAction
+	var unpayable []state.ObjID
 	for _, opt := range candidates {
 		// A V1 PlannedCast records the ordinary printed-cost cast only.  An
 		// AlternativeCost has no Mode marker, but AltCostIndex identifies it;
@@ -457,6 +458,9 @@ func (e *Engine) paymentActionsForPriority(p, idSeat state.PlayerID, seq uint64,
 		got := e.planCastPaymentMemo(p, cast, &statics, &legal)
 		e.PaymentStats.RecordOutcome(got)
 		if got.Plan == nil {
+			if got.Reason == pay.ReasonInsufficient {
+				unpayable = append(unpayable, opt.Obj)
+			}
 			continue
 		}
 		// The candidate walk's target census ran with the card in hand; the
@@ -498,7 +502,7 @@ func (e *Engine) paymentActionsForPriority(p, idSeat state.PlayerID, seq uint64,
 		out = append(out, a)
 		e.PaymentStats.RecordOffered(len(a.Plans))
 	}
-	return out
+	return out, unpayable
 }
 
 // ValidateCastPayment independently re-derives the eligible sources and cost
