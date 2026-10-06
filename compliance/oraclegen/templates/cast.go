@@ -147,7 +147,7 @@ func castWith(reg *cards.Registry, f *cards.Face, name, mana string, slots []ora
 		for _, extra := range extras {
 			for _, fx := range oraclegen.Fixtures(reg, plain) {
 				extra(&fx)
-				sc := buildStackScenario(f, name, mana, pre, fx, slots, stackIdx, answers)
+				sc := buildStackScenario(f, name, physicalName(reg, name), mana, pre, fx, slots, stackIdx, answers)
 				if n, res, ok := oraclegen.Settle(reg, sc); ok {
 					for i := 0; i < n; i++ {
 						sc.Steps = append(sc.Steps, oraclegen.Step{Op: "resolve"})
@@ -245,15 +245,16 @@ func appendFixtureUnique(xs []string, name string) []string {
 
 // buildStackScenario builds the scenario for one fixture: the precast spell
 // (if any) is cast first, then the card under test with its targets placed in
-// slot order (a stack slot points at the precast spell on the stack).
-func buildStackScenario(f *cards.Face, name, mana string, pre precast, fx oraclegen.Fixture, slots []oraclegen.Slot, stackIdx []int, answers []oraclegen.Answer) oraclegen.Scenario {
+// slot order (a stack slot points at the precast spell on the stack). hand
+// is the physical card setup deals (physicalName).
+func buildStackScenario(f *cards.Face, name, hand, mana string, pre precast, fx oraclegen.Fixture, slots []oraclegen.Slot, stackIdx []int, answers []oraclegen.Answer) oraclegen.Scenario {
 	targets := insertStackTargets(slots, stackIdx, fx.Targets(), pre)
 	sc := oraclegen.Scenario{
 		Setup:        map[string]oraclegen.Seat{"p0": *fx.P0(), "p1": *fx.P1()},
 		SetupAnswers: oraclegen.OpeningHandAnswers(f),
 		Steps:        []oraclegen.Step{{Op: "cast", Seat: 0, Card: "p0:" + name, Mana: mana, Targets: targets, Answers: answers}},
 	}
-	sc.Setup["p0"] = oraclegen.WithHand(sc.Setup["p0"], name)
+	sc.Setup["p0"] = oraclegen.WithHand(sc.Setup["p0"], hand)
 	if pre.card != "" {
 		sc.Setup["p0"] = oraclegen.WithHand(sc.Setup["p0"], pre.card)
 		cast := oraclegen.Step{Op: "cast", Seat: 0, Card: "p0:" + pre.card, Mana: pre.mana, Targets: pre.targets}

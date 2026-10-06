@@ -130,7 +130,19 @@ func teamworkAssistantTokens(t *testing.T, assistant *cards.Card, pay bool) int 
 	} else if len(e.G.Stack) != 1 {
 		t.Fatalf("declined cast queued Assistant's trigger: stack=%v", e.G.Stack)
 	}
-	passUntilStackEmpty(t, e, 60)
+	// Resolve the Assistant trigger only. Go Nuts! itself remains on the
+	// stack; its fight rider has a separate resolution-time choice unrelated
+	// to the Spell.Teamwork trigger this test measures.
+	for i := 0; i < 20 && len(e.G.Stack) > 1; i++ {
+		d := e.Pending()
+		if d == nil || d.Kind != decision.KPriority {
+			t.Fatalf("unexpected decision while resolving Assistant trigger: %+v", d)
+		}
+		submitChoicePass(t, e)
+	}
+	if len(e.G.Stack) != 1 || e.G.Stack[0] != spell {
+		t.Fatalf("precondition: Assistant trigger should resolve above Go Nuts!: stack=%v", e.G.Stack)
+	}
 	tokens := 0
 	for _, id := range e.G.Zone(state.ZBattlefield, 0) {
 		if o := e.G.Obj(id); o != nil && o.Face() != nil && strings.Contains(o.Face().Name, "Robot") {

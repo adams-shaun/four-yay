@@ -76,7 +76,9 @@ tasks = ["review", "triage"]
 [[tiers]]
 name = "sol"
 provider = "openai-codex"
-model = "gpt-6-sol"
+# 2026-10-05: gpt-6.1-sol (DevDay 2026-09-29) replaces gpt-6-sol: higher
+# agentic-coding scores at ~1/4 the cost per task; smoke-tested via pi.
+model = "gpt-6.1-sol"
 thinking = "high"
 paid = true
 cap = 0
@@ -211,7 +213,7 @@ ignore_uncommitted = ["TEST_HISTORY.md"]
 # the pipeline. Seats cannot run XMage, and 7883f6b25 merged a driver change
 # that turned every Standard scenario into a harness failure (4944 rows) until
 # a host full replay caught it. A branch touching tools/xmageoracle/ fails here
-# and parks; the operator runs /mnt/sata/gorge-training/xmageoracle/full-replay.sh,
+# and parks; the operator runs validation/oracle/full-replay.sh,
 # compares verdicts against main, and lands it by hand
 # (.ds4/operator-compliance-refresh.md).
 [[gates]]

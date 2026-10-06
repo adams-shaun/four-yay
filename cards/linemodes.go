@@ -375,7 +375,9 @@ const (
 	ReplTurnFaceUp     ReplEvent = 23
 	ReplMill           ReplEvent = 24
 	ReplPayLife        ReplEvent = 25
-	ReplEventCount               = 26 // one past the last; sizes a dense per-ReplEvent array
+	ReplLoseMana       ReplEvent = 26
+	ReplConnive        ReplEvent = 27
+	ReplEventCount               = 28 // one past the last; sizes a dense per-ReplEvent array
 )
 
 var replEventNames = [ReplEventCount]string{
@@ -404,6 +406,8 @@ var replEventNames = [ReplEventCount]string{
 	ReplTurnFaceUp:     "TurnFaceUp",
 	ReplMill:           "Mill",
 	ReplPayLife:        "PayLife",
+	ReplLoseMana:       "LoseMana",
+	ReplConnive:        "Connive",
 }
 
 var replEventCodes = func() StrCodes[ReplEvent] {

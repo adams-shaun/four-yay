@@ -98,8 +98,9 @@ func resolvePettyTheftFromHand(t *testing.T, e *Engine, id, oppBear state.ObjID)
 	submitChoices(t, e, tgt)
 	passUntilStackEmpty(t, e, 20)
 	o := e.G.Obj(id)
-	if o.Zone != state.ZExile || int(o.FaceIdx) != 1 {
-		t.Fatalf("precondition: card after Petty Theft is zone=%s faceIdx=%d, want ZExile/1",
+	// CR 715.4: off the stack the card is its main face again.
+	if o.Zone != state.ZExile || int(o.FaceIdx) != 0 {
+		t.Fatalf("precondition: card after Petty Theft is zone=%s faceIdx=%d, want ZExile/0",
 			o.Zone, o.FaceIdx)
 	}
 }
@@ -157,8 +158,9 @@ func TestAlternateFaceCantBeCastAdventureAltFrontRestricted(t *testing.T) {
 	submitChoices(t, e, tgt)
 	passUntilStackEmpty(t, e, 20)
 	o := e.G.Obj(id)
-	if o.Zone != state.ZExile || int(o.FaceIdx) != 1 || o.Face().Name != "Petty Theft" {
-		t.Fatalf("adventure_alt did not resolve as Petty Theft: zone=%s faceIdx=%d name=%q",
+	// CR 715.4: the resolved Adventure card rests in exile as its main face.
+	if o.Zone != state.ZExile || int(o.FaceIdx) != 0 || o.Face().Name != "Brazen Borrower" {
+		t.Fatalf("adventure_alt did not resolve into the adventure zone: zone=%s faceIdx=%d name=%q",
 			o.Zone, o.FaceIdx, o.Face().Name)
 	}
 	if bounced := e.G.Obj(oppBear); bounced.Zone != state.ZHand {
@@ -208,12 +210,11 @@ func TestAlternateFaceCantBeCastAdventureAltBackRestricted(t *testing.T) {
 
 // --- Adventure face from exile (adventure_recast) ---------------------------
 
-// TestAlternateFaceCantBeCastAdventureRecastFrontRestricted: the exiled card
-// still displays its Adventure face (Petty Theft, an Instant, which Nikya's
-// Card.nonCreature static restricts), but the recast casts the creature front
+// TestAlternateFaceCantBeCastAdventureRecastFrontRestricted: the card's
+// Adventure face (Petty Theft, an Instant, which Nikya's Card.nonCreature
+// static restricts) is restricted, but the recast casts the creature front
 // (Brazen Borrower), which is unrestricted. The recast must be offered and
-// must resolve at the creature face (the old !castRestricted gate read the
-// displayed Adventure face and withheld it).
+// must resolve at the creature face.
 func TestAlternateFaceCantBeCastAdventureRecastFrontRestricted(t *testing.T) {
 	t.Parallel()
 	reg := searchTestRegistry(t)
@@ -224,11 +225,11 @@ func TestAlternateFaceCantBeCastAdventureRecastFrontRestricted(t *testing.T) {
 	if n := e.G.Obj(nikya); n.Zone != state.ZBattlefield {
 		t.Fatalf("precondition: Nikya zone=%s, want battlefield", n.Zone)
 	}
-	// Precondition: the DISPLAYED face (Petty Theft) IS restricted by the
-	// noncreature static -- the gate the old recast path read.
-	if !e.castRestricted(0, id) {
-		t.Fatal("precondition: the displayed Petty Theft face is not restricted, " +
-			"so the displayed-face probe would not withhold the recast")
+	// Precondition: the Adventure face (Petty Theft) IS restricted by the
+	// noncreature static, so a probe of the wrong face would withhold it.
+	if !probeFaceRestricted(t, e, id, adventureSpellFace(e.G.Obj(id))) {
+		t.Fatal("precondition: the Petty Theft face is not restricted, " +
+			"so an Adventure-face probe would not withhold the recast")
 	}
 	// Precondition: the MAIN face the recast actually casts is NOT restricted.
 	front := e.G.Obj(id).Card.Faces[0]
@@ -259,12 +260,10 @@ func TestAlternateFaceCantBeCastAdventureRecastFrontRestricted(t *testing.T) {
 	_ = cfg
 }
 
-// TestAlternateFaceCantBeCastAdventureRecastBackRestricted: the exiled card
-// displays Petty Theft (an Instant, unrestricted by Steel Golem's
-// ValidCard$ Creature static), but the recast casts the Brazen Borrower
-// creature, which Steel Golem prohibits. The recast must be withheld (the old
-// !castRestricted gate read the unrestricted displayed face and offered the
-// prohibited creature cast).
+// TestAlternateFaceCantBeCastAdventureRecastBackRestricted: the card's
+// Adventure face, Petty Theft (an Instant), is unrestricted by Steel Golem's
+// ValidCard$ Creature static, but the recast casts the Brazen Borrower
+// creature, which Steel Golem prohibits. The recast must be withheld.
 func TestAlternateFaceCantBeCastAdventureRecastBackRestricted(t *testing.T) {
 	t.Parallel()
 	reg := searchTestRegistry(t)
@@ -276,11 +275,11 @@ func TestAlternateFaceCantBeCastAdventureRecastBackRestricted(t *testing.T) {
 		t.Fatalf("precondition: Steel Golem zone=%s face=%q, want a creature on the battlefield",
 			g.Zone, g.Face().Name)
 	}
-	// Precondition: the DISPLAYED Petty Theft face is NOT restricted -- this
-	// is the gate the old recast path read and passed.
-	if e.castRestricted(0, id) {
-		t.Fatal("precondition: the displayed Petty Theft face is restricted, so " +
-			"the displayed-face probe would already withhold the recast")
+	// Precondition: the Petty Theft face is NOT restricted, so a probe of
+	// the Adventure face would offer the prohibited recast.
+	if probeFaceRestricted(t, e, id, adventureSpellFace(e.G.Obj(id))) {
+		t.Fatal("precondition: the Petty Theft face is restricted, so an " +
+			"Adventure-face probe would already withhold the recast")
 	}
 	// Precondition: the MAIN face the recast casts IS restricted under the
 	// probe -- the prohibition the old path missed.

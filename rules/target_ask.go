@@ -633,6 +633,9 @@ func (e *Engine) handleTarget(d *decision.Decision, in decision.Intent) {
 				if pc.stackObj != 0 {
 					e.recordChosenTargets(pc.stackObj, ordered, stageBase > 0)
 				}
+				if e.postTargetAsks(pc) {
+					return
+				}
 				e.payCast()
 			} else {
 				pc.rootOpts = append([]decision.Option(nil), ordered...)

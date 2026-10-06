@@ -12,7 +12,7 @@ import (
 // A spell copy was not cast, but (like Conspire) carries the paid additional
 // cost's provenance. Both readers must see the same value as the inherited bit.
 func TestTeamworkPaidStackCopyReadsCostProvenance(t *testing.T) {
-	e, _, reg := conspireEngine(t, "Go Nuts!")
+	e, _, reg := conspireEngine(t, "Go Nuts!", "Grizzly Bears")
 	a := seedBattlefield(t, e, reg, "Goblin Piker")
 	b := seedBattlefield(t, e, reg, "Grizzly Bears")
 	spell := searchMoveByName(t, e, "Go Nuts!", state.ZHand)
