@@ -13,9 +13,9 @@ import (
 // the permanents that arrived ("permanents+") and left ("permanents-")
 // since the first checkpoint, so an untouched fixture never enters a
 // verdict.
-func view(s rules.OracleSnapshot, initialPerms []string, ignore []string) []field {
+func view(s rules.OracleSnapshot, initialPerms []string, compare []string, ignore []string) []field {
 	var out []field
-	for _, f := range fields(s, false) {
+	for _, f := range fields(s, false, compare) {
 		if ignored(f.name, ignore) {
 			continue
 		}
@@ -33,14 +33,14 @@ func view(s rules.OracleSnapshot, initialPerms []string, ignore []string) []fiel
 	return out
 }
 
-func views(res rules.OracleResult, ignore []string) [][]field {
+func views(res rules.OracleResult, compare []string, ignore []string) [][]field {
 	if len(res.Snapshots) == 0 {
 		return nil
 	}
-	initial := permKeys(res.Snapshots[0].Permanents)
+	initial := permKeysOpts(res.Snapshots[0].Permanents, compare)
 	out := make([][]field, len(res.Snapshots))
 	for i, s := range res.Snapshots {
-		out[i] = view(s, initial, ignore)
+		out[i] = view(s, initial, compare, ignore)
 	}
 	return out
 }
@@ -59,11 +59,17 @@ func checkpoints(res rules.OracleResult) string {
 // checkpoint at some later checkpoint, with its value at every later
 // checkpoint.
 func Freeze(res rules.OracleResult, ignore ...string) []compliance.Frozen {
+	return FreezeOpts(res, nil, ignore...)
+}
+
+// FreezeOpts is Freeze with the item's opt-in comparison fields
+// (oraclegen.Item.Compare). A nil list is exactly Freeze.
+func FreezeOpts(res rules.OracleResult, compare []string, ignore ...string) []compliance.Frozen {
 	out := []compliance.Frozen{{Field: "checkpoints", Value: checkpoints(res)}}
 	if len(res.Fails) > 0 {
 		out = append(out, compliance.Frozen{Field: "fails", Value: strings.Join(res.Fails, "\n")})
 	}
-	vs := views(res, ignore)
+	vs := views(res, compare, ignore)
 	if len(vs) < 2 {
 		return out
 	}
@@ -89,7 +95,13 @@ func Freeze(res rules.OracleResult, ignore ...string) []compliance.Frozen {
 // Meets reports whether gorge's result still meets a frozen expectation,
 // and if not, the first frozen field it misses.
 func Meets(frozen []compliance.Frozen, res rules.OracleResult, ignore ...string) (bool, string) {
-	vs := views(res, ignore)
+	return MeetsOpts(frozen, res, nil, ignore...)
+}
+
+// MeetsOpts is Meets with the item's opt-in comparison fields
+// (oraclegen.Item.Compare). A nil list is exactly Meets.
+func MeetsOpts(frozen []compliance.Frozen, res rules.OracleResult, compare []string, ignore ...string) (bool, string) {
+	vs := views(res, compare, ignore)
 	at := map[string]map[string]string{}
 	for i, v := range vs {
 		m := map[string]string{}

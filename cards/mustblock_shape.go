@@ -2,9 +2,11 @@ package cards
 
 import "strings"
 
-// MustBlockNamedTargetShape is the only API shape whose duty the resolver can
-// currently represent: one mandatory chosen blocker and the triggered attacker.
-// Keep coverage and resolution on the same fail-closed parameter boundary.
+// MustBlockNamedTargetShape certifies API forms whose blocker and attacker
+// selectors can be resolved to concrete battlefield objects, plus Crashing
+// Boars' exact choice-pool form (the defending player's resolving-time
+// choice). Any other choice-pool or selector form stays fail-closed: keep
+// coverage and resolution on the same parameter boundary.
 func MustBlockNamedTargetShape(sa *SA) bool {
 	if sa == nil || sa.API != "MustBlock" {
 		return false
@@ -27,38 +29,53 @@ func MustBlockNamedTargetShape(sa *SA) bool {
 		}
 		return true
 	}
-	attacker := strings.TrimSpace(sa.ParamStr(PKDefinedAttacker))
-	valid := strings.TrimSpace(sa.ParamStr(PKValidTgts))
-	duration := strings.TrimSpace(sa.ParamStr(PKDuration))
-	fighterClass := attacker == "TriggeredAttackerLKICopy" && valid == "Creature" &&
-		strings.TrimSpace(sa.ParamStr(PKTargetMin)) == "0" &&
-		strings.TrimSpace(sa.ParamStr(PKTargetMax)) == "1" &&
-		strings.TrimSpace(sa.Params["BlockAllDefined"]) == "True" && duration == "UntilEndOfCombat"
-	if attacker != "TriggeredAttacker" && !fighterClass {
+	// Every certified targeted grammar names creatures, and each value here
+	// is a MustBlock ValidTgts$ the corpus prints. A missing ValidTgts is only
+	// safe when the script supplies an explicit Defined set; otherwise
+	// Defined's default-to-source behavior is a blocker, not a set.
+	targets := strings.TrimSpace(sa.ParamStr(PKValidTgts))
+	defined := strings.TrimSpace(sa.ParamStr(PKDefined))
+	switch targets {
+	case "", "Creature", "Creature.OppCtrl", "Creature.DefenderCtrl",
+		"Creature.YouDontCtrl", "Creature.Artifact":
+	default:
 		return false
 	}
-	// The resolver creates duties only for battlefield objects. In particular,
-	// player and mixed alternatives can be selected but are silently skipped.
-	// Certify only the creature selectors established by this API's tests.
-	if fighterClass {
-		if valid != "Creature" {
+	if targets == "" && defined == "" {
+		return false
+	}
+	// Defined$ is not an arbitrary string: effects.Defined intentionally
+	// falls back to the ability's source for unknown selectors. Certify only
+	// the selector forms used by the corpus and resolved to concrete sets.
+	if defined != "" {
+		switch defined {
+		case "ParentTarget", "Valid Creature.counters_GE1_MAGNET":
+		default:
 			return false
 		}
-	} else if valid != "Creature" && valid != "Creature.OppCtrl" {
+	}
+	attacker := strings.TrimSpace(sa.ParamStr(PKDefinedAttacker))
+	switch attacker {
+	case "", "TriggeredAttacker", "TriggeredAttackerLKICopy", "ParentTarget", "Valid Card.attacking":
+	default:
 		return false
 	}
 	// Other durations have not been checked against the continuous duty's
 	// expiry semantics. No duration and this combat's duration are supported.
-	if !fighterClass && duration != "" && duration != "UntilEndOfCombat" {
+	switch strings.TrimSpace(sa.ParamStr(PKDuration)) {
+	case "", "UntilEndOfCombat":
+	default:
+		return false
+	}
+	blockAll := strings.TrimSpace(sa.Params["BlockAllDefined"])
+	if blockAll != "" && blockAll != "True" {
 		return false
 	}
 	for k := range sa.Params {
 		switch k {
-		case "DefinedAttacker", "ValidTgts", "Duration", "TgtPrompt":
-		case "TargetMin", "TargetMax", "BlockAllDefined":
-			if !fighterClass {
-				return false
-			}
+		case "Defined", "DefinedAttacker", "ValidTgts", "Duration", "TgtPrompt", "Cost",
+			"BlockAllDefined", "TargetMin", "TargetMax", "TargetUnique", "SpellDescription", "StackDescription",
+			"PrecostDesc", "AILogic", "CheckSVar", "SVarCompare":
 		default:
 			return false
 		}

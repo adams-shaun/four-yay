@@ -34,6 +34,15 @@ type ManaRestriction struct {
 	// phantom. The pm Text suffix on the producing ManaAdd event is what
 	// sets it, so a replay derives it identically.
 	Persistent bool
+	// Combat marks a Persistent batch whose don't-lose clause lasts only
+	// "until end of combat" (CR 702.189a Firebending's shape): the same
+	// " pmc" Text suffix that credits Player.CombatMana sets it. A
+	// restricted spend that consumes a Combat batch's units takes them out
+	// of CombatMana too, and the end-of-combat StepChange fold demotes a
+	// surviving Combat batch to ordinary, so neither the tally nor the
+	// batch outlives its units -- and an unrelated turn-persistent unit is
+	// never emptied in its place.
+	Combat bool
 	// AddsCounters is the producing mana ability's AddsCounters$ rider value
 	// (Opal Palace, Biophagus, Animal Attendant, Guildmages' Forum) captured
 	// at PRODUCTION, when the ability is still the one that produced these

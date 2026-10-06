@@ -102,6 +102,10 @@ type Item struct {
 	// Ignore names snapshot fields the comparison leaves out for this
 	// scenario: library_top after the card shuffles a library.
 	Ignore []string `json:"ignore,omitempty"`
+	// Compare opts a snapshot field into the comparison. The one legal value
+	// for now is "keywords": a permanent's key gains its folded evergreen
+	// keywords. Empty (omitempty) keeps a level-A item byte-identical.
+	Compare []string `json:"compare,omitempty"`
 	Scenario
 }
 

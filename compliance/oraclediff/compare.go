@@ -70,6 +70,13 @@ func XMageLacksCard(msg, scenarioCard string) bool {
 // ignore names fields left out of the comparison (by suffix, e.g.
 // "library_top" after a shuffle, whose order is random in both engines).
 func Compare(g rules.OracleResult, gerr error, x XResult, ignore ...string) Verdict {
+	return CompareOpts(g, gerr, x, nil, ignore...)
+}
+
+// CompareOpts is Compare with the item's opt-in comparison fields
+// (oraclegen.Item.Compare, e.g. ["keywords"]). A nil list is exactly
+// Compare, so every level-A comparison is unchanged.
+func CompareOpts(g rules.OracleResult, gerr error, x XResult, compare []string, ignore ...string) Verdict {
 	if gerr != nil {
 		return Verdict{Status: Harness, Engine: "gorge", Msg: gerr.Error()}
 	}
@@ -96,7 +103,7 @@ func Compare(g rules.OracleResult, gerr error, x XResult, ignore ...string) Verd
 		return Verdict{Status: Harness, Engine: "both", Msg: fmt.Sprintf("%d gorge checkpoints, %d xmage", len(g.Snapshots), len(x.Snapshots))}
 	}
 	for i := range g.Snapshots {
-		if v, ok := compareSnap(g.Snapshots[i], x.Snapshots[i], ignore); !ok {
+		if v, ok := compareSnap(g.Snapshots[i], x.Snapshots[i], compare, ignore); !ok {
 			return v
 		}
 	}
@@ -110,7 +117,7 @@ type field struct{ name, value string }
 // comparator compares; xmage selects XMage's step vocabulary. Two
 // snapshots agree exactly when their field lists are equal, so the list
 // doubles as the frozen expectation (Canonical).
-func fields(s rules.OracleSnapshot, xmage bool) []field {
+func fields(s rules.OracleSnapshot, xmage bool, compare []string) []field {
 	step := s.Step
 	if xmage {
 		step = XMageStep(step)
@@ -134,7 +141,7 @@ func fields(s rules.OracleSnapshot, xmage bool) []field {
 		)
 	}
 	out = append(out,
-		field{"permanents", strings.Join(permKeys(s.Permanents), "\n")},
+		field{"permanents", strings.Join(permKeysOpts(s.Permanents, compare), "\n")},
 		field{"stack", stackKeys(s.Stack)},
 	)
 	return out
@@ -149,11 +156,11 @@ func ignored(name string, ignore []string) bool {
 	return false
 }
 
-func compareSnap(g, x rules.OracleSnapshot, ignore []string) (Verdict, bool) {
+func compareSnap(g, x rules.OracleSnapshot, compare []string, ignore []string) (Verdict, bool) {
 	if g.Checkpoint != x.Checkpoint {
 		return Verdict{Status: Harness, Engine: "both", Msg: fmt.Sprintf("checkpoint %q vs %q", g.Checkpoint, x.Checkpoint)}, false
 	}
-	gf, xf := fields(g, false), fields(x, true)
+	gf, xf := fields(g, false, compare), fields(x, true, compare)
 	for k := range gf {
 		if ignored(gf[k].name, ignore) {
 			continue
@@ -178,10 +185,16 @@ func compareSnap(g, x rules.OracleSnapshot, ignore []string) (Verdict, bool) {
 // form: equal to XMage's exactly when the two agree. A verdict row freezes
 // its hash, so the CI gate can re-check gorge without Java.
 func Canonical(snaps []rules.OracleSnapshot, ignore ...string) string {
+	return CanonicalOpts(snaps, nil, ignore...)
+}
+
+// CanonicalOpts is Canonical with the item's opt-in comparison fields
+// (oraclegen.Item.Compare). A nil list is exactly Canonical.
+func CanonicalOpts(snaps []rules.OracleSnapshot, compare []string, ignore ...string) string {
 	var b strings.Builder
 	for _, s := range snaps {
 		fmt.Fprintf(&b, "== %s\n", s.Checkpoint)
-		for _, f := range fields(s, false) {
+		for _, f := range fields(s, false, compare) {
 			if ignored(f.name, ignore) {
 				continue
 			}
@@ -317,8 +330,17 @@ func types(ts []string, allCreatureTypes bool) string {
 
 // permKeys renders each permanent as one canonical line and sorts them:
 // cards match by controller and name (the multiset), tokens by
-// characteristics, since the engines name tokens differently.
+// characteristics, since the engines name tokens differently. It is
+// permKeysOpts with no opt-in comparison fields.
 func permKeys(ps []rules.OracleSnapPerm) []string {
+	return permKeysOpts(ps, nil)
+}
+
+// permKeysOpts is permKeys with the item's opt-in field list: when it names
+// "keywords" the line gains the permanent's folded evergreen keywords
+// (spec 2026-10-05-compliance-level-b section 2.3).
+func permKeysOpts(ps []rules.OracleSnapPerm, compare []string) []string {
+	wantKeywords := wantsCompare(compare, CompareKeywords)
 	// attached_to names its host the way XMage's driver does: the host
 	// permanent's CURRENT name (its layer-3 SetName$ name, or "" while face
 	// down, CR 708.2a), never the printed name the ref encodes. An empty
@@ -349,6 +371,11 @@ func permKeys(ps []rules.OracleSnapPerm) []string {
 		if c := counters(p.Counters); c != "" {
 			k += " counters=" + c
 		}
+		if wantKeywords {
+			if kw := evergreenList(p.Keywords); kw != "" {
+				k += " kw=" + kw
+			}
+		}
 		if p.AttachedTo != "" {
 			if host, ok := hostName[p.AttachedTo]; !ok {
 				k += " on=" + RefName(p.AttachedTo)
@@ -366,6 +393,16 @@ func permKeys(ps []rules.OracleSnapPerm) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// wantsCompare reports whether the item's opt-in field list names field.
+func wantsCompare(compare []string, field string) bool {
+	for _, c := range compare {
+		if c == field {
+			return true
+		}
+	}
+	return false
 }
 
 func symDiff(a, b []string) (onlyA, onlyB []string) {

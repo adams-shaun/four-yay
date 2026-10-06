@@ -9,6 +9,7 @@
 #
 # Per set:
 #   1. oraclediff gen   -- one level-A scenario per manifest card gorge supports
+#                          (LEVEL=B adds every generable level-B scenario)
 #   2. oraclediff plan  -- keep only the STALE scenarios: no verdict, another
 #                          scenario or XMAGE_REF, not passing, or gorge no
 #                          longer meets the frozen expectation
@@ -27,6 +28,7 @@
 #
 # Environment:
 #   XMAGE_REF, XMAGE_ORACLE_DIR  default to the Makefile's values
+#   LEVEL                        compliance level, A (default) or B
 #   COMPLIANCE_PASS_OUT          run directory (default $XMAGE_ORACLE_DIR/pass)
 #   COMPLIANCE_PASS_CACHE        XMage result cache (default
 #                                $XMAGE_ORACLE_DIR/cache/<ref12>-<driver12>)
@@ -71,7 +73,7 @@ rc=0
 for s in "$@"; do
 	d=$out/$s
 	rm -rf "$d" && mkdir -p "$d"
-	if ! "$od" gen -manifest "compliance/manifests/$s.json" -out "$d/scen.jsonl" >"$d/gen.log" 2>&1; then
+	if ! "$od" gen -manifest "compliance/manifests/$s.json" -level "${LEVEL:-A}" -out "$d/scen.jsonl" >"$d/gen.log" 2>&1; then
 		echo "$s: gen FAILED"; tail -3 "$d/gen.log"; rc=1; continue
 	fi
 	if ! "$od" plan -scenarios "$d/scen.jsonl" -xmage-ref "$ref" -cache "$cache" \
@@ -104,7 +106,7 @@ if [ "${COMPLIANCE_PASS_NO_WRITE:-}" != 1 ]; then
 fi
 python3 scripts/compliance-summary.py "$out" "$@"
 for s in "$@"; do
-	"$od" status -set "$s" >"$out/$s/status.txt" 2>&1 || rc=1
+	"$od" status -set "$s" -level "${LEVEL:-A}" >"$out/$s/status.txt" 2>&1 || rc=1
 	tail -1 "$out/$s/status.txt"
 done
 exit $rc

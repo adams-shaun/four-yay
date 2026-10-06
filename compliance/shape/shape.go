@@ -41,6 +41,9 @@ const Filler = "Wastes"
 
 // Shape is one disagreement's signature.
 type Shape struct {
+	// Template is the template FAMILY (the part of a row's template before
+	// '#'), so every slot of one level-B family (activate#0.1, activate#0.3)
+	// and every level-A template string (which has no '#') key one shape.
 	Template string `json:"template"`
 	Op       string `json:"op"`    // checkpoint op (cast, resolve, play), or "harness"
 	Field    string `json:"field"` // comparator field, pN.library for library placement, or the harness engine
@@ -83,7 +86,7 @@ func Of(r compliance.VerdictRow) (Shape, bool) {
 	}
 	if r.Status == compliance.StatusHarness {
 		engine, msg, _ := strings.Cut(r.Detail, ": ")
-		return Shape{Template: r.Template, Op: "harness", Field: engine, Diff: harnessMsg(msg, r.Card)}, true
+		return Shape{Template: templateFamily(r.Template), Op: "harness", Field: engine, Diff: harnessMsg(msg, r.Card)}, true
 	}
 	m := divergeRE.FindStringSubmatch(r.Detail)
 	if m == nil {
@@ -101,7 +104,18 @@ func Of(r compliance.VerdictRow) (Shape, bool) {
 		op = m[1]
 	}
 	field, diff := normDiff(m[2], g, x, r.Card)
-	return Shape{Template: r.Template, Op: op, Field: field, Diff: diff}, true
+	return Shape{Template: templateFamily(r.Template), Op: op, Field: field, Diff: diff}, true
+}
+
+// templateFamily is a template string's family: the part before '#' for a
+// level-B requirement key (activate#0.2 -> activate), the whole string for a
+// level-A template, which has no '#'. Level-A strings are returned unchanged,
+// so every committed shape id and triage file name stays as it was.
+func templateFamily(template string) string {
+	if i := strings.IndexByte(template, '#'); i >= 0 {
+		return template[:i]
+	}
+	return template
 }
 
 // harnessMsg normalises a driver message: the card is $CARD, the target

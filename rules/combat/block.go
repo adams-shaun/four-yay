@@ -240,6 +240,20 @@ func MustBlockPairRequired(b Board, blocker, attacker state.ObjID) bool {
 	return false
 }
 
+// MustBlockAllPair reports whether the SAME active BlockAllDefined$ duty
+// names this blocker and attacker. An unrelated ordinary MustBlock duty cannot
+// borrow the multiple-block permission from another effect on the blocker.
+func MustBlockAllPair(b Board, blocker, attacker state.ObjID) bool {
+	for ceI, ces := 0, b.Active(); ceI < len(ces); ceI++ {
+		ce := &ces[ceI]
+		if ce.Restriction == effects.ModeMustBlock && ce.MustBlockAllAttackers &&
+			ce.MustBlockAttacker == attacker && b.RestrictionApplies(ce, blocker) {
+			return true
+		}
+	}
+	return false
+}
+
 // ValidateMinMaxBlockers enforces CR 509.1a's MinMaxBlocker bounds on ONE
 // attacker's declared blocker count n (already non-zero). A Min$ bound admits
 // only 0 or at least min blockers; a Max$ bound admits only at most max; Min$

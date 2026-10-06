@@ -916,8 +916,16 @@ func (r *oracleRun) priorityFor(seat state.PlayerID, op string) (*decision.Decis
 // engineSurface.
 func oraclePickStepOption(r *oracleRun, st oracleStep, seat state.PlayerID, id state.ObjID, d *decision.Decision) (int, error) {
 	e := r.e
-	if st.Op == "activate" && st.AbilityIndex != nil {
+	op := oracleOpCodes.Code(string(st.Op))
+	if op == oracleOpActivate && st.AbilityIndex != nil {
 		return oraclePickActivateByIndex(r, st, seat, id, d)
+	}
+	// A cast is not an ability activation: there is no ability index a cast
+	// step could honour, so an index on a cast step must fail loudly rather
+	// than be silently discarded (the cast-mode selection below would ignore
+	// it). Worded like the wrong-index activate path.
+	if op == oracleOpCast && st.AbilityIndex != nil {
+		return -1, harnessf("%s %s not offered (ability_index: %d): %s", st.Op, st.Card, *st.AbilityIndex, optionDump(d))
 	}
 	idx, fallback, manaFallback := -1, -1, -1
 	wantMode := oracleCastWantMode(st, e.G.Obj(id))
@@ -932,7 +940,7 @@ func oraclePickStepOption(r *oracleRun, st oracleStep, seat state.PlayerID, id s
 	// (or a mana ability when a non-mana label was requested).
 	manaLabels := []string(nil)
 	requestedManaAbility := false
-	if st.Op == "activate" && st.Ability != "" {
+	if op == oracleOpActivate && st.Ability != "" {
 		manaLabels = r.manaAbilityLabels(seat, id)
 		for _, label := range manaLabels {
 			if oracleLabelMatches(label, st.Ability) {
@@ -945,7 +953,7 @@ func oraclePickStepOption(r *oracleRun, st oracleStep, seat state.PlayerID, id s
 		if o.Obj != id {
 			continue
 		}
-		if st.Op == "cast" && o.Kind == "cast" {
+		if op == oracleOpCast && o.Kind == "cast" {
 			if o.Mode == wantMode {
 				idx = o.Index
 				break
@@ -954,7 +962,7 @@ func oraclePickStepOption(r *oracleRun, st oracleStep, seat state.PlayerID, id s
 				fallback = o.Index
 			}
 		}
-		if st.Op == "activate" && oracleActivateKind(o.Kind) {
+		if op == oracleOpActivate && oracleActivateKind(o.Kind) {
 			if st.Ability == "" || oracleLabelMatches(o.Label, st.Ability) {
 				idx = o.Index
 				break
@@ -1138,10 +1146,11 @@ func (r *oracleRun) do(st oracleStep) error {
 	r.answers = append([]oracleAnswer(nil), st.Answers...)
 	seat := state.PlayerID(st.Seat)
 	r.logf("step %s %s", st.Op, st.Card)
-	switch oracleOpCodes.Code(string(st.Op)) {
+	op := oracleOpCodes.Code(string(st.Op))
+	switch op {
 	case oracleOpMana:
 		return r.addMana(seat, st.Mana)
-	case oracleOpCastOrActivate:
+	case oracleOpCast, oracleOpActivate:
 		if st.Mana != "" {
 			if err := r.addMana(seat, st.Mana); err != nil {
 				return err
@@ -1156,7 +1165,7 @@ func (r *oracleRun) do(st oracleStep) error {
 			return err
 		}
 		manaAbilities := []*cards.SA(nil)
-		if st.Op == "activate" && (st.Ability != "" || st.AbilityIndex != nil) {
+		if op == oracleOpActivate && (st.Ability != "" || st.AbilityIndex != nil) {
 			manaAbilities = e.availableManaAbilities(seat, id)
 		}
 		idx, err := oraclePickStepOption(r, st, seat, id, d)
@@ -1186,7 +1195,7 @@ func (r *oracleRun) do(st oracleStep) error {
 			}
 			r.extraFails = append(r.extraFails, oracleObserveMismatches(pending, *st.Observe)...)
 		}
-		if st.Op == "activate" && d.Options[idx].Kind == "activate" &&
+		if op == oracleOpActivate && d.Options[idx].Kind == "activate" &&
 			(st.AbilityIndex != nil || (st.Ability != "" && !oracleLabelMatches(d.Options[idx].Label, st.Ability))) {
 			if err := oracleAnswerManaStage(r, st, seat, id, manaAbilities); err != nil {
 				return err
@@ -1728,7 +1737,8 @@ type oracleOpCode uint16
 
 const (
 	oracleOpMana oracleOpCode = iota + 1
-	oracleOpCastOrActivate
+	oracleOpCast
+	oracleOpActivate
 	oracleOpPlay
 	oracleOpResolve
 	oracleOpAttack
@@ -1741,8 +1751,8 @@ const (
 
 var oracleOpCodes = state.NewStrCodes(
 	state.StrEntry[oracleOpCode]{Key: "mana", Val: oracleOpMana},
-	state.StrEntry[oracleOpCode]{Key: "cast", Val: oracleOpCastOrActivate},
-	state.StrEntry[oracleOpCode]{Key: "activate", Val: oracleOpCastOrActivate},
+	state.StrEntry[oracleOpCode]{Key: "cast", Val: oracleOpCast},
+	state.StrEntry[oracleOpCode]{Key: "activate", Val: oracleOpActivate},
 	state.StrEntry[oracleOpCode]{Key: "play", Val: oracleOpPlay},
 	state.StrEntry[oracleOpCode]{Key: "resolve", Val: oracleOpResolve},
 	state.StrEntry[oracleOpCode]{Key: "attack", Val: oracleOpAttack},
