@@ -615,6 +615,9 @@ type ContinuousEffect struct {
 	// MustBlockAttacker binds an api:MustBlock duty to the attacker named by
 	// DefinedAttacker$. Zero means a generic MustBlock static duty.
 	MustBlockAttacker ObjID
+	// MustBlockAllAttackers records BlockAllDefined$: this resolving effect
+	// explicitly lets its blocker block every attacker in the defined set.
+	MustBlockAllAttackers bool
 
 	// AssignmentStaticMode carries an Effect-delivered combat-assignment
 	// static's mode (currently CombatDamageToughness). Its consumer joins this

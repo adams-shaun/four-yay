@@ -41,12 +41,10 @@ func runRefreeze(dir string, apply bool) error {
 				continue
 			}
 			why := ""
-			it, skip := templates.Generate(reg, card)
+			it, skip := templates.ItemFor(reg, card, r.Template)
 			switch {
 			case skip != nil:
 				why = "no scenario now: " + skip.Reason
-			case it.Template != r.Template:
-				why = "template is now " + it.Template
 			case gate.ItemSHA(it) != r.ScenarioSHA:
 				why = "scenario changed"
 			}
@@ -56,7 +54,7 @@ func runRefreeze(dir string, apply bool) error {
 				switch {
 				case err != nil:
 					why = "gorge replay: " + err.Error()
-				case gate.Hash([]byte(oraclediffCanonical(res, it.Ignore))) != r.CanonSHA:
+				case gate.Hash([]byte(oraclediffCanonical(res, it.Compare, it.Ignore))) != r.CanonSHA:
 					why = "gorge no longer reproduces the hashed snapshots"
 				}
 			}
@@ -65,7 +63,7 @@ func runRefreeze(dir string, apply bool) error {
 				keptCards = append(keptCards, card+": "+why)
 				continue
 			}
-			r.Frozen, r.CanonSHA = freezeResult(res, it.Ignore), ""
+			r.Frozen, r.CanonSHA = freezeResult(res, it.Compare, it.Ignore), ""
 			fields += len(r.Frozen)
 			done = append(done, r)
 		}
@@ -89,10 +87,10 @@ func runRefreeze(dir string, apply bool) error {
 	return nil
 }
 
-func oraclediffCanonical(res rules.OracleResult, ignore []string) string {
-	return oraclediff.Canonical(res.Snapshots, ignore...)
+func oraclediffCanonical(res rules.OracleResult, compare, ignore []string) string {
+	return oraclediff.CanonicalOpts(res.Snapshots, compare, ignore...)
 }
 
-func freezeResult(res rules.OracleResult, ignore []string) []compliance.Frozen {
-	return oraclediff.Freeze(res, ignore...)
+func freezeResult(res rules.OracleResult, compare, ignore []string) []compliance.Frozen {
+	return oraclediff.FreezeOpts(res, compare, ignore...)
 }

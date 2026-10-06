@@ -15,9 +15,12 @@ func TestMustBlockUnimplementedSelectorFailsLoud(t *testing.T) {
 	}
 	h := &fakeHost{g: state.NewGame([]string{"A", "B"})}
 	for _, params := range []map[string]string{
-		{"ValidTgts": "Creature"},
-		{"ValidTgts": "Creature", "DefinedAttacker": "TriggeredAttacker", "TargetMin": "0"},
-		{"ValidTgts": "Creature", "DefinedAttacker": "TriggeredAttacker", "BlockAllDefined": "True"},
+		// The implicit-source, optional-target and BlockAllDefined$ True
+		// grammars are supported now; these neighbours must still fail loud.
+		{"Defined": "Bogus"},
+		{"ValidTgts": "Creature", "DefinedAttacker": "Bogus"},
+		{"ValidTgts": "Creature", "DefinedAttacker": "TriggeredAttacker", "BlockAllDefined": "Maybe"},
+		{"Choices": "Creature.DefenderCtrl", "Chooser": "TriggeredDefendingPlayer"},
 		{"ValidTgts": "Player", "DefinedAttacker": "TriggeredAttacker", "Duration": "UntilEndOfCombat"},
 		{"ValidTgts": "Creature.OppCtrl,Player", "DefinedAttacker": "TriggeredAttacker", "Duration": "UntilEndOfCombat"},
 	} {
