@@ -105,10 +105,29 @@
     font-size: var(--t-28);
     line-height: 1;
   }
+  /* The counts line and the mana pool each get a full-width row. The own
+     seat slot is only ~160–240px wide, and the counts alone need ~200px, so
+     the counts WRAP rather than clip (SeatCounts' own overflow:hidden would
+     cut the right-hand end — the Grave and Exile pile buttons — off), and
+     the pool, whose persistent restriction text is ~220px, wraps too instead
+     of forcing the row wider than the box. */
   .bottom {
     display: flex;
-    align-items: center;
-    gap: var(--sp-2);
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--sp-1);
+    min-width: 0;
+  }
+  .bottom :global([data-seat-counts]) {
+    flex-wrap: wrap;
+    row-gap: 0.15em;
+    overflow: visible;
+  }
+  .bottom :global([data-mana-readout]) {
+    justify-content: flex-start;
+  }
+  .bottom :global([data-mana-pool]) {
+    flex-wrap: wrap;
     min-width: 0;
   }
   .seat-box.target {

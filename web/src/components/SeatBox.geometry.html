@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en">
+  <head><meta charset="UTF-8" /><title>SeatBox geometry fixture</title></head>
+  <body>
+    <style>
+      /* #slot stands in for BoardStage's .seat-slot: the test sets its width
+         (?w=<px>) to the 160–240px range the grid's 10rem…15rem track gives. */
+      #slot { position: fixed; bottom: 0; left: 0; width: var(--slot-w, 190px); }
+    </style>
+    <div id="slot"></div>
+    <div id="host"></div>
+    <script type="module" src="/src/components/SeatBox.geometry.ts"></script>
+  </body>
+</html>
