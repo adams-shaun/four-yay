@@ -35,12 +35,14 @@ func xAnswers(f *cards.Face) []oraclegen.Answer {
 }
 
 func castResolve(reg *cards.Registry, f *cards.Face, name, mana string) (oraclegen.Item, *oraclegen.Skip) {
-	return castResolveWith(reg, f, name, mana, nil)
+	return castResolveWith(reg, f, name, mana, nil, nil)
 }
 
 // castResolveWith is castResolve with probe permanents added to p0's
-// battlefield in every fixture it tries. nil probes is castResolve exactly.
-func castResolveWith(reg *cards.Registry, f *cards.Face, name, mana string, probes []string) (oraclegen.Item, *oraclegen.Skip) {
+// battlefield in every fixture it tries, and an optional setup applied to each
+// after the probes (cards in the seats, a prelude before the cast). nil probes
+// and nil setup is castResolve exactly.
+func castResolveWith(reg *cards.Registry, f *cards.Face, name, mana string, probes []string, setup func(*oraclegen.Fixture)) (oraclegen.Item, *oraclegen.Skip) {
 	// Charm plans enumerate legal mode combinations in Choices$ order. Each
 	// plan carries all selected chains and one answer containing every pick.
 	type plan struct {
@@ -75,7 +77,7 @@ func castResolveWith(reg *cards.Registry, f *cards.Face, name, mana string, prob
 	}
 	for _, m := range manas {
 		for _, pl := range plans {
-			if it, ok := castWithProbes(reg, f, name, m, pl.slots, pl.answers, probes); ok {
+			if it, ok := castWithProbes(reg, f, name, m, pl.slots, pl.answers, probes, setup); ok {
 				return it, nil
 			}
 		}
@@ -100,13 +102,14 @@ func filterStrings(slots []oraclegen.Slot) []string {
 // precast spell first (CR 117.3c: the caster keeps priority and responds),
 // exactly as the counter template does.
 func castWith(reg *cards.Registry, f *cards.Face, name, mana string, slots []oraclegen.Slot, answers []oraclegen.Answer) (oraclegen.Item, bool) {
-	return castWithProbes(reg, f, name, mana, slots, answers, nil)
+	return castWithProbes(reg, f, name, mana, slots, answers, nil, nil)
 }
 
 // castWithProbes is castWith with probe permanents added to p0's battlefield
 // after each fixture extra, so a static the card brings is observable on
-// them. nil probes is castWith exactly.
-func castWithProbes(reg *cards.Registry, f *cards.Face, name, mana string, slots []oraclegen.Slot, answers []oraclegen.Answer, probes []string) (oraclegen.Item, bool) {
+// them; setup then adds whatever else the caller needs on the fixture. nil
+// probes and nil setup is castWith exactly.
+func castWithProbes(reg *cards.Registry, f *cards.Face, name, mana string, slots []oraclegen.Slot, answers []oraclegen.Answer, probes []string, setup func(*oraclegen.Fixture)) (oraclegen.Item, bool) {
 	// Extras satisfy casting conditions the target fixture does not: a
 	// threshold graveyard, a creature of your own to sacrifice for a cost.
 	extras := []func(*oraclegen.Fixture){
@@ -177,6 +180,9 @@ func castWithProbes(reg *cards.Registry, f *cards.Face, name, mana string, slots
 				extra(&fx)
 				for _, probe := range probes {
 					fx.P0().Battlefield = appendFixtureUnique(fx.P0().Battlefield, probe)
+				}
+				if setup != nil {
+					setup(&fx)
 				}
 				// Apply face-derived scenario defaults before probing the cast.
 				it := CastResolve.item(f, name, buildStackScenario(f, name, physicalName(reg, name), mana, pre, fx, slots, stackIdx, answers))

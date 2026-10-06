@@ -65,8 +65,20 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 	if !probePlan.empty() {
 		plans = append(plans, probePlan)
 	}
+	// served is the item for a scenario that replays and shows an effect.
+	served := func(base oraclegen.Item, res rules.OracleResult, plan staticProbePlan) (oraclegen.Item, bool) {
+		specs := staticProbeSpecs(reg, append([]string{staticProbe}, plan.probes...))
+		if !staticObserved(res.Snapshots[len(res.Snapshots)-1], f, name, specs) {
+			return oraclegen.Item{}, false
+		}
+		it := oraclegen.NewLevelBItem(name, req.Key, StaticApplies.Version, []string{"611.3", "613"}, base.Scenario)
+		it.XAnswers = base.XAnswers
+		it.Ignore = base.Ignore
+		it.Compare = []string{oraclediff.CompareKeywords}
+		return it, true
+	}
 	for i, plan := range plans {
-		base, why := staticBase(reg, c, f, name, req, plan)
+		base, why := staticBase(reg, c, f, name, req, plan, nil)
 		if why != "" && i == 0 {
 			return skip(why)
 		}
@@ -80,20 +92,38 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 			}
 			break
 		}
-		specs := staticProbeSpecs(reg, append([]string{staticProbe}, plan.probes...))
-		if !staticObserved(res.Snapshots[len(res.Snapshots)-1], f, name, specs) {
-			continue
+		if it, ok := served(base, res, plan); ok {
+			return it, nil
 		}
-		it := oraclegen.NewLevelBItem(name, req.Key, StaticApplies.Version, []string{"611.3", "613"}, base.Scenario)
-		it.XAnswers = base.XAnswers
-		it.Ignore = base.Ignore
-		it.Compare = []string{oraclediff.CompareKeywords}
-		return it, nil
+	}
+	// A condition or count the bare scenario leaves false or zero: retry each
+	// candidate fixture with each probe plan. This runs only after every bare
+	// scenario failed, so a row the bare scenarios serve keeps its bytes.
+	for _, cond := range staticFixtures(reg, f, st) {
+		for _, plan := range plans {
+			base, why := staticBase(reg, c, f, name, req, plan, &cond)
+			if why != "" {
+				continue
+			}
+			res, err := rules.RunOracleScenarioJSON(reg, base.Raw())
+			if err != nil || len(res.Fails) != 0 || len(res.Snapshots) == 0 {
+				continue
+			}
+			if it, ok := served(base, res, plan); ok {
+				return it, nil
+			}
+		}
 	}
 	if gap := staticProbeCapGap(probePlan); gap != "" {
 		return skip(gap)
 	}
+	if st.HasParam(cards.PKClassBand) {
+		return skip(staticClassReason)
+	}
 	if gap := staticGap(st, affected); gap != "" {
+		return skip(gap)
+	}
+	if gap := staticConditionGap(f, st); gap != "" {
 		return skip(gap)
 	}
 	return skip("effect not observable on a probe or the card")
@@ -102,17 +132,19 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 // staticBase builds the unobserved scenario for one probe plan; why is a skip
 // reason when no scenario exists. The zero plan is the original template:
 // Grizzly Bears on both seats.
-func staticBase(reg *cards.Registry, c *cards.Card, f *cards.Face, name string, req levelb.Requirement, plan staticProbePlan) (oraclegen.Item, string) {
+func staticBase(reg *cards.Registry, c *cards.Card, f *cards.Face, name string, req levelb.Requirement, plan staticProbePlan, cond *staticFixture) (oraclegen.Item, string) {
 	probes := append([]string{staticProbe}, plan.probes...)
 	var base oraclegen.Item
 	switch {
-	case req.Face > 0 || plan.self:
+	case cond != nil && !cond.setupOnly() && (req.Face > 0 || plan.self || oraclegen.HasType(f, "Land")) && !cond.place:
+		return base, "fixture needs steps the scenario has no cast for"
+	case req.Face > 0 || plan.self || (cond != nil && cond.place):
 		// A face-1 static is served by setup-on-back-face, not by casting:
 		// the card cannot be cast on its back face (that is out of scope),
 		// so it is placed there directly and observed from genesis. A self
 		// static that needs the card attacking is placed the same way: a
 		// cast creature is summoning sick and cannot attack.
-		base = staticBackFaceScenario(f, name, req, probes)
+		base = staticBackFaceScenario(f, name, req, probes, cond)
 	case requestedFace(c, name) != f:
 		return base, "face is not the castable face"
 	case oraclegen.HasType(f, "Land"):
@@ -121,7 +153,11 @@ func staticBase(reg *cards.Registry, c *cards.Card, f *cards.Face, name string, 
 			for _, probe := range probes {
 				p0.Battlefield = appendFixtureUnique(p0.Battlefield, probe)
 			}
-			setup["p0"] = p0
+			p1 := setup["p1"]
+			if cond != nil {
+				cond.seats(&p0, &p1)
+			}
+			setup["p0"], setup["p1"] = p0, p1
 			oraclegen.Baseline(setup, f)
 		})
 	default:
@@ -129,7 +165,11 @@ func staticBase(reg *cards.Registry, c *cards.Card, f *cards.Face, name string, 
 		if why != "" {
 			return base, why
 		}
-		it, sk := castResolveWith(reg, f, name, mana, probes)
+		var setup func(*oraclegen.Fixture)
+		if cond != nil {
+			setup = cond.apply
+		}
+		it, sk := castResolveWith(reg, f, name, mana, probes, setup)
 		if sk != nil {
 			return base, sk.Reason
 		}
@@ -167,14 +207,17 @@ func staticAttackers(reg *cards.Registry, name string, probes []string, self boo
 // seats, and no steps. The static is live from the first checkpoint, so the
 // final snapshot is where its effect shows. The probe is placed by Baseline on
 // p1 and appended here on p0, matching the cast-based path's probe layout.
-func staticBackFaceScenario(f *cards.Face, name string, req levelb.Requirement, probes []string) oraclegen.Item {
-	p0 := oraclegen.Seat{Battlefield: []string{name}}
+func staticBackFaceScenario(f *cards.Face, name string, req levelb.Requirement, probes []string, cond *staticFixture) oraclegen.Item {
+	p0, p1 := oraclegen.Seat{Battlefield: []string{name}}, oraclegen.Seat{}
 	setupBackFace(&p0, name, req)
 	for _, probe := range probes {
 		p0.Battlefield = appendFixtureUnique(p0.Battlefield, probe)
 	}
+	if cond != nil {
+		cond.seats(&p0, &p1)
+	}
 	sc := oraclegen.Scenario{
-		Setup:        map[string]oraclegen.Seat{"p0": p0, "p1": {}},
+		Setup:        map[string]oraclegen.Seat{"p0": p0, "p1": p1},
 		SetupAnswers: oraclegen.OpeningHandAnswers(f),
 		// Observed from genesis, so no steps -- but an empty array, not
 		// JSON null: the XMage driver reads "steps" as an array, and a null

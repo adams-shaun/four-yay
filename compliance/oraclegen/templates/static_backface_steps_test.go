@@ -19,7 +19,7 @@ func TestStaticBackFaceScenarioStepsIsArray(t *testing.T) {
 	if !ok || len(c.Faces) < 2 {
 		t.Skip("Clay-Fired Bricks not in the corpus")
 	}
-	it := staticBackFaceScenario(c.Faces[1], "Clay-Fired Bricks", levelb.Requirement{Face: 1}, nil)
+	it := staticBackFaceScenario(c.Faces[1], "Clay-Fired Bricks", levelb.Requirement{Face: 1}, nil, nil)
 	b, err := json.Marshal(it)
 	if err != nil {
 		t.Fatal(err)

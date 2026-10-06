@@ -50,7 +50,7 @@ func TestStaticContinuousProbeCapSpiderHam(t *testing.T) {
 	}
 
 	const retainedProbe = "Mineshaft Spider"
-	probeItem, why := staticBase(reg, c, c.Faces[req.Face], card, req, plan)
+	probeItem, why := staticBase(reg, c, c.Faces[req.Face], card, req, plan, nil)
 	if why != "" {
 		t.Fatalf("retained-probe scenario unavailable: %s", why)
 	}
