@@ -407,13 +407,92 @@ func (e *Engine) PotentialActions(p state.PlayerID) []decision.PotentialAction {
 		return nil
 	}
 	_, opts := e.potentialWalkOf(p, true)
+	// The planner verdict for hand/command-zone ordinary casts
+	// (decision.PotentialAction.Payable) is attached only at a top-level read
+	// of a posed priority decision where the pool is one the planner accounts
+	// for: it shares the decision's potential walk, cast-plan memo and kept
+	// planner query (PotentialPaymentPlans' inputs), so a decision whose offer
+	// builder already ran pays nothing extra, and a walk with no annotatable
+	// cast never opens the planner at all. A nil verdict leaves the plain
+	// projection unchanged.
+	var (
+		open     bool
+		census   paymentPlanCensus
+		censused bool
+		hyp      state.Mana
+		share    castPlanShare
+		tok      pay.QueryTok
+	)
+	savedPool := e.PaymentPlanPotentialPool
+	defer func() {
+		if !open {
+			return
+		}
+		// Keep then end, as the offer builder's deferred pair does
+		// (paymentActionsForPriority), so the scope stays resumable for the
+		// decision's other pure payment readers.
+		e.paymentPlanQueryKeep(p)
+		e.PaymentPlanPotentialPool = savedPool
+		pay.PaymentPlanQueryEnd(asPayer(e), tok)
+		e.endDerivedMemo()
+	}()
+	// annotatable is o's shape: an object in the seat's own hand or command
+	// zone and an ordinary (no mode, no alternative) cast. A cast elsewhere, a
+	// mode cast and every non-cast play are never annotated.
+	annotatable := func(o decision.Option) bool {
+		if o.Mode != "" || o.AltCostIndex != 0 {
+			return false
+		}
+		obj := e.G.Obj(o.Obj)
+		return obj != nil && (obj.Zone == state.ZHand || obj.Zone == state.ZCommand)
+	}
+	// unpayable reports whether the planner PROVES o unpayable: its verdict is
+	// ReasonInsufficient and the source census prices every mana ability p could
+	// activate (paymentPlanCensusOf), or a relaxation of the abilities the
+	// census misses still cannot pay it (paymentPlanRelaxProof). This is
+	// PotentialPaymentPlans' proof minus its script search, so a
+	// census-incomplete cast whose only route is an uncovered source's scripted
+	// prefix stays unproven and keeps its row -- tapping really does reach it.
+	unpayable := func(o decision.Option) bool {
+		verdict := func() PaymentPlanOutcome {
+			got, _ := e.potentialPlayVerdictShared(p, o, &share)
+			return got
+		}
+		if got := verdict(); got.Reason != pay.ReasonInsufficient {
+			return false
+		}
+		if !censused {
+			census, censused = e.paymentPlanCensusOf(p, &hyp), true
+		}
+		if census.complete {
+			return true
+		}
+		return census.relaxable && e.paymentPlanRelaxProof(census, verdict).Reason == pay.ReasonInsufficient
+	}
 	var out []decision.PotentialAction
 	for _, o := range opts {
-		if potentialPlayKind(o.Kind) {
-			out = append(out, decision.PotentialAction{
-				Kind: o.Kind, Obj: o.Obj, Ability: o.Ability, Mode: o.Mode, Label: o.Label,
-			})
+		if !potentialPlayKind(o.Kind) {
+			continue
 		}
+		a := decision.PotentialAction{
+			Kind: o.Kind, Obj: o.Obj, Ability: o.Ability, Mode: o.Mode, Label: o.Label,
+		}
+		if annotatable(o) {
+			if !open && e.potentialWalkUsable() && pay.PaymentPlanPoolAccepted(asPayer(e), p) {
+				open = true
+				e.beginDerivedMemo()
+				tok = e.paymentPlanQueryResumeBegin(p)
+				savedPool = e.PaymentPlanPotentialPool
+				e.PaymentPlanPotentialPool = true
+				hyp, _ = e.potentialWalkOf(p, true)
+				share = castPlanShare{statics: costStaticSource{e: e}, candidates: paymentCastCandidates{e: e, p: p, priced: true}}
+			}
+			if open && unpayable(o) {
+				no := false
+				a.Payable = &no
+			}
+		}
+		out = append(out, a)
 	}
 	// opts belongs to the decision's potential walk cache (or is the
 	// decision's own Options): never released here.

@@ -1525,4 +1525,19 @@ type PotentialAction struct {
 	// the action without re-deriving it. omitempty: never empty in practice,
 	// but a defensive omit keeps the wire free of empty strings.
 	Label string `json:"label,omitempty"`
+	// Payable is the payment planner's verdict for an ordinary cast from the
+	// hand or (Commander) the command zone: false only when the planner
+	// PROVED the cast unpayable -- an "insufficient" verdict whose source
+	// census is complete, or whose missed abilities a relaxation of them
+	// still cannot pay. It is what lets a client withhold a "tap other mana
+	// first" affordance that no amount of tapping can satisfy
+	// (fb-20261006T100405Z). nil (omitted) for every other kind, for a cast
+	// in an alternative/additional-cost mode, for a cast outside the hand and
+	// command zone, and for every verdict that is not a proof --
+	// "unsupported" (a shape the planner does not price, e.g. Delve),
+	// "search_limit", "ambiguous" and a census-incomplete insufficiency --
+	// because those do not prove the play impossible. A client must not
+	// re-derive this from printed mana_cost: castable.ts records the cost
+	// rules that drift.
+	Payable *bool `json:"payable,omitempty"`
 }

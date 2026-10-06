@@ -22,6 +22,15 @@ type PlanOutcome struct {
 	Nodes  int
 }
 
+// The planner Reason vocabulary (PlanOutcome.Reason), named so a consumer
+// dispatches on the enum word instead of a fresh string literal.
+const (
+	// ReasonInsufficient is the planner's PROVEN-unpayable verdict: the source
+	// census covers every mana ability the seat could activate (or a
+	// relaxation of the ones it misses still cannot pay), and no plan exists.
+	ReasonInsufficient = "insufficient"
+)
+
 // The spec §6 PaymentFallback vocabulary. It is closed: a plan that stops
 // names exactly one of these on the manual window the cast returns to.
 const (
