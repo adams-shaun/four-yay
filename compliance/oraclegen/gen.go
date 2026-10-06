@@ -155,7 +155,10 @@ type Expect struct {
 	Offered        *Offered   `json:"offered,omitempty"`
 	CanBlock       *CanBlock  `json:"can_block,omitempty"`
 	CanAttack      *CanAttack `json:"can_attack,omitempty"`
-	Want           *bool      `json:"want,omitempty"`
+	// LookAtLibraryTop is the runner's per-seat "may look at the top card of
+	// their library" assertion (rules oracleExpect.LookAtLibraryTop).
+	LookAtLibraryTop map[string]bool `json:"look_at_library_top,omitempty"`
+	Want             *bool           `json:"want,omitempty"`
 }
 
 // Answer is a queued answer for gorge's runner (kind = decision kind).
