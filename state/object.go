@@ -787,20 +787,28 @@ type Object struct {
 	EnlistedTurn   int32
 	EnlistedCombat int32
 
-	// CrewedVehicles and CrewedTurn record CR 702.122's crew action on the
-	// CREWING creature: the turn it last crewed, and the Vehicles it crewed
-	// that turn. Forge's Creature.CrewedThisTurn / Card.CrewedThisTurn filter
-	// ("a creature that crewed IT this turn") is source-relative -- IT is the
-	// Vehicle whose trigger or effect carries the spec -- so the association
-	// must be a pairing, not a bare boolean: a creature can crew more than one
-	// Vehicle in a turn (it untaps between crews) and a Vehicle can be crewed
-	// by several creatures (Crew N). Both are folded by events.Apply's Crew
-	// case from the tap-cost payment; the crewedThisTurn filter predicate
-	// (effects/filter.go) matches when CrewedTurn is the live turn and the
-	// spec's source id is in CrewedVehicles. Cleared at TurnChange (a per-turn
-	// fact) and when the permanent leaves the battlefield (CR 400.7: a new
-	// object never carries the old object's crew status). It is a slice, so
-	// CloneDeep backs it independently like BlockedBy.
+	// CrewedVehicles and CrewedTurn record CR 702.122's crew action (and CR
+	// 702.171's saddle action, which shares this pairing shape) on the paying
+	// CREATURE: the turn it last paid, and the permanents it paid for that
+	// turn. Forge's Creature.CrewedThisTurn / Creature.SaddledThisTurn filter
+	// ("a creature that crewed/saddled IT this turn") is source-relative -- IT
+	// is the Vehicle or Mount whose trigger or effect carries the spec -- so
+	// the association must be a pairing, not a bare boolean: a creature can
+	// crew or saddle more than one permanent in a turn (it untaps between
+	// payments) and a permanent can be crewed by several creatures (Crew N) or
+	// saddled only by one (Saddle is a single-creature cost). A Vehicle's
+	// crewers and a Mount's saddlers never collide here because the pairing is
+	// keyed by the target permanent's id. Both are folded by events.Apply's
+	// Crew and Saddle cases from the tap-cost payment; the crewedThisTurn and
+	// saddledThisTurn filter predicates (effects/filter.go) match when
+	// CrewedTurn is the live turn and the spec's source id is in
+	// CrewedVehicles. (No card currently does both, but a permanent that is
+	// both a Vehicle and a Mount would share one list, so the predicates must
+	// stay source-relative rather than assume a single action.) Cleared at
+	// TurnChange (a per-turn fact) and when the permanent leaves the
+	// battlefield (CR 400.7: a new object never carries the old object's crew
+	// status). It is a slice, so CloneDeep backs it independently like
+	// BlockedBy.
 	CrewedVehicles []ObjID
 	CrewedTurn     int32
 

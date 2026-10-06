@@ -183,8 +183,9 @@ func TestNamedDFCKeepsFrontFaceAwayFromBattlefield(t *testing.T) {
 	l := events.NewLog(1)
 
 	// Transform the real DFC on the battlefield, then move it out through the
-	// event path. Move intentionally retains FaceIdx, so this reproduces the
-	// lifecycle that must nevertheless regain front-face characteristics in a
+	// event path. CR 712.8a: a transforming DFC that leaves the battlefield is
+	// front face up in its next zone, so the exit resets FaceIdx to 0 and this
+	// reproduces the lifecycle that must read front-face characteristics in a
 	// library (CR 712).
 	events.Emit(g, l, events.Event{Kind: events.MoveZone, Obj: o.ID, From: state.ZLibrary, To: state.ZBattlefield})
 	events.Emit(g, l, events.Event{Kind: events.FlipFace, Obj: o.ID, Amount: 1})
@@ -192,8 +193,8 @@ func TestNamedDFCKeepsFrontFaceAwayFromBattlefield(t *testing.T) {
 		t.Error("transformed battlefield Delver missed its selected face")
 	}
 	events.Emit(g, l, events.Event{Kind: events.MoveZone, Obj: o.ID, From: state.ZBattlefield, To: state.ZLibrary})
-	if o.FaceIdx != 1 {
-		t.Fatalf("FaceIdx after leaving battlefield = %d, want retained transformed face", o.FaceIdx)
+	if o.FaceIdx != 0 {
+		t.Fatalf("FaceIdx after leaving battlefield = %d, want the front face (CR 712.8a)", o.FaceIdx)
 	}
 	if !MatchesSpec(g, "Card.namedDelver of Secrets", o.ID, 0) {
 		t.Error("library Delver missed its front face after transforming")
@@ -204,7 +205,8 @@ func TestNamedDFCKeepsFrontFaceAwayFromBattlefield(t *testing.T) {
 
 	// sameName takes a name from its source too. A candidate front-face Delver
 	// must still share its source's name after that source transformed and left
-	// the battlefield; retaining FaceIdx must not make it source the back name.
+	// the battlefield; the CR 712.8a front-face reset must not make it source
+	// the back name.
 	candidate := g.AddObject(delver, 0)
 	g.SetZone(state.ZLibrary, 0, append(g.Zone(state.ZLibrary, 0), candidate.ID))
 	if !MatchesObjectCtx(g, "Card.sameName", candidate, SpecContext{Source: o.ID}) {
