@@ -154,13 +154,11 @@ func AttacksMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Even
 		// the layer walk binds): the printed-face-only filter read would miss
 		// an animated manland's Creature grant -- Raging Ravine's own
 		// "Whenever this creature attacks" trigger names Creature.Self and
-		// must fire on the animated land. ExtraTypes is checked BEFORE the
-		// printed face and is a superset of it (Derived.Types includes every
-		// printed type), so ordinary creatures are unchanged, and the
-		// bestowed exclusion survives (the layer-4 switch drops Creature
-		// from a bestowed card's derived types, and hasType's
-		// BestowedAttached gate still answers below).
-		opts := SpecOpts{ExtraTypes: e.Chars(id).Types}
+		// must fire on the animated land. The bound list is authoritative:
+		// include the derived all-types marker, never resurrect a printed CDA
+		// or a type a later layer-4 effect removed.
+		ch := e.Chars(id)
+		opts := SpecOpts{ExtraTypes: effects.TypeMatchWords(ch.Types, ch.AllCreatureTypes)}
 		// The compiled sidecar is ExtraTypes-aware (its type predicates route
 		// through hasTypeCtx, effects/compiled_predicate.go), so it stays
 		// installed here and answers the same derived types the textual oracle

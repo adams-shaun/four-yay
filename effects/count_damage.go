@@ -127,6 +127,7 @@ func damageRecipientMatches(g *state.Game, spec string, hit state.DamageDealtRec
 		for i := range types {
 			if types[i].ID == snapshot.ID {
 				types[i].Types = hit.RecipientTypes
+				types[i].AllCreatureTypes = false
 				found = true
 				break
 			}

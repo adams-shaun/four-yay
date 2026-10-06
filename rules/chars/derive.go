@@ -96,7 +96,9 @@ func PT(b Board, s *Scratch, id state.ObjID, o *state.Object, f *cards.Face, act
 	// active list comes in as a parameter (230574a2's plumbing) because
 	// active() is a cached, idempotent read — same slice, no recomputation.
 	if !haveTypes {
-		types = Types(b, b.Active(), id, 0)
+		var all bool
+		types, all = TypesAndAllCreatureTypes(b, b.Active(), id, 0)
+		types = effects.TypeMatchWords(types, all)
 	}
 	for i := range active {
 		ce := &active[i]
@@ -264,7 +266,8 @@ func Compute(b Board, s *Scratch, id state.ObjID, atStack state.Zone) effects.Ch
 	// abilityDependencyOrder). Layers 3/5 keep timestamp order: a SetName or
 	// colour change never gates another layer's match on this corpus, and
 	// layer 4 settled above.
-	seq := abilityDependencyOrder(b, active, id, ty, kw, atStack)
+	matchTypes := effects.TypeMatchWords(ty, allCreatureTypes)
+	seq := abilityDependencyOrder(b, active, id, matchTypes, kw, atStack)
 	var cantHaveKeywords [][]string
 	for i := range seq {
 		ce := &seq[i]
@@ -284,7 +287,7 @@ func Compute(b Board, s *Scratch, id state.ObjID, atStack state.Zone) effects.Ch
 		// PT's layer-7 walk binds -- CR 613 orders layer 6
 		// strictly before layer 7, so the P/T applicability gate reads the
 		// completed grant stream (Windstorm Drake over Levitation).
-		if !matchesWithChars(b, ce, id, ty, kw, atStack) {
+		if !matchesWithChars(b, ce, id, matchTypes, kw, atStack) {
 			continue
 		}
 		// An AffectedZone$ qualifier on a characteristic grant narrows where
@@ -397,16 +400,9 @@ func Compute(b Board, s *Scratch, id state.ObjID, atStack state.Zone) effects.Ch
 	// scalar walk stashes Y and restores X's on the way out).
 	prevStashID, prevStashColors, prevStashSet := s.ColorsID, s.Colors, s.ColorsSet
 	s.ColorsSet, s.ColorsID, s.Colors = true, id, colors
-	power, toughness, basePower, baseToughness := PT(b, s, id, o, f, active, kw, tyRaw, atStack == 0)
+	power, toughness, basePower, baseToughness := PT(b, s, id, o, f, active, kw, matchTypes, atStack == 0)
 	s.ColorsSet, s.ColorsID, s.Colors = prevStashSet, prevStashID, prevStashColors
 	s.Depth--
-	// Changeling is an intrinsic characteristic-defining ability for every
-	// creature subtype, even though the type list does not materialize that
-	// vocabulary. Preserve the same semantic bit as an AddAllCreatureTypes
-	// layer grant for consumers such as oracle snapshots.
-	allCreatureTypes = allCreatureTypes || slices.ContainsFunc(kw, func(k string) bool {
-		return cards.KeywordHeadIDOf(k) == cards.KeywordHeadIDOf("Changeling")
-	})
 	return effects.Chars{Power: power, Toughness: toughness, BasePower: basePower, BaseToughness: baseToughness,
 		Keywords: kw, Types: ty, AllCreatureTypes: allCreatureTypes, Name: name, Text: text, Colors: colors, Controller: b.ControllerOf(id)}
 }
@@ -449,7 +445,8 @@ func Name(b Board, s *Scratch, id state.ObjID) string {
 				kw, ty = s.KW, s.Types
 			}
 			kw = BaseKeywords(kw, o, f, faceDown)
-			ty = append(ty[:0], Types(b, b.Active(), id, 0)...)
+			types, all := TypesAndAllCreatureTypes(b, b.Active(), id, 0)
+			ty = append(ty[:0], effects.TypeMatchWords(types, all)...)
 			if kw == nil {
 				kw = []string{}
 			}
