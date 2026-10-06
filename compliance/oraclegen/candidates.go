@@ -625,8 +625,8 @@ func registryCardType(reg *cards.Registry, cardType string) (string, bool) {
 	if reg == nil {
 		return "", false
 	}
-	for i := range reg.Cards {
-		c := reg.Cards[i]
+	for i := 0; i < reg.Len(); i++ {
+		c := reg.Card(i)
 		for fi := range c.Faces {
 			for _, typ := range c.Faces[fi].Types {
 				if strings.EqualFold(strings.TrimSpace(typ), cardType) && XMageKnown(c.Faces[fi].Name) {
@@ -644,8 +644,8 @@ func registrySubtype(reg *cards.Registry, subtype string) (string, bool) {
 	if reg == nil {
 		return "", false
 	}
-	for i := range reg.Cards {
-		c := reg.Cards[i]
+	for i := 0; i < reg.Len(); i++ {
+		c := reg.Card(i)
 		// Only the front face: setup deals a card by its front name, so a back
 		// face (Tecutlan, the Searing Rift) is "not dealt".
 		if len(c.Faces) > 0 && faceHasSubtype(c.Faces[0], subtype) && XMageKnown(c.Faces[0].Name) {
@@ -672,8 +672,8 @@ func registryQuietSubtype(reg *cards.Registry, subtype string) (string, bool) {
 	if reg == nil {
 		return "", false
 	}
-	for i := range reg.Cards {
-		c := reg.Cards[i]
+	for i := 0; i < reg.Len(); i++ {
+		c := reg.Card(i)
 		if len(c.Faces) != 1 {
 			continue
 		}

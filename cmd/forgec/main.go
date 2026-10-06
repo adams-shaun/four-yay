@@ -83,7 +83,7 @@ func compile(dir string) error {
 	}
 	cards.PruneCaches(dir, cache)
 	fmt.Printf("compiled %d cards, %d tokens, %d diagnostics -> %s\n",
-		len(r.Cards), len(r.Tokens), len(diags), cache)
+		r.Len(), len(r.Tokens), len(diags), cache)
 	return nil
 }
 
@@ -201,7 +201,7 @@ type unknownFilterType struct {
 // engine code silently over-match once it starts reading that spec.
 func unknownFilterTypes(r *cards.Registry) []unknownFilterType {
 	types := map[string]bool{}
-	for _, c := range r.Cards {
+	for _, c := range r.AllCards() {
 		for _, f := range c.Faces {
 			for _, t := range f.Types {
 				types[strings.ToLower(t)] = true
@@ -244,7 +244,7 @@ func unknownFilterTypes(r *cards.Registry) []unknownFilterType {
 			fromParams(sa.Params)
 		}
 	}
-	for _, c := range r.Cards {
+	for _, c := range r.AllCards() {
 		for _, f := range c.Faces {
 			for _, a := range f.Abilities {
 				walkSA(a)
