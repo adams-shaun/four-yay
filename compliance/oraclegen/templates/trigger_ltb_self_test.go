@@ -18,6 +18,7 @@ func TestSelfLTBRecipes(t *testing.T) {
 		{"Cryogen Relic", "trigger#0.1", "p0:Shatter"},
 		{"Greed's Gambit", "trigger#0.2", "p0:Disenchant"},
 		{"Syr Vondam, Sunstar Exemplar", "trigger#0.1", "p0:Murder"},
+		{"Molten Man, Inferno Incarnate", "trigger#0.1", "p0:Unsummon"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			it := triggerRequirement(t, reg, tc.name, tc.key, ltbSelfSub)

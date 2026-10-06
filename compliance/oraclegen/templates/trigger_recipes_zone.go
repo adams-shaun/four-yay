@@ -184,6 +184,11 @@ func ltbSelfRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards.Tri
 			counters = map[string]map[string]int{"__SOURCE__": {"P1P1": need - f.Power()}}
 		}
 	}
+	if counters == nil && f.IsCreature() && f.Toughness() <= 0 && !strings.Contains(f.PT, "*") {
+		// A printed 0/0 (its size comes from a static the board must supply)
+		// would die as a state-based action before the probe resolves.
+		counters = map[string]map[string]int{"__SOURCE__": {"P1P1": 1 - f.Toughness()}}
+	}
 	var out []triggerCause
 	for _, probe := range probes {
 		if c, ok := castCause(reg, name, probe, "p0:"+name); ok {
