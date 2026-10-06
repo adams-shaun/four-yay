@@ -66,7 +66,7 @@ func main() {
 			}
 		}
 	case *grep != "":
-		pool = append(pool, reg.AllCards()...)
+		pool = append(pool, reg.Cards...)
 	default:
 		flag.Usage()
 		os.Exit(2)

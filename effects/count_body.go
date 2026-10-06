@@ -401,7 +401,6 @@ const (
 	evalCountBodyCostMaxCombatDamageThisTurn
 	evalCountBodyCostNumDamageThisTurn
 	evalCountBodyCostNonCombatDamageThisTurn
-	evalCountBodyCostCrewSize
 )
 
 var evalCountBodyCostCodes = state.NewStrCodes(
@@ -425,5 +424,4 @@ var evalCountBodyCostCodes = state.NewStrCodes(
 	state.StrEntry[evalCountBodyCostCode]{Key: "MaxCombatDamageThisTurn", Val: evalCountBodyCostMaxCombatDamageThisTurn},
 	state.StrEntry[evalCountBodyCostCode]{Key: "NumDamageThisTurn", Val: evalCountBodyCostNumDamageThisTurn},
 	state.StrEntry[evalCountBodyCostCode]{Key: "NonCombatDamageThisTurn", Val: evalCountBodyCostNonCombatDamageThisTurn},
-	state.StrEntry[evalCountBodyCostCode]{Key: "CrewSize", Val: evalCountBodyCostCrewSize},
 )

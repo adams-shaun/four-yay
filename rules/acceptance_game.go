@@ -47,7 +47,7 @@ func AcceptanceSeatCounts() []int { return []int{2, 4, 6, 8} }
 // AcceptanceConfig returns the acceptance game's Config for decks already
 // seated and resolved (names[i] is decks[i]'s deck name).
 func AcceptanceConfig(reg *cards.Registry, names []string, decks [][]*cards.Card) Config {
-	return Config{Seed: AcceptanceSeed, Names: names, Decks: decks, Tokens: reg.Tokens, NameUniverse: reg.AllCards(),
+	return Config{Seed: AcceptanceSeed, Names: names, Decks: decks, Tokens: reg.Tokens, NameUniverse: reg.Cards,
 		// Ruling R-M1: the mulligan is NOT configurable off for the acceptance
 		// decks -- a mulligan the suite never exercises is a mulligan nobody
 		// tests. Mulligans = 1 makes the keep/mulligan and bottoming round run

@@ -17,17 +17,6 @@ import (
 // own emit (from inside effects.Resolve) already logged whatever needed
 // logging. Otherwise the event is logged and folded into state exactly as
 // before, and checkTriggers then looks for anything it just made true.
-func deferAttackTriggerCheck(kind events.Kind, declarationActive bool) bool {
-	return kind == events.DeclareAttackers && declarationActive
-}
-
-func triggerCheckEvent(stored events.Event, tokenMintWant state.ObjID) events.Event {
-	if stored.Kind == events.TokenCreate || stored.Kind == events.CardToken {
-		stored.Obj = tokenMintWant
-	}
-	return stored
-}
-
 func (e *Engine) emit(ev events.Event) events.Event {
 	if suppressSuspectedEvent(e, ev) {
 		return ev
@@ -635,10 +624,11 @@ func (e *Engine) emit(ev events.Event) events.Event {
 		// matcher would see Obj == 0 and ValidCard$ could not read the entering
 		// token. Hand it a COPY carrying the minted id; stored itself is
 		// already logged and must stay byte-identical for replay.
-		check := triggerCheckEvent(stored, tokenMintWant)
-		if !deferAttackTriggerCheck(stored.Kind, len(e.declaredAttackers) > 0) {
-			e.checkTriggers(&check, lki, lkiPower, lkiToughness, lkiPTValid)
+		check := stored
+		if stored.Kind == events.TokenCreate || stored.Kind == events.CardToken {
+			check.Obj = tokenMintWant
 		}
+		e.checkTriggers(&check, lki, lkiPower, lkiToughness, lkiPTValid)
 		// A pushed spell proposal's own target choice (CR 601.2c): remember
 		// which queue entries it produced so abortCast can drop them if the
 		// cast is reversed (CR 733.1 -- see pendingCast.proposalTriggers).

@@ -82,8 +82,8 @@ func combinedFold(s string) string {
 // game, not per decision, and reg.Cards here is not large enough (tens of
 // thousands of faces) to matter next to loading the corpus itself.
 func buildFoldIndex(reg *cards.Registry) map[string]*cards.Card {
-	idx := make(map[string]*cards.Card, reg.Len())
-	for _, c := range reg.AllCards() {
+	idx := make(map[string]*cards.Card, len(reg.Cards))
+	for _, c := range reg.Cards {
 		for _, f := range c.Faces {
 			if f.Name == "" {
 				continue

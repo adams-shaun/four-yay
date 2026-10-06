@@ -254,7 +254,7 @@ func foldTargetsChosen(g *state.Game, e *Event) {
 // foldAlterAttribute folds Kind AlterAttribute into state.
 func foldAlterAttribute(g *state.Game, e *Event) {
 	// The AlterAttribute fold (task alterattr1): the engine models the
-	// "Saddled" (CR 702.171), "Suspected" (CR 702.157), "Harnessed" and "Plotted"
+	// "Saddled" (CR 702.171), "Suspected" (CR 702.157) and "Plotted"
 	// (CR 701.34, task kw-plot)
 	// attributes. Text names the attribute so a future modelled one
 	// extends this switch without an event-schema change; an unmodelled
@@ -273,8 +273,6 @@ func foldAlterAttribute(g *state.Game, e *Event) {
 			}
 		case "Suspected":
 			o.Suspected = e.Amount >= 1
-		case "Harnessed":
-			o.Harnessed = e.Amount >= 1
 		case "Prepared":
 			// CR 722.3a: the prepared designation may only be granted to a
 			// permanent that has a prepare spell, and a permanent already

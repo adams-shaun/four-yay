@@ -64,7 +64,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintln(stderr, err)
 			return 1
 		}
-		fmt.Fprintf(stdout, "pool registry: %d cards, %d tokens -> %s\n", pool.Len(), len(pool.Tokens), *savePool)
+		fmt.Fprintf(stdout, "pool registry: %d cards, %d tokens -> %s\n", len(pool.Cards), len(pool.Tokens), *savePool)
 		return 0
 	}
 	var tw *bufio.Writer

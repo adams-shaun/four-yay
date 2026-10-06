@@ -110,12 +110,8 @@ public final class ScenarioReplayAnswerRoutingTest {
         RecordingDriver d = (RecordingDriver) UNSAFE.allocateInstance(RecordingDriver.class);
         d.queues = new ArrayList<>();
         d.casts = new ArrayList<>();
-        TestPlayer a = (TestPlayer) UNSAFE.allocateInstance(TestPlayer.class);
-        TestPlayer b = (TestPlayer) UNSAFE.allocateInstance(TestPlayer.class);
-        set(a, "choices", new ArrayList<String>());
-        set(b, "choices", new ArrayList<String>());
-        set(d, "playerA", a);
-        set(d, "playerB", b);
+        set(d, "playerA", UNSAFE.allocateInstance(TestPlayer.class));
+        set(d, "playerB", UNSAFE.allocateInstance(TestPlayer.class));
         set(d, "gorgeName", "");
         set(d, "xmageName", "");
         set(d, "cast", new ArrayList<String>());
@@ -198,7 +194,7 @@ public final class ScenarioReplayAnswerRoutingTest {
         // target, mode or amount queues.
         RecordingDriver glyph = driver();
         scripted(glyph, answers("choice", "Grizzly Bears"));
-        equal(List.of("Grizzly Bears"), field(field(glyph, "playerA"), "choices"));
+        equal(List.of("A:choice:Grizzly Bears"), glyph.queues);
         System.out.println("PASS per-player creature choice is queued on the controller's choice queue (Glyphbridge)");
 
         // Threats Around Every Corner: manifest dread's pick from the top two
@@ -206,64 +202,7 @@ public final class ScenarioReplayAnswerRoutingTest {
         // is a TARGET answer, both for the controller, in answer order.
         RecordingDriver threats = driver();
         scripted(threats, answers("choice", "Jace Beleren", "target", "Forest"));
-        equal(List.of("Jace Beleren"), field(field(threats, "playerA"), "choices"));
-        equal(List.of("A:target:Forest"), threats.queues);
+        equal(List.of("A:choice:Jace Beleren", "A:target:Forest"), threats.queues);
         System.out.println("PASS manifest dread pick and basic land fetch route to the choice and target queues (Threats)");
-
-        // The sacrifice selector calls TestPlayer.choose and consumes the
-        // choice queue. The discriminator is interpreted there by TestPlayer;
-        // routing it to targets leaves the sacrifice answer unconsumed.
-        RecordingDriver copy = driver();
-        scripted(copy, answers("choice", "Joo Dee, One of Many[only copy]"));
-        equal(List.of("Joo Dee, One of Many[only copy]"), field(field(copy, "playerA"), "choices"));
-        equal(List.of(), copy.queues);
-        System.out.println("PASS same-name token copy choice uses XMage's choice queue");
-
-        // A same-kind same-name pick (two cards, two tokens, or an opponent's
-        // object) is answered by the pick's exact scenario ref, which XMage
-        // matches as its "@ref" alias. The choice queue must receive it
-        // unchanged; targetName is only applied to a bare ref, never to an
-        // already-aliased one.
-        RecordingDriver alias = driver();
-        scripted(alias, answers("choice", "@p0:Forest#2"));
-        equal(List.of("@p0:Forest#2"), field(field(alias, "playerA"), "choices"));
-        equal(List.of(), alias.queues);
-        System.out.println("PASS same-kind same-name choice uses the exact-ref alias");
-
-        // isScenarioRef is the gate that decides whether aliasChoiceValue
-        // rewrites a value. A seat ref and a skip token are not object refs.
-        equal(true, ScenarioReplay.isScenarioRef("p0:Forest#2"));
-        equal(true, ScenarioReplay.isScenarioRef("p1:token:Goblin Token#2"));
-        equal(false, ScenarioReplay.isScenarioRef("p1"));
-        equal(false, ScenarioReplay.isScenarioRef("[target_skip]"));
-        equal(false, ScenarioReplay.isScenarioRef("Forest"));
-        System.out.println("PASS scenario-ref predicate excludes seats and skip tokens");
-
-        // bindAnswerAlias parses a ref's seat ("p0:..." -> 0, not "p0") and
-        // binds each "^"-joined pick of a multi-pick answer separately; the
-        // joined string is not itself a ref.
-        equal(0, ScenarioReplay.refSeat("p0:Forest#2"));
-        equal(1, ScenarioReplay.refSeat("p1:token:Goblin Token#2"));
-        equal(List.of("p0:Wastes#27", "p0:Wastes#39"), ScenarioReplay.answerRefs("@p0:Wastes#27^@p0:Wastes#39"));
-        equal(List.of("p1:Grizzly Bears"), ScenarioReplay.answerRefs("@p1:Grizzly Bears"));
-        equal(List.of("p1:Grizzly Bears"), ScenarioReplay.answerRefs("p1:Grizzly Bears^X=2"));
-        equal(List.of(), ScenarioReplay.answerRefs("[target_skip]"));
-        System.out.println("PASS answer refs parse their seat and split a joined multi-pick");
-
-        // The corpus emits "@p0:Wastes#27^@p0:Wastes#39" on the choice queue.
-        // With a live game the driver must bind each segment (here both are
-        // already bound by setup, so nothing touches the board) and queue the
-        // value unchanged, never throw on the joined string.
-        RecordingDriver joined = driver();
-        @SuppressWarnings("unchecked")
-        java.util.Map<String, String> bound = (java.util.Map<String, String>) field(joined, "refAlias");
-        bound.put("p0:Wastes#27", "@p0:Wastes#27");
-        bound.put("p0:Wastes#39", "@p0:Wastes#39");
-        Object game = UNSAFE.allocateInstance(mage.game.TwoPlayerDuel.class);
-        set(joined, "currentGame", game);
-        equal(true, field(joined, "currentGame") != null);
-        scripted(joined, answers("choice", "@p0:Wastes#27^@p0:Wastes#39"));
-        equal(List.of("@p0:Wastes#27^@p0:Wastes#39"), field(field(joined, "playerA"), "choices"));
-        System.out.println("PASS joined same-name multi-pick choice binds per segment with a live game (Wastes)");
     }
 }

@@ -6,7 +6,6 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/compliance/oraclegen"
-	"github.com/adams-shaun/gorge/rules"
 )
 
 // This file is the single home of the token vocabulary an activation cost can
@@ -190,19 +189,6 @@ func xmageTokenName(pick, ref string) string {
 		return pick + " Token"
 	}
 	return pick
-}
-
-// observedCostPick is the XMage answer for decision d's observed cost pick i:
-// the exact-ref alias when the name matches several offered objects (three
-// identical Goblin Tokens), else the name in XMage's token spelling.
-func observedCostPick(d rules.OracleDecision, i int) string {
-	if alias := oraclegen.ExactRefAlias(d, i); alias != "" {
-		return alias
-	}
-	if i < len(d.ObjectPicks) {
-		return xmageTokenName(d.Picks[i], d.ObjectPicks[i])
-	}
-	return d.Picks[i]
 }
 
 // tokenCostAnswerNames is the XMage answer for each token a cost needs when
