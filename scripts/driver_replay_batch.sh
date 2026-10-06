@@ -413,10 +413,19 @@ one_scenario() {
   [ -s "$out" ]
 }
 
-# DRIVER_SHA identifies the XMage driver on the batch base. Legacy flake
-# records without driver= are expired: their driver cannot be established, so
-# they get one normal re-test rather than masking rows indefinitely.
-DRIVER_SHA=$(git log -1 --format=%H "$MAIN" -- tools/xmageoracle | cut -c1-12)
+# driver_sha <base>: identify the XMage driver on this pass's immutable base.
+# Fall back to the driver's tree hash if there is no commit in its path history.
+driver_sha() {
+  local sha
+  sha=$(git log -1 --format=%H "$1" -- tools/xmageoracle | cut -c1-12)
+  if [ -z "$sha" ]; then
+    sha=$(git rev-parse "$1:tools/xmageoracle" 2>/dev/null | cut -c1-12)
+  fi
+  printf '%s' "$sha"
+}
+# Legacy flake records without driver= are expired: their driver cannot be
+# established, so they get one normal re-test rather than masking rows forever.
+DRIVER_SHA=""
 # known_flaky <id>: 0 iff the row has a flake record for this driver version.
 # A row that varied once is not re-tested on the same driver: four equal
 # replays prove nothing about it (92a06b05 was HELD for a row flaked before).
@@ -665,6 +674,7 @@ pass() {
   stamp=$(date -u +%Y%m%dT%H%M%SZ); bid=driver-batch-$stamp; bbranch=wt/$bid
   wt=$repo/.worktrees/$bid; probe=$repo/.worktrees/$bid-probe; run=$RUNS/$bid
   M0=$(sha12 "$MAIN")
+  DRIVER_SHA=$(driver_sha "$M0")
   mkdir -p "$run"
   say "START $bid main=$M0 parked: ${PIDS[*]}"
   if ! "${WORKTREE_CMD[@]}" "$bid" "$MAIN" >"$run.worktree.log" 2>&1; then
@@ -812,6 +822,7 @@ drift_pass() {
   stamp=$(date -u +%Y%m%dT%H%M%SZ); bid=driver-batch-$stamp; bbranch=wt/$bid
   wt=$repo/.worktrees/$bid; probe=$repo/.worktrees/$bid-probe; run=$RUNS/$bid
   M0=$(sha12 "$MAIN"); MERGED=()
+  DRIVER_SHA=$(driver_sha "$M0")
   commits=$(git log --format=%h "$last..$cur" -- "${GEN_PATHS[@]}" | tr '\n' ',' | sed 's/,$//')
   mkdir -p "$run"
   say "DRIFT-START $bid main=$M0 last=${last:0:12} generator commits=$commits"

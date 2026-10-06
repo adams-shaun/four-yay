@@ -279,7 +279,7 @@ status_of() { sed -n 's/^status: //p' "$R/.ds4/issues/$1.md"; }
 runpass() {
 	(
 		cd "$R" || exit 1
-		export DRB_REPO=$R DRB_ONCE=1 DRB_RUNS=$TMP/runs-$(basename "$R") DRB_LOCKRUN=env \
+		export DRB_REPO=$R DRB_ONCE=${DRB_ONCE:-1} DRB_POLL=0 DRB_RUNS=$TMP/runs-$(basename "$R") DRB_LOCKRUN=env \
 			DRB_WORKTREE_CMD=$S/worktree.sh DRB_REPLAY_CMD=$S/replay.sh \
 			DRB_COMPARE_CMD="python3 $ROOT/validation/oracle/verdict-compare.py" \
 			DRB_SCENARIO_CMD=$S/scen.sh DRB_GEN_CMD=$S/gen.sh DRB_DIFF_CMD=$S/diff.sh DRB_CHECK_CMD=$S/check.sh \
@@ -560,6 +560,65 @@ check "H3 expired varying row is re-tested as FLAKY" $?
 check "H3 varying row is re-listed with the current driver sha" $?
 hasnt "$L" 'CULPRIT t3 row Beta/cast-resolve/v1'
 check "H3 a varying row is never a CULPRIT" $?
+
+# ---- H4: a long-lived process refreshes the driver identity between passes --------
+mkrepo H4
+mkticket t1 2026-10-06T03:00:00Z tools/xmageoracle/t1.txt one
+mkticket t3 2026-10-06T04:00:00Z tools/xmageoracle/x.regress 'Beta/cast-resolve/v1'
+driver_sha=$(git -C "$R" log -1 --format=%H main -- tools/xmageoracle | cut -c1-12)
+echo "2026-10-06 10:05:03 old-batch Beta Beta/cast-resolve/v1 driver=$driver_sha varies: /state" >"$R/.ds4/driver-flakes.log"
+mkdir -p "$TMP/loopbin"
+cat >"$TMP/loopbin/sleep" <<'EOF'
+#!/usr/bin/env bash
+count_file=$DRB_REPO/.ds4/sleep-count
+n=0; [ ! -e "$count_file" ] || n=$(cat "$count_file")
+n=$((n + 1)); echo "$n" >"$count_file"
+if [ "$n" = 1 ]; then
+  echo driver-v2 >"$DRB_REPO/tools/xmageoracle/driver-v2"
+  git -C "$DRB_REPO" add tools/xmageoracle/driver-v2
+  git -C "$DRB_REPO" rm -q tools/xmageoracle/x.regress
+  git -C "$DRB_REPO" commit -q -m 'change xmage driver between passes and fix row'
+  git -C "$DRB_REPO" worktree add -q -b wt/t4 "$DRB_REPO/.worktrees/t4" main
+  echo 'Beta/cast-resolve/v1' >"$DRB_REPO/.worktrees/t4/tools/xmageoracle/t4.regress"
+  git -C "$DRB_REPO/.worktrees/t4" add tools/xmageoracle/t4.regress
+  git -C "$DRB_REPO/.worktrees/t4" commit -q -m 'reintroduce regression'
+  cat >"$DRB_REPO/.ds4/issues/t4.md" <<ISSUE
+---
+id: t4
+title: ticket t4
+status: human_needed
+branch: wt/t4
+worktree: .worktrees/t4
+---
+## Brief
+XMAGE DRIVER CHANGED -- parked for scripts/driver_replay_batch.sh
+## History
+- 2026-10-06T00:00:00Z queued via agentctl issue add
+- 2026-10-06T01:00:00Z gate xmage driver needs host replay failed and is marked on_fail = "park"
+### xmage driver needs host replay
+ISSUE
+else
+  kill -TERM "$PPID"
+fi
+EOF
+chmod +x "$TMP/loopbin/sleep"
+(
+  cd "$R" || exit 1
+  export DRB_REPO=$R DRB_ONCE=0 DRB_POLL=0 DRB_RUNS=$TMP/runs-H4 DRB_LOCKRUN=env \
+    DRB_WORKTREE_CMD=$S/worktree.sh DRB_REPLAY_CMD=$S/replay.sh \
+    DRB_COMPARE_CMD="python3 $ROOT/validation/oracle/verdict-compare.py" \
+    DRB_SCENARIO_CMD=$S/scen.sh DRB_GEN_CMD=$S/gen.sh DRB_DIFF_CMD=$S/diff.sh DRB_CHECK_CMD=$S/check.sh \
+    DRB_RATCHET_CMD=true DRB_ISSUE_TOOL=$S/issue.sh DRB_ISSUES=$R/.ds4/issues DRB_TICKET_TOOL=$S/ticket.sh \
+    STUB_ALWAYS=$R/always.txt PATH=$TMP/loopbin:$PATH
+  timeout 120 bash "$SCRIPT" >"$R/loop.out" 2>&1
+)
+loop_rc=$?
+has "$R/loop.out" 'FLAKY Beta/cast-resolve/v1 (listed in driver-flakes.log)'
+check "H4 first pass skips a flake on its unchanged driver" $?
+has "$R/loop.out" 'CULPRIT t4 row Beta/cast-resolve/v1'
+check "H4 second pass sees the landed driver change and re-tests the row" $?
+[ "$(cat "$R/.ds4/sleep-count")" = 2 ] && [ "$loop_rc" != 124 ]
+check "H4 loop completed two passes and stopped at the test sleep hook" $?
 
 # ---- I: a generator-caused regression is attributed by regenerating the row ---------
 mkrepo I
