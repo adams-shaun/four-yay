@@ -1093,6 +1093,35 @@ public class ScenarioReplay extends CardTestPlayerBase {
         return false;
     }
 
+    /**
+     * The whole amount a lone recipient of a divided spell takes, or null when
+     * the inline {@code $target=} form already works or the amount is not a
+     * fixed number. XMage's TestPlayer sets a TargetCreaturePermanentAmount's
+     * entire amount on the one named target inline (Biogenic Upgrade), but for
+     * any other TargetAmount (TargetAnyTargetAmount: Twin Bolt) the inline
+     * form adds the target with no share and the chooser then asks for more.
+     */
+    static Integer soleRecipientAmount(Ability ability) {
+        if (ability == null) {
+            return null;
+        }
+        for (mage.target.Target t : ability.getAllSelectedTargets()) {
+            if (t instanceof mage.target.TargetAmount
+                    && !(t instanceof mage.target.common.TargetCreaturePermanentAmount)
+                    && ((mage.target.TargetAmount) t).getAmount() instanceof mage.abilities.dynamicvalue.common.StaticValue) {
+                return ((mage.target.TargetAmount) t).getAmount().calculate(null, null, null);
+            }
+        }
+        return null;
+    }
+
+    /** The queue name for a target-amount recipient: a player by name, else
+     * the setup alias or XMage-spelled card name. Shared by the scripted
+     * "<ref>^X=<share>" answers and the lone-recipient cast. */
+    private String amountTargetName(String ref) {
+        return isSeatRef(ref) ? "targetPlayer=" + seat(seatOf(ref)).getName() : targetName(ref);
+    }
+
     /** Whether the card's spell ability has a divided-amount target. */
     private static boolean spellTargetsDivided(String name) {
         return targetsDivided(spellAbility(name));
@@ -1585,14 +1614,9 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     String spell = castSpelling(refName(tg.get(0)));
                     castSpell(turn, phase, p, card, spell, spell);
                 } else if (tg.size() == 1) {
-                    // A single target goes through XMage's own string form, so
-                    // a divided-damage target (TargetAmount) still lets XMage
-                    // pick the split as it always did. TargetAnyTargetAmount
-                    // may still offer another optional target (Twin Bolt); the
-                    // scenario's short target list must close that slot.
-                    if ("Twin Bolt".equals(card) && spellTargetsDivided(card) && !singleTargetFilled(card, tg.size())) {
-                        addTarget(p, TestPlayer.TARGET_SKIP);
-                    }
+                    // A single target goes through XMage's own string form. A
+                    // divided target whose inline form XMage cannot read
+                    // (Twin Bolt) was queued by castQueuedTargets above.
                     castSpell(turn, phase, p, card, targetName(tg.get(0)));
                 } else {
                     // Two or more targets: queue each through addTarget and
@@ -1679,8 +1703,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     } else if (v.contains("^X=")) {
                         // Divided damage: the ref carries its share.
                         String[] parts = v.split("\\^X=", 2);
-                        String nm = isSeatRef(parts[0]) ? "targetPlayer=" + seat(seatOf(parts[0])).getName() : targetName(parts[0]);
-                        addTarget(p, nm + "^X=" + parts[1]);
+                        addTarget(p, amountTargetName(parts[0]) + "^X=" + parts[1]);
                     } else {
                         addTarget(p, v.equals("[target_skip]") ? TestPlayer.TARGET_SKIP : targetName(v));
                     }
@@ -1787,6 +1810,16 @@ public class ScenarioReplay extends CardTestPlayerBase {
         boolean adjusted = needsQueuedCastTargets(ability);
         boolean firstTargetInLaterMode = firstTargetInLaterMode(ability);
         boolean divided = targetsDivided(ability);
+        Integer soleShare = tg.size() == 1 ? soleRecipientAmount(ability) : null;
+        if (soleShare != null) {
+            // A divided target XMage's inline $target= cannot fill (Twin
+            // Bolt's TargetAnyTargetAmount: "selected 1 of 2"): the only
+            // recipient takes the whole amount, which chooseTargetAmount
+            // reads from the queue as "<name>^X=<amount>" while casting.
+            addTarget(p, amountTargetName(tg.get(0)) + "^X=" + soleShare);
+            castSpell(turn, phase, p, card);
+            return true;
+        }
         if (!queueAdjustedCastTargets(adjusted || firstTargetInLaterMode, divided, tg.size())) {
             return false;
         }
