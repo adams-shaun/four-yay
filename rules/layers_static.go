@@ -321,13 +321,16 @@ func (e *Engine) continuousGateHolds(sv staticView) bool {
 //     Ascend latch, state.Player.Blessing -- granted by rules/ascend.go's
 //     emit-side scan and spell-resolution grant).
 //
-// Every other value -- FatefulHour, Monarch, MaxSpeed
-// and anything new -- FAILS CLOSED (the gate never holds), matching every
-// sibling gate's documented deny direction. MaxSpeed is safe to deny here:
-// its statics carry only AddAbility$/AddStaticAbility$/AddTrigger$/
-// AddReplacementEffect$/AddSVar$, never a layer-walk key, and the speed family
-// is read separately by rules/speed.go's maxSpeedAbilities. An absent or empty
-// Condition$ keeps holding, as before.
+// - MaxSpeed: the static's controller has max speed (CR 702.179e,
+// state.Player.Speed, folded by events.SpeedChange).
+//
+// Every other value -- FatefulHour, Monarch and anything new -- FAILS CLOSED
+// (the gate never holds), matching every sibling gate's documented deny
+// direction. An absent or empty Condition$ keeps holding, as before. MaxSpeed
+// must hold here: a "Max speed --" static can nest an AddStaticAbility$,
+// AddTrigger$ or AddSVar$ body that only this walk applies. Its AddAbility$
+// grants are NOT emitted by the walk (see the AddAbility$ branch of
+// staticEffects): rules/speed.go's maxSpeedAbilities owns that offer.
 func (e *Engine) continuousConditionHolds(sv staticView) bool {
 	c, ok := sv.ParamCode(cards.PKCondition)
 	if !ok {
@@ -356,6 +359,8 @@ func (e *Engine) continuousConditionHolds(sv staticView) bool {
 		return e.G.Players[sv.Controller].Blessing
 	case condEnduringStory:
 		return e.playerHasEnduringStory(sv.Controller)
+	case condMaxSpeed:
+		return int(sv.Controller) < len(e.G.Players) && e.G.Players[sv.Controller].Speed >= maxSpeed
 	}
 	return false
 }
