@@ -16,17 +16,17 @@
 #   1. two nonzero probes + a real standing orphan -> the orphan is stopped,
 #      exactly one gorged_reaped row is appended (value, shape), the veto
 #      logic still runs this cycle;
-#   2. one nonzero probe (one row zeroed) -> no reaping, no action row: the
-#      two-probe rule binds, provably, because a real orphan SURVIVES;
+#   2. one nonzero probe (one row zeroed) -> the unconditional early reap
+#      still removes a real orphan, independent of probe history; it does not
+#      append the late trigger's gorged_reaped action row;
 #   3. two nonzero rows but an empty process tree (the instance already
 #      exited between probes) -> no action row, one saw line, exit 0;
 #   4. the demo-port neighbour is never signalled (still alive after case 1);
 #   5. gorged_reaped is scored nowhere: reward.py's stability.detail holds
 #      only standing_gorged_excess, so the cure does not veto like the
 #      disease;
-#   6. mutation probe: a seed-agent.sh with the trigger check removed writes
-#      no row and reaps nothing — case 1's assertions are load-bearing, not
-#      vacuous (a cycle that skipped the action silently would fail case 1).
+#   6. mutation probe: disable the unconditional early reap and remove the
+#      two-probe trigger; the orphan survives and no action row is written.
 #
 #   scripts/tests/seed_reap_smoke.sh
 set -uo pipefail
@@ -252,9 +252,8 @@ PY
 check "case 5: reward.py scores only standing_gorged_excess; gorged_reaped is unscored" $? \
 	"$(cat "$TMP/reward1.json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["stability"])' 2>&1 | head -2)"
 
-# ------------------------------------------------- case 2: two-probe rule
-# One nonzero probe (second row zeroed): the trigger must NOT fire, provably —
-# a fresh real orphan SURVIVES the cycle.
+# ------------------------------------------- case 2: early reap is unconditional
+# One nonzero probe (second row zeroed): the early reap still removes the orphan.
 RDIR2=$TMP/reward2
 probe_row "$RDIR2" 1
 probe_row "$RDIR2" 0
@@ -264,12 +263,13 @@ ORPHAN2=$(spawn_detached 8091 /tmp/gorge-reap-seed-orphan2 "$TMP/orphan2.pid")
 [ -n "$ORPHAN2" ]
 check "case 2 precondition: a fresh real orphan is running" $?
 [ -n "$ORPHAN2" ] && carry_into_faketree "$ORPHAN2"
-GORGE_REWARD_DIR=$RDIR2 "$ROOT/scripts/seed-agent.sh" --no-probe --cap 2 >"$TMP/case2.log" 2>&1
+GORGE_PROC_DIR=$FAKEPROC GORGE_REWARD_DIR=$RDIR2 \
+	"$ROOT/scripts/seed-agent.sh" --no-probe --cap 2 >"$TMP/case2.log" 2>&1
 check "case 2: the cycle exits 0" $? "$(tail -3 "$TMP/case2.log")"
 [ "$(count_metric_rows "$RDIR2" gorged_reaped)" = 0 ]
-check "case 2: no gorged_reaped row was appended" $?
-kill -0 "$ORPHAN2" 2>/dev/null
-check "case 2: the two-probe rule bound — the orphan was NOT reaped" $?
+check "case 2: early reap does not append the late action row" $?
+! kill -0 "$ORPHAN2" 2>/dev/null
+check "case 2: early reap removes the orphan despite one nonzero probe" $?
 
 # ------------------------------------------- case 3: nothing left to reap
 # Two nonzero rows, but the process tree is empty (the instance exited
@@ -308,7 +308,7 @@ ORPHAN4=$(spawn_detached 8098 /tmp/gorge-reap-seed-orphan4 "$TMP/orphan4.pid")
 [ -n "$ORPHAN4" ]
 check "case 6 precondition: a reapable orphan is present" $?
 [ -n "$ORPHAN4" ] && carry_into_faketree "$ORPHAN4"
-GORGE_PROC_DIR=$FAKEPROC GORGE_REWARD_DIR=$RDIR6 \
+GORGED_REAP=0 GORGE_PROC_DIR=$FAKEPROC GORGE_REWARD_DIR=$RDIR6 \
 	"$MUT" --no-probe --cap 2 >"$TMP/case6.log" 2>&1
 [ "$(count_metric_rows "$RDIR6" gorged_reaped)" = 0 ]
 check "case 6: the mutation removes the row (the append is load-bearing)" $?

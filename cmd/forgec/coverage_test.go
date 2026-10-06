@@ -53,7 +53,7 @@ func TestRenderIsDeterministic(t *testing.T) {
 	for _, want := range []string{
 		"- Cards in the corpus: **100**",
 		"- Fully playable: **87 (87.0%)**",
-		"- Corpus pin: `Card-Forge/forge@95f04e8a04c8925fa97cb226fc3341cabcc90a53`",
+		"- Corpus pin: `adams-shaun/forge@95f04e8a04c8925fa97cb226fc3341cabcc90a53`",
 		"| Creature | 60 | 48 | 80.0% |",
 		"| `kw:Crew` | 12 |",
 	} {

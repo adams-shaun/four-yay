@@ -97,9 +97,9 @@ func TestReplacementAppendFastPathDuringTokenFlood(t *testing.T) {
 	}
 	e := layerEngine(t)
 	e.G.Tokens = make(map[string]*cards.Card)
-	e.G.Tokens["cold"] = card(t, "Name:Plain token\nTypes:Creature Goblin\nPT:1/1\nOracle:x\n")
-	e.G.Tokens["hot"] = card(t, "Name:Replacement token\nTypes:Creature Goblin\nPT:1/1\n"+
-		"R:Event$ CreateToken | ActiveZones$ Battlefield | ReplaceWith$ None | Description$ replacement token\nOracle:x\n")
+	setFixtureToken(e, "cold", card(t, "Name:Plain token\nTypes:Creature Goblin\nPT:1/1\nOracle:x\n"))
+	setFixtureToken(e, "hot", card(t, "Name:Replacement token\nTypes:Creature Goblin\nPT:1/1\n"+
+		"R:Event$ CreateToken | ActiveZones$ Battlefield | ReplaceWith$ None | Description$ replacement token\nOracle:x\n"))
 	// A pre-existing hot source and a cold one, classified by a first walk.
 	hot := onBoard(t, e, 0, "Name:Replacement\nTypes:Creature\nPT:1/1\n"+
 		"R:Event$ CreateToken | ActiveZones$ Battlefield | ValidToken$ Creature | ReplaceWith$ None | Description$ existing\nOracle:x\n")

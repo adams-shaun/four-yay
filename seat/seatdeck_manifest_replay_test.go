@@ -1,4 +1,4 @@
-package rules_test
+package seat
 
 // The lifecycle half of the seat-deck-manifest acceptance (ticket
 // seat-deck-03-acceptance): the manifest is genesis data, so it must be
@@ -20,7 +20,6 @@ import (
 	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/replay"
 	"github.com/adams-shaun/gorge/rules"
-	"github.com/adams-shaun/gorge/seat"
 	"github.com/adams-shaun/gorge/state"
 	"github.com/adams-shaun/gorge/view"
 )
@@ -88,7 +87,7 @@ func TestSeatDeckManifestStaticThroughFullGameAndReplay(t *testing.T) {
 	}
 
 	// Play a whole deterministic bot game.
-	b := seat.NewBot(11)
+	b := NewBot(11)
 	ctx := context.Background()
 	n := 0
 	for !e.G.Over && e.Pending() != nil && n < 400000 {

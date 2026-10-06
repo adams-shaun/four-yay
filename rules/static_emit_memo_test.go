@@ -12,7 +12,7 @@ func TestStaticMemoReusesAcrossColdTokenCreates(t *testing.T) {
 	e := layerEngine(t)
 	e.G.Tokens = make(map[string]*cards.Card)
 	token := card(t, "Name:Plain token\nTypes:Creature Goblin\nPT:1/1\nOracle:x\n")
-	e.G.Tokens["plain"] = token
+	setFixtureToken(e, "plain", token)
 	e.refreshStaticContinuous()
 	builds := e.staticBuildSeq
 	for i := 0; i < 3; i++ {
@@ -40,7 +40,7 @@ func TestStaticMemoDoesNotReuseAcrossStaticTokenCreates(t *testing.T) {
 	e.G.Tokens = make(map[string]*cards.Card)
 	token := card(t, "Name:Static token\nTypes:Creature Goblin\nPT:1/1\n"+
 		"S:Mode$ Continuous | Affected$ Card.Self | AddPower$ 1 | Description$ gets +1/+0\nOracle:x\n")
-	e.G.Tokens["static"] = token
+	setFixtureToken(e, "static", token)
 	e.refreshStaticContinuous()
 	builds := e.staticBuildSeq
 

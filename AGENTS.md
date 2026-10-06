@@ -47,13 +47,22 @@ guidelines*.
 ## Build / run / test
 
 ```sh
-make fetch-cards          # one-time; ~25 MB, pinned commit from Card-Forge/forge
+make fetch-cards          # one-time; ~25 MB, pinned commit from adams-shaun/forge (our fork of Card-Forge/forge; FORGE_REPO)
 make compile-cards        # parse into the IR cache
 make report               # card coverage against implemented primitives
 make sim                  # build mtgsim and play 20 verified 4-seat games
 make test lint
 make conformance          # the focused CR conformance audit
 ```
+
+**Test budget (operator, 2026-10-05):** every test fits 2 GB RSS, 2 vCPU and
+1 minute wall; one outside it is a defect to split, never to trim. Agents run
+tests focused and capped, never `go test ./...`, `./compliance/...` or
+`-count=1`:
+`systemd-run --user --scope -q -p MemoryMax=2G -p CPUQuota=200% env GOMAXPROCS=2 GOMEMLIMIT=1536MiB go test -timeout 2m -run X ./pkg`.
+The full suite is `scripts/postmerge_batch.sh`'s (once per batch on main;
+red pauses the pipeline and bisects to a CULPRIT). Rules and rationale:
+[invariants.md](docs/agents/invariants.md#workflow).
 
 `make conformance` is the focused CR 601/733 audit. I-2 (mandatory-target
 feasibility), I-7 (targets before payment), and the CR 733.1 illegal-cast

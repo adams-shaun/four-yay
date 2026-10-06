@@ -50,7 +50,7 @@ function bundle(d: Decision, potential: PotentialAction[], post = vi.fn()): Card
 describe('laterByObj', () => {
   it('puts a potential ability on the tile whose only live option is its mana tap', () => {
     const d = priority([doomMana, opt({ index: 8, kind: 'pass' })]);
-    const m = laterByObj(d, [doomDamage, handCast, otherAbility]);
+    const m = laterByObj(d, [doomDamage, handCast, otherAbility], [5]);
     expect(m?.get(DOOM)).toEqual([doomDamage]);
     // fb-20260928T230741Z re-oracled this assertion. The old lines —
     //   expect(m?.has(5)).toBe(false);
@@ -66,10 +66,9 @@ describe('laterByObj', () => {
     // was discoverable only by floating mana first and looking again. The
     // request supersedes the boundary for LATER_KINDS entries: Grim
     // Monolith's untap (obj 30, no live option here) is now indexed and its
-    // tile gets the badge with a disabled row. A hand cast (obj 5) is NOT a
-    // LATER_KINDS entry and still goes nowhere (the auto-pass stop note);
-    // the pinned cast/land-drop/station exclusion is unchanged.
-    expect(m?.has(5)).toBe(false);
+    // tile gets the badge with a disabled row. Hand casts are separately
+    // eligible only when the object is in hand; obj 5 is indexed here.
+    expect(m?.get(5)).toEqual([handCast]);
     expect(m?.get(30)).toEqual([otherAbility]);
   });
 
@@ -180,12 +179,12 @@ describe('laterByObj with the widened projection kinds', () => {
     expect(laterByObj(priority([racewayMana]), elsewhere)?.get(62)).toEqual(elsewhere);
   });
 
-  it('a cast, a land drop and a station never become later rows', () => {
+  it('a cast outside hand, a land drop and a station never become later rows', () => {
     const m = laterByObj(priority([racewayMana]), [
       { kind: 'cast', obj: RACEWAY, label: 'Cast Raceway' },
       { kind: 'play_land', obj: RACEWAY, label: 'Play Raceway' },
       { kind: 'station', obj: RACEWAY, label: 'Station Raceway' },
-    ]);
+    ], []);
     expect(m).toBeUndefined();
   });
 
@@ -264,13 +263,13 @@ describe('an Equipment whose only offered action is a float-gated Equip', () => 
     expect(tile?.list).toEqual([]);
   });
 
-  it('a cast, a land drop and a station are still never rows on an object with no live option (LATER_KINDS unchanged)', () => {
+  it('a cast outside hand, a land drop and a station stay excluded on an object with no live option', () => {
     const m = laterByObj(tapsWindow(), [
       huskEquip,
       { kind: 'cast', obj: HUSK, label: 'Cast Flayer Husk' },
       { kind: 'play_land', obj: HUSK, label: 'Play Plains' },
       { kind: 'station', obj: HUSK, label: 'Station' },
-    ]);
+    ], []);
     // The Equip rides; the cast, the land drop and the station never join it.
     expect(m?.get(HUSK)).toEqual([huskEquip]);
   });

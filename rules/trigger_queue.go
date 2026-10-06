@@ -424,6 +424,7 @@ func (e *Engine) pushTrigger(pt pendingTrigger) {
 	// the chain links' targets before priority through this one helper. A
 	// gained trigger (drainAlways) marks the mode drain even when the mode
 	// ask answered in place.
+	defer emitAbilityTriggered(e.G, e.emit, pt, len(e.G.Stack))
 	announce := func(id state.ObjID, drainAlways bool) {
 		handled := false
 		if pt.SA.ParamStr(cards.PKChoices) != "" {
@@ -1137,7 +1138,6 @@ func (e *Engine) pushTrigger(pt pendingTrigger) {
 	// hand-seeded queue entry (clone_test's seeded fake), which never has
 	// ValidTgts$ -- mirror the nil-tolerance the TriggerPush out-of-range
 	// guard already provides.
-	//
 	// CR 603.3c: a modal triggered ability announces its mode choice when it
 	// is put on the stack, not at resolution. That ask is posed here too,
 	// in preference to the target ask for a trigger whose effect carries

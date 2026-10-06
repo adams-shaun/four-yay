@@ -20,17 +20,24 @@
 # A pause anyone else wrote (fleet halt, operator) is never touched.
 #
 #   scripts/postmerge_batch.sh            # loop forever
-#   LOCK=/path/heavy.lock scripts/postmerge_batch.sh
+#   GORGE_HEAVY_LOCK=/path/to/lock scripts/postmerge_batch.sh
 #   scripts/postmerge_batch.sh --parse-fails <go-test-output>   # self-test aid
 set -uo pipefail
 repo=$(git rev-parse --show-toplevel)
-LOCK=${LOCK:-/tmp/gorge-heavy.lock}
+. "$(dirname "$0")/heavy_lock.sh"  # the one HEAVY lock definition
+LOCK=${LOCK:-$GORGE_HEAVY_LOCK}
 LOG=${LOG:-$repo/.ds4/postmerge-batch.log}
 CULPRITS=${CULPRITS:-$repo/.ds4/postmerge-culprits.log}
 OUT=$repo/.ds4/postmerge-full.out
 PAUSE=${PAUSE:-$repo/.ds4/orchestrator/pause}
 wt=$repo/.worktrees/postmerge-full
-SCOPE=(systemd-run --user --scope -q -p MemoryMax=24G env GOMEMLIMIT=16GiB GOGC=200 GOFLAGS="-p=2 -trimpath" GORGE_ORACLEGEN_FULL_TARGET_AUDIT=1)
+# postmerge_full runs up to eight test binaries concurrently (-p=8). Keep
+# their aggregate soft heap limit below this scope's hard cap, with per-test
+# runtime settings matching the operator's 2 GiB / 2 vCPU budget. Two host tests
+# measured just over 2 GiB are pinned in the shrink-only exception inventory at
+# internal/testutil/testdata/rss_exceptions.txt; operator full-scope measurement
+# is required before relying on these proposed limits.
+SCOPE=(systemd-run --user --scope -q -p MemoryMax=16G -p CPUQuota=1600% env GOMEMLIMIT=1536MiB GOMAXPROCS=2 GOGC=200 GOFLAGS="-p=2 -trimpath" GORGE_ORACLEGEN_FULL_TARGET_AUDIT=1)
 
 say() { echo "$(date '+%F %T') $*" | tee -a "$LOG"; }
 
@@ -60,6 +67,8 @@ parse_fails() {
     }' "$1"
 }
 
+for _a in "$@"; do [ "$_a" = --print-heavy-lock ] && { printf '%s\n' "$LOCK"; exit 0; }; done
+unset _a
 if [ "${1:-}" = "--parse-fails" ]; then parse_fails "$2"; exit 0; fi
 
 # fails_at <sha> <pkg> <regex>: 0 if the tests FAIL at sha, 1 if they pass.

@@ -141,6 +141,9 @@ func classifyTrigger(f *cards.Face, t *cards.Trigger) (sub, gap string, covered 
 	gapMode := func() (string, string, bool) {
 		return "trigger.gap:" + t.Mode, "trigger mode " + t.Mode, false
 	}
+	if sub, ok := classifyEventTrigger(t); ok {
+		return sub, "", false
+	}
 	switch t.ModeKind() {
 	case cards.TriggerChangesZone:
 		dest := t.ParamStr(cards.PKDestination)
@@ -184,6 +187,9 @@ func classifyTrigger(f *cards.Face, t *cards.Trigger) (sub, gap string, covered 
 		return gapMode()
 
 	case cards.TriggerSpellCast:
+		if selfCastTrigger(f, t) {
+			return "trigger.spell-cast-self", "", true
+		}
 		if strings.EqualFold(t.ParamStr(cards.PKValidActivatingPlayer), "You") {
 			return "trigger.spell-cast", "", false
 		}
@@ -208,14 +214,24 @@ func classifyTrigger(f *cards.Face, t *cards.Trigger) (sub, gap string, covered 
 		return gapMode()
 
 	case cards.TriggerPhase:
-		// The phase recipe scripts only p0's phases, so a ValidPlayer$
-		// naming another player is a gap.
-		if vp := t.ParamStr(cards.PKValidPlayer); vp != "" && !strings.EqualFold(vp, "You") {
-			return gapMode()
-		}
+		// Phase recipes cover p0's own steps and the first opponent step for
+		// player-wide triggers, p1's upkeep and draw for opponent-only
+		// triggers, and p0's next first main phase. Other explicit player
+		// filters remain gaps.
+		vp := t.ParamStr(cards.PKValidPlayer)
 		switch t.ParamStr(cards.PKPhase) {
-		case "End of Turn", "BeginCombat", "Upkeep", "Draw":
-			return "trigger.phase", "", false
+		case "Main1":
+			if strings.EqualFold(vp, "You") {
+				return "trigger.phase", "", false
+			}
+		case "Upkeep", "Draw":
+			if vp == "" || strings.EqualFold(vp, "You") || strings.EqualFold(vp, "Player") || strings.EqualFold(vp, "Opponent") {
+				return "trigger.phase", "", false
+			}
+		case "End of Turn", "BeginCombat":
+			if vp == "" || strings.EqualFold(vp, "You") || strings.EqualFold(vp, "Player") {
+				return "trigger.phase", "", false
+			}
 		}
 		return gapMode()
 
@@ -229,8 +245,12 @@ func classifyStatic(f *cards.Face, st *cards.Static) (sub, gap string) {
 	switch st.ModeKind() {
 	case cards.StaticContinuous:
 		return "static.continuous", ""
-	case cards.StaticReduceCost, cards.StaticRaiseCost:
-		return "static.cost", "cost static"
+	case cards.StaticReduceCost:
+		return "static.cost", ""
+	case cards.StaticRaiseCost:
+		// v1 can only probe our own cast. Opponent-cast taxation needs a
+		// p1 turn, which the level-B cast recipes do not yet provide.
+		return "static.cost", "opponent-cast cost static"
 	}
 	for _, s := range servableStaticModes {
 		if strings.EqualFold(st.Mode, s.mode) {

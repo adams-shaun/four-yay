@@ -767,6 +767,10 @@ const (
 	// Count$TriggerRememberAmount reads. Appended so earlier ordinals stay
 	// stable and a pre-compiled IR cache stays valid.
 	PKRememberSVarAmount
+	// Mode$ AbilityTriggered operands (append-only).
+	PKTriggeredOwnAbility
+	PKValidDestination
+	PKValidSpellAbility
 	paramKeyCount
 )
 
@@ -1525,6 +1529,9 @@ var paramKeyNames = [paramKeyCount]string{
 	PKChooseAmount:                     "ChooseAmount",
 	PKPrimary:                          "Primary",
 	PKSecondaryType:                    "SecondaryType",
+	PKTriggeredOwnAbility:              "TriggeredOwnAbility",
+	PKValidDestination:                 "ValidDestination",
+	PKValidSpellAbility:                "ValidSpellAbility",
 }
 
 // String is the key's Forge text.

@@ -16,9 +16,12 @@ import (
 //     seed keeps an empty pin and asserts a clean, control-equivalent game;
 //   - 2138 seq 1488: G.Stack reorder by a float-triggered ability (expected
 //     float_trigger_precedes_cast);
-//   - 4098 seq 7830: Master of Dark Rites, equivalent. The Dig absent-
+//   - 4098 seq 7795: Master of Dark Rites, equivalent. The Dig absent-
 //     ChangeNum default now moves one card rather than the whole window,
-//     changing the preceding game's event count (formerly seq 7684);
+//     changing the preceding game's event count (formerly seq 7684). Ticket
+//     agent-20261006T052735Z-5c29adb5: Necropotence's Defined$ TopOfLibrary
+//     exile is a position read and no longer emits a mandatory shuffle
+//     (CR 401.4), shifting the same cast from seq 7830 to 7795;
 //   - 4139: CR 601.2c now announces graveyard ChangeZone sub-targets during
 //     casting, changing the bot game's path before the Urza's Incubator
 //     finding. The seed remains pinned as a clean, control-equivalent game;
@@ -39,7 +42,7 @@ func TestRoundSixFindingsMirrorKernel(t *testing.T) {
 	}{
 		{4130, []string{"vivi-ornitier-cedh", "foundations-reign-of-dragons", "avengers-assemble", "valgavoth-endless-punishment"}, 0, ""},
 		{2138, []string{"vivi-ornitier-cedh", "hearthhull-worldseed-landfall", "pro-shaper", "foundations-keen-engineering"}, 1488, "expected:float_then_cast:float_trigger_precedes_cast"},
-		{4098, []string{"foundations-reign-of-dragons", "hearthhull-worldseed-landfall", "avengers-assemble", "rakdos-muscle-scam-exe"}, 7830, ""},
+		{4098, []string{"foundations-reign-of-dragons", "hearthhull-worldseed-landfall", "avengers-assemble", "rakdos-muscle-scam-exe"}, 7795, ""},
 		{4139, []string{"foundations-wretched-ranks", "deadly-disguise", "foundations-reign-of-dragons", "ulalek-eldrazi"}, 0, ""},
 		{4129, []string{"rakdos-muscle-scam-exe", "pro-shaper", "foundations-reign-of-dragons", "foundations-wretched-ranks"}, 5797, ""},
 	} {

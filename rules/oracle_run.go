@@ -45,6 +45,7 @@ type oracleFile struct {
 
 type oracleScenario struct {
 	Name   string                `json:"name"`
+	Turn   *int                  `json:"turn,omitempty"`
 	CR     []string              `json:"cr"`
 	Why    string                `json:"why"`
 	Format string                `json:"format,omitempty"`
@@ -212,7 +213,7 @@ var oracleZones = map[string]state.Zone{
 	"command": state.ZCommand, "sideboard": state.ZSideboard,
 }
 
-// oracleFiller pads every library to 40 cards. Wastes has no colour, no
+// oracleFiller pads setup decks (with extra draw room for later turns). Wastes has no colour, no
 // subtype and no ability beyond {T}: Add {C}, so it influences no Oracle
 // condition a scenario is likely to test.
 const oracleFiller = "Wastes"
@@ -321,6 +322,14 @@ func (r *oracleRun) resolve(ref string) (state.ObjID, error) {
 // TurnChange means seat 0's battlefield is not summoning sick on turn 1.
 func (r *oracleRun) build(sc oracleScenario) error {
 	const seats = 2
+	turn := 1
+	if sc.Turn != nil {
+		turn = *sc.Turn
+	}
+	if turn < 1 || turn > 100 {
+		return harnessf("invalid scenario turn %d (want 1..100)", turn)
+	}
+	targetTurn := int32(turn)
 	lookup := func(name string) (*cards.Card, error) {
 		c, ok := r.reg.Lookup(name)
 		if !ok {
@@ -370,7 +379,15 @@ func (r *oracleRun) build(sc oracleScenario) error {
 				places[p] = append(places[p], placement{n, z.zone, top})
 			}
 		}
-		for len(decks[p]) < 40 {
+		// Preserve turn-1 decks exactly. Later checkpoints need at most
+		// turn/2 ordinary draws per seat, plus one card left in the library.
+		// Count named cards even when setup moves them OUT of the library;
+		// match ScenarioReplay.build's filler calculation.
+		deckSize := 40
+		if turn > 1 {
+			deckSize = max(deckSize, len(decks[p])+turn/2+1)
+		}
+		for len(decks[p]) < deckSize {
 			decks[p] = append(decks[p], filler)
 		}
 		for _, n := range s.Sideboard {
@@ -506,25 +523,30 @@ func (r *oracleRun) build(sc oracleScenario) error {
 		}
 	}
 	e.Advance()
-	// TurnChange cleared the pre-turn placement history. XMage's seeded
-	// battlefield counts as entered on turn 1; log that provenance explicitly
-	// without a second zone move or an artificial enter-the-battlefield trigger.
-	if sc.xmageFixture {
-		for _, id := range setupBattlefield {
-			e.emit(events.Event{Kind: events.SetupEntered, Obj: id})
-		}
-	}
 	r.answers = append([]oracleAnswer(nil), sc.SetupAnswers...)
-	// A setup mana seed lands the moment the drive enters turn 1's first main
-	// phase (before the trigger it funds is answered) and never earlier: a
-	// pool added during an earlier step would empty at that step's end
-	// (CR 500.4), and the first-main-phase trigger is posed in main1.
+	// A setup mana seed lands the moment the drive enters the requested turn's
+	// first main phase (before the trigger it funds is answered) and never
+	// earlier: a pool added during an earlier step would empty at that step's
+	// end (CR 500.4), and the first-main-phase trigger is posed in main1.
 	seededMana := false
-	// Drive to seat 0's first main phase. Triggers that setup placements
-	// caused resolve here under the fallback answers; the transcript names
+	// Drive to the requested turn's first main phase. Triggers that setup
+	// placements caused resolve here under the fallback answers; the transcript names
 	// every one.
-	for i := 0; i < 400; i++ {
-		if !seededMana && e.G.Turn == 1 && e.G.Step == state.StepMain1 {
+	setupEntered := false
+	for i := 0; i < 400*turn; i++ {
+		// SetupEntered restores the pre-TurnChange entry history the setup
+		// placements lost; events.Apply only folds it at turn 1, where XMage's
+		// seeded battlefield likewise counts as entered. At a requested later
+		// turn neither side marks the setup permanents entered THIS turn (they
+		// entered long before), so emitting it there would log provenance the
+		// fold drops: only emit when the checkpoint is turn 1.
+		if sc.xmageFixture && !setupEntered && targetTurn == 1 && e.G.Turn == targetTurn && e.G.Step == state.StepMain1 {
+			for _, id := range setupBattlefield {
+				e.emit(events.Event{Kind: events.SetupEntered, Obj: id})
+			}
+			setupEntered = true
+		}
+		if !seededMana && e.G.Turn == targetTurn && e.G.Step == state.StepMain1 {
 			seededMana = true
 			for p := 0; p < 2; p++ {
 				for _, c := range sc.Setup[fmt.Sprintf("p%d", p)].Mana {
@@ -536,7 +558,7 @@ func (r *oracleRun) build(sc oracleScenario) error {
 		if d == nil || e.G.Over {
 			return harnessf("game stopped during setup")
 		}
-		if d.Kind == decision.KPriority && e.G.Step == state.StepMain1 && e.G.Turn == 1 && len(e.G.Stack) == 0 {
+		if d.Kind == decision.KPriority && e.G.Step == state.StepMain1 && e.G.Turn == targetTurn && len(e.G.Stack) == 0 {
 			r.logf("setup done: turn %d %s, stack empty", e.G.Turn, e.G.Step)
 			return nil
 		}
@@ -544,7 +566,7 @@ func (r *oracleRun) build(sc oracleScenario) error {
 			return err
 		}
 	}
-	return harnessf("setup never reached turn 1 main1")
+	return harnessf("setup never reached turn %d main1", turn)
 }
 
 func pickPass(d *decision.Decision) int {
@@ -582,6 +604,9 @@ func (r *oracleRun) submit(d *decision.Decision, choices []int, why string) erro
 		}
 		if len(d.Options) > 0 {
 			od.First = d.Options[0].Label
+			if d.Options[0].Kind == "altaddcost" {
+				od.AltPayable = altPayableCount(r.e.cast, d, r.e.castable)
+			}
 		}
 		for _, c := range choices {
 			if c < 0 || c >= len(d.Options) {
@@ -606,6 +631,24 @@ func (r *oracleRun) submit(d *decision.Decision, choices []int, why string) erro
 		return harnessf("submit %s %v: %v (options %s)", d.Kind, choices, err, optionDump(d))
 	}
 	return nil
+}
+
+// altPayableCount counts the options of the pending AlternateAdditionalCost
+// ask the cast could pay, by the same test altAddAsk ordered them with.
+func altPayableCount(pc *pendingCast, d *decision.Decision, castable func(state.PlayerID, state.ObjID, Cost, bool) bool) int {
+	if pc == nil {
+		return 0
+	}
+	n := 0
+	for _, o := range d.Options {
+		if o.Amount < 0 || o.Amount >= len(pc.altAddParts) {
+			continue
+		}
+		if castable(pc.player, pc.card, pc.cost.Plus(ParseCost(pc.altAddParts[o.Amount])), pc.isAbility()) {
+			n++
+		}
+	}
+	return n
 }
 
 // oracleActivateKind reports whether an option's Kind names an action the
@@ -1304,7 +1347,7 @@ func (r *oracleRun) do(st oracleStep) error {
 				}
 				return r.untilPriority("attack")
 			}
-			if d.Kind == decision.KPriority && len(e.G.Stack) == 0 && e.G.Step > state.StepDeclareAttackers {
+			if d.Kind == decision.KPriority && len(e.G.Stack) == 0 && e.G.Active == seat && e.G.Step > state.StepDeclareAttackers {
 				return harnessf("attack: passed declare-attackers without being asked")
 			}
 			if err := r.answer(d, "to-attack"); err != nil {
@@ -1730,10 +1773,14 @@ func runOracleScenarioSpare(reg *cards.Registry, sc oracleScenario, noSnapshot b
 // player, so every fixture addresses seats and turns by index -- and the
 // winner-chooses arm that would let a fixture name its starter is
 // deliberately unbuilt (the "Known approximations" row in AGENTS.md). The
-// toss draw sits BEFORE any shuffle, so it is deck-independent and the first
-// acceptable seed is a pure function of the requested one; the effective seed
-// travels in the returned Config, which is what a replay must be handed.
-func seatZeroStart(cfg Config) Config { return seatZeroStartSpare(cfg, nil) }
+// toss draw sits BEFORE any shuffle, but opening-hand effects can run before
+// turn 1 and affect whether seat 0 starts. Preserve the full-engine probe for
+// each seed while recycling its storage; the effective seed travels in the
+// returned Config, which is what a replay must be handed.
+func seatZeroStart(cfg Config) Config {
+	var sp Spare
+	return seatZeroStartSpare(cfg, &sp)
+}
 
 // seatZeroStartSpare is seatZeroStart building each probe game on sp's
 // recycled storage (nil: fresh arrays) and handing the spent probe's back

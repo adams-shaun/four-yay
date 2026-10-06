@@ -487,7 +487,10 @@ func isCardTypeBase(base string) bool {
 // (Equipment, Saga) and creatures are both served by the registry, so a
 // Kindred command's "target Elf you control" gets a real Elf.
 func subtypeBattlefield(reg *cards.Registry, subtype string, mine bool) []cand {
-	name, ok := registrySubtype(reg, subtype)
+	name, ok := registryQuietSubtype(reg, subtype)
+	if !ok {
+		name, ok = registrySubtype(reg, subtype)
+	}
 	if !ok {
 		return nil
 	}
@@ -588,6 +591,34 @@ func registrySubtype(reg *cards.Registry, subtype string) (string, bool) {
 				return c.Faces[fi].Name, true
 			}
 		}
+	}
+	return "", false
+}
+
+// registryQuietSubtype is registrySubtype restricted to a "quiet" card: a
+// creature whose front face carries the subtype and no trigger or static.
+// A battlefield fixture is copied, flickered or re-entered by the card under
+// test, and a fixture with its own ETB or static then decides the result:
+// Trystan's Command copied the first Elf in corpus order, Aberrant Mind
+// Sorcerer, whose copy rolls a d20 (XMage's roll is random, gorge's seeded),
+// so its verdict agreed by chance. A quiet fixture keeps the row about the
+// card under test. Nil registry or no quiet card: not found, and the caller
+// falls back to registrySubtype.
+func registryQuietSubtype(reg *cards.Registry, subtype string) (string, bool) {
+	if reg == nil || strings.EqualFold(subtype, "mount") {
+		return "", false
+	}
+	for i := range reg.Cards {
+		c := reg.Cards[i]
+		if len(c.Faces) != 1 {
+			continue
+		}
+		f := c.Faces[0]
+		if !faceHasSubtype(f, subtype) || !faceHasSubtype(f, "Creature") ||
+			len(f.Triggers) != 0 || len(f.Statics) != 0 {
+			continue
+		}
+		return f.Name, true
 	}
 	return "", false
 }

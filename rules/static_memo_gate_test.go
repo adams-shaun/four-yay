@@ -16,7 +16,7 @@ func registerToken(t *testing.T, e *Engine, key, src string) {
 	if e.G.Tokens == nil {
 		e.G.Tokens = make(map[string]*cards.Card)
 	}
-	e.G.Tokens[key] = card(t, src)
+	setFixtureToken(e, key, card(t, src))
 }
 
 // TestStaticMemoDoesNotReuseAcrossGateFlippingTokenCreates pins the bug

@@ -374,6 +374,7 @@ func (e *Engine) checkGrantedDethroneTriggers(observer *Engine, id state.ObjID, 
 		if e.triggerFireCount[key] < maxTriggerFires {
 			e.triggerFireCount[key]++
 			e.pendingTriggers = append(e.pendingTriggers, pendingTrigger{Source: id, Controller: o.Controller, Idx: -1, SA: t.Effect,
+				cause: causeOf(boardOf(observer), t, id, ev, 0),
 				Ctx: effects.NewCtx(id, o.Controller, effects.CtxInit{Remembered: triggerRemembered(ev, id), LKI: objLKI,
 					TriggerContext: observer.triggerReferents(t, id, ev, objLKI)})})
 		}
@@ -419,6 +420,7 @@ func (e *Engine) checkGrantedTrainingTriggers(observer *Engine, id state.ObjID, 
 		if e.triggerFireCount[key] < maxTriggerFires {
 			e.triggerFireCount[key]++
 			e.pendingTriggers = append(e.pendingTriggers, pendingTrigger{Source: id, Controller: o.Controller, Idx: -1, SA: t.Effect,
+				cause: causeOf(boardOf(observer), t, id, ev, 0),
 				Ctx: effects.NewCtx(id, o.Controller, effects.CtxInit{Remembered: triggerRemembered(ev, id), LKI: objLKI,
 					TriggerContext: observer.triggerReferents(t, id, ev, objLKI)})})
 		}
@@ -465,6 +467,7 @@ func (e *Engine) checkGrantedMentorTriggers(observer *Engine, id state.ObjID, o 
 		if e.triggerFireCount[key] < maxTriggerFires {
 			e.triggerFireCount[key]++
 			e.pendingTriggers = append(e.pendingTriggers, pendingTrigger{Source: id, Controller: o.Controller, Idx: -1, Mentor: true, SA: t.Effect,
+				cause: causeOf(boardOf(observer), t, id, ev, 0),
 				Ctx: effects.NewCtx(id, o.Controller, effects.CtxInit{Remembered: triggerRemembered(ev, id), LKI: objLKI,
 					TriggerContext: observer.triggerReferents(t, id, ev, objLKI)})})
 		}
@@ -549,6 +552,7 @@ func (e *Engine) checkGrantedAttackKeywordTriggers(observer *Engine, id state.Ob
 		if e.triggerFireCount[key] < maxTriggerFires {
 			e.triggerFireCount[key]++
 			e.pendingTriggers = append(e.pendingTriggers, pendingTrigger{Source: id, Controller: o.Controller, Idx: -1, Firebending: param, SA: t.Effect,
+				cause: causeOf(boardOf(observer), t, id, ev, 0),
 				Ctx: effects.NewCtx(id, o.Controller, effects.CtxInit{Remembered: triggerRemembered(ev, id), LKI: objLKI,
 					TriggerContext: observer.triggerReferents(t, id, ev, objLKI)})})
 		}
@@ -853,6 +857,7 @@ func (e *Engine) checkGrantedStaticTriggersUsing(observer *Engine, statics []*Co
 					continue
 				}
 				e.triggerFireCount[key]++
+				tc := observer.triggerReferents(t, id, ev, objLKI)
 				e.pendingTriggers = append(e.pendingTriggers, pendingTrigger{
 					Source:       id,
 					Controller:   o.Controller,
@@ -863,12 +868,13 @@ func (e *Engine) checkGrantedStaticTriggersUsing(observer *Engine, statics []*Co
 					Execute:      t.ParamStr(cards.PKExecute),
 					Trigger:      t,
 					TriggerSVars: gf.Face.SVars,
+					cause:        causeOf(boardOf(observer), t, id, ev, tc.TriggerCard),
 					Ctx: effects.NewCtx(id, o.Controller, effects.CtxInit{
 						Remembered:     triggerRememberedMode(t, ev, id),
 						Captured:       triggerRememberedMode(t, ev, id),
 						LKI:            objLKI,
 						Snap:           effects.LKISnapshots{Power: lkiPower, Toughness: lkiToughness, PTValid: objLKI != nil && lkiPTValid},
-						TriggerContext: observer.triggerReferents(t, id, ev, objLKI),
+						TriggerContext: tc,
 					}),
 				})
 			}
@@ -943,6 +949,7 @@ func (e *Engine) checkGrantedStaticTriggersUsing(observer *Engine, statics []*Co
 			continue // cascade bound: see maxTriggerFires.
 		}
 		e.triggerFireCount[key]++
+		tc := observer.triggerReferents(t, id, ev, objLKI)
 		e.pendingTriggers = append(e.pendingTriggers, pendingTrigger{
 			Source:       id,
 			Controller:   o.Controller,
@@ -953,11 +960,12 @@ func (e *Engine) checkGrantedStaticTriggersUsing(observer *Engine, statics []*Co
 			Execute:      t.ParamStr(cards.PKExecute),
 			Trigger:      t,
 			TriggerSVars: grantFace.SVars,
+			cause:        causeOf(boardOf(observer), t, id, ev, tc.TriggerCard),
 			Ctx: effects.NewCtx(id, o.Controller, effects.CtxInit{
 				Remembered:     triggerRememberedMode(t, ev, id),
 				LKI:            objLKI,
 				Snap:           effects.LKISnapshots{Power: lkiPower, Toughness: lkiToughness, PTValid: objLKI != nil && lkiPTValid},
-				TriggerContext: observer.triggerReferents(t, id, ev, objLKI),
+				TriggerContext: tc,
 			}),
 		})
 	}

@@ -126,7 +126,8 @@ func (e *Engine) derivedQuietEvent(ev *events.Event) bool {
 func pureMarkerKind(k events.Kind) bool {
 	switch k {
 	case events.SearchedLibrary, events.Explore, events.Investigate, events.Discover, events.Seek,
-		events.Surveil, events.Scry, events.Proliferate, events.GiveGift, events.Evolved, events.Clash:
+		events.Surveil, events.Scry, events.Proliferate, events.GiveGift, events.Evolved, events.Clash,
+		events.AbilityTriggered:
 		return true
 	}
 	return false

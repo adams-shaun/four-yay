@@ -84,8 +84,9 @@ type Config struct {
 	// reasons. It is observer-only and emits no events.
 	WindowDiagnostics bool
 	// Tokens is the token definitions the decks in this match can create --
-	// cards.Registry.Tokens. Copied onto Game.Tokens in New so
-	// events.Apply's TokenCreate case has something to mint from. Replay
+	// cards.Registry.Tokens. Adopted by reference as Game.Tokens in New (never
+	// copied, never written) so events.Apply's TokenCreate case has something
+	// to mint from; the caller must not mutate it once a match is built. Replay
 	// must pass the same table a live match's Config did.
 	Tokens map[string]*cards.Card
 	// NameUniverse is the compiled corpus used by NameCard decisions.

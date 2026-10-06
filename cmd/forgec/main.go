@@ -33,6 +33,7 @@ func main() {
 	fs := flag.NewFlagSet(cmd, flag.ExitOnError)
 	dir := fs.String("dir", ".cards", "working directory for the corpus and IR cache")
 	ref := fs.String("ref", "master", "Forge git ref to fetch")
+	repo := fs.String("repo", cards.ForgeRepo, "Forge git repository to fetch from")
 	top := fs.Int("top", 25, "how many missing primitives to list in report")
 	out := fs.String("out", ".coverage", "coverage: gitignored directory to write coverage.md and summary.md into")
 	fs.Parse(args)
@@ -40,7 +41,7 @@ func main() {
 	var err error
 	switch cmd {
 	case "fetch":
-		_, err = cards.Fetch(*dir, *ref)
+		_, err = cards.FetchFrom(*repo, *dir, *ref)
 	case "compile":
 		err = compile(*dir)
 	case "report":
@@ -57,7 +58,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: forgec fetch|compile|report|coverage [-dir .cards] [-ref master] [-top 25]")
+	fmt.Fprintln(os.Stderr, "usage: forgec fetch|compile|report|coverage [-dir .cards] [-repo URL] [-ref master] [-top 25]")
 	fmt.Fprintln(os.Stderr, "       forgec coverage [-out .coverage]")
 	os.Exit(2)
 }

@@ -208,6 +208,12 @@ func runGen(dir, manifest, out, level string) error {
 	if err != nil {
 		return err
 	}
+	return genManifest(reg, m, out, level)
+}
+
+// genManifest generates from an already loaded registry, so deterministic
+// fixtures can exercise the manifest/name boundary without an external corpus.
+func genManifest(reg *cards.Registry, m compliance.Manifest, out, level string) error {
 	sup := effects.Supported()
 	has := func(n string) bool { _, ok := reg.Lookup(n); return ok }
 	folded := compliance.FoldedNames(reg)
@@ -229,6 +235,17 @@ func runGen(dir, manifest, out, level string) error {
 	defer ow.Flush()
 	defer sw.Flush()
 	n, skipped := 0, 0
+	// A manifest can list a card's back face (a meld result: FIN's
+	// "Ragnarok, Divine Deliverance") beside its front face. Both resolve to
+	// the front face's scenario id, and writing it twice let whichever line
+	// came last decide the verdict (one carried the back face's xmage_name
+	// and was a harness row). The front face's own entry carries the
+	// scenario; the back face's entry is a skip naming it. The gate already
+	// resolves the back face through the front face's verdict.
+	listed := map[string]bool{}
+	for _, mc := range m.Cards {
+		listed[compliance.FoldName(mc.Name)] = true
+	}
 	for _, mc := range m.Cards {
 		if unfinished[compliance.FoldName(mc.Name)] {
 			b, _ := json.Marshal(&oraclegen.Skip{Card: mc.Name, Reason: "XMage does not implement it (the set marks it unfinished)"})
@@ -245,6 +262,12 @@ func runGen(dir, manifest, out, level string) error {
 			if c, found := reg.Lookup(name); found && len(c.Faces) > 0 {
 				name = c.Faces[0].Name
 			}
+		}
+		if ok && name != mc.Name && compliance.FoldName(name) != compliance.FoldName(mc.Name) && listed[compliance.FoldName(name)] {
+			b, _ := json.Marshal(&oraclegen.Skip{Card: mc.Name, Reason: "back face of " + name + ", which has its own manifest entry and scenario"})
+			fmt.Fprintln(sw, string(b))
+			skipped++
+			continue
 		}
 		var it oraclegen.Item
 		var skip *oraclegen.Skip

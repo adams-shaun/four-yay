@@ -10,6 +10,7 @@ import com.google.gson.JsonPrimitive;
 import mage.Mana;
 import mage.abilities.Ability;
 import mage.abilities.common.SimpleStaticAbility;
+import mage.abilities.mana.ActivatedManaAbilityImpl;
 import mage.abilities.costs.AlternativeSourceCosts;
 import mage.cards.repository.CardInfo;
 import mage.cards.repository.CardRepository;
@@ -64,7 +65,7 @@ import java.util.UUID;
 public class ScenarioReplay extends CardTestPlayerBase {
 
     private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().serializeNulls().create();
-    private static final int TURN = 1;
+    private int TURN = 1;
     private static final PhaseStep MAIN = PhaseStep.PRECOMBAT_MAIN;
 
     private final List<JsonObject> snaps = new ArrayList<>();
@@ -259,6 +260,59 @@ public class ScenarioReplay extends CardTestPlayerBase {
             }
             return null;
         }
+
+        /**
+         * The base TestPlayer handles a TargetSpellOrPermanent's stack half
+         * only: its "stack" branch in chooseTarget searches game.getStack()
+         * and then asserts when the queue is still non-empty, so a
+         * battlefield permanent answer can never be matched through the
+         * addTarget queue (Aang, Swift Savior's airbend "up to one other
+         * target creature or spell" is a resolve-step trigger; Jeskai
+         * Revelation's multi-target cast is the same gap). The cast/activate
+         * path (handleNonPlayerTargetTarget) already matches such an answer
+         * by name or alias against the target's own possibleTargets, so
+         * mirror that here for the battlefield half the base omits, and leave
+         * every other class -- including a spell on the stack, which the base
+         * does handle -- to super. This lives in the tracked driver, not in
+         * the out-of-tree TestPlayer, so it survives an XMAGE_REF bump.
+         */
+        @Override
+        public boolean chooseTarget(Outcome outcome, mage.target.Target target, Ability source, Game game) {
+            mage.target.Target orig = target.getOriginalTarget();
+            if (orig instanceof mage.target.common.TargetSpellOrPermanent
+                    && !getTargets().isEmpty()
+                    && !TestPlayer.TARGET_SKIP.equals(getTargets().get(0))) {
+                // The base's own controller derivation (TestPlayer.chooseTarget):
+                // the target's ability controller when set, else this choosing
+                // player. A trigger made on another player's behalf must filter
+                // its legal set by the ability's controller, not by the source
+                // controller, or the permanent can fall outside possibleTargets.
+                UUID abilityControllerId = target.getAffectedAbilityControllerId(this.getId());
+                Permanent match = findBattlefieldTarget(target, abilityControllerId, source, game, getTargets().get(0));
+                if (match != null) {
+                    target.addTarget(match.getId(), source, game);
+                    getTargets().remove(0);
+                    return true;
+                }
+            }
+            return super.chooseTarget(outcome, target, source, game);
+        }
+
+        /** The battlefield permanent in the target's own legal set that the
+         * queued name or alias names, or null when the answer is not a
+         * permanent (a spell on the stack, which the base handles). */
+        private Permanent findBattlefieldTarget(mage.target.Target target, UUID abilityControllerId, Ability source, Game game, String name) {
+            for (UUID id : target.possibleTargets(abilityControllerId, source, game)) {
+                Permanent p = game.getPermanent(id);
+                if (p == null || target.contains(id)) {
+                    continue;
+                }
+                if (hasObjectTargetNameOrAlias(p, name)) {
+                    return p;
+                }
+            }
+            return null;
+        }
     }
 
     public static void main(String[] args) throws Exception {
@@ -307,6 +361,28 @@ public class ScenarioReplay extends CardTestPlayerBase {
         return res;
     }
 
+    // Match encoding/json's *int field: absent/null defaults to 1; otherwise
+    // require an integer JSON number. Gson's getAsInt truncates fractions and
+    // wraps oversized numbers, potentially replaying a different turn.
+    private static int scenarioTurn(JsonObject sc) {
+        JsonElement value = sc.get("turn");
+        if (value == null || value.isJsonNull()) {
+            return 1;
+        }
+        try {
+            if (value.isJsonPrimitive() && value.getAsJsonPrimitive().isNumber()
+                    && value.getAsString().matches("-?[0-9]+")) {
+                int turn = Integer.parseInt(value.getAsString());
+                if (turn >= 1 && turn <= 100) {
+                    return turn;
+                }
+            }
+        } catch (NumberFormatException ignored) {
+            // Overflow is invalid, not an invitation to wrap to another turn.
+        }
+        throw new IllegalArgumentException("invalid scenario turn " + value + " (want integer 1..100)");
+    }
+
     JsonObject replayOnce(JsonObject sc, boolean strict) {
         JsonObject res = new JsonObject();
         res.addProperty("strict", strict);
@@ -335,6 +411,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
             cast.clear();
             refAlias.clear();
             phase = MAIN;
+            TURN = scenarioTurn(sc);
             build(sc);
             runCode("setup", TURN, MAIN, playerA, (info, p, g) -> {
                 registerAliases(g);
@@ -344,6 +421,8 @@ public class ScenarioReplay extends CardTestPlayerBase {
             JsonArray xans = sc.has("xmage_answers") && sc.get("xmage_answers").isJsonArray()
                     ? sc.getAsJsonArray("xmage_answers") : new JsonArray();
             splitScripted = xans.toString().contains("^X=");
+            xabilities = sc.has("xmage_ability") && sc.get("xmage_ability").isJsonArray()
+                    ? sc.getAsJsonArray("xmage_ability") : new JsonArray();
             for (int i = 0; i < steps.size(); i++) {
                 JsonObject st = steps.get(i).getAsJsonObject();
                 String op = str(st, "op");
@@ -356,7 +435,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 }
                 int beforeA = playerA.getActions().size();
                 int beforeB = playerB.getActions().size();
-                step(st, op);
+                step(st, op, i);
                 String cp = "step " + i + " (" + op + ")";
                 runCode(cp, TURN, phase, playerA, (info, p, g) -> snaps.add(snapshot(info, g)));
                 queuedA.add(new ArrayList<>(playerA.getActions().subList(beforeA, playerA.getActions().size())));
@@ -519,6 +598,12 @@ public class ScenarioReplay extends CardTestPlayerBase {
             List<String> top = names(s, "library_top");
             named += top.size();
             int filler = Math.max(0, 40 - named);
+            // Same draw reserve as oracleRun.build: preserve turn 1 exactly,
+            // otherwise allow TURN/2 draws plus one card at the checkpoint,
+            // even when all named setup cards are outside the library.
+            if (TURN > 1) {
+                filler = Math.max(filler, TURN / 2 + 1);
+            }
             if (filler > 0) {
                 addCard(Zone.LIBRARY, p, "Wastes", filler);
             }
@@ -700,9 +785,26 @@ public class ScenarioReplay extends CardTestPlayerBase {
     private String xmageName = "";
 
     /** The spelling to give XMage for a scenario card: the card under test's
-     * XMage spelling, else the name unchanged. */
+     * XMage spelling, else the name unchanged. This is the spelling of the
+     * card OBJECT (what addCard stores, what a target alias names), which for
+     * a split/Room card is the whole "A // B" card. */
     private String xmageSpelling(String n) {
         return (!xmageName.isEmpty() && n.equals(gorgeName)) ? xmageName : n;
+    }
+
+    /** The spelling XMage's cast command matches: the name of the card's
+     * SpellAbility, which differs from the card object's name for a split or
+     * Room card. XMage names a half's ability "Cast <half>" (SplitCard splits
+     * the set info name on " // "), while the physical card added to hand is
+     * the whole "A // B"; casting the whole name finds no ability ("Can't
+     * find ability to activate command: Cast Walk-In Closet"). So a cast
+     * step names the scenario's face (gorgeName) and setup still deals the
+     * whole card through xmageSpelling. */
+    private String castSpelling(String n) {
+        if (!xmageName.isEmpty() && n.equals(gorgeName) && xmageName.contains(" // ")) {
+            return gorgeName;
+        }
+        return xmageSpelling(n);
     }
 
     /** Rewrites XMage's spelling of the card under test back to the scenario's
@@ -731,7 +833,41 @@ public class ScenarioReplay extends CardTestPlayerBase {
         return e;
     }
 
-    private void step(JsonObject st, String op) {
+    // The item's per-step XMage ability text (parallel to the steps; empty
+    // except on activate steps). H1, confirmed against the XMage source:
+    // TestPlayer.hasAbilityTargetNameOrAlias (Mage.Tests .../player/
+    // TestPlayer.java) selects an activated ability with
+    // `ability.toString().startsWith(nameOrAlias)`, and AbilityImpl.toString()
+    // is getRule(), so the item's value is the printed rule text's prefix
+    // ("{T}", "Equip {2}"). The activate: / manaActivate: handlers route it
+    // through that match before activating.
+    private JsonArray xabilities = new JsonArray();
+
+    /** Step i's XMage ability text, or "" when the item carries none. */
+    private String xabilityAt(int i) {
+        if (i < xabilities.size() && xabilities.get(i).isJsonPrimitive()) {
+            return xabilities.get(i).getAsString();
+        }
+        return "";
+    }
+
+    /** Whether the named card has an activated mana ability whose rule text
+     * starts with text; XMage activates those through activateManaAbility. */
+    private static boolean isManaAbilityText(String name, String text) {
+        CardInfo info = CardRepository.instance.findCard(name);
+        Card c = info == null ? null : info.createCard();
+        if (c == null) {
+            return false;
+        }
+        for (Ability a : c.getAbilities()) {
+            if (a.toString().startsWith(text)) {
+                return a instanceof ActivatedManaAbilityImpl;
+            }
+        }
+        return false;
+    }
+
+    private void step(JsonObject st, String op, int stepIdx) {
         int seatIdx = st.has("seat") ? st.get("seat").getAsInt() : 0;
         TestPlayer p = seat(seatIdx);
         switch (op) {
@@ -808,7 +944,10 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 if (!sc0.has("xmage_answers")) {
                     answers(st, p);
                 }
-                String card = xmageSpelling(refName(str(st, "card")));
+                // The cast command names the SpellAbility, not the card
+                // object: a split/Room half is cast by its half name while
+                // the hand holds the whole "A // B" card (castSpelling).
+                String card = castSpelling(refName(str(st, "card")));
                 List<String> tg = targets(st);
                 if (hasAlternativeSourceCost(card)) {
                     // A plain cast step: gorge paid the mana cost, so decline
@@ -838,12 +977,12 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     castSpell(TURN, phase, p, card);
                     cast.add(card);
                     return;
-                } else if (tg.size() == 1 && cast.contains(xmageSpelling(refName(tg.get(0))))) {
+                } else if (tg.size() == 1 && cast.contains(castSpelling(refName(tg.get(0))))) {
                     // Targeting a spell cast by an earlier step: wait for it
-                    // on the stack. cast holds spelled card names and the
+                    // on the stack. cast holds cast-command names and the
                     // target is a scenario ref; the setup alias names the
                     // card in hand, not the spell, so target by name.
-                    String spell = xmageSpelling(refName(tg.get(0)));
+                    String spell = castSpelling(refName(tg.get(0)));
                     castSpell(TURN, phase, p, card, spell, spell);
                 } else if (tg.size() == 1) {
                     // A single target goes through XMage's own string form, so
@@ -886,6 +1025,29 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 cast.add(card);
                 return;
             }
+            case "activate": {
+                String text = xabilityAt(stepIdx);
+                if (text.isEmpty()) {
+                    throw new IllegalArgumentException("activate step " + stepIdx + " has no xmage_ability");
+                }
+                if (st.has("mana")) {
+                    String mana = str(st, "mana");
+                    runCode("mana " + mana, TURN, phase, p, (info, pl, g) -> addPool(pl, g, mana));
+                }
+                if (!sc0.has("xmage_answers")) {
+                    answers(st, p);
+                }
+                String card = xmageSpelling(refName(str(st, "card")));
+                if (isManaAbilityText(card, text)) {
+                    activateManaAbility(TURN, phase, p, text);
+                    return;
+                }
+                for (String t : targets(st)) {
+                    queueCastTarget(p, t);
+                }
+                activateAbility(TURN, phase, p, text);
+                return;
+            }
             case "play":
                 playLand(TURN, phase, p, xmageSpelling(refName(str(st, "card"))));
                 return;
@@ -922,7 +1084,15 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     setChoiceAmount(p, Integer.parseInt(v));
                     break;
                 case "mode":
-                    setModeChoice(p, v);
+                    // Some GenericChoice effects are recorded as a gorge
+                    // mode decision but XMage asks the player through
+                    // chooseUse. Route their boolean answer to the player's
+                    // CHOICE queue, not the numeric mode queue.
+                    if (v.equalsIgnoreCase("yes") || v.equalsIgnoreCase("no")) {
+                        setChoice(p, v.equalsIgnoreCase("yes"));
+                    } else {
+                        setModeChoice(p, v);
+                    }
                     break;
                 case "choice":
                     if (v.equals("yes") || v.equals("no")) {
@@ -989,10 +1159,11 @@ public class ScenarioReplay extends CardTestPlayerBase {
     private void queueCastTarget(TestPlayer p, String t) {
         if (isSeatRef(t)) {
             addTarget(p, seat(seatOf(t)));
-        } else if (cast.contains(xmageSpelling(refName(t)))) {
+        } else if (cast.contains(castSpelling(refName(t)))) {
             // A spell an earlier step cast: its setup alias names the card
-            // in hand, not the spell.
-            addTarget(p, xmageSpelling(refName(t)));
+            // in hand, not the spell. The target string is the cast-command
+            // name (a split/Room half), matching what castSpell queued.
+            addTarget(p, castSpelling(refName(t)));
         } else {
             addTarget(p, targetName(t));
         }

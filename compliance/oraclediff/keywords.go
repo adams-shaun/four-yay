@@ -55,6 +55,10 @@ func foldKeyword(name string) string {
 	return strings.ToLower(strings.Join(strings.Fields(name), " "))
 }
 
+// EvergreenKeywords is the item-comparison view of a permanent's keywords:
+// folded, evergreen-only, sorted and comma-joined, "" when none.
+func EvergreenKeywords(keywords []string) string { return evergreenList(keywords) }
+
 // evergreenList folds a permanent's keywords, keeps only the evergreen set,
 // sorts and comma-joins them. Empty when nothing evergreen is present, so
 // the caller omits the field entirely.

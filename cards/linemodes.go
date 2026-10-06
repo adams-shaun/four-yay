@@ -138,7 +138,10 @@ const (
 	TriggerForage          TriggerMode = 99
 	TriggerManifestDread   TriggerMode = 100
 	TriggerCollectEvidence TriggerMode = 101
-	TriggerModeCount                   = 102 // one past the last; sizes a dense per-TriggerMode array
+	// Mode$ AbilityTriggered, appended after the keyword-action modes so
+	// every earlier ordinal (including main's) is unchanged.
+	TriggerAbilityTriggered TriggerMode = 102
+	TriggerModeCount                    = 103 // one past the last; sizes a dense per-TriggerMode array
 )
 
 var triggerModeNames = [TriggerModeCount]string{
@@ -243,6 +246,7 @@ var triggerModeNames = [TriggerModeCount]string{
 	TriggerTurnBegin:                  "TurnBegin",
 	TriggerCounterAddedAll:            "CounterAddedAll",
 	TriggerCounterTypeAddedAll:        "CounterTypeAddedAll",
+	TriggerAbilityTriggered:           "AbilityTriggered",
 }
 
 var triggerModeCodes = func() StrCodes[TriggerMode] {

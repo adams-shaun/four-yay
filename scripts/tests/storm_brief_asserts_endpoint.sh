@@ -9,12 +9,10 @@
 # throwaway target and a stubbed agentctl that CAPTURES the brief file, then
 # asserts the body:
 #
-#   - tells the implementer to measure the endpoint state FIRST with an HTTP
-#     code check (`curl -s -o /dev/null -w '%{http_code}' ...`),
-#   - names BOTH classes: a 5xx (or no response) = the engine is not serving
-#     (the 2026-09-29 replicas: 0 case as the example), and only a 2xx that
-#     still fails points at a model-id rename,
-#   - no longer presents the rename as an established "Known cause class".
+#   - tells the implementer to measure the endpoint now with `curl -s
+#     $endpoint/v1/models`, including the 5xx/`000` signal,
+#   - compares the served model id against the configured tier id,
+#   - never presents a rename as an established "Known cause class".
 #
 #   scripts/tests/storm_brief_asserts_endpoint.sh
 set -uo pipefail
@@ -90,14 +88,14 @@ check "the captured brief is the storm brief (title intact)" $? "$(head -1 "$CAP
 grep -q 'Seat tier test-tier is failing every launch' "$STUB/filed.txt"
 check "the storm ticket was filed" $? "$(cat "$STUB/filed.txt" | tr '\n' '|')"
 
-# The body: measure the endpoint state FIRST, with an HTTP code check.
-grep -qF "curl -s -o /dev/null -w '%{http_code}' \$endpoint/v1/models" "$CAPTURED"
-check "the brief tells the implementer to check the HTTP code FIRST" $?
-# Precondition for the class assertions: the two classes differ in the text.
-grep -qi '5xx\|503' "$CAPTURED" && grep -q 'model-id rename' "$CAPTURED"
-check "the brief names both classes (a 5xx case AND the rename case)" $?
-grep -q 'replicas: 0' "$CAPTURED"
-check "the brief cites the measured 2026-09-29 replicas: 0 example" $?
+# The body measures the endpoint and identifies the returned 5xx/000 signal.
+grep -qF 'curl -s $endpoint/v1/models' "$CAPTURED" &&
+	grep -qF 'a 5xx/`000` means the storm' "$CAPTURED"
+check "the brief measures the endpoint and recognizes 5xx/000" $?
+# The served-id comparison is the other measurement, not an asserted cause.
+grep -q 'Does the SERVED model id equal the tier model?' "$CAPTURED" &&
+	grep -q 'id from step 1 against the TOML tier' "$CAPTURED"
+check "the brief compares served id with configured tier model" $?
 # The old, false framing must be gone entirely.
 if grep -q 'Known cause class' "$CAPTURED"; then
 	check "the brief no longer presents the rename as a 'Known cause class'" 1 \

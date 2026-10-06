@@ -291,6 +291,11 @@ type Game struct {
 	// rebuilds it); Clone copies it with the struct. Code that writes
 	// BlockedBy directly (tests) must call NoteBlockers.
 	blockersLive bool
+	// preparedSources counts objects whose PreparedSource can match a
+	// battlefield departure. It is derived solely by events.Apply folds.
+	preparedSources int
+	// crewedObjects counts objects with a non-empty CrewedVehicles list.
+	crewedObjects int
 
 	Players []Player
 	// Objs is a dense arena: Objs[i] has ID i+1, so ObjID 0 is "no object".
@@ -424,7 +429,9 @@ type Game struct {
 	Clock uint32
 
 	// Tokens is the token definitions this match may create, keyed by
-	// Forge script stem; set at genesis, never mutated, so Clone shares it.
+	// Forge script stem; set at genesis and never mutated, so Clone shares it
+	// -- and so does every Game built from one Config: New adopts
+	// Config.Tokens by reference, without copying it.
 	Tokens map[string]*cards.Card
 	// NameUniverse is the immutable compiled card-name universe used by
 	// NameCard choices. It is supplied by the embedder and shared by clones.
@@ -733,6 +740,24 @@ func (g *Game) ClearBlockers() { g.blockersLive = false }
 
 // BlockersLive reports whether any object's BlockedBy may be non-empty.
 func (g *Game) BlockersLive() bool { return g.blockersLive }
+
+// PreparedSourcesLive reports whether a departure can invalidate a prepared copy.
+func (g *Game) PreparedSourcesLive() bool { return g.preparedSources != 0 }
+
+// NotePreparedSource tracks one object's PreparedSource transition.
+func (g *Game) NotePreparedSource() { g.preparedSources++ }
+
+// ClearPreparedSource tracks one object's PreparedSource transition to zero.
+func (g *Game) ClearPreparedSource() { g.preparedSources-- }
+
+// CrewedObjectsLive reports whether any object has recorded a crew pairing.
+func (g *Game) CrewedObjectsLive() bool { return g.crewedObjects != 0 }
+
+// NoteCrewedObject tracks an object's empty-to-nonempty crew-list transition.
+func (g *Game) NoteCrewedObject() { g.crewedObjects++ }
+
+// ClearCrewedObject tracks an object's nonempty-to-empty crew-list transition.
+func (g *Game) ClearCrewedObject() { g.crewedObjects-- }
 
 func (g *Game) AddObject(card *cards.Card, owner PlayerID) *Object {
 	o := Object{ID: g.NextID, Card: card, Owner: owner, Controller: owner, Zone: ZLibrary}

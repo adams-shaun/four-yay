@@ -687,7 +687,9 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParam
 				}
 			}
 		}
-		if !preserveDeferredRest {
+		// A TopOfLibrary/BottomOfLibrary fetch is a position read, not a
+		// search, so it owes no shuffle -- unless the script says Shuffle$ True.
+		if !preserveDeferredRest && (!cz.DefinedLibraryPosition || cz.ShuffleTrue) {
 			shuffleLibrary(h, cz, f.owner)
 		}
 		placeLibraryObjects(h, c, cz, f.owner, moved, to)

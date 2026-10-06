@@ -589,45 +589,65 @@ func (e *Engine) staticTimingGate(sv staticView) bool {
 }
 
 func (e *Engine) countStaticPresent(sv staticView, spec string) int {
-	zone, ok := presentZoneFromParam(sv.ParamStr(cards.PKPresentZone))
+	zones, ok := presentZoneFromParam(sv.ParamStr(cards.PKPresentZone))
 	if !ok {
 		return 0
 	}
 	sc := e.staticSpecCtx(sv)
-	if zone == state.ZBattlefield {
-		return e.countPresentCtx(spec, sv.Source, sv.Controller, sc)
-	}
 	n := 0
-	e.forEachObject(func(id state.ObjID) {
-		o := e.G.Obj(id)
-		if o != nil && o.Zone == zone && e.matchesSpec(spec, id, sc) {
-			n++
+	for _, zone := range zones {
+		if zone == state.ZBattlefield {
+			n += e.countPresentCtx(spec, sv.Source, sv.Controller, sc)
+			continue
 		}
-	})
+		e.forEachObject(func(id state.ObjID) {
+			o := e.G.Obj(id)
+			if o != nil && o.Zone == zone && e.matchesSpec(spec, id, sc) {
+				n++
+			}
+		})
+	}
 	return n
 }
 
-// presentZoneFromParam maps a Forge PresentZone$ value onto the state.Zone the
-// IsPresent$ count family scans. An ABSENT value is the battlefield -- the
+// presentZoneFromParam maps a Forge PresentZone$ value onto the state.Zone set
+// the IsPresent$ count family scans. An ABSENT value is the battlefield -- the
 // default every card without PresentZone$ reads, so the empty string is a valid
-// mapping, not an unknown one. Every other word is classified by
-// effects.ParseZoneWord, the one zone-word table the trigger-side clause
-// (presentClauseHolds) and the activation gate (abilityPresentHolds) already
-// share, so a PresentZone$ word cannot be known at one count site and unknown
-// at another. forEachObject walks every seat's library, hand, battlefield,
-// graveyard, exile, stack and command zone, so each of those zones is counted
-// by the same scan (Living Conundrum's `IsPresent$ Card.YouOwn | PresentZone$
-// Library | PresentCompare$ EQ0`, Kefnet the Mindful's hand, Ketramose's
-// exile, Molten Disaster's stack). An unrecognised value (a comma list such as
-// `Battlefield,Graveyard`) reports false and the caller must fail closed
-// (count 0), the direction countStaticPresent and the delayed-trigger presence
-// gate (rules/trigger_delayed.go) share.
-func presentZoneFromParam(zone string) (state.Zone, bool) {
+// mapping, not an unknown one. Named zones are parsed by effects.ParseZones,
+// shared by the static, delayed, trigger and activation gates, so each caller
+// counts the same set. Wildcards are not meaningful for PresentZone$ and fail
+// closed. forEachObject walks every seat's library, hand, battlefield,
+// graveyard, exile, stack and command zone (Living Conundrum's Library, Kefnet
+// the Mindful's hand, Ketramose's exile, Molten Disaster's stack).
+func presentZoneFromParam(zone string) ([]state.Zone, bool) {
 	zone = strings.TrimSpace(zone)
 	if zone == "" {
-		return state.ZBattlefield, true
+		return []state.Zone{state.ZBattlefield}, true
 	}
-	return effects.ParseZoneWord(zone)
+	zones, all, ok := effects.ParseZones(zone)
+	return zones, ok && !all
+}
+
+// presentZoneCounter is the one engine capability presentCountInZones needs,
+// so the free helper below does not take an *Engine.
+type presentZoneCounter interface {
+	presentZoneCount(zone state.Zone, spec string, source state.ObjID, you state.PlayerID) int
+}
+
+// presentCountInZones counts spec matches in every zone a PresentZone$ value
+// names (the battlefield when absent), the single read the IsPresent$ gates
+// that carry no static-specific context share. known is false for a
+// PresentZone$ word presentZoneFromParam does not map; the caller must then
+// fail closed (n is 0), including past a PresentCompare$ a zero would satisfy.
+func presentCountInZones(c presentZoneCounter, zoneParam, spec string, source state.ObjID, you state.PlayerID) (n int, known bool) {
+	zones, known := presentZoneFromParam(zoneParam)
+	if !known {
+		return 0, false
+	}
+	for _, zone := range zones {
+		n += c.presentZoneCount(zone, spec, source, you)
+	}
+	return n, true
 }
 
 // spellMatchesValidSA checks the spell-side subset of Forge's ValidSA grammar.

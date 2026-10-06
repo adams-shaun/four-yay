@@ -1,0 +1,2 @@
+{"shape":{"template":"cast-resolve","op":"resolve","field":"permanents","diff":"$CARD colors gorge=W xmage=WU"},"key":"cast-resolve | resolve | permanents | $CARD colors gorge=W xmage=WU","cards":1}
+{"card":"Restricted Office","template":"cast-resolve","status":"diverge","api":"UnlockDoor:DestroyAll","detail":"step 1 (resolve) permanents: gorge \"c0 o0 Restricted Office [enchantment room] {W}\", xmage \"c0 o0 Restricted Office [enchantment room] {WU}\""}

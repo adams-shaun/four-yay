@@ -1,2 +1,3 @@
-{"shape":{"template":"cast-resolve","op":"resolve","field":"p1.graveyard","diff":"gorge+[Grizzly Bears] xmage+[]"},"key":"cast-resolve | resolve | p1.graveyard | gorge+[Grizzly Bears] xmage+[]","cards":1}
+{"shape":{"template":"cast-resolve","op":"resolve","field":"p1.graveyard","diff":"gorge+[Grizzly Bears] xmage+[]"},"key":"cast-resolve | resolve | p1.graveyard | gorge+[Grizzly Bears] xmage+[]","cards":2}
+{"card":"Destined Confrontation","template":"cast-resolve","status":"diverge","api":"ChooseCard+SacrificeAll","sets":["TLA"],"detail":"step 1 (resolve) p1.graveyard: gorge \"[Grizzly Bears]\", xmage \"[]\""}
 {"card":"Unstable Glyphbridge","template":"cast-resolve","status":"diverge","api":"ChangesZone:RepeatEach","sets":["LCI"],"detail":"step 1 (resolve) p1.graveyard: gorge \"[Grizzly Bears]\", xmage \"[]\""}

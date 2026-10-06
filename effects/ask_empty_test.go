@@ -351,21 +351,23 @@ func TestDefinedHiddenOriginObjectsMoveDirectly(t *testing.T) {
 // TestDefinedLibraryObjectSelectorsMoveDirectly covers every resolved
 // object-valued selector in the exact-Library audit. A fresh library search
 // would ask this askable host; each selector instead moves only its established
-// fetch-list member and shuffles the source library once. In particular,
-// ChosenCard is the list recorded by an earlier ChooseCard answer, not a
-// request to search the whole library.
+// fetch-list member. Search-like Defined$ fetches shuffle the source library;
+// TopOfLibrary and BottomOfLibrary are known-position reads and do not. In
+// particular, ChosenCard is the list recorded by an earlier ChooseCard answer,
+// not a request to search the whole library.
 func TestDefinedLibraryObjectSelectorsMoveDirectly(t *testing.T) {
 	cases := []struct {
 		name, defined string
 		want          int
+		shuffles      int
 		bind          func(*Ctx, state.ObjID)
 	}{
 		{
-			name: "remembered", defined: "Remembered", want: 1,
+			name: "remembered", defined: "Remembered", want: 1, shuffles: 1,
 			bind: func(c *Ctx, id state.ObjID) { c.Remembered = []state.Target{{Obj: id}} },
 		},
 		{
-			name: "chosen card", defined: "ChosenCard", want: 1,
+			name: "chosen card", defined: "ChosenCard", want: 1, shuffles: 1,
 			bind: func(c *Ctx, id state.ObjID) {
 				// This is choiceRecord's post-answer binding. The selected object
 				// remains in the library until this ChangeZone consumes it.
@@ -373,8 +375,8 @@ func TestDefinedLibraryObjectSelectorsMoveDirectly(t *testing.T) {
 				c.ChosenValid = true
 			},
 		},
-		{name: "top", defined: "TopOfLibrary", want: 0, bind: func(*Ctx, state.ObjID) {}},
-		{name: "bottom", defined: "BottomOfLibrary", want: 2, bind: func(*Ctx, state.ObjID) {}},
+		{name: "top", defined: "TopOfLibrary", want: 0, shuffles: 0, bind: func(*Ctx, state.ObjID) {}},
+		{name: "bottom", defined: "BottomOfLibrary", want: 2, shuffles: 0, bind: func(*Ctx, state.ObjID) {}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -402,8 +404,8 @@ func TestDefinedLibraryObjectSelectorsMoveDirectly(t *testing.T) {
 					shuffles++
 				}
 			}
-			if moves != 1 || shuffles != 1 {
-				t.Fatalf("%s events moved=%d shuffled=%d, want one direct move and one shuffle: %v", tc.defined, moves, shuffles, h.log)
+			if moves != 1 || shuffles != tc.shuffles {
+				t.Fatalf("%s events moved=%d shuffled=%d, want one direct move and %d shuffles: %v", tc.defined, moves, shuffles, tc.shuffles, h.log)
 			}
 		})
 	}

@@ -14,6 +14,8 @@ type triggerCause struct {
 	battlefield []string         // extra p0 permanents (an attacker for a non-creature card)
 	steps       []oraclegen.Step // the cause steps emitted into the item
 	probeSteps  []oraclegen.Step // steps whose snapshots show the trigger on the stack; nil means steps
+	selfInHand  bool             // the card starts in p0's hand (a "when you discard this card" trigger), not on the battlefield
+	xability    []string         // XMage rule-text prefix per step (an activate step); nil when no step activates
 }
 
 // Probe cards, each named with why. Spec hypothesis H4: the probe exists in
@@ -54,11 +56,8 @@ func castProbe(reg *cards.Registry, probe string, targets ...string) (oraclegen.
 func triggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards.Trigger, sub string) ([]triggerCause, string) {
 	var out []triggerCause
 	cast := func(probe string, targets ...string) {
-		if probe == name {
-			return
-		}
-		if st, ok := castProbe(reg, probe, targets...); ok {
-			out = append(out, triggerCause{hand: []string{probe}, steps: []oraclegen.Step{st}})
+		if c, ok := castCause(reg, name, probe, targets...); ok {
+			out = append(out, c)
 		}
 	}
 	creature := f.IsCreature()
@@ -72,7 +71,8 @@ func triggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards.Tri
 		for _, p := range destroyProbes {
 			cast(p, "p0:"+name)
 		}
-	case "trigger.attacks", "trigger.combat-damage":
+	case "trigger.attacks", "trigger.attacks-one-target", "trigger.combat-damage", "trigger.combat-damage-all":
+		combatDamage := sub == "trigger.combat-damage" || sub == "trigger.combat-damage-all"
 		attacker, extra := "p0:"+name, []string(nil)
 		if !creature {
 			if sub == "trigger.combat-damage" {
@@ -82,7 +82,7 @@ func triggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards.Tri
 		}
 		attack := oraclegen.Step{Op: "attack", Seat: 0, Defender: "p1", Attackers: []string{attacker}}
 		c := triggerCause{battlefield: extra, steps: []oraclegen.Step{attack}}
-		if sub == "trigger.combat-damage" {
+		if combatDamage {
 			// The trigger resolves inside the pass to main2, so the emitted
 			// item shows no stack; the probe stops in end-combat, where the
 			// trigger is still on it.
@@ -110,11 +110,56 @@ func triggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards.Tri
 		for _, p := range drawProbes {
 			cast(p)
 		}
+	case "trigger.phase":
+		step, ok := phaseStep(t.ParamStr(cards.PKPhase))
+		if !ok {
+			return nil, "unsupported phase"
+		}
+		active := ""
+		if step == "upkeep" || step == "draw" || step == "main1" {
+			// p0's turn-1 upkeep/draw/main1 have passed. For "each player"
+			// and "each opponent" phase triggers, stop at p1's first matching
+			// step on turn 2; for You, wait for p0's next turn (turn 3).
+			if vp := t.ParamStr(cards.PKValidPlayer); strings.EqualFold(vp, "Player") || strings.EqualFold(vp, "Opponent") {
+				active = "p1"
+			} else {
+				active = "p0"
+			}
+		}
+		steps := []oraclegen.Step{{Op: "pass_to", Step: step, Active: active}}
+		if step == "main1" {
+			// The game starts in turn 1's main1, which pass_to would stop
+			// in at once: leave it first, then wait for p0's next main1.
+			steps = append([]oraclegen.Step{{Op: "pass_to", Step: "main2"}}, steps...)
+		}
+		out = append(out, triggerCause{steps: steps})
 	default:
+		if causes, why, ok := eventTriggerRecipe(reg, f, name, t, sub); ok {
+			return causes, why
+		}
 		return nil, "no recipe for " + sub
 	}
 	if len(out) == 0 {
 		return nil, "probe not in corpus"
 	}
 	return out, ""
+}
+
+// phaseStep maps the Phase$ vocabulary admitted by levelb to ParseStep's
+// scenario spelling.
+func phaseStep(phase string) (string, bool) {
+	switch phase {
+	case "BeginCombat":
+		return "begin-combat", true
+	case "End of Turn":
+		return "end", true
+	case "Main1":
+		return "main1", true
+	case "Upkeep":
+		return "upkeep", true
+	case "Draw":
+		return "draw", true
+	default:
+		return "", false
+	}
 }

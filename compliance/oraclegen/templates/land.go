@@ -9,6 +9,12 @@ import (
 var PlayLand = Template{ID: "play-land", Version: 1}
 
 func playLand(reg *cards.Registry, name string, f *cards.Face) oraclegen.Item {
+	return playLandWith(reg, name, f, nil)
+}
+
+// playLandWith is playLand with prep applied to the scenario's setup before
+// the land's own decisions are scripted. nil prep is playLand exactly.
+func playLandWith(reg *cards.Registry, name string, f *cards.Face, prep func(map[string]oraclegen.Seat)) oraclegen.Item {
 	sc := oraclegen.Scenario{
 		Setup: map[string]oraclegen.Seat{"p0": {Hand: []string{name}}},
 		// A land may also carry K:MayEffectFromOpeningHand (Gemstone
@@ -16,6 +22,9 @@ func playLand(reg *cards.Registry, name string, f *cards.Face) oraclegen.Item {
 		// step runs, exactly as a spell scenario does.
 		SetupAnswers: oraclegen.OpeningHandAnswers(f),
 		Steps:        []oraclegen.Step{{Op: "play", Seat: 0, Card: "p0:" + name}},
+	}
+	if prep != nil {
+		prep(sc.Setup)
 	}
 	it := PlayLand.item(name, sc)
 	// Script the land's own entry decisions (Multiversal Passage's "choose

@@ -54,6 +54,7 @@ type Step struct {
 	// Step/Decision are the pass_to op's stop conditions (a phase step name
 	// or a pending decision kind).
 	Step     string   `json:"step,omitempty"`
+	Active   string   `json:"active,omitempty"`
 	Decision string   `json:"decision,omitempty"`
 	Answers  []Answer `json:"answers,omitempty"`
 	// AbilityIndex selects an activated ability by its IR index (the index
@@ -111,6 +112,7 @@ type Answer struct {
 // Scenario is one generated scenario in the runner's schema.
 type Scenario struct {
 	Name  string          `json:"name"`
+	Turn  int             `json:"turn,omitempty"`
 	CR    []string        `json:"cr"`
 	Why   string          `json:"why"`
 	Setup map[string]Seat `json:"setup"`
@@ -448,10 +450,21 @@ func SlotIsStack(filter string) bool {
 	return true
 }
 
+// RequiresTurnFour identifies cards whose Oracle cast restriction ends after
+// their controller's third turn.
+func RequiresTurnFour(card string) bool {
+	return card == "Jace Reawakened" || card == "Spider-Man 2099"
+}
+
 // NewItem names a template's scenario. The template's version is part of
 // the id and the scenario name, so bumping one template's version stales
 // only that template's verdicts (compliance/oraclegen/templates).
 func NewItem(card, template string, version int, sc Scenario) Item {
+	// These cards explicitly cannot be cast during their controller's first
+	// three turns. Their generated cast fixture must start after that window.
+	if RequiresTurnFour(card) {
+		sc.Turn = 7
+	}
 	sc.Name = fmt.Sprintf("gen%d-%s", version, template)
 	sc.CR = []string{"601.2"}
 	sc.Why = "generated level-A scenario"
@@ -665,10 +678,18 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSt
 			namedSearch[d.Step] = true
 		}
 	}
-	for _, d := range ds {
+	routing := newAnswerRouting(ds)
+	for i, d := range ds {
 		if d.Step < 0 || d.Step >= steps || (d.Via == "target" && castSteps[d.Step]) {
 			// A cast step's own targets reach XMage through castSpell; a
 			// target decision posed at a resolve step is scripted below.
+			continue
+		}
+		if as, owned := routing.route(i); owned {
+			if len(as) > 0 {
+				out[d.Step] = append(out[d.Step], as...)
+				any = true
+			}
 			continue
 		}
 		if pickKind(d, 0) == "name" && namedSearch[d.Step] && len(d.Picks) == 1 {
@@ -754,6 +775,13 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSt
 					// LABEL ("Abzan", "Khans") -- never a numeric mode. The
 					// label is what gorge's mode decision already carries.
 					as = append(as, XAnswer{d.Seat, "choice", d.Picks[k]})
+					continue
+				}
+				if m, ok := modeNumberFor(d, k, modes); ok && (m == ModeYesQueue || m == ModeNoQueue) {
+					// A Timetwister-style per-player "may shuffle" GenericChoice
+					// (Turtles in Time): XMage asks chooseUse, so the answer is
+					// yes/no for whichever seat chose.
+					as = append(as, XAnswer{d.Seat, "choice", map[bool]string{true: "yes", false: "no"}[m == ModeYesQueue]})
 					continue
 				}
 				n := i + 1
@@ -1140,6 +1168,17 @@ func allocationColour(d rules.OracleDecision, k int) (byte, bool) {
 // never a valid mode number and is unambiguous.
 const ModeChoiceQueue = 0
 
+// ModeYesQueue and ModeNoQueue are the sentinels for the two labels of a
+// DB$ GenericChoice | AILogic$ Timetwister body (Turtles in Time): a per-player
+// "may shuffle your hand and graveyard" ask that XMage poses as
+// player.chooseUse (the yes/no choice queue), never as a mode. Choices$ lists
+// the yes label first, the no label second. Negative, so neither collides with
+// a real 1-based charm position nor with ModeChoiceQueue.
+const (
+	ModeYesQueue = -1
+	ModeNoQueue  = -2
+)
+
 // modeNumbers maps each charm mode's label (as gorge's mode decision
 // shows it) to its 1-based position in its Choices$ list, for every Charm
 // on the face -- the spell's own and any modal trigger's. It ALSO carries
@@ -1157,6 +1196,23 @@ func modeNumbers(f *cards.Face) map[string]int {
 				continue
 			}
 			out[effects.CharmModeLabel(cards.ResolveSVar(f.SVars, name), name)] = i + 1
+		}
+	}
+	for _, body := range f.SVars {
+		p := svarParams(body)
+		if p["DB"] != "GenericChoice" || !strings.EqualFold(p["AILogic"], "Timetwister") {
+			continue
+		}
+		for i, name := range strings.Split(p["Choices"], ",") {
+			name = strings.TrimSpace(name)
+			if name == "" {
+				continue
+			}
+			sentinel := ModeNoQueue
+			if i == 0 {
+				sentinel = ModeYesQueue
+			}
+			out[effects.CharmModeLabel(cards.ResolveSVar(f.SVars, name), name)] = sentinel
 		}
 	}
 	// The SetChosenMode labels first, so a real Charm mode of the same
@@ -1233,7 +1289,7 @@ func yesNo(d rules.OracleDecision) (string, bool) {
 func hasTargetPick(d rules.OracleDecision) bool {
 	for k := range d.Picks {
 		switch pickKind(d, k) {
-		case "permanent", "player":
+		case "permanent", "player", "opponent_choice":
 			return true
 		}
 	}
@@ -1245,7 +1301,7 @@ func hasTargetPick(d rules.OracleDecision) bool {
 // choice queue.
 func pickKind(d rules.OracleDecision, k int) string {
 	if k >= 0 && k < len(d.PickKinds) {
-		if d.Resume == "opp_pick" && d.PickKinds[k] == "player" {
+		if (d.Resume == "opp_pick" || d.Resume == "choice") && d.PickKinds[k] == "player" {
 			// The TargetingPlayer$ Opponent flow's controller-facing
 			// which-opponent ask: XMage's ChoicePlayer, the choice queue.
 			return "opponent_choice"

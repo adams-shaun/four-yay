@@ -46,7 +46,8 @@ func (e *Engine) untapTurnPermanent(subject state.ObjID) {
 
 // staticPresentHolds implements a static's IsPresent$/PresentCompare$ gate.
 // The default compare is presence. It deliberately uses the same
-// deterministic battlefield matcher as trigger intervening-if conditions.
+// deterministic zone matcher as trigger intervening-if conditions
+// (PresentZone$, the battlefield by default).
 func (e *Engine) staticPresentHolds(st cards.Static, source state.ObjID) bool {
 	if !e.classBandGateHolds(st.ParamStr(cards.PKClassBand), source) {
 		return false
@@ -55,7 +56,10 @@ func (e *Engine) staticPresentHolds(st cards.Static, source state.ObjID) bool {
 	if !ok {
 		return true
 	}
-	n := e.countPresent(spec, source, e.controllerOf(source))
+	n, known := presentCountInZones(e, st.ParamStr(cards.PKPresentZone), spec, source, e.controllerOf(source))
+	if !known {
+		return false
+	}
 	cmp := strings.TrimSpace(st.ParamStr(cards.PKPresentCompare))
 	if cmp == "" {
 		return n > 0

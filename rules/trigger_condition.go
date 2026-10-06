@@ -487,11 +487,15 @@ func (e *Engine) presentClauseHolds(t cards.Trigger, source state.ObjID, you sta
 		return comparePresent(n, cmp)
 	}
 	if pz := strings.TrimSpace(t.Params[zoneKey]); pz != "" {
-		zone, known := effects.ParseZoneWord(pz)
+		zones, known := presentZoneFromParam(pz)
 		if !known {
 			return false
 		}
-		return comparePresent(e.presentZoneCountCtx(zone, spec, source, you, sc), cmp)
+		n := 0
+		for _, zone := range zones {
+			n += e.presentZoneCountCtx(zone, spec, source, you, sc)
+		}
+		return comparePresent(n, cmp)
 	}
 	return comparePresent(e.countPresentCtx(spec, source, you, sc), cmp)
 }

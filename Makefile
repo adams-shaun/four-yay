@@ -41,9 +41,14 @@ GO_TEST_FLAGS ?= -p=2
 # Where forgec puts the fetched corpus and the IR compiled from it. Never
 # committed — the scripts are GPL-3.0.
 CARDS_DIR  ?= .cards
+# gorge's fork of Card-Forge/forge: its `gorge` branch is upstream plus
+# script corrections against the printed card, each also sent upstream.
+FORGE_REPO ?= https://github.com/adams-shaun/forge.git
 # Pinned to the lock's commit for M2r; a corpus bump is a deliberate,
 # ledgered change, not a side effect of Forge's master moving.
-FORGE_REF  ?= fb4d8091126051b0c579db5f3bfdcb7e03aae63d
+# ab2a79bd8 = fb4d80911 (Card-Forge master 2026-10-02) + Card-Forge/forge#12153
+# (Bard's Company P/T, Voice of Victory type, Yip Yip! target).
+FORGE_REF  ?= ab2a79bd87b87df17c32a4eef77c4a6f3fdc998e
 # The XMage commit the compliance oracle (manifests, out-of-tree driver)
 # is pinned to. XMage is MIT; nothing from it is a build dependency.
 # docs/superpowers/specs/2026-10-02-xmage-compliance-oracle-design.md
@@ -57,6 +62,9 @@ help:
 	@echo "  make fetch-cards    — fetch Forge cardsfolder + tokenscripts at FORGE_REF into $(CARDS_DIR)"
 	@echo "  make compile-cards  — compile the fetched corpus into the IR cache"
 	@echo "  make report         — print card coverage against implemented primitives"
+	@echo "  make enginebench-pair BASE=main CAND=. — paired engine-speed comparison (cmd/enginebench)"
+	@echo "  make enginebench-profile [REV=.]       — CPU/alloc profiles of the bench rows, tops printed"
+	@echo "  make enginebench-verify [REV=.]        — memo-verify-mode smoke over the bench rows"
 	@echo "  make compliance-manifests — regenerate compliance/manifests from XMage set classes at XMAGE_REF"
 	@echo "  make xmage-oracle-setup — build XMage at XMAGE_REF out of tree (heavy; run alone)"
 	@echo "  make compliance-pass SETS='FRA BLB' — XMage compliance pass over the sets (default: every printed list); reruns only stale verdicts, under the heavy-job lock"
@@ -158,7 +166,7 @@ sim: $(BIN_DIR)/mtgsim
 
 .PHONY: fetch-cards
 fetch-cards: $(BIN_DIR)/forgec
-	$(BIN_DIR)/forgec fetch -dir $(CARDS_DIR) -ref $(FORGE_REF)
+	$(BIN_DIR)/forgec fetch -dir $(CARDS_DIR) -repo $(FORGE_REPO) -ref $(FORGE_REF)
 
 .PHONY: compile-cards
 compile-cards: $(BIN_DIR)/forgec
@@ -288,6 +296,27 @@ test-time:
 alloc-gate:
 	go run ./cmd/allocgate -all
 
+# Engine-speed benchmarking (cmd/enginebench; scripts in cmd/enginebench/scripts,
+# workload decks committed in cmd/enginebench/testdata/decks). Every run is
+# capped in a systemd scope and serialised on HEAVY_LOCK; binaries, results
+# and profiles go to BENCH_DIR (rebuildable scratch). Throughput is per
+# CPU-second so a loaded box still compares.
+#   make enginebench-pair BASE=main CAND=.     paired base-vs-candidate rows
+#   make enginebench-profile [REV=.]           CPU + allocation profiles, tops printed
+#   make enginebench-verify [REV=.]            memo-verify-mode smoke (cache changes)
+# Knobs: ROWS="-row random -pair A;-row sampler" REPS=3 SECS=10 GOGC=...
+# BENCH_DIR HEAVY_LOCK (see cmd/enginebench/scripts/lib.sh).
+BASE ?= main
+CAND ?= .
+REV  ?= .
+.PHONY: enginebench-pair enginebench-profile enginebench-verify
+enginebench-pair:
+	cmd/enginebench/scripts/pair.sh $(BASE) $(CAND)
+enginebench-profile:
+	cmd/enginebench/scripts/profile.sh $(REV)
+enginebench-verify:
+	cmd/enginebench/scripts/verify.sh $(REV)
+
 COVER_OUT  ?= coverage.out
 COVER_HTML ?= coverage.html
 .PHONY: cover cover-html
@@ -390,10 +419,10 @@ clean-worktrees:
 # Derived, never hand-maintained: the conformance lane's own -v output, AGENTS.md's
 # approximations table, and the orchestrator's tracked issue files (.ds4/issues/*,
 # top level only — inbox/ is the un-triaged drop zone). Writes .ds4/ledger.json
-# (git-excluded).
+# (git-excluded). The lane runs cached (no -count=1), capped and under the heavy
+# lock: see scripts/ledger-lane.sh.
 ledger:
-	GOMEMLIMIT=5GiB go test -p=2 -count=1 ./rules -run TestCR -v \
-	  > .ds4/lane-rules.txt || true
+	scripts/ledger-lane.sh .ds4/lane-rules.txt
 	go run ./cmd/ledger -lane .ds4/lane-rules.txt -out .ds4/ledger.json
 
 # coverage writes the card-support tables -- .coverage/summary.md and
