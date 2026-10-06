@@ -514,12 +514,27 @@ func (r *oracleRun) build(sc oracleScenario) error {
 				e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: from, To: pl.zone})
 				if sc.xmageFixture && pl.zone == state.ZBattlefield {
 					// XMage fixture setup places battlefield cards with addCard,
-					// which does not queue entry triggers. Drop exactly the triggers
-					// caused by this placement; setup counters emitted below retain
-					// their independent triggers.
-					clear(e.pendingTriggers[pendingBefore:])
-					e.pendingTriggers = e.pendingTriggers[:pendingBefore]
-					e.orderedTriggers = min(e.orderedTriggers, pendingBefore)
+					// which does not queue entry triggers; drop exactly the
+					// entry-shaped triggers this placement queued and keep every
+					// other trigger, including the CounterAdded triggers a
+					// planeswalker's entry loyalty counters fire on an already-
+					// placed permanent (setupPlacementDropsTrigger).
+					kept := e.pendingTriggers[:pendingBefore]
+					ordered := min(e.orderedTriggers, pendingBefore)
+					// Copy the tail first: appending to kept writes back into
+					// e.pendingTriggers[pendingBefore:], the very slice this loop
+					// reads, and a dropped trigger would shift later entries down
+					// under the iteration.
+					tail := append([]pendingTrigger(nil), e.pendingTriggers[pendingBefore:]...)
+					for _, pt := range tail {
+						t, _ := e.triggerOf(pt)
+						if setupPlacementDropsTrigger(t, pt.Chapter) {
+							continue
+						}
+						kept = append(kept, pt)
+					}
+					e.pendingTriggers = kept
+					e.orderedTriggers = ordered
 				}
 			}
 			if pl.zone == state.ZBattlefield {

@@ -165,3 +165,31 @@ func TestOracleSetupPlacementFiresNoChangesZoneAllTrigger(t *testing.T) {
 		t.Errorf("p0 hand = %v after setup, want empty (Welcoming Vampire's trigger fired)", h)
 	}
 }
+
+// The setup-entry drop must not swallow a CounterAdded trigger that the entry
+// it drops indirectly caused. Ajani Goldmane entering as a planeswalker places
+// its loyalty counters INSIDE the same entry fold that queues its own ETB
+// trigger, so Inspired Tethermage's "whenever you put one or more loyalty
+// counters on a planeswalker" trigger is queued in the same window. XMage's
+// addCard places the permanent and its entry counters, and the Tethermage
+// trigger fires there (the generated-scenario compliance test
+// TestGeneratedSetupKeepsCounterAddedTrigger pins the same board); clearing
+// the whole window drops it and this test goes red.
+func TestOracleSetupKeepsCounterAddedTrigger(t *testing.T) {
+	res, _ := runFixtureScenario(t, `{"name":"tethermage","setup":{"p0":{"battlefield":["Inspired Tethermage","Ajani Goldmane"]},"p1":{"battlefield":["Grizzly Bears"]}},"steps":[]}`)
+	snap := res.Snapshots[0]
+	var teth *OracleSnapPerm
+	for i := range snap.Permanents {
+		if snap.Permanents[i].Name == "Inspired Tethermage" {
+			teth = &snap.Permanents[i]
+		}
+	}
+	// Precondition: both permanents resolved to the battlefield, so the
+	// assertion below is about a real entry fold and not a failed placement.
+	if teth == nil || setupPermCount(snap, "Ajani Goldmane") != 1 {
+		t.Fatalf("setup permanents = %+v, want Inspired Tethermage and Ajani Goldmane", snap.Permanents)
+	}
+	if teth.Counters["P1P1"] != 1 || teth.PT != "4/3" {
+		t.Fatalf("setup Tethermage = %s counters=%v, want 4/3 with one P1P1 counter (CounterAdded trigger kept)", teth.PT, teth.Counters)
+	}
+}
