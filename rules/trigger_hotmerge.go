@@ -24,7 +24,7 @@ import (
 //
 // trigHotMergeVerify (the rules test binary) checks every call against the
 // full scan; trigger_hotmerge_verify_test.go turns it on.
-func (e *Engine) trigHotMergeRefs(buf []state.ObjID, ev *events.Event, cur, hotIDs []state.ObjID, hotSigs []trigSig, kindOnly bool, slot int) ([]state.ObjID, bool) {
+func trigHotMergeRefs(g *state.Game, buf []state.ObjID, ev *events.Event, cur, hotIDs []state.ObjID, hotSigs []trigSig, kindOnly bool, slot int) ([]state.ObjID, bool) {
 	const maxRefs = 8
 	var refs [maxRefs]state.ObjID
 	n := 0
@@ -66,7 +66,7 @@ func (e *Engine) trigHotMergeRefs(buf []state.ObjID, ev *events.Event, cur, hotI
 		if slices.Contains(hotIDs, r) {
 			continue
 		}
-		o := e.G.Obj(r)
+		o := g.Obj(r)
 		if o == nil || trigZoneSlot(o.Zone) != slot {
 			continue
 		}
@@ -106,7 +106,7 @@ func (e *Engine) trigHotMergeRefs(buf []state.ObjID, ev *events.Event, cur, hotI
 			buf = append(buf, pos[k])
 			k++
 		}
-		if !kindOnly || hotSigs[i].admits(ev, e.G.Step) || slices.Contains(refs[:n], id) {
+		if !kindOnly || hotSigs[i].admits(ev, g.Step) || slices.Contains(refs[:n], id) {
 			buf = append(buf, id)
 		}
 	}
@@ -121,13 +121,25 @@ func (e *Engine) trigHotMergeRefs(buf []state.ObjID, ev *events.Event, cur, hotI
 var trigHotMergeVerify = derivedMemoVerifyFlag != ""
 
 // verifyTrigHotMergeRefs panics when trigHotMergeRefs' snapshot differs from
-// the full scan's.
-func (e *Engine) verifyTrigHotMergeRefs(ev *events.Event, cur, hotIDs []state.ObjID, hotSigs []trigSig, kindOnly bool, p state.PlayerID, slot int) {
-	fast, ok := e.trigHotMergeRefs(nil, ev, cur, hotIDs, hotSigs, kindOnly, slot)
+// the non-step full scan trigHotMerge runs (every referent, every hot id
+// kindOnly selects, in list order).
+func verifyTrigHotMergeRefs(g *state.Game, ev *events.Event, cur, hotIDs []state.ObjID, hotSigs []trigSig, kindOnly bool, p state.PlayerID, slot int) {
+	fast, ok := trigHotMergeRefs(g, nil, ev, cur, hotIDs, hotSigs, kindOnly, slot)
 	if !ok {
 		return
 	}
-	full := e.trigHotMergeScan(nil, ev, cur, hotIDs, hotSigs, kindOnly, false, p, slot, nil, nil)
+	var full []state.ObjID
+	j := 0
+	for _, id := range cur {
+		if j < len(hotIDs) && hotIDs[j] == id {
+			if !kindOnly || hotSigs[j].admits(ev, g.Step) || trigMustVisit(*ev, id) {
+				full = append(full, id)
+			}
+			j++
+		} else if trigMustVisit(*ev, id) {
+			full = append(full, id)
+		}
+	}
 	if !slices.Equal(fast, full) {
 		panic(fmt.Sprintf("rules: trigger hot merge (seat %d, slot %d) on %v: referent merge %v, full scan %v", p, slot, ev.Kind, fast, full))
 	}
