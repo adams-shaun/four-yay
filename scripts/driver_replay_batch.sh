@@ -264,18 +264,59 @@ elif cmd == "agrees":
     sys.exit(1)
 elif cmd == "samedet":
     # samedet VERDICTS.jsonl ID DET -> prints that row's "status detail"; exit 0 iff
-    # it is not agree and equals DET ("status detail" as verdict-compare prints it)
-    want = " ".join(str(normalize_ids(args[2])).split())
-    for line in open(args[0]):
-        if line.strip():
-            r = json.loads(line)
-            if r.get("id") == args[1]:
-                v = r.get("verdict") or {}
-                st = str(r.get("status") or v.get("status", "")).lower()
-                det = str(r.get("detail") or v.get("detail") or "")[:160]
-                got = " ".join(str(normalize_ids(st + " " + det)).split())
-                print(got)
-                sys.exit(0 if st != "agree" and got == want else 1)
+    # it is not agree and equals DET ("status detail" as verdict-compare prints it).
+    # The -out file holds oraclediff.Row (a nested verdict, no detail); the
+    # compliance row with the detail is in VERDICTS.jsonl.rows/ when oraclediff
+    # ran with -write. Without it, rebuild the detail as runDiff formats it.
+    def goq(x):
+        esc = {'"': '\\"', "\\": "\\\\", "\a": "\\a", "\b": "\\b", "\f": "\\f",
+               "\n": "\\n", "\r": "\\r", "\t": "\\t", "\v": "\\v"}
+        o = ['"']
+        for ch in str(x):
+            if ch in esc:
+                o.append(esc[ch])
+            elif ch.isprintable():
+                o.append(ch)
+            elif ord(ch) < 0x80:
+                o.append("\\x%02x" % ord(ch))
+            else:
+                o.append("\\u%04x" % ord(ch) if ord(ch) < 0x10000 else "\\U%08x" % ord(ch))
+        return "".join(o) + '"'
+    def first(x):
+        return str(x or "").split("\n")[0]
+    def flat(r):
+        if "status" in r and "verdict" not in r:
+            return str(r.get("status", "")).lower(), str(r.get("detail") or ""), True
+        v = r.get("verdict") or {}
+        st = str(v.get("status", "")).lower()
+        if st == "diverge":
+            det = "%s %s: gorge %s, xmage %s" % (v.get("checkpoint", ""), v.get("field", ""), goq(v.get("gorge", "")), goq(v.get("xmage", "")))
+        elif st == "xmage_lacks":
+            det = "xmage: " + first(v.get("msg"))
+        elif st == "harness":
+            det = str(v.get("engine", "")) + ": " + first(v.get("msg"))
+        else:
+            det = ""
+        return st, det, False
+    def norm(x):
+        return " ".join(str(normalize_ids(x)).split())
+    wst, _, wdet = norm(args[2]).partition(" ")
+    rows = []
+    for f in sorted(glob.glob(args[0] + ".rows/*.jsonl")) + [args[0]]:
+        if os.path.exists(f):
+            rows += [json.loads(l) for l in open(f) if l.strip()]
+    for r in rows:
+        if r.get("id") == args[1]:
+            st, det, exact = flat(r)
+            got = norm(st + " " + det[:160])
+            gdet = got.partition(" ")[2]
+            # A shape ruling can turn a batch row's diverge into gorge_wrong or
+            # xmage_wrong; only the -write row applies rulings, so a rebuilt
+            # diverge matches any of the three on an identical detail.
+            fam = ("diverge", "gorge_wrong", "xmage_wrong")
+            okst = st == wst or (not exact and st == "diverge" and wst in fam)
+            print(got)
+            sys.exit(0 if st != "agree" and okst and gdet == wdet else 1)
     print("(no verdict row)")
     sys.exit(1)
 elif cmd == "scenariochanged":
@@ -516,14 +557,14 @@ cleared() {
   # v is assigned apart: in one `local`, "$xm" would expand the CALLER's xm.
   local id=$1 xm=$2 scen=$3 tree=${4:-} v
   v="$xm.verdict.jsonl"
-  rm -f -- "$v"
+  rm -rf -- "$v" "$v.rows"
   if [ -n "${DRB_DIFF_CMD:-}" ]; then
     if [ -n "$tree" ]; then (cd "$tree" && $DRB_DIFF_CMD "$scen" "$xm" "$v") >/dev/null 2>&1
     else $DRB_DIFF_CMD "$scen" "$xm" "$v" >/dev/null 2>&1; fi
   elif [ -n "$tree" ]; then
-    (cd "$tree" && capped go run ./cmd/oraclediff diff -cards "$repo/.cards" -scenarios "$scen" -xmage "$xm" -out "$v" -xmage-ref "$(sed -n 's/^XMAGE_REF *?= *//p' "$wt/Makefile")") >/dev/null 2>&1
+    (cd "$tree" && capped go run ./cmd/oraclediff diff -cards "$repo/.cards" -scenarios "$scen" -xmage "$xm" -out "$v" -write "$v.rows" -xmage-ref "$(sed -n 's/^XMAGE_REF *?= *//p' "$wt/Makefile")") >/dev/null 2>&1
   else
-    "$SCEN_ROOT/oraclediff" diff -scenarios "$scen" -xmage "$xm" -out "$v" -xmage-ref "$(sed -n 's/^XMAGE_REF *?= *//p' "$wt/Makefile")" >/dev/null 2>&1
+    "$SCEN_ROOT/oraclediff" diff -scenarios "$scen" -xmage "$xm" -out "$v" -write "$v.rows" -xmage-ref "$(sed -n 's/^XMAGE_REF *?= *//p' "$wt/Makefile")" >/dev/null 2>&1
   fi
   [ -s "$v" ] && py agrees "$v" "$id"
 }
@@ -806,6 +847,9 @@ pass() {
 
   for ((attempt = 0; attempt <= ${#PIDS[@]}; attempt++)); do
     rm -rf -- "$run/replay$attempt" && mkdir -p "$run/replay$attempt"
+    # MAINDRIFT memoises the proof across attempts; MD_ROWS is THIS attempt's set,
+    # so a row the final landed batch no longer regresses is not recorded.
+    MD_ROWS=(); MD_DET=()
     local rdir=$run/replay$attempt
     (cd "$wt" && GOFLAGS="-p=2 -trimpath" XMAGE_ORACLE_MEM=6G "${LOCKRUN[@]}" "${REPLAY_CMD[@]}" "$rdir" >"$rdir.log" 2>&1)
     rc=$?

@@ -77,6 +77,12 @@ with open(sys.argv[1], "w") as sc:
             sc.write(json.dumps({"id": r["id"], "card": r["card"], "scen": "bad" if r["id"] in gb else "ok"}) + "\n")
             if r["id"] in bad:
                 r["status"] = "diverge"
+                # The compliance row's detail, formatted as oraclediff's runDiff
+                # does; diff.sh's verdict for the same snapshot carries the parts.
+                od = set()
+                for g in glob.glob("tools/xmageoracle/*.otherdet"):
+                    od |= set(open(g).read().split("\n")) - {""}
+                r["detail"] = 'setup graveyard: gorge "[Wastes x5]", xmage "%s"' % ("[Island]" if r["id"] in od else "[]")
             elif r["card"] == "Gamma":
                 r["status"] = "agree"   # an improvement
         open(f, "w").write("\n".join(json.dumps(r) for r in rows) + "\n")
@@ -100,7 +106,11 @@ with open(sys.argv[1], "w") as sc:
                 if line.strip():
                     r = json.loads(line)
                     state = "bad" if r["id"] in driver_bad else "good"
-                    xm.write(json.dumps({"id": r["id"], "scen": scenarios.get(r["id"], "ok"), "state": state, "ms": 1}) + "\n")
+                    xv = "[]"
+                    for g in glob.glob("tools/xmageoracle/*.otherdet"):
+                        if r["id"] in set(open(g).read().split("\n")):
+                            xv = "[Island]"
+                    xm.write(json.dumps({"id": r["id"], "scen": scenarios.get(r["id"], "ok"), "state": state, "xv": xv, "ms": 1}) + "\n")
 PY
 echo "S ok"; echo done
 EOF
@@ -119,7 +129,9 @@ for f in $d/*.flaky; do [ -e "$f" ] && /usr/bin/grep -qxF -- "$id" "$f" && state
 /usr/bin/grep -q '"scen": "bad"' "$1" && state=bad
 extra=""
 [ "${STUB_VOLATILE_IDS:-}" != "$id" ] || extra=",\"error\":\"object_id='$(cat /proc/sys/kernel/random/uuid)' [$(printf '%03x' "$((RANDOM % 4096))")]\""
-printf '{"id":"%s","scen":"%s","state":"%s","ms":%s%s}\n' "$id" "$scenario" "$state" "$((RANDOM + 1))" "$extra" >"$2"
+xv='[]'
+for f in $d/*.otherdet; do [ -e "$f" ] && /usr/bin/grep -qxF -- "$id" "$f" && xv='[Island]'; done
+printf '{"id":"%s","scen":"%s","state":"%s","xv":"%s","ms":%s%s}\n' "$id" "$scenario" "$state" "$xv" "$((RANDOM + 1))" "$extra" >"$2"
 EOF
 cat >"$S/gen.sh" <<'EOF'
 #!/usr/bin/env bash
@@ -175,7 +187,30 @@ if [ "$scenario" = "$(echo "$xmage" | cut -d' ' -f1)" ] && [ "$(echo "$xmage" | 
   done
 fi
 [ -z "${DRB_DIFF_TRACE:-}" ] || printf '%s %s %s %s %s\n' "$PWD" "$id" "$st" "$scenario" "$xmage" >>"$DRB_DIFF_TRACE"
-printf '{"id":"%s","card":"x","verdict":{"status":"%s"}}\n' "$id" "$st" >"$3"
+# A divergence carries oraclediff.Verdict's parts (the -out file has no detail);
+# with a 4th argument (-write DIR) the compliance row, detail and all, lands in
+# DIR as runDiff's MergeVerdicts writes it.
+xv=$(python3 - "$2" "$id" <<'PY'
+import json, sys
+for line in open(sys.argv[1]):
+    row = json.loads(line)
+    if row["id"] == sys.argv[2]:
+        print(row.get("xv", "[]"))
+        break
+PY
+)
+[ -n "$xv" ] || xv='[]'
+if [ "$st" = DIVERGE ]; then
+  printf '{"id":"%s","card":"x","verdict":{"status":"%s","checkpoint":"setup","field":"graveyard","gorge":"[Wastes x5]","xmage":"%s"}}\n' "$id" "$st" "$xv" >"$3"
+  if [ -n "${4:-}" ]; then
+    mkdir -p "$4"
+    printf '{"card":"x","id":"%s","status":"diverge","detail":"setup graveyard: gorge \\"[Wastes x5]\\", xmage \\"%s\\""}\n' "$id" "$xv" >"$4/x.jsonl"
+  fi
+else
+  printf '{"id":"%s","card":"x","verdict":{"status":"%s"}}\n' "$id" "$st" >"$3"
+  if [ -n "${4:-}" ]; then mkdir -p "$4"; printf '{"card":"x","id":"%s","status":"agree"}\n' "$id" >"$4/x.jsonl"; fi
+fi
+[ -z "${DRB_WRITE_TRACE:-}" ] || printf '%s write=%s\n' "$id" "${4:-}" >>"$DRB_WRITE_TRACE"
 EOF
 cat >"$S/check.sh" <<'EOF'
 #!/usr/bin/env bash
@@ -215,7 +250,7 @@ while [ $# -gt 1 ]; do f[${1#-}]=$2; shift 2; done
 printf '%s %s cards=%s\n' "$PWD" "$sub" "${f[cards]:-}" >>"$DRB_GO_TRACE"
 case $sub in
 gen) "$STUB_DIR/gen.sh" "$(basename "${f[manifest]}" .json)" "${f[out]}" "${f[cards]:-}" ;;
-diff) "$STUB_DIR/diff.sh" "${f[scenarios]}" "${f[xmage]}" "${f[out]}" ;;
+diff) "$STUB_DIR/diff.sh" "${f[scenarios]}" "${f[xmage]}" "${f[out]}" "${f[write]:-}" ;;
 *) exit 1 ;;
 esac
 EOF
@@ -890,6 +925,32 @@ check "P the per-class drift ticket is filed" $?
 check "P one ticket: the without-candidate replay is reused as main alone (one probe replay)" $? "($(/usr/bin/grep -c 'probe Beta' "$R/scen.trace") probe replays)"
 [ "$(cat "$R/.ds4/driver-replay-last-main")" = "$(git -C "$R" rev-parse main)" ]
 check "P the batch landing records last-main" $?
+
+# ---- P3: case P on the production `go run ./cmd/oraclediff diff` branch: the main-alone
+# verdict's detail comes from the -write compliance row, not the detail-less -out file ----
+mkrepo P3
+mkticket t1 2026-10-06T03:00:00Z tools/xmageoracle/t1.txt one
+printf 'Beta/cast-resolve/v1\n' >"$R/always.txt"
+export DRB_GO_TRACE=$R/go.trace DRB_WRITE_TRACE=$R/write.trace
+STUB_PROD_GO=1 runpass
+unset DRB_GO_TRACE DRB_WRITE_TRACE
+/usr/bin/grep -qE '^Beta/cast-resolve/v1 write=.+\.verdict\.jsonl\.rows$' "$R/write.trace"
+check "P3 the production diff writes the compliance row (-write) beside the -out verdict" $? "($(cat "$R/write.trace" 2>/dev/null))"
+has "$L" 'DRIFT-MAIN Beta/cast-resolve/v1 diverge setup graveyard: gorge "[Wastes x5]", xmage "[]"' && hasnt "$L" 'UNATTRIBUTED' && hasnt "$L" 'HOLD'
+check "P3 a real-detail row diverging the same way on main alone is DRIFT-MAIN" $?
+/usr/bin/grep -qE 'LANDED [0-9a-f]{9} t1$' "$L" && [ "$(status_of t1)" = merged ]
+check "P3 the ticket lands" $?
+
+# ---- M3: main alone diverges on the row too, but with a DIFFERENT detail (the
+# ticket's driver changed XMage's result): not main drift; the batch HOLDs ----
+mkrepo M3
+mkticket t1 2026-10-06T03:00:00Z tools/xmageoracle/t1.otherdet 'Beta/cast-resolve/v1'
+printf 'Beta/cast-resolve/v1\n' >"$R/always.txt"
+runpass
+has "$L" "MAIN-ALONE Beta/cast-resolve/v1: main alone says 'diverge setup graveyard: gorge \"[Wastes x5]\", xmage \"[]\"'" && hasnt "$L" 'DRIFT-MAIN'
+check "M3 a different main-alone detail is not main drift" $?
+has "$L" 'UNATTRIBUTED row Beta/cast-resolve/v1' && has "$L" 'HOLD nothing landed' && [ "$(status_of t1)" != merged ] && hasnt "$R/.ds4/driver-drift.log" 'Beta'
+check "M3 the row is UNATTRIBUTED, the batch HOLDs and no drift line is written" $?
 
 # ---- P2: a refused DRIFT landing (10:04) leaves the drift unrecorded; the next ticket
 # batch still classifies the generator-drift row as main drift and HOLDs nothing ----
