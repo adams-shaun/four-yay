@@ -19,9 +19,15 @@
 #      gets a line; a row id already in that log is FLAKY without re-testing,
 #      so a known flake is never named CULPRIT); stable = attributed by
 #      replaying that row on the batch WITHOUT each branch in turn (newest
-#      first). A branch that changes compliance/oraclegen/ or cmd/oraclediff/
-#      changes the scenario itself, so for it the row is REGENERATED on the
-#      batch without that branch (oraclediff gen, that set) before the replay.
+#      first). A branch that touches gorge's side of the comparison -- any Go
+#      change outside tools/xmageoracle (touches_gorge), which includes the
+#      compliance/oraclegen and cmd/oraclediff generator -- can change both the
+#      scenario and gorge's result, so the row is REGENERATED on the batch
+#      without that branch (oraclediff gen, that set) AND replayed on the
+#      probe's own driver (one_scenario). Every selected ticket changed the
+#      driver, so that replay is what removes the driver half too: the batch's
+#      XMage snapshot was produced WITH the candidate's driver and must never
+#      be reused for it, or a driver-caused row could never clear.
 #      The branch whose removal clears the row is the CULPRIT: it is re-parked with a History line and the
 #      rest land after a fresh full replay. A row no single branch clears lands
 #      NOTHING and every ticket stays parked with the findings.
@@ -392,12 +398,6 @@ touches_gorge() {
   git diff --name-only "$MAIN"..."${BR[$1]}" -- compliance/oraclegen cmd/oraclediff compliance/manifests '*.go' ':!tools/xmageoracle/**' 2>/dev/null | /usr/bin/grep -q .
 }
 
-# touches_generator <ticket>: generator/manifest changes can change the
-# scenario itself, so the retained XMage snapshot may not describe the row.
-touches_generator() {
-  git diff --name-only "$MAIN"..."${BR[$1]}" -- compliance/oraclegen cmd/oraclediff compliance/manifests 2>/dev/null | /usr/bin/grep -q .
-}
-
 # regen_row <probe> <id> <outfile>: regenerate the scenario row <id> on <probe>'s
 # generator (level B, that row's set only) into <outfile> (a one-row scen.jsonl).
 regen_row() {
@@ -468,9 +468,8 @@ attribute() {
     done
     [ "$ok" = 1 ] || { say "ATTRIBUTE cannot build the batch without $cand (conflict); skipping it as a candidate"; continue; }
     local -a left=()
-    local gorge=0 generator=0
+    local gorge=0
     touches_gorge "$cand" && gorge=1
-    touches_generator "$cand" && generator=1
     for r in "${todo[@]}"; do
       local tag src=""
       tag=$(echo "$r" | tr -c 'A-Za-z0-9\n' _)
@@ -482,17 +481,13 @@ attribute() {
       local candidate="$d/without-$cand-$tag.jsonl" xm
       xm="$candidate"
       if [ "$gorge" = 1 ]; then
-        local rowfile setname
-        rowfile=$(py rowfile "$r" "$SCEN_ROOT"/*/scen.jsonl) || { left+=("$r"); continue; }
-        setname=$(basename "$(dirname "$rowfile")")
-        xm="$SCEN_ROOT/$setname/xmage.jsonl"
-        if [ "$generator" = 1 ] || [ ! -s "$xm" ] || [ "$(cat -- "$src")" != "$(py row "$r" "$rowfile")" ]; then
-          # Generation runs the rules engine, so any gorge-side change can
-          # regenerate a different scenario: reuse the batch's XMage snapshot
-          # only when the regenerated row is byte-identical to the batch's row.
-          one_scenario "$probe" "$r" "$candidate" "$src" || { left+=("$r"); continue; }
-          xm="$candidate"
-        fi
+        # Recompute BOTH halves on the probe without this branch: the gorge
+        # scenario (regen_row above) and the XMage result (one_scenario
+        # compiles the probe's driver, which lacks the branch). Every selected
+        # candidate changed the driver, so reusing the batch's snapshot here
+        # would pair a regenerated scenario with the candidate's own driver and
+        # a driver-caused row could never clear.
+        one_scenario "$probe" "$r" "$candidate" "$src" || { left+=("$r"); continue; }
       else
         one_scenario "$probe" "$r" "$candidate" || { left+=("$r"); continue; }
         src="$candidate.in.jsonl"

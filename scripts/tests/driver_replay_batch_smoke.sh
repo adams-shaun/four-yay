@@ -84,12 +84,20 @@ with open(sys.argv[1], "w") as sc:
             row = json.loads(line)
             scenarios[row["id"]] = row.get("scen", "ok")
     os.makedirs(os.path.join(rdir, "S"), exist_ok=True)
+    # The retained snapshot is the BATCH's driver output: a candidate that adds a
+    # tools/xmageoracle/*.regress driver change (every selected ticket has one)
+    # is present here, so its row's state is bad. The probe replay, without the
+    # candidate, is what turns it good again.
+    driver_bad = set()
+    for f in glob.glob("tools/xmageoracle/*.regress"):
+        driver_bad |= set(open(f).read().split("\n")) - {""}
     with open(os.path.join(rdir, "S", "xmage.jsonl"), "w") as xm:
         for f in glob.glob("compliance/verdicts/*.jsonl"):
             for line in open(f):
                 if line.strip():
                     r = json.loads(line)
-                    xm.write(json.dumps({"id": r["id"], "scen": scenarios.get(r["id"], "ok"), "state": "good", "ms": 1}) + "\n")
+                    state = "bad" if r["id"] in driver_bad else "good"
+                    xm.write(json.dumps({"id": r["id"], "scen": scenarios.get(r["id"], "ok"), "state": state, "ms": 1}) + "\n")
 PY
 echo "S ok"; echo done
 EOF
@@ -544,6 +552,30 @@ check "I4 the production go-run path attributes a runner change" $?
   /usr/bin/grep -qE '/\.worktrees/.*-probe diff cards='"$R"'/\.cards$' "$DRB_GO_TRACE"
 check "I4 gen and diff run in the probe with the main checkout's .cards" $?
 unset DRB_GO_TRACE
+
+# ---- X: a candidate that changes BOTH the driver and gorge Go is attributed -------
+# Every selected ticket changes tools/xmageoracle/ (that is the park gate), so a
+# ticket that ALSO changes a non-driver .go file is the mixed case: removing it
+# for attribution must remove its DRIVER half too, not just re-run the
+# generator, or the row can never clear and every ticket is held.
+mkrepo X
+mkticket t1 2026-10-06T03:00:00Z tools/xmageoracle/t1.txt one
+mkticket t3 2026-10-06T04:00:00Z tools/xmageoracle/x.regress 'Beta/cast-resolve/v1'
+mkdir -p "$R/.worktrees/t3/rules"
+echo harmless >"$R/.worktrees/t3/rules/harmless.go"
+git -C "$R/.worktrees/t3" add -A && git -C "$R/.worktrees/t3" commit -q -m "feat: harmless gorge change"
+mkticket t8 2026-10-06T05:00:00Z tools/xmageoracle/t8.txt eight
+runpass
+has "$L" 'CULPRIT t3 row Beta/cast-resolve/v1'
+check "X a mixed driver+rules culprit is attributed" $?
+hasnt "$L" 'UNATTRIBUTED'
+check "X a mixed driver+rules regression is not UNATTRIBUTED" $?
+[ "$(status_of t3)" = human_needed ] && [ "$(status_of t1)" = merged ] && [ "$(status_of t8)" = merged ]
+check "X only the mixed culprit stays parked; the innocent branches land" $?
+hasnt "$R/.ds4/issues/t1.md" 'driver_replay_batch: HELD' && hasnt "$R/.ds4/issues/t8.md" 'driver_replay_batch: HELD'
+check "X the other branches are not HELD" $?
+/usr/bin/grep -qE 'LANDED [0-9a-f]{9} t1 t8$' "$L"
+check "X the non-culprit branches land" $?
 
 # ---- J: DRIFT -- the generator moved and no ticket is parked: replay main, land ------
 # mkdrift <name>: a repo whose last replayed main is recorded, then main's generator moves.
