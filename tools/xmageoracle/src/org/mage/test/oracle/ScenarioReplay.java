@@ -497,7 +497,11 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 int beforeTargetsA = playerA.getTargets().size();
                 int beforeTargetsB = playerB.getTargets().size();
                 if (i < xans.size() && xans.get(i).isJsonArray()) {
-                    scripted(xans.get(i).getAsJsonArray());
+                    // Cast modes are installed at the cast boundary, after
+                    // scenario mana has been queued. XMage chooses modes
+                    // before adding their costs to the payment, so these
+                    // answers must be ready when castSpell starts.
+                    scripted(xans.get(i).getAsJsonArray(), op.equals("cast"));
                 }
                 int beforeA = playerA.getActions().size();
                 int beforeB = playerB.getActions().size();
@@ -1104,6 +1108,10 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 if (!sc0.has("xmage_answers")) {
                     answers(st, p);
                 }
+                if (sc0.has("xmage_answers") && stepIdx < sc0.getAsJsonArray("xmage_answers").size()
+                        && sc0.getAsJsonArray("xmage_answers").get(stepIdx).isJsonArray()) {
+                    scriptCastModes(sc0.getAsJsonArray("xmage_answers").get(stepIdx).getAsJsonArray(), p);
+                }
                 castCostPicks = new ArrayList<>();
                 if (st.has("answers")) {
                     for (JsonElement e : st.getAsJsonArray("answers")) {
@@ -1230,7 +1238,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
     }
 
     /** Applies the generator's scripted answers (oraclegen.XAnswer). */
-    private void scripted(JsonArray as) {
+    private void scripted(JsonArray as, boolean deferModes) {
         for (JsonElement e : as) {
             JsonObject a = e.getAsJsonObject();
             TestPlayer p = seat(a.get("seat").getAsInt());
@@ -1253,6 +1261,9 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     setChoiceAmount(p, Integer.parseInt(v));
                     break;
                 case "mode":
+                    if (deferModes && !v.equalsIgnoreCase("yes") && !v.equalsIgnoreCase("no")) {
+                        break;
+                    }
                     // Some GenericChoice effects are recorded as a gorge
                     // mode decision but XMage asks the player through
                     // chooseUse. Route their boolean answer to the player's
@@ -1274,6 +1285,18 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     break;
                 default:
                     throw new IllegalArgumentException("xmage answer kind " + kind);
+            }
+        }
+    }
+
+    /** Queue numeric mode picks immediately before the cast action is queued. */
+    private void scriptCastModes(JsonArray as, TestPlayer p) {
+        for (JsonElement e : as) {
+            JsonObject a = e.getAsJsonObject();
+            String v = str(a, "value");
+            if (str(a, "kind").equals("mode")
+                    && !v.equalsIgnoreCase("yes") && !v.equalsIgnoreCase("no")) {
+                setModeChoice(p, v);
             }
         }
     }
