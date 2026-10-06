@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/compliance"
 	"github.com/adams-shaun/gorge/compliance/oraclegen"
 )
@@ -29,22 +30,25 @@ import (
 // stopped carrying xmage_name, or that named the cast after the whole card,
 // would break that driver contract, so pin all four here.
 func TestGenSplitRoomCastShape(t *testing.T) {
-	dir := filepath.Join("..", "..", ".cards")
+	// Hand-authored IR: only the two-face identity and spell/permanent types
+	// matter to this test, not these cards' real effects or the Forge corpus.
+	reg := cards.NewRegistry()
+	reg.Add(&cards.Card{AlternateMode: "Split", Faces: []*cards.Face{
+		{Name: "Cease", ManaCost: "G", Types: []string{"Instant"}},
+		{Name: "Desist", ManaCost: "W", Types: []string{"Sorcery"}},
+	}})
+	reg.Add(&cards.Card{AlternateMode: "Split", Faces: []*cards.Face{
+		{Name: "Walk-In Closet", ManaCost: "G", Types: []string{"Enchantment", "Room"}},
+		{Name: "Forgotten Cellar", ManaCost: "B", Types: []string{"Enchantment", "Room"}},
+	}})
+	reg.Add(&cards.Card{Faces: []*cards.Face{{Name: "Wastes", Types: []string{"Basic", "Land"}}}})
+	reg.Add(&cards.Card{Faces: []*cards.Face{{Name: "Grizzly Bears", ManaCost: "1 G", Types: []string{"Creature", "Bear"}, PT: "2/2"}}})
 	m := compliance.Manifest{Code: "TINY", Cards: []compliance.ManifestCard{
 		{Name: "Cease // Desist"},
 		{Name: "Walk-In Closet // Forgotten Cellar"},
 	}}
-	tmp := t.TempDir()
-	mf := filepath.Join(tmp, "TINY.json")
-	raw, err := json.Marshal(m)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(mf, raw, 0o644); err != nil {
-		t.Fatal(err)
-	}
-	out := filepath.Join(tmp, "TINY.jsonl")
-	if err := runGen(dir, mf, out, "A"); err != nil {
+	out := filepath.Join(t.TempDir(), "TINY.jsonl")
+	if err := genManifest(reg, m, out, "A"); err != nil {
 		t.Fatal(err)
 	}
 

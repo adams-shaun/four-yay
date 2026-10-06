@@ -208,6 +208,12 @@ func runGen(dir, manifest, out, level string) error {
 	if err != nil {
 		return err
 	}
+	return genManifest(reg, m, out, level)
+}
+
+// genManifest generates from an already loaded registry, so deterministic
+// fixtures can exercise the manifest/name boundary without an external corpus.
+func genManifest(reg *cards.Registry, m compliance.Manifest, out, level string) error {
 	sup := effects.Supported()
 	has := func(n string) bool { _, ok := reg.Lookup(n); return ok }
 	folded := compliance.FoldedNames(reg)
