@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"resolve","field":"p0.library_top","diff":"gorge+[Forest] xmage+[Ornithopter]"},"key":"activate | resolve | p0.library_top | gorge+[Forest] xmage+[Ornithopter]","cards":1}
+{"card":"Maze's End","template":"activate#0.1","status":"diverge","api":"-","sets":["FDN"],"detail":"step 1 (resolve) p0.library_top: gorge \"[Wastes, Jace Beleren, Wastes, Wastes, Forest]\", xmage \"[Ornithopter, Wastes, Jace Beleren, Wastes, Wastes]\""}
