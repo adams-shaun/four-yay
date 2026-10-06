@@ -129,7 +129,10 @@ const (
 	TriggerCounterAddedAll     TriggerMode = 95
 	TriggerCounterTypeAddedAll TriggerMode = 96
 	TriggerExcessDamageAll     TriggerMode = 97
-	TriggerModeCount                       = 98 // one past the last; sizes a dense per-TriggerMode array
+	TriggerForage              TriggerMode = 98
+	TriggerManifestDread       TriggerMode = 99
+	TriggerCollectEvidence     TriggerMode = 100
+	TriggerModeCount                       = 101 // one past the last; sizes a dense per-TriggerMode array
 )
 
 var triggerModeNames = [TriggerModeCount]string{
@@ -178,6 +181,9 @@ var triggerModeNames = [TriggerModeCount]string{
 	TriggerCounterRemovedOnce:         "CounterRemovedOnce",
 	TriggerDamageAll:                  "DamageAll",
 	TriggerExcessDamageAll:            "ExcessDamageAll",
+	TriggerForage:                     "Forage",
+	TriggerManifestDread:              "ManifestDread",
+	TriggerCollectEvidence:            "CollectEvidence",
 	TriggerDamagePreventedOnce:        "DamagePreventedOnce",
 	TriggerDiscardedAll:               "DiscardedAll",
 	TriggerDiscover:                   "Discover",

@@ -11,5 +11,6 @@ package effects
 func init() {
 	RegisterNonAPI(
 		"trig:Crewed", "trig:Saddled", "trig:BecomesSaddled", "trig:BecomesPlotted", "trig:SacrificedOnce",
+		"trig:Forage", "trig:ManifestDread", "trig:CollectEvidence",
 	)
 }

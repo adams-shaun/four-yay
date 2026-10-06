@@ -2051,6 +2051,9 @@ func (e *Engine) settleTriggeredMandatory(tc *triggeredEffectCost) {
 			e.emit(events.EvidenceCost(id))
 		}
 	}
+	if len(tc.evidence) > 0 {
+		e.emit(events.Event{Kind: events.CollectEvidenceAction, Player: tc.player})
+	}
 	for _, id := range tc.moveGraves {
 		if o := e.G.Obj(id); o != nil {
 			e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: o.Zone, To: state.ZGraveyard, Text: "moved to its owner's graveyard as a cost"})

@@ -1140,7 +1140,13 @@ const (
 	// NumKinds is the explicit upper bound for the append-only event kind
 	// registry below. New kinds must be appended above this line: inserting or
 	// reordering a kind renumbers the hash-chained event stream and breaks replay.
-	NumKinds = int(Meld) + 1
+	// Forage, ManifestDread and CollectEvidence are completed keyword-action
+	// markers. Player is the acting player; ManifestDread carries the cards it
+	// put into the graveyard in IDs. Appended to preserve prior ordinals.
+	ForageAction
+	ManifestDreadAction
+	CollectEvidenceAction
+	NumKinds = int(CollectEvidenceAction) + 1
 )
 
 // PlanarWalkDontPlaneswalkAway is PlanarWalk's Amount flag: the resolving

@@ -246,6 +246,9 @@ func (e *Engine) payCast() {
 				e.emit(events.EvidenceCost(id))
 			}
 		}
+		if len(pc.evidence) > 0 {
+			e.emit(events.Event{Kind: events.CollectEvidenceAction, Player: pc.player})
+		}
 		// ExiledMoveToGrave cost parts: each chosen card leaves exile for
 		// its OWNER's graveyard (events.Move's zoneOwner already routes a
 		// non-battlefield move to the owner), and the ExiledWith provenance
@@ -356,6 +359,9 @@ func (e *Engine) payCast() {
 		}
 		for _, id := range pc.Sacs {
 			e.emit(events.Sacrifice(id))
+		}
+		if pc.cost.Forage {
+			e.emit(events.Event{Kind: events.ForageAction, Player: pc.player})
 		}
 		// RollDice cost parts are free, engine-driven payment actions. Publish
 		// each die through the same canonical Note as DB$ RollDice so trigger
@@ -523,6 +529,9 @@ func (e *Engine) payCast() {
 			e.emit(events.EvidenceCost(id))
 		}
 	}
+	if len(pc.evidence) > 0 {
+		e.emit(events.Event{Kind: events.CollectEvidenceAction, Player: pc.player})
+	}
 	// ExiledMoveToGrave cost parts (see the ability branch above for the why).
 	for _, id := range pc.moveGraves {
 		if o := e.G.Obj(id); o != nil {
@@ -572,6 +581,9 @@ func (e *Engine) payCast() {
 	}
 	for _, id := range pc.Sacs {
 		e.emit(events.Sacrifice(id))
+	}
+	if pc.cost.Forage {
+		e.emit(events.Event{Kind: events.ForageAction, Player: pc.player})
 	}
 	if pc.mode == "suspend" {
 		info, _ := suspendCost(e.G.Obj(pc.card).Face())
