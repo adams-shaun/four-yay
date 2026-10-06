@@ -361,6 +361,32 @@ public class ScenarioReplay extends CardTestPlayerBase {
             }
         }
 
+        /** The candidate an XMage attach ask should take, or null when the ask
+         * must fall through to the base player. A scripted answer at the queue
+         * front is honored first and consumed, so an attachment ask never
+         * silently overrides the scenario or leaves its answer queued for a
+         * later decision. Automatic selection happens only for an unscripted
+         * ask whose candidate set is uniquely determined. A scripted answer
+         * that names no candidate is left in place, so the base's strict
+         * unused-command check still reports the scenario error. */
+        static UUID attachmentChoice(List<String> queue, List<UUID> candidates,
+                java.util.function.BiPredicate<UUID, String> matches) {
+            if (!queue.isEmpty() && !TestPlayer.TARGET_SKIP.equals(queue.get(0))) {
+                String answer = queue.get(0);
+                for (UUID id : candidates) {
+                    if (matches.test(id, answer)) {
+                        queue.remove(0);
+                        return id;
+                    }
+                }
+                return null;
+            }
+            if (queue.isEmpty() && candidates.size() == 1) {
+                return candidates.get(0);
+            }
+            return null;
+        }
+
         /** Detaches and returns the queue's suffix that starts at its next
          * "[target_skip]" so only the contiguous segment that precedes it is
          * visible. A skip at the front (consumed by this ask) or no skip at all
@@ -386,16 +412,10 @@ public class ScenarioReplay extends CardTestPlayerBase {
             if (target.getChooseHint() != null && target.getChooseHint().startsWith("to attach ")) {
                 UUID abilityControllerId = target.getAffectedAbilityControllerId(this.getId());
                 List<UUID> candidates = new ArrayList<>(target.possibleTargets(abilityControllerId, source, game));
-                candidates.sort((left, right) -> {
-                    Permanent a = game.getPermanent(left);
-                    Permanent b = game.getPermanent(right);
-                    String an = a == null ? "" : a.getName();
-                    String bn = b == null ? "" : b.getName();
-                    int byName = an.compareTo(bn);
-                    return byName != 0 ? byName : left.toString().compareTo(right.toString());
-                });
-                if (!candidates.isEmpty()) {
-                    target.addTarget(candidates.get(0), source, game);
+                UUID chosen = attachmentChoice(getTargets(), candidates,
+                        (id, answer) -> hasObjectTargetNameOrAlias(game.getPermanent(id), answer));
+                if (chosen != null) {
+                    target.addTarget(chosen, source, game);
                     return true;
                 }
             }
@@ -1080,7 +1100,23 @@ public class ScenarioReplay extends CardTestPlayerBase {
     private static boolean isSpreeSpell(String name) {
         CardInfo info = CardRepository.instance.findCard(name);
         Card c = info == null ? null : info.createCard();
+        return isSpreeCard(c);
+    }
+
+    /** Whether the card itself is a Spree card: XMage models Spree as a
+     * SpreeAbility on it, so this is exact and structural. Card-based and
+     * package-private so a contract test can pin it without the card
+     * repository (which needs H2). */
+    static boolean isSpreeCard(Card c) {
         return c != null && c.getAbilities().containsClass(SpreeAbility.class);
+    }
+
+    /** The XMage Zone a `move` step's lowercase destination names. XMage's
+     * enum member is EXILED, not EXILE, so a bare valueOf(upper) throws on
+     * gorge's "exile"; every other zone name upper-cases straight to its
+     * member. Static and package-private for the driver contract test. */
+    static Zone moveDestination(String to) {
+        return to.equals("exile") ? Zone.EXILED : Zone.valueOf(to.toUpperCase(java.util.Locale.ROOT));
     }
 
     /**
@@ -1517,7 +1553,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 String name = xmageSpelling(refName(ref));
                 // gorge names the exile zone "exile"; XMage's enum member is EXILED.
                 String to = str(st, "to");
-                Zone destination = to.equals("exile") ? Zone.EXILED : Zone.valueOf(to.toUpperCase(java.util.Locale.ROOT));
+                Zone destination = moveDestination(to);
                 runCode("move " + ref + " to " + destination, turn, phase, p, (info, pl, g) -> {
                     Card moving = null;
                     for (Card candidate : pl.getHand().getCards(g)) {
