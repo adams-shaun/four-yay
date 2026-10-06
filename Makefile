@@ -56,7 +56,7 @@ FORGE_REF  ?= 25a608a4fc5fe837314a263e4ac6600a01d7c348
 XMAGE_REF  ?= 6b602a1c85e8ed738a4b40b1ef44c54845b57f68
 XMAGE_ORACLE_DIR ?= /mnt/sata/gorge-training/xmageoracle
 # Forge oracle driver commit (fork, branch oracle-harness): a descendant of FORGE_REF with identical script trees.
-FORGE_ORACLE_REF ?= 1581615d4373e849ce0add8145bf3f42149d865d
+FORGE_ORACLE_REF ?= e27d2bdb25449df986106f0cc9de22078e779a6a
 FORGE_ORACLE_DIR ?= /mnt/sata/gorge-training/forgeoracle
 
 .PHONY: help
