@@ -236,6 +236,7 @@ func TeacherIntentChoice(worlds []World, candidates []SemanticIntent, opts Teach
 		engines := make([]*rules.Engine, len(outs))
 		for k := range engines {
 			engines[k] = worlds[k/len(candidates)].Engine.Clone()
+			engines[k].SetDecisionArena(true)
 		}
 		var wg sync.WaitGroup
 		var next atomic.Int64
@@ -256,9 +257,17 @@ func TeacherIntentChoice(worlds []World, candidates []SemanticIntent, opts Teach
 		}
 		wg.Wait()
 	} else {
+		// A rollout's clone and every decision it poses die with the
+		// rollout (the leaf value is folded before it ends), so the clone
+		// carves its decisions from the arena and is released into the
+		// next rollout's clone.
 		var lv view.View
+		var sp rules.Spare
 		for k := range outs {
-			run(k, worlds[k/len(candidates)].Engine.Clone(), &lv)
+			e := worlds[k/len(candidates)].Engine.CloneInto(&sp)
+			e.SetDecisionArena(true)
+			run(k, e, &lv)
+			sp = e.Release()
 			if outs[k].err != nil || outs[k].panicked != nil {
 				break
 			}
