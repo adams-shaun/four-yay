@@ -286,4 +286,3 @@ func (r *keyReader) str() string {
 	r.err, r.b = fmt.Errorf("searchprobe: action key string tag %d", tag), nil
 	return ""
 }
-
