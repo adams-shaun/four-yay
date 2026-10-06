@@ -27,6 +27,9 @@ func TestConditionPreludePhaseExamples(t *testing.T) {
 		{"Insectoid Exterminator", "Murder"},
 		{"Frontline War-Rager", "Grizzly Bears"},
 		{"Creakwood Safewright", "Llanowar Elves"},
+		{"Sawblade Skinripper", "Village Rites"},
+		{"Phoenix Fleet Airship", "Village Rites"},
+		{"Voidforged Titan", "Murder"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			card, ok := reg.Lookup(tc.name)
@@ -86,6 +89,21 @@ func TestConditionPreludePhaseExamples(t *testing.T) {
 			case "Creakwood Safewright":
 				if !containsString(p0.Graveyard, "Llanowar Elves") {
 					t.Fatalf("expected Elf graveyard fixture, got %v", p0.Graveyard)
+				}
+			case "Sawblade Skinripper", "Phoenix Fleet Airship":
+				assertStepCard(t, item.Scenario.Steps, "Village Rites")
+				if tc.name == "Sawblade Skinripper" {
+					matches := 0
+					for _, answers := range item.XAnswers {
+						for _, answer := range answers {
+							if answer.Kind == "choice" && answer.Value == "Grizzly Bears" {
+								matches++
+							}
+						}
+					}
+					if matches != 1 {
+						t.Fatalf("XMage answers name sacrificed Grizzly Bears %d times, want once: %+v", matches, item.XAnswers)
+					}
 				}
 			}
 
