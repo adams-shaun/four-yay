@@ -23,4 +23,4 @@ live in [repo-map-internal.md](repo-map-internal.md).
 | `searchteacher` / `searchprobe` | PIMC label-corpus generator / search calibration (also the engine perf oracle). |
 | `policytrain` / `policytune` / `exitloop` / `hindsight` | Train `policynet` / SPSA-fit cast weights / expert-iteration loop / hindsight labels. |
 | `traindash` | Read-only training dashboard over `/mnt/sata/gorge-training` (`make traindash`). |
-| `enginebench` | The draft-zero docs/015 engine-speed rows (random/bot play, Clone, one step, search rates); builds at a4af596 too. Results: `docs/superpowers/reports/2026-09-30-gorge-engine-speed.md`. |
+| `enginebench` | The draft-zero docs/015 engine-speed rows (random/bot play, Clone, one step, search rates). Workload decks are committed in `testdata/decks`. `make enginebench-pair BASE=main CAND=.` runs a paired base-vs-candidate comparison per CPU-second, `make enginebench-profile` prints CPU and allocation tops, and `make enginebench-verify` runs a memo-verify-mode smoke (scripts: `cmd/enginebench/scripts`). Results: `docs/superpowers/reports/2026-09-30-gorge-engine-speed.md`. |

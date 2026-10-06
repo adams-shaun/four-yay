@@ -80,8 +80,8 @@ type result struct {
 func main() {
 	row := flag.String("row", "", "random | bot | clone | step | az | sampler")
 	pair := flag.String("pair", "A", "A | B | burn (random, bot); search rows use A+B")
-	deckDir := flag.String("decks", "/mnt/sata/gorge-training/searchbench/draft-zero/assets/sample/decks", "directory of FDN .dck files")
-	burn := flag.String("burn", "/mnt/sata/gorge-training/enginecmp/decks/burn.json", "Burn mirror deck (SpellBench pauper-kernel JSON)")
+	deckDir := flag.String("decks", "cmd/enginebench/testdata/decks", "directory of FDN .dck files (the committed workload decks; see its README)")
+	burn := flag.String("burn", "cmd/enginebench/testdata/decks/burn.json", "Burn mirror deck (SpellBench pauper-kernel JSON)")
 	cardsDir := flag.String("cards", ".cards", "corpus directory")
 	secs := flag.Float64("secs", 20, "minimum timed wall seconds for game-playing and search rows")
 	seed := flag.Uint64("seed", 1, "base seed; game g uses seed+g")
@@ -91,12 +91,32 @@ func main() {
 	label := flag.String("label", "", "build label recorded in the output")
 	rep := flag.Int("rep", 0, "repetition index recorded in the output")
 	out := flag.String("out", "", "append the JSON result line here (default stdout)")
-	cpuprof := flag.String("cpuprofile", "", "write a CPU profile of the whole run here")
-	memprof := flag.String("memprofile", "", "write an allocation profile of the whole run here (MemProfileRate 64KiB)")
+	cpuprof := flag.String("cpuprofile", "", "write a CPU profile of the run (after the corpus loads) here")
+	memprof := flag.String("memprofile", "", "write an allocation profile of the run (after the corpus loads; MemProfileRate 64KiB) here")
 	flag.Parse()
+	// Both profiles start once the corpus is loaded, so the one-off gob
+	// decode and catalog build do not crowd the row's own hotspots.
 	if *memprof != "" {
-		runtime.MemProfileRate = 64 << 10
-		defer func() {
+		runtime.MemProfileRate = 0
+	}
+	startProfiles := func() {
+		if *memprof != "" {
+			runtime.MemProfileRate = 64 << 10
+		}
+		if *cpuprof != "" {
+			f, err := os.Create(*cpuprof)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+			pprof.StartCPUProfile(f)
+		}
+	}
+	defer func() {
+		if *cpuprof != "" {
+			pprof.StopCPUProfile()
+		}
+		if *memprof != "" {
 			f, err := os.Create(*memprof)
 			if err != nil {
 				fmt.Fprintln(os.Stderr, err)
@@ -104,17 +124,8 @@ func main() {
 			}
 			pprof.Lookup("allocs").WriteTo(f, 0)
 			f.Close()
-		}()
-	}
-	if *cpuprof != "" {
-		f, err := os.Create(*cpuprof)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
 		}
-		pprof.StartCPUProfile(f)
-		defer pprof.StopCPUProfile()
-	}
+	}()
 
 	r := result{Label: *label, Row: *row, Pair: *pair, Rep: *rep, Unix: time.Now().Unix(), Load1: load1(), Procs: runtime.GOMAXPROCS(0)}
 	err := func() error {
@@ -132,6 +143,7 @@ func main() {
 		runtime.ReadMemStats(&ms)
 		r.HeapMB = float64(ms.HeapAlloc) / (1 << 20)
 		r.Corpus = corpusMode
+		startProfiles()
 		switch *row {
 		case "random":
 			return runRandom(&r, w, *pair, *seed, *secs)
