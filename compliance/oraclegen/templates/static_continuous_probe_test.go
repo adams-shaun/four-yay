@@ -90,7 +90,14 @@ func TestStaticContinuousSubtypeProbe(t *testing.T) {
 	if !slices.Contains(p.Keywords, "Menace") {
 		t.Fatalf("%s keywords %v lack the granted menace", probe, p.Keywords)
 	}
-	if bear, _ := permanent(final, 0, "Grizzly Bears"); len(bear.Keywords) != 0 {
+	if p.PT != printedPT(t, reg, probe) {
+		t.Fatalf("Camellia grants menace, not P/T: %s has P/T %s", probe, p.PT)
+	}
+	bear, ok := permanent(final, 0, "Grizzly Bears")
+	if !ok {
+		t.Fatal("precondition: p0's control Bear is missing")
+	}
+	if len(bear.Keywords) != 0 {
 		t.Fatalf("a Squirrel lord gave the Bear keywords: %v", bear.Keywords)
 	}
 }
@@ -118,6 +125,10 @@ func TestStaticContinuousMountVehicleProbe(t *testing.T) {
 // the grant shows as its keyword.
 func TestStaticContinuousVehicleKeywordProbe(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
+	probe, ok := reg.Lookup("Dune Drifter")
+	if !ok || len(probe.Faces) == 0 || probe.Faces[0].IsCreature() || slices.Contains(probe.Faces[0].Keywords, "Flying") {
+		t.Fatal("precondition: Dune Drifter must be a noncreature without printed flying")
+	}
 	_, final := servedFinal(t, reg, "Mu Yanling, Wind Rider", "static#0.0")
 	p, ok := permanent(final, 0, "Dune Drifter")
 	if !ok {
@@ -150,8 +161,12 @@ func TestStaticContinuousAttackingProbe(t *testing.T) {
 	if bear.PT != "3/2" {
 		t.Fatalf("attacking Bear P/T = %s, want 3/2", bear.PT)
 	}
-	if opp, _ := permanent(final, 1, "Grizzly Bears"); opp.PT != "2/2" {
-		t.Fatalf("a you-control static pumped p1's Bear: %s", opp.PT)
+	opp, ok := permanent(final, 1, "Grizzly Bears")
+	if !ok {
+		t.Fatal("precondition: p1's control Bear is missing")
+	}
+	if printed := printedPT(t, reg, "Grizzly Bears"); opp.PT != printed {
+		t.Fatalf("a you-control static pumped p1's Bear: %s, printed %s", opp.PT, printed)
 	}
 }
 
