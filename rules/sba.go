@@ -1206,6 +1206,13 @@ func (e *Engine) planeswalkerZeroLoyalty(tried *sbaAttempts) bool {
 				// does not exist, so zero loyalty does not bin it.
 				continue
 			}
+			if o.FaceDown {
+				// CR 708.5: a face-down battlefield permanent is a vanilla 2/2
+				// creature and is never a planeswalker, so the zero-loyalty SBA
+				// (CR 704.5i) must not sweep a manifested or cloaked card --
+				// the same guard battleZeroDefense carries below.
+				continue
+			}
 			f := o.Face()
 			if f == nil || !f.IsPlaneswalker() {
 				continue
