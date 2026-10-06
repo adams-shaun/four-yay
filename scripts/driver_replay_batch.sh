@@ -458,13 +458,59 @@ pass() {
   build_batch "${PIDS[@]}" || { infra_fail "could not reset the batch to $MAIN"; cleanup_pass 0; return 0; }
   if [ "${#MERGED[@]}" -eq 0 ]; then say "NOTHING mergeable this pass"; cleanup_pass 0; return 0; fi
 
-  # Pre-checks: a red check drops the most recently merged branch and retries
-  # (each branch is dropped at most once: the list only shrinks).
+  # Pre-checks: attribute a red batch to branches that fail alone before
+  # blaming an otherwise-green branch for a combination regression.
   until checks pre "$run.checks.log"; do
-    id=${MERGED[$((${#MERGED[@]} - 1))]}
-    say "CHECKS-RED with $id merged last (see $run.checks.log); dropping it"
-    hold "$id" "build/tests red with it merged last" "$M0"
-    build_batch "${MERGED[@]:0:$((${#MERGED[@]} - 1))}" || { infra_fail "rebuild failed"; cleanup_pass 0; return 0; }
+    local -a batch=() red_alone=() remaining=()
+    local n i j later earlier found_pair=0
+    batch=("${MERGED[@]}")
+    n=${#batch[@]}
+    if [ "$n" -eq 1 ]; then
+      id=${batch[0]}
+      say "CHECKS-RED with $id alone (see $run.checks.log); dropping it"
+      hold "$id" "build/tests red alone" "$M0"
+      build_batch || { infra_fail "rebuild failed"; cleanup_pass 0; return 0; }
+    else
+      # Probe one branch at a time, newest first, using the same capped checks.
+      for ((i = n - 1; i >= 0; i--)); do
+        id=${batch[$i]}
+        build_batch "$id" || { infra_fail "rebuild failed during pre-check attribution"; cleanup_pass 0; return 0; }
+        if ! checks pre "$run.checks-alone-$id.log"; then red_alone+=("$id"); fi
+      done
+      if [ "${#red_alone[@]}" -gt 0 ]; then
+        for id in "${red_alone[@]}"; do
+          say "CHECKS-RED-ALONE $id; holding it"
+          hold "$id" "build/tests red alone" "$M0"
+        done
+        for id in "${batch[@]}"; do
+          case " ${red_alone[*]} " in *" $id "*) ;; *) remaining+=("$id") ;; esac
+        done
+      else
+        # All singles passed. Find an interacting pair, newest member first.
+        for ((i = n - 1; i >= 1 && found_pair == 0; i--)); do
+          later=${batch[$i]}
+          for ((j = i - 1; j >= 0; j--)); do
+            earlier=${batch[$j]}
+            build_batch "$earlier" "$later" || { infra_fail "rebuild failed during combination attribution"; cleanup_pass 0; return 0; }
+            if ! checks pre "$run.checks-pair-$earlier-$later.log"; then
+              say "CHECKS-RED-COMBINATION $earlier $later; holding later branch $later"
+              hold "$later" "build/tests red in combination with $earlier" "$M0"
+              found_pair=1
+              break
+            fi
+          done
+        done
+        if [ "$found_pair" -eq 0 ]; then
+          # A higher-order interaction remains unattributed; conservatively
+          # remove the newest member, with the pair we last tested recorded.
+          later=${batch[$((n - 1))]}; earlier=${batch[$((n - 2))]}
+          say "CHECKS-RED-COMBINATION $earlier $later; holding later branch $later"
+          hold "$later" "build/tests red in combination with $earlier" "$M0"
+        fi
+        for id in "${batch[@]}"; do [ "$id" = "$later" ] || remaining+=("$id"); done
+      fi
+      build_batch "${remaining[@]}" || { infra_fail "rebuild failed"; cleanup_pass 0; return 0; }
+    fi
     if [ "${#MERGED[@]}" -eq 0 ]; then say "NOTHING left after pre-checks"; cleanup_pass 0; return 0; fi
   done
 
