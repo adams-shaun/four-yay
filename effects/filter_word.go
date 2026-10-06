@@ -377,6 +377,9 @@ func wordPredicate(p string) (wordKind, string) {
 	if kind, ok := targetedPredicateWord(p); ok {
 		return kind, ""
 	}
+	if kind, ok := batchWordPredicate(p); ok {
+		return kind, ""
+	}
 	switch wordPredicateWordCodes.Code(string(p)) {
 	case wordPredicateWordColorless:
 		return wordColorless, ""
@@ -453,8 +456,6 @@ func wordPredicate(p string) (wordKind, string) {
 		return wordOpponentCtrl, ""
 	case wordPredicateWordOppProtect:
 		return wordOppProtect, ""
-	case wordPredicateWordHistoric:
-		return wordHistoric, ""
 	case wordPredicateWordAdventureCard:
 		return wordAdventureCard, ""
 	case wordPredicateWordIsCommander:
@@ -482,12 +483,6 @@ func wordPredicate(p string) (wordKind, string) {
 		return wordFullyUnlocked, ""
 	case wordPredicateWordRememberedPlayerOwn:
 		return wordRememberedPlayerOwn, ""
-	// Forge's Outlaw batch word: the candidate carries at least one of the
-	// five outlaw creature subtypes (Assassins, Mercenaries, Pirates, Rogues,
-	// Warlocks -- the reminder text on every carrier). The matcher reads the
-	// layer-aware subtype list, so a type-changing effect is honoured.
-	case wordPredicateWordOutlaw:
-		return wordOutlaw, ""
 	}
 	if p == "TargetedPlayerOwn" {
 		return wordTargetedPlayerOwn, ""
@@ -570,6 +565,19 @@ func wordPredicate(p string) (wordKind, string) {
 	return wordUnknown, ""
 }
 
+// batchWordPredicate shares the base-word registry for the batch words that
+// also serve as predicates, avoiding duplicate spellings across registries.
+func batchWordPredicate(p string) (wordKind, bool) {
+	switch matchesBaseCodes.Code(p) {
+	case matchesBaseOutlaw:
+		return wordOutlaw, true
+	case matchesBaseHistoric:
+		return wordHistoric, true
+	default:
+		return wordUnknown, false
+	}
+}
+
 // zoneWords maps the zone names the corpus's ThisTurnEnteredFrom_<Zone>
 // predicate (and Forge's ZoneType.smartValueOf) spells to state zones.
 var zoneWords = map[string]state.Zone{
@@ -604,6 +612,11 @@ func outlawMatches(o *state.Object, sc SpecContext) bool {
 		}
 	}
 	return false
+}
+
+// historicMatches reads Forge's Historic batch word: artifact, legendary, or Saga.
+func historicMatches(o *state.Object, sc SpecContext) bool {
+	return hasTypeCtx(o, "Artifact", sc) || hasTypeCtx(o, "Legendary", sc) || hasTypeCtx(o, "Saga", sc)
 }
 
 // wordMatches reports whether an object satisfies a positively-evaluated
@@ -804,9 +817,7 @@ func wordMatches(kind wordKind, key string, g *state.Game, o *state.Object, sc S
 		return int(o.Protector) >= 0 && int(o.Protector) < len(g.Players) &&
 			o.Protector != sc.You && !g.Players[o.Protector].Lost
 	case wordHistoric:
-		// Forge's Historic: artifact, legendary, or Saga (the reminder text
-		// on the Historic keyword).
-		return hasTypeCtx(o, "Artifact", sc) || hasTypeCtx(o, "Legendary", sc) || hasTypeCtx(o, "Saga", sc)
+		return historicMatches(o, sc)
 	case wordAdventureCard:
 		if o == nil || o.Card == nil || o.Card.AlternateMode != "Adventure" || len(o.Card.Faces) != 2 {
 			return false
@@ -1377,7 +1388,6 @@ var wordPredicateWordCodes = state.NewStrCodes(
 	state.StrEntry[wordPredicateWordCode]{Key: "targetedBy", Val: wordPredicateWordTargetedBy},
 	state.StrEntry[wordPredicateWordCode]{Key: "Opponent", Val: wordPredicateWordOpponent},
 	state.StrEntry[wordPredicateWordCode]{Key: "OppProtect", Val: wordPredicateWordOppProtect},
-	state.StrEntry[wordPredicateWordCode]{Key: "Historic", Val: wordPredicateWordHistoric},
 	state.StrEntry[wordPredicateWordCode]{Key: "AdventureCard", Val: wordPredicateWordAdventureCard},
 	state.StrEntry[wordPredicateWordCode]{Key: "IsCommander", Val: wordPredicateWordIsCommander},
 	state.StrEntry[wordPredicateWordCode]{Key: "blockingSource", Val: wordPredicateWordBlockingSource},
@@ -1385,7 +1395,6 @@ var wordPredicateWordCodes = state.NewStrCodes(
 	state.StrEntry[wordPredicateWordCode]{Key: "hasANonBasicLandType", Val: wordPredicateWordHasANonBasicLandType},
 	state.StrEntry[wordPredicateWordCode]{Key: "hasABasicLandType", Val: wordPredicateWordHasABasicLandType},
 	state.StrEntry[wordPredicateWordCode]{Key: "FullyUnlocked", Val: wordPredicateWordFullyUnlocked},
-	state.StrEntry[wordPredicateWordCode]{Key: "Outlaw", Val: wordPredicateWordOutlaw},
 	state.StrEntry[wordPredicateWordCode]{Key: "RememberedPlayerOwn", Val: wordPredicateWordRememberedPlayerOwn},
 )
 
