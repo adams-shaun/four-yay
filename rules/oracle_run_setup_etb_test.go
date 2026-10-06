@@ -150,6 +150,11 @@ func TestOracleSetupBackFacePlacementFiresNoChapterTrigger(t *testing.T) {
 	if snap.Players[0].Life != 20 {
 		t.Errorf("p0 life = %d after setup, want 20", snap.Players[0].Life)
 	}
+	// The front face's entry lore counter must not be stranded on the
+	// non-Saga back face.
+	if n, ok := perm.Counters["LORE"]; ok {
+		t.Errorf("back-face %q carries LORE = %d, want no lore counter", back, n)
+	}
 }
 
 // Another permanent's "one or more creatures enter" trigger (ChangesZoneAll)
