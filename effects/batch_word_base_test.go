@@ -37,6 +37,23 @@ func TestOutlawHistoricBase(t *testing.T) {
 	if MatchesObjectCtx(g, "Historic.YouCtrl", bear, sc) {
 		t.Error("Historic.YouCtrl must not match Grizzly Bears")
 	}
+	// Compiled and textual matchers must apply base negation exactly once.
+	for _, tc := range []struct {
+		spec string
+		obj  *state.Object
+		want bool
+	}{
+		{spec: "nonOutlaw", obj: pirate, want: false},
+		{spec: "nonOutlaw", obj: bear, want: true},
+		{spec: "nonHistoric", obj: solRing, want: false},
+		{spec: "nonHistoric", obj: bear, want: true},
+	} {
+		compiled := MatchesObjectCtx(g, tc.spec, tc.obj, sc)
+		textual := matchesObjectText(g, tc.spec, tc.obj, sc)
+		if compiled != textual || compiled != tc.want {
+			t.Errorf("%s against object %d: compiled=%t textual=%t, want both %t", tc.spec, tc.obj.ID, compiled, textual, tc.want)
+		}
+	}
 	// Predicate spellings continue to use the same batch-word semantics.
 	if !MatchesObjectCtx(g, "Card.Outlaw", pirate, sc) || !MatchesObjectCtx(g, "Card.Historic", solRing, sc) {
 		t.Error("predicate spellings Card.Outlaw/Card.Historic must still match")

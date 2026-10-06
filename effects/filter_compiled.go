@@ -406,7 +406,15 @@ func compiledBaseMatch(g *state.Game, a *compiledAlt, o *state.Object, sc *SpecC
 	case cbSpell:
 		m = o.Zone == state.ZStack || (a.base == "Spell" && sc.AsStack)
 	case cbBatchWord:
-		m = matchesBase(g, a.base, o, *sc)
+		base := a.base
+		for {
+			positive, negated := strings.CutPrefix(base, "non")
+			if !negated {
+				break
+			}
+			base = positive
+		}
+		m = batchWordBase(matchesBaseCodes.Code(base), o, *sc)
 	default:
 		m = hasTypeCtxSub(o, a.typ, a.typID, a.typSub, sc)
 	}
