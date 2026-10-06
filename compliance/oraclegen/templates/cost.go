@@ -58,7 +58,13 @@ func costStatic(reg *cards.Registry, f *cards.Face, name string, req levelb.Requ
 		var ok bool
 		p, ok = parameterCostProbe(reg, f, name, idx)
 		if !ok {
+			p, ok = otherSpellCostProbe(reg, f, name, idx)
+		}
+		if !ok {
 			reason := "cost static probe not supported"
+			if strings.EqualFold(f.Statics[idx].Params["Type"], "Ability") || f.Statics[idx].Params["ValidSpell"] != "" {
+				reason += ": activated-ability probe unsupported"
+			}
 			if strings.EqualFold(f.Statics[idx].Params["ValidCard"], "Card.Self") {
 				reason += ": unsupported self-cost shape"
 			}
@@ -132,6 +138,117 @@ func costStatic(reg *cards.Registry, f *cards.Face, name string, req levelb.Requ
 		return it, nil
 	}
 	return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: "cost static has no fixture"}
+}
+
+// otherSpellCostProbe chooses a deterministic spell satisfying a static's
+// ValidCard filter, then pays its printed cost minus the declared generic
+// reduction. Unsupported timing/count/provenance shapes stay explicit skips.
+func otherSpellCostProbe(reg *cards.Registry, source *cards.Face, name string, idx int) (costProbe, bool) {
+	st := source.Statics[idx]
+	if st.ModeKind() != cards.StaticReduceCost || !strings.EqualFold(st.Params["Type"], "Spell") || st.Params["ValidSpell"] != "" {
+		return costProbe{}, false
+	}
+	if st.Params["ValidCard"] == "" || strings.EqualFold(st.Params["ValidCard"], "Card.Self") {
+		return costProbe{}, false
+	}
+	if st.Params["CheckSVar"] != "" || st.Params["Amount"] == "X" || st.Params["Amount"] == "Y" || st.Params["Amount"] == "Z" {
+		return costProbe{}, false
+	}
+	if cond := strings.ToLower(st.Params["Condition"]); cond != "" && cond != "playerturn" {
+		return costProbe{}, false
+	}
+	var reduction int
+	if _, err := fmt.Sscanf(st.Params["Amount"], "%d", &reduction); err != nil || reduction < 1 {
+		return costProbe{}, false
+	}
+	filter := st.Params["ValidCard"]
+	candidates := append([]*cards.Card(nil), reg.Cards...)
+	sort.Slice(candidates, func(i, j int) bool {
+		return candidates[i].Faces[0].Name < candidates[j].Faces[0].Name
+	})
+	for _, card := range candidates {
+		for _, face := range card.Faces {
+			if face == nil || face.Name == name || face.ManaCost == "" || face.ManaCost == "no cost" || !spellFilterMatches(face, filter) {
+				continue
+			}
+			base, why := oraclegen.PoolFor(face.ManaCost)
+			if why != "" {
+				continue
+			}
+			mana, ok := removeGenericMana(base, reduction)
+			if !ok {
+				continue
+			}
+			p := costProbe{spell: face.Name, mana: mana, battlefield: []string{name}, mustReplay: true}
+			if present := st.Params["IsPresent"]; present != "" {
+				fixtures := []struct{ typ, card string }{{"Lesson", "Introduction to Annihilation"}, {"Creature", "Grizzly Bears"}, {"Artifact", "Silver Myr"}, {"Kithkin", "Kithkin Greatheart"}, {"land", "Forest"}, {"Land", "Forest"}}
+				found := false
+				for _, fixture := range fixtures {
+					if strings.Contains(present, fixture.typ) {
+						p.graveyard = appendUnique(p.graveyard, fixture.card)
+						found = true
+					}
+				}
+				if !found {
+					return costProbe{}, false
+				}
+			}
+			return p, true
+		}
+	}
+	return costProbe{}, false
+}
+
+// spellFilterMatches handles the ordinary card/type/colour filter grammar
+// used by cost-reduction statics. Commas are alternatives and '+' joins terms.
+func spellFilterMatches(face *cards.Face, filter string) bool {
+	for _, alternative := range strings.Split(filter, ",") {
+		matched := true
+		for _, raw := range strings.Split(alternative, "+") {
+			term := strings.TrimSpace(raw)
+			if term == "" {
+				continue
+			}
+			ok := false
+			switch strings.ToLower(term) {
+			case "card":
+				ok = true
+			case "noncreature", "card.noncreature":
+				ok = !costFaceHasType(face, "Creature")
+			case "legendary":
+				ok = costFaceHasType(face, "Legendary")
+			case "red", "card.red":
+				ok = strings.Contains(strings.ToLower(face.Colors), "red") || strings.Contains(face.ManaCost, "R")
+			case "blue", "card.blue":
+				ok = strings.Contains(strings.ToLower(face.Colors), "blue") || strings.Contains(face.ManaCost, "U")
+			case "white", "card.white":
+				ok = strings.Contains(strings.ToLower(face.Colors), "white") || strings.Contains(face.ManaCost, "W")
+			case "black", "card.black":
+				ok = strings.Contains(strings.ToLower(face.Colors), "black") || strings.Contains(face.ManaCost, "B")
+			case "green", "card.green":
+				ok = strings.Contains(strings.ToLower(face.Colors), "green") || strings.Contains(face.ManaCost, "G")
+			default:
+				ok = costFaceHasType(face, term)
+			}
+			if !ok {
+				matched = false
+				break
+			}
+		}
+		if matched {
+			return true
+		}
+	}
+	return false
+}
+
+func costFaceHasType(face *cards.Face, want string) bool {
+	for _, typ := range face.Types {
+		if strings.EqualFold(typ, want) {
+			return true
+		}
+	}
+	return false
 }
 
 // parameterCostProbe derives the simple own-spell cost shapes from the static
