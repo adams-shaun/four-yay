@@ -294,6 +294,7 @@ func foldAlterAttribute(g *state.Game, e *Event) {
 				for i := range g.Objs {
 					if cp := &g.Objs[i]; cp.IsCopy && cp.PreparedSource == o.ID {
 						cp.PreparedSource = 0
+						g.ClearPreparedSource()
 					}
 				}
 			}

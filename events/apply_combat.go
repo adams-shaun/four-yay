@@ -392,6 +392,9 @@ func foldCrew(g *state.Game, e *Event) {
 	}
 	if o.CrewedTurn != g.Turn {
 		o.CrewedTurn = g.Turn
+		if len(o.CrewedVehicles) != 0 {
+			g.ClearCrewedObject()
+		}
 		o.CrewedVehicles = o.CrewedVehicles[:0]
 	}
 	found := false
@@ -402,7 +405,11 @@ func foldCrew(g *state.Game, e *Event) {
 		}
 	}
 	if !found {
+		wasEmpty := len(o.CrewedVehicles) == 0
 		o.CrewedVehicles = append(o.CrewedVehicles, e.IDs[0])
+		if wasEmpty {
+			g.NoteCrewedObject()
+		}
 	}
 }
 

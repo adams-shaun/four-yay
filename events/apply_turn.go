@@ -182,6 +182,9 @@ func foldTurnChange(g *state.Game, e *Event) {
 			// read as a crewer in a later turn (which a fresh CrewedTurn
 			// stamp already ensures, but the slice must not leak the stale
 			// ids into a much later same-numbered turn).
+			if len(g.Objs[i].CrewedVehicles) != 0 {
+				g.ClearCrewedObject()
+			}
 			g.Objs[i].CrewedVehicles = nil
 			g.Objs[i].CrewedTurn = 0
 			// CR 702.171b: Saddled is a per-turn designation.
