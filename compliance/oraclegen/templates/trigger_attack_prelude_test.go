@@ -43,8 +43,14 @@ func TestTriggerAttackPreludeCensus(t *testing.T) {
 	// Restless Vinestalk's "{3}{G}{U}:Until end of turn..." line prints no space
 	// after the colon, which the activate mapping used to count as no ability
 	// line (activate xmage text ambiguous); it is served now.
-	if served != 50 || len(skips) != 1 || skips["Giant Beaver: trigger attack activation did not fire"] != 1 {
-		t.Fatalf("attack-prelude census: served=%d skips=%v, want served=50 with only the named Giant Beaver skip", served, skips)
+	//
+	// Giant Beaver (Saddle 3) was the last skip ("trigger attack activation did
+	// not fire"): its attack trigger targets Creature.SaddledThisTurn, and until
+	// D8 recorded the saddler that target set was empty, so the trigger had no
+	// legal target and the prelude could not be built. With the saddler recorded
+	// the scenario serves, so the census is 51/51 and there are no skips.
+	if served != 51 || len(skips) != 0 {
+		t.Fatalf("attack-prelude census: served=%d skips=%v, want served=51 with no skips", served, skips)
 	}
 }
 
