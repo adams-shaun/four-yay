@@ -63,15 +63,14 @@ func TestStaticCounterGateStation(t *testing.T) {
 	}
 }
 
-// TestStaticCounterGateGrantWaits: the 10+ station static only grants a trigger,
-// which no probe can observe, so it skips with the named wait reason and not the
-// generic "not observable".
-func TestStaticCounterGateGrantWaits(t *testing.T) {
+// TestStaticCounterGateGrantUsesNamedTriggerGap: the 10+ station static only
+// grants a trigger, which the offered-ability observation cannot serve.
+func TestStaticCounterGateGrantUsesNamedTriggerGap(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	const name = "Dawnsire, Sunstar Dreadnought"
 	_, skip := GenerateB(reg, name, counterReq(t, reg, name, "static#0.0"))
-	if skip == nil || skip.Reason != "static "+staticGrantWaits {
-		t.Fatalf("static#0.0 skip = %v, want %q", skip, "static "+staticGrantWaits)
+	if skip == nil || skip.Reason != "static "+staticGrantTriggerReason {
+		t.Fatalf("static#0.0 skip = %v, want %q", skip, "static "+staticGrantTriggerReason)
 	}
 }
 
@@ -91,9 +90,8 @@ func TestStaticSelfCounterGate(t *testing.T) {
 	}
 }
 
-// TestStaticMaxSpeedFixture: a Condition$ MaxSpeed static is recognised, its
-// fixture raises p0 to speed 4, and one that grants an ability skips with the
-// wait reason rather than "not observable".
+// TestStaticMaxSpeedFixture: a Condition$ MaxSpeed static is recognised and
+// its fixture raises p0 to speed 4; a trigger grant gets its named gap.
 func TestStaticMaxSpeedFixture(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	const name = "Aether Syphon"
@@ -110,8 +108,8 @@ func TestStaticMaxSpeedFixture(t *testing.T) {
 		t.Fatalf("withMaxSpeed left p0 at speed %d, want 4", setup["p0"].Speed)
 	}
 	_, skip := GenerateB(reg, name, counterReq(t, reg, name, "static#0.0"))
-	if skip == nil || skip.Reason != "static "+staticGrantWaits {
-		t.Fatalf("%s static#0.0 skip = %v, want %q", name, skip, "static "+staticGrantWaits)
+	if skip == nil || skip.Reason != "static "+staticGrantTriggerReason {
+		t.Fatalf("%s static#0.0 skip = %v, want %q", name, skip, "static "+staticGrantTriggerReason)
 	}
 }
 

@@ -33,17 +33,31 @@ const maxRestrictCandidates = 8
 // activateRestriction is what an activated ability's offer gates require of
 // the setup: candidate preludes to try (empty when the bare scenario is the
 // only one) plus, when a named shape could not be built, the reason.
-func activateRestriction(reg *cards.Registry, f *cards.Face, sa *cards.SA) ([]conditionPrelude, string) {
+func activateRestriction(reg *cards.Registry, f *cards.Face, name string, sa *cards.SA) ([]conditionPrelude, string) {
 	var sources [][]conditionPrelude
 	var gaps []string
 	if spec := strings.TrimSpace(sa.ParamStr(cards.PKIsPresent)); spec != "" {
 		zone := strings.TrimSpace(sa.ParamStr(cards.PKPresentZone))
 		compare := strings.TrimSpace(sa.ParamStr(cards.PKPresentCompare))
-		pres, gap := activationPresentPrelude(reg, spec, zone, compare)
-		if len(pres) > 0 {
-			sources = append(sources, pres)
+		// A Class level-up activator's own gate is IsPresent$
+		// Card.Self+classLevel_EQ<k> (cards/kw_class.go). At k=1 the Class
+		// already qualifies and the bare scenario covers it; at k>=2 the
+		// probe raises the Class through its own level-up activators.
+		if k := classLevelPresentEQ(spec); k >= 1 {
+			if k == 1 {
+				// The bare scenario already satisfies the gate.
+			} else if pre, ok := classLevelGatePrelude(f, name, k); ok {
+				sources = append(sources, []conditionPrelude{pre})
+			} else {
+				gaps = append(gaps, "activation restriction: class level ("+spec+")")
+			}
 		} else {
-			gaps = append(gaps, gap)
+			pres, gap := activationPresentPrelude(reg, spec, zone, compare)
+			if len(pres) > 0 {
+				sources = append(sources, pres)
+			} else {
+				gaps = append(gaps, gap)
+			}
 		}
 	}
 	if spec := strings.TrimSpace(sa.ParamStr(cards.PKIsPresent2)); spec != "" {
@@ -75,6 +89,18 @@ func activateRestriction(reg *cards.Registry, f *cards.Face, sa *cards.SA) ([]co
 		return nil, strings.Join(dedupeStrings(gaps), "; ")
 	}
 	return out, ""
+}
+
+// classLevelGatePrelude is the activation prelude for a Class level-up
+// activator gated on classLevel_EQ<k>: activate the Class's own level-up
+// abilities 2..k, each followed by resolve, so the gate is true when the probe
+// activates. ok is false when the face cannot build the prelude.
+func classLevelGatePrelude(f *cards.Face, name string, k int) (conditionPrelude, bool) {
+	steps, xab, ok := classLevelPrelude(f, name, k)
+	if !ok {
+		return conditionPrelude{}, false
+	}
+	return conditionPrelude{steps: steps, xability: xab}, true
 }
 
 // restrictCandidates is the cross product of each source's candidates, merged
@@ -469,6 +495,7 @@ func mergeConditionPreludes(parts []conditionPrelude) conditionPrelude {
 		out.tapped = append(out.tapped, p.tapped...)
 		out.graveyard = append(out.graveyard, p.graveyard...)
 		out.steps = append(out.steps, p.steps...)
+		out.xability = append(out.xability, p.xability...)
 		for card, kinds := range p.counters {
 			if out.counters == nil {
 				out.counters = map[string]map[string]int{}

@@ -10,20 +10,27 @@ import (
 // triggerCause is one candidate way of making a trigger's cause happen on
 // turn 1 with ops the XMage driver already has (cast, attack, pass_to).
 type triggerCause struct {
-	hand                []string                  // probe cards added to p0's hand
-	battlefield         []string                  // extra p0 permanents (an attacker for a non-creature card)
-	tapped              []string                  // extra p0 permanents that start tapped
-	graveyard           []string                  // extra p0 graveyard cards
-	counters            map[string]map[string]int // counters on setup permanents
-	prelude             []oraclegen.Step          // steps before the actual trigger cause
-	steps               []oraclegen.Step          // the cause steps emitted into the item
-	probeSteps          []oraclegen.Step          // steps whose snapshots show the trigger on the stack; nil means steps
-	selfInHand          bool                      // the card starts in p0's hand (a "when you discard this card" trigger), not on the battlefield
-	xability            []string                  // XMage rule-text prefix per step (an activate step); nil when no step activates
-	castSelfX           bool                      // the card is cast from hand with X first (an X creature that setup would leave 0/0)
-	opponentHand        []string                  // probes held by p1 for opponent-cast causes
-	opponentBattlefield []string                  // p1 permanents (a blocker, an attacker, a tap target)
-	activateCost        string                    // Forge cost of the activate step in steps (Crew/Saddle tap choice); "" when none
+	hand        []string                  // probe cards added to p0's hand
+	battlefield []string                  // extra p0 permanents (an attacker for a non-creature card)
+	tapped      []string                  // extra p0 permanents that start tapped
+	graveyard   []string                  // extra p0 graveyard cards
+	counters    map[string]map[string]int // counters on setup permanents
+	prelude     []oraclegen.Step          // steps before the actual trigger cause
+	steps       []oraclegen.Step          // the cause steps emitted into the item
+	probeSteps  []oraclegen.Step          // steps whose snapshots show the trigger on the stack; nil means steps
+	selfInHand  bool                      // the card starts in p0's hand (a "when you discard this card" trigger), not on the battlefield
+	xability    []string                  // XMage rule-text prefix per step (an activate step); nil when no step activates
+	// preludeXAbility is parallel to prelude: the XMage rule-text prefix of a
+	// prelude activate step (a Class level-up), "" on every other prelude
+	// step. A ClassBand$ trigger prepends the level-up prelude, so its
+	// activate steps need selectors exactly as the cause's do.
+	preludeXAbility []string
+	castSelfX       bool     // the card is cast from hand with X first (an X creature that setup would leave 0/0)
+	opponentHand    []string // probes held by p1 for opponent-cast causes
+	// opponentBattlefield are p1 permanents (a blocker, an attacker, a tap
+	// target) the cause needs on the other side of the table.
+	opponentBattlefield []string
+	activateCost        string // Forge cost of the activate step in steps (Crew/Saddle tap choice); "" when none
 }
 
 // Probe cards, each named with why. Spec hypothesis H4: the probe exists in
@@ -187,6 +194,31 @@ func baseTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards
 		return nil, "probe not in corpus"
 	}
 	return out, ""
+}
+
+// classLevelBandCausePrepends raises every cause of a ClassBand$ trigger to
+// the band's level before the cause runs. A granted trigger body is live only
+// from level N on, so without the prelude a level-1 scenario never fires it.
+// The prelude goes ahead of any condition prelude so the sorcery-speed
+// level-up runs in turn 1's first main phase. A ClassLevelGained cause is
+// excluded: its own recipe already carries the level-up that fires it.
+func classLevelBandCausePrepends(f *cards.Face, name string, t *cards.Trigger, sub string, causes []triggerCause) []triggerCause {
+	if sub == classLevelGainedSub {
+		return causes
+	}
+	band := classBandLevel(t)
+	if band < 2 {
+		return causes
+	}
+	steps, xab, ok := classLevelPrelude(f, name, band)
+	if !ok {
+		return causes
+	}
+	for i := range causes {
+		causes[i].prelude = append(append([]oraclegen.Step(nil), steps...), causes[i].prelude...)
+		causes[i].preludeXAbility = append(append([]string(nil), xab...), causes[i].preludeXAbility...)
+	}
+	return causes
 }
 
 // attackActivationCause builds the activation-and-attack cause for saddled
