@@ -12,6 +12,10 @@ import (
 // compared.
 const CompareNoLibraryOrder = "no_library_order"
 
+// CompareHandCount compares only the number of cards in hand when a
+// shuffle-then-draw fixture cannot make the draw uniform.
+const CompareHandCount = "hand_count"
+
 // intoLibraryText matches prose that moves a card into a library ("shuffle it
 // into its owner's library", "puts it into their library").
 var intoLibraryText = regexp.MustCompile(`\binto (?:\S+ ){0,3}?library`)
