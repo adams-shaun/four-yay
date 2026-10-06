@@ -1086,7 +1086,7 @@ func (e *Engine) pushTrigger(pt pendingTrigger) {
 	}
 	stackLen := len(e.G.Stack)
 	e.emit(events.Event{Kind: events.TriggerPush, Player: pt.Controller,
-		Obj: pt.Source, Amount: int32(pt.Idx), IDs: ids, Text: "triggered ability"})
+		Obj: pt.Source, Amount: triggerPushAmount(e.G, pt), IDs: ids, Text: "triggered ability"})
 	if len(e.G.Stack) > stackLen {
 		id := e.G.Stack[len(e.G.Stack)-1]
 		if e.triggerContexts == nil {
@@ -1284,6 +1284,9 @@ func (e *Engine) findTriggerForAbilityFace(source state.ObjID, sa *cards.SA) (ca
 		if t.Effect == sa {
 			return t, f, true
 		}
+	}
+	if t, tf, ok := inactiveFaceTrigger(o, sa); ok {
+		return t, tf, true
 	}
 	for i := range o.MergedCards {
 		mf := o.MergedFaceAt(i)
