@@ -20,18 +20,25 @@ import (
 // that old hash of the bench fixture's history and three of its prefixes,
 // measured on the tree before the change (2026-09-30, 308f7e0b9). If one
 // moves, every sampled world, label and seeded search moves with it.
+//
+// Re-pinned 2026-10-06 for CR 103.8a's turn-1 draw STEP skip: the bench
+// fixture game loses the starting player's turn-1 draw-step priority frames
+// (122 -> 120 frames), so every prefix's history moves. The legacy-encoding
+// equivalence itself stays held on every prefix of a real game by
+// TestHistoryChainEqualsTheLegacyEncodingOnEveryPrefix; these goldens are
+// the new fixture's chained digests.
 func TestHistoryDigestMatchesTheJSONBoardEncoding(t *testing.T) {
 	f := benchRoot(t)
 	golden := map[int]string{
-		1:   "330a781b80ed97b4141f15a314e571ac53933c9428d6b15ab50943c9cd1f521b",
-		2:   "1ab358dc07e782e1f9ed1d210dd76e3d2d2b4b9269b1491946401737631d8c04",
-		17:  "1403af6d5b8bbc7c3cf52e070c2a810fb537ed2237b60dec5dedae983ea1a19e",
-		122: "78c419ab875e3758e346811cff9557d9b85f278b6e3b58a882352bce57068324",
+		1:   "30ebca40b220967de92f19a45f0bbe2e31f48e73e4084312eaa2342d8819be02",
+		2:   "a91770a6a1eafae58bfaea2b3d9b096723c1f740052484ee021fae69f4a3d873",
+		17:  "801ca0af241882edec3e717fcc007eca5103b36a4f33f4c39ac463fdc1094f24",
+		120: "8b22aa8b2a2d703807d19b42c14ed677b823914796efccae73355339184b7bf2",
 	}
-	if len(f.h.Frames) != 122 {
-		t.Fatalf("bench fixture has %d frames, the goldens were measured on 122", len(f.h.Frames))
+	if len(f.h.Frames) != 120 {
+		t.Fatalf("bench fixture has %d frames, the goldens were measured on 120", len(f.h.Frames))
 	}
-	for _, n := range []int{1, 2, 17, 122} {
+	for _, n := range []int{1, 2, 17, 120} {
 		h := f.h
 		h.Frames = h.Frames[:n]
 		if chainState(h) == nil {

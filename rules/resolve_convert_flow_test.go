@@ -28,7 +28,26 @@ type tapeFlowCase struct {
 	// an otherwise ask-free Draw), which the ask-free predicate cannot see,
 	// so the case checkpoints every resolution (tapeCheckpointAll).
 	checkpointAll bool
+	// pick, when set, answers each posed non-priority decision in place of
+	// tapePick (whose Seq-parity answer moves whenever the turn structure
+	// poses one decision more or fewer before the cast).
+	pick func(d *decision.Decision) []int
 }
+
+// tapePickYes answers a yes/no election "yes" (its option of Kind "yes") and
+// every other ask as tapePick does: a case whose asks sit behind an optional
+// election needs the yes arm regardless of the decision sequence's parity.
+func tapePickYes(d *decision.Decision) []int {
+	for _, o := range d.Options {
+		if o.Kind == "yes" {
+			return []int{o.Index}
+		}
+	}
+	return tapePick(d)
+}
+
+// tapeFlowPick overrides tapePick for the running case (tapeFlowCase.pick).
+var tapeFlowPick func(d *decision.Decision) []int
 
 // tapeCastAndResolveKinds is tapeCastAndResolve recording every posed
 // non-priority decision's resume kind.
@@ -50,8 +69,12 @@ func tapeCastAndResolveKinds(t *testing.T, e *Engine, name, mana string, kinds m
 			continue
 		}
 		kinds[d.ResumeKind]++
-		if err := e.Submit(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: tapePick(d)}); err != nil {
-			t.Fatalf("submit %s/%s %v: %v", d.Kind, d.ResumeKind, tapePick(d), err)
+		pick := tapePick
+		if tapeFlowPick != nil {
+			pick = tapeFlowPick
+		}
+		if err := e.Submit(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: pick(d)}); err != nil {
+			t.Fatalf("submit %s/%s %v: %v", d.Kind, d.ResumeKind, pick(d), err)
 		}
 	}
 	t.Fatal("stack never drained")
