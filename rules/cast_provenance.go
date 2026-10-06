@@ -578,16 +578,16 @@ func specCarriesCastOrigin(spec string) bool {
 // latestCastOrigin reports obj's LATEST PutOnStack cast: the zone it came
 // from and the player who cast it. ok=false for a card never put on the
 // stack (cheated into play) — the same read every existing provenance
-// family takes. Derived from the event log like WasCastFromHandByYou, so a
-// replay derives the same answer.
+// family takes. The pair is folded onto state.Object by events.Apply's
+// PutOnStack case, so a replay derives the same answer and a clone carries
+// it by value; reading the field is O(1) where the reverse log scan it
+// replaces walked the whole log on every call.
 func (e *Engine) latestCastOrigin(obj state.ObjID) (state.Zone, state.PlayerID, bool) {
-	for i := len(e.L.Events) - 1; i >= 0; i-- {
-		ev := e.L.Events[i]
-		if ev.Kind == events.PutOnStack && ev.Obj == obj {
-			return ev.From, ev.Player, true
-		}
+	o := e.G.Obj(obj)
+	if o == nil || !o.HasLatestCast {
+		return 0, 0, false
 	}
-	return 0, 0, false
+	return o.LatestCastFrom, o.LatestCastBy, true
 }
 
 // castOriginAdmits evaluates the origin-zone cast-provenance family
