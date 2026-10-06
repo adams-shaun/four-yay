@@ -1,2 +1,0 @@
-{"shape":{"template":"trigger","op":"resolve","field":"p0.library_top","diff":"gorge+[$LIB] xmage+[Shock]"},"key":"trigger | resolve | p0.library_top | gorge+[$LIB] xmage+[Shock]","cards":1}
-{"card":"Lumbering Worldwagon","template":"trigger#0.1","status":"diverge","api":"ChangesZone:ChangeZone+Attacks:ChangeZone","sets":["DFT"],"detail":"step 3 (resolve) p0.library_top: gorge \"[Wastes, Wastes, Wastes, Jace Beleren, Wastes]\", xmage \"[Shock, Wastes, Jace Beleren, Wastes, Wastes]\""}
