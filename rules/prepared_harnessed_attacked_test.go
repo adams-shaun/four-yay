@@ -11,6 +11,8 @@ package rules
 import (
 	"testing"
 
+	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/internal/testutil"
@@ -135,6 +137,59 @@ func TestHarnessedGatesTheInfinityTrigger(t *testing.T) {
 		if e.G.Obj(id).Harnessed {
 			t.Fatalf("%s: still harnessed after leaving the battlefield", tc.name)
 		}
+	}
+}
+
+// TestAttackedThisCombatAcrossSplitDefenderGroups checks the real declaration
+// path where one simultaneous attacker group is emitted before another. The
+// Wolf attacks the player (the first sorted group), while Tolsimir attacks
+// that player's planeswalker (the later group); its intervening-if predicate
+// must already see Tolsimir's attack when the Wolf's trigger is checked.
+func TestAttackedThisCombatAcrossSplitDefenderGroups(t *testing.T) {
+	t.Parallel()
+	reg := testutil.CorpusRegistry(t)
+	tolCard, ok := reg.Lookup("Tolsimir, Midnight's Light")
+	if !ok {
+		t.Fatal("Tolsimir missing from the corpus")
+	}
+	e := combatEngine(t)
+	e.emit(events.Event{Kind: events.StepChange, Step: state.StepBeginCombat})
+	tol := onBoardCard(t, e, 0, tolCard)
+	wolf := onBoardReady(t, e, 0, "Name:Test Wolf\nManaCost:2 G\nTypes:Creature Wolf\nPT:2/2\nOracle:x\n")
+	pw := onBoard(t, e, 1, "Name:Test Walker\nManaCost:2 W\nTypes:Planeswalker\nSubTypes:Test\nLoyalty:3\nOracle:x\n")
+	e.emit(events.Event{Kind: events.CounterChange, Obj: pw, Counter: "LOYALTY", Amount: 3})
+	if e.G.Obj(tol).Zone != state.ZBattlefield || e.G.Obj(wolf).Zone != state.ZBattlefield ||
+		e.G.Obj(pw).Zone != state.ZBattlefield || e.G.Obj(pw).Counter("LOYALTY") <= 0 {
+		t.Fatal("precondition: Tolsimir, Wolf, and a live planeswalker are on the battlefield")
+	}
+	// The player-attack key sorts before the planeswalker key. finishAttackers
+	// emits the Wolf's group first, then Tolsimir's group.
+	e.finishAttackers([]decision.Option{
+		{Obj: wolf, Player: 1},
+		{Obj: tol, Player: 1, Battle: pw},
+	}, 0)
+	if !effects.MatchesObjectCtx(e.G, "Card.Self+attackedThisCombat", e.G.Obj(tol), effects.SpecContext{Source: tol}) {
+		t.Fatal("Tolsimir's attack stamp was not folded")
+	}
+	if n := len(e.pendingTriggers); n != 1 {
+		t.Fatalf("player/planeswalker split declaration queued %d Wolf triggers, want 1", n)
+	}
+
+	// The other split shape is two different defending players. A third seat
+	// makes the sorted first group the Wolf attacking seat 1 and the later
+	// group Tolsimir attacking seat 2.
+	e = New(seatZeroStart(Config{Seed: 7, Names: []string{"a", "b", "c"},
+		Decks: [][]*cards.Card{mountainDeck(t, 40), mountainDeck(t, 40), mountainDeck(t, 40)}}))
+	e.G.Active, e.G.Step = 0, state.StepDeclareAttackers
+	e.emit(events.Event{Kind: events.StepChange, Step: state.StepBeginCombat})
+	tol = onBoardCard(t, e, 0, tolCard)
+	wolf = onBoardReady(t, e, 0, "Name:Test Wolf\nManaCost:2 G\nTypes:Creature Wolf\nPT:2/2\nOracle:x\n")
+	if e.G.Obj(tol).Zone != state.ZBattlefield || e.G.Obj(wolf).Zone != state.ZBattlefield {
+		t.Fatal("precondition: Tolsimir and Wolf are on the battlefield in the three-seat game")
+	}
+	e.finishAttackers([]decision.Option{{Obj: wolf, Player: 1}, {Obj: tol, Player: 2}}, 0)
+	if n := len(e.pendingTriggers); n != 1 {
+		t.Fatalf("two-player split declaration queued %d Wolf triggers, want 1", n)
 	}
 }
 
