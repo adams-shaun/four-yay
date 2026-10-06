@@ -18,11 +18,7 @@ var spellCastGE = regexp.MustCompile(`(?i)(?:ManaSpent|cmc)\s*GE\s*(\d+)`)
 func spellCastProbeCauses(reg *cards.Registry, name string, t *cards.Trigger) []triggerCause {
 	filter := t.ParamStr(cards.PKValidCard)
 	targets := t.ParamStr(cards.PKTargetsValid)
-	if strings.Contains(targets, "Creature") || strings.Contains(targets, "Self") || strings.Contains(t.ParamStr(cards.PKValidTgts), "Creature") {
-		if c, ok := castCause(reg, name, growthProbe, "p0:"+name); ok {
-			return []triggerCause{c}
-		}
-	}
+	targetProbe := strings.Contains(targets, "Creature") || strings.Contains(targets, "Self") || strings.Contains(t.ParamStr(cards.PKValidTgts), "Creature")
 
 	count := 1
 	if strings.Contains(strings.ToUpper(t.ParamStr(cards.PKActivatorThisTurnCast)), "EQ2") {
@@ -67,6 +63,9 @@ func spellCastProbeCauses(reg *cards.Registry, name string, t *cards.Trigger) []
 	candidates = append(candidates, all...)
 	seen := make(map[string]bool, len(candidates))
 	var out []triggerCause
+	if targetProbe {
+		candidates = append([]string{growthProbe}, candidates...)
+	}
 	for _, probe := range candidates {
 		if seen[probe] || probe == name {
 			continue
@@ -80,53 +79,110 @@ func spellCastProbeCauses(reg *cards.Registry, name string, t *cards.Trigger) []
 		if face.IsLand() || face.IsCreature() && strings.Contains(strings.ToLower(filter), "noncreature") || int(face.Cmc()) < minCMC {
 			continue
 		}
-		if !spellProbeMatchesType(face, filter) {
+		if filter != "" && !spellProbeMatchesType(face, filter) {
 			continue
+		}
+		validSA := t.ParamStr(cards.PKValidSA)
+		if validSA != "" && !spellProbeMatchesType(face, strings.ReplaceAll(validSA, "Spell.", "")) {
+			continue
+		}
+		validSAOnCard := t.ParamStr(cards.PKValidSAonCard)
+		if validSAOnCard != "" && !spellProbeMatchesType(face, strings.ReplaceAll(validSAOnCard, "Spell.", "")) {
+			continue
+		}
+		probeTargets := []string(nil)
+		if targetProbe {
+			probeTargets = append(probeTargets, spellCastTriggerTarget(name, t))
+		} else if target := spellProbeTarget(probe, filter, name, t); target != "" {
+			probeTargets = append(probeTargets, target)
 		}
 		if count == 1 {
-			if c, ok := castCause(reg, name, probe, spellProbeTarget(probe, filter, t)); ok {
-				return []triggerCause{c}
+			if c, ok := castCause(reg, name, probe, probeTargets...); ok {
+				out = append(out, c)
 			}
-			continue
+		} else {
+			first, ok1 := castProbe(reg, probe, probeTargets...)
+			second, ok2 := castProbe(reg, probe, probeTargets...)
+			if ok1 && ok2 {
+				second.Card += "#2"
+				out = append(out, triggerCause{hand: []string{probe, probe}, steps: []oraclegen.Step{first, second}})
+			}
 		}
-		first, ok1 := castProbe(reg, probe)
-		second, ok2 := castProbe(reg, probe)
-		if !ok1 || !ok2 {
-			continue
+		if len(out) == 8 {
+			break
 		}
-		second.Card += "#2"
-		return []triggerCause{{hand: []string{probe, probe}, steps: []oraclegen.Step{first, second}}}
 	}
 	return out
 }
 
-func spellProbeTarget(probe, filter string, t *cards.Trigger) string {
-	if probe == shockProbe || strings.Contains(strings.ToLower(t.ParamStr(cards.PKValidSA)), "singletarget") || strings.Contains(strings.ToLower(t.ParamStr(cards.PKValidSAonCard)), "singletarget") || strings.Contains(strings.ToLower(filter), "instant") || strings.Contains(strings.ToLower(filter), "sorcery") {
+func spellCastTriggerTarget(source string, t *cards.Trigger) string {
+	targetFilter := strings.ToLower(t.ParamStr(cards.PKTargetsValid) + "," + t.ParamStr(cards.PKValidTgts))
+	if strings.Contains(targetFilter, "opponent") {
+		return "p1"
+	}
+	return "p0:" + source
+}
+
+func spellProbeTarget(probe, filter, source string, t *cards.Trigger) string {
+	if strings.Contains(strings.ToLower(t.ParamStr(cards.PKValidSA)), "singletarget") || strings.Contains(strings.ToLower(t.ParamStr(cards.PKValidSAonCard)), "singletarget") {
+		return "p0:" + source
+	}
+	if probe == shockProbe || strings.Contains(strings.ToLower(filter), "instant") || strings.Contains(strings.ToLower(filter), "sorcery") {
 		return "p1"
 	}
 	return ""
 }
 
-func spellProbeMatchesType(f *cards.Face, filter string) bool {
-	lower := strings.ToLower(filter)
-	if strings.Contains(lower, "noncreature") && f.IsCreature() {
-		return false
+func spellCastNarrowSkip(t *cards.Trigger) string {
+	filter := strings.ToLower(t.ParamStr(cards.PKValidCard))
+	for _, shape := range []struct{ text, reason string }{
+		{"wascastfromexile", "cast-from-exile provenance"},
+		{"wascastfromyourhand", "cast-from-hand provenance"},
+		{"youdontown", "ownership provenance"},
+		{"adventure", "adventure-cast provenance"},
+	} {
+		if strings.Contains(strings.ReplaceAll(filter, " ", ""), shape.text) {
+			return "spell-cast unsupported " + shape.reason
+		}
 	}
-	// Enforce the type heads we can identify safely. Subtypes are matched
-	// against printed type lines; unrecognised Forge expressions are left to
-	// the engine's trigger matcher when the candidate is tried.
-	for _, typ := range []string{"artifact", "creature", "instant", "sorcery", "enchantment", "lesson", "legendary", "villain", "outlaw", "lizard"} {
-		if strings.Contains(lower, typ) && !strings.Contains(lower, "non"+typ) {
-			matched := false
+	if strings.EqualFold(t.ParamStr(cards.PKOpponentTurn), "True") {
+		return "spell-cast opponent-turn condition"
+	}
+	if t.ParamStr(cards.PKIsPresent) != "" || t.ParamStr(cards.PKIsPresent2) != "" {
+		return "spell-cast IsPresent condition"
+	}
+	if strings.Contains(strings.ToLower(t.ParamStr(cards.PKCondition)), "level") || strings.Contains(strings.ToLower(t.ParamStr(cards.PKCheckSVar)), "level") {
+		return "spell-cast class-level condition"
+	}
+	if strings.Contains(strings.ToLower(t.ParamStr(cards.PKValidSA)), "singletarget") {
+		return "spell-cast singleTarget condition (engine matcher unsupported)"
+	}
+	return ""
+}
+
+func spellProbeMatchesType(f *cards.Face, filter string) bool {
+	// Forge's comma-separated type heads are alternatives (e.g.
+	// Instant.singleTarget,Sorcery.singleTarget), not conjunctions.
+	known := []string{"artifact", "creature", "instant", "sorcery", "enchantment", "lesson", "legendary", "villain", "outlaw", "lizard"}
+	for _, alt := range strings.Split(strings.ToLower(filter), ",") {
+		if strings.Contains(alt, "noncreature") && f.IsCreature() {
+			continue
+		}
+		constrained, matched := false, false
+		for _, typ := range known {
+			if !strings.Contains(alt, typ) || strings.Contains(alt, "non"+typ) {
+				continue
+			}
+			constrained = true
 			for _, printed := range f.Types {
 				if strings.EqualFold(printed, typ) {
 					matched = true
 				}
 			}
-			if !matched {
-				return false
-			}
+		}
+		if !constrained || matched {
+			return true
 		}
 	}
-	return true
+	return filter == ""
 }
