@@ -1,24 +1,9 @@
-{"shape":{"template":"cast-resolve","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: Cast $CARD"},"key":"cast-resolve | harness | xmage | AssertionError: Can't find ability to activate command: Cast $CARD","cards":55}
-{"card":"Bottomless Pool","template":"cast-resolve","status":"harness","api":"UnlockDoor:ChangeZone","detail":"xmage: AssertionError: Can't find ability to activate command: Cast Bottomless Pool"}
-{"card":"Cease","template":"cast-resolve","status":"harness","api":"ChangeZone+GainLife+Draw","detail":"xmage: AssertionError: Can't find ability to activate command: Cast Cease"}
-{"card":"Central Elevator","template":"cast-resolve","status":"harness","api":"UnlockDoor:ChangeZone","detail":"xmage: AssertionError: Can't find ability to activate command: Cast Central Elevator"}
-{"card":"Charred Foyer","template":"cast-resolve","status":"harness","api":"Phase:Dig","detail":"xmage: AssertionError: Can't find ability to activate command: Cast Charred Foyer"}
+{"shape":{"template":"cast-resolve","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: Cast $CARD"},"key":"cast-resolve | harness | xmage | AssertionError: Can't find ability to activate command: Cast $CARD","cards":27}
 {"card":"Dance of the Tumbleweeds","template":"cast-resolve","status":"harness","api":"Charm","sets":["OTJ"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Dance of the Tumbleweeds"}
-{"card":"Dazzling Theater","template":"cast-resolve","status":"harness","api":"-","detail":"xmage: AssertionError: Can't find ability to activate command: Cast Dazzling Theater"}
 {"card":"Deadly Precision","template":"cast-resolve","status":"harness","api":"Destroy","sets":["TLA"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Deadly Precision$target=@p1:Grizzly Bears"}
-{"card":"Defiled Crypt","template":"cast-resolve","status":"harness","api":"ChangesZoneAll:Token","detail":"xmage: AssertionError: Can't find ability to activate command: Cast Defiled Crypt"}
-{"card":"Derelict Attic","template":"cast-resolve","status":"harness","api":"UnlockDoor:Draw","detail":"xmage: AssertionError: Can't find ability to activate command: Cast Derelict Attic"}
-{"card":"Dollmaker's Shop","template":"cast-resolve","status":"harness","api":"AttackersDeclaredOneTarget:Token","detail":"xmage: AssertionError: Can't find ability to activate command: Cast Dollmaker's Shop"}
-{"card":"Flotsam","template":"cast-resolve","status":"harness","api":"Mill+Investigate","detail":"xmage: AssertionError: Can't find ability to activate command: Cast Flotsam"}
 {"card":"Flowerfoot Swordmaster","template":"cast-resolve","status":"harness","api":"BecomesTarget:PumpAll+ChangesZone:CopyPermanent","sets":["BLB"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Flowerfoot Swordmaster"}
-{"card":"Funeral Room","template":"cast-resolve","status":"harness","api":"ChangesZone:LoseLife","detail":"xmage: AssertionError: Can't find ability to activate command: Cast Funeral Room"}
-{"card":"Fuss","template":"cast-resolve","status":"harness","api":"PutCounterAll","detail":"xmage: AssertionError: Can't find ability to activate command: Cast Fuss"}
 {"card":"Getaway Glamer","template":"cast-resolve","status":"harness","api":"Charm","sets":["OTJ"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Getaway Glamer$target=@p1:Grizzly Bears"}
-{"card":"Glassworks","template":"cast-resolve","status":"harness","api":"UnlockDoor:DealDamage","detail":"xmage: AssertionError: Can't find ability to activate command: Cast Glassworks"}
-{"card":"Grand Entryway","template":"cast-resolve","status":"harness","api":"UnlockDoor:Token","detail":"xmage: AssertionError: Can't find ability to activate command: Cast Grand Entryway"}
 {"card":"Great Train Heist","template":"cast-resolve","status":"harness","api":"Charm","sets":["OTJ"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Great Train Heist"}
-{"card":"Greenhouse","template":"cast-resolve","status":"harness","api":"-","detail":"xmage: AssertionError: Can't find ability to activate command: Cast Greenhouse"}
-{"card":"Hustle","template":"cast-resolve","status":"harness","api":"Effect","detail":"xmage: AssertionError: Can't find ability to activate command: Cast Hustle$target=@p1:Grizzly Bears"}
 {"card":"Iridescent Vinelasher","template":"cast-resolve","status":"harness","api":"ChangesZone:DealDamage+ChangesZone:CopyPermanent","sets":["BLB"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Iridescent Vinelasher"}
 {"card":"Jailbreak Scheme","template":"cast-resolve","status":"harness","api":"Charm","sets":["OTJ"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Jailbreak Scheme$target=@p1:Ornithopter"}
 {"card":"Leyline Axe","template":"cast-resolve","status":"harness","api":"-","sets":["FDN"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Leyline Axe"}
@@ -29,28 +14,15 @@
 {"card":"Leyline of the Guildpact","template":"cast-resolve","status":"harness","api":"-","sets":["MKM"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Leyline of the Guildpact"}
 {"card":"Leyline of the Void","template":"cast-resolve","status":"harness","api":"-","sets":["DSK"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Leyline of the Void"}
 {"card":"Lively Dirge","template":"cast-resolve","status":"harness","api":"Charm","sets":["OTJ"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Lively Dirge"}
-{"card":"Meat Locker","template":"cast-resolve","status":"harness","api":"UnlockDoor:Tap","detail":"xmage: AssertionError: Can't find ability to activate command: Cast Meat Locker"}
 {"card":"Metamorphic Blast","template":"cast-resolve","status":"harness","api":"Charm","sets":["OTJ"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Metamorphic Blast$target=@p1:Grizzly Bears"}
-{"card":"Mirror Room","template":"cast-resolve","status":"harness","api":"UnlockDoor:CopyPermanent","detail":"xmage: AssertionError: Can't find ability to activate command: Cast Mirror Room"}
-{"card":"Moldering Gym","template":"cast-resolve","status":"harness","api":"UnlockDoor:ChangeZone","detail":"xmage: AssertionError: Can't find ability to activate command: Cast Moldering Gym"}
-{"card":"Painter's Studio","template":"cast-resolve","status":"harness","api":"UnlockDoor:Dig","detail":"xmage: AssertionError: Can't find ability to activate command: Cast Painter's Studio"}
 {"card":"Pawpatch Recruit","template":"cast-resolve","status":"harness","api":"BecomesTarget:PutCounter+ChangesZone:CopyPermanent","sets":["BLB"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Pawpatch Recruit"}
-{"card":"Push","template":"cast-resolve","status":"harness","api":"Destroy","detail":"xmage: AssertionError: Can't find ability to activate command: Cast Push$target=@p1:Grizzly Bears"}
 {"card":"Quicksilver, Brash Blur","template":"cast-resolve","status":"harness","api":"-","sets":["MSH"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Quicksilver, Brash Blur"}
 {"card":"Repulsive Mutation","template":"cast-resolve","status":"harness","api":"PutCounter+Counter","sets":["MKM"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Repulsive Mutation$target=Grizzly Bears^Grizzly Bears"}
-{"card":"Restricted Office","template":"cast-resolve","status":"harness","api":"UnlockDoor:DestroyAll","detail":"xmage: AssertionError: Can't find ability to activate command: Cast Restricted Office"}
-{"card":"Roaring Furnace","template":"cast-resolve","status":"harness","api":"UnlockDoor:DealDamage","detail":"xmage: AssertionError: Can't find ability to activate command: Cast Roaring Furnace"}
 {"card":"Ruinous Waterbending","template":"cast-resolve","status":"harness","api":"PumpAll+Effect","sets":["TLA"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Ruinous Waterbending"}
 {"card":"Rush of Dread","template":"cast-resolve","status":"harness","api":"Charm","sets":["OTJ"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Rush of Dread$targetPlayer=PlayerB"}
-{"card":"Smoky Lounge","template":"cast-resolve","status":"harness","api":"Phase:Mana","detail":"xmage: AssertionError: Can't find ability to activate command: Cast Smoky Lounge"}
 {"card":"Smuggler's Surprise","template":"cast-resolve","status":"harness","api":"Charm","sets":["OTJ"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Smuggler's Surprise"}
 {"card":"Spirit Water Revival","template":"cast-resolve","status":"harness","api":"ChangeZoneAll+Draw+Effect+ChangeZone","sets":["TLA"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Spirit Water Revival"}
 {"card":"Starscape Cleric","template":"cast-resolve","status":"harness","api":"LifeGained:LoseLife+ChangesZone:CopyPermanent","sets":["BLB"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Starscape Cleric"}
-{"card":"Surgical Suite","template":"cast-resolve","status":"harness","api":"UnlockDoor:ChangeZone","detail":"xmage: AssertionError: Can't find ability to activate command: Cast Surgical Suite"}
 {"card":"Thundertrap Trainer","template":"cast-resolve","status":"harness","api":"ChangesZone:Dig+ChangesZone:CopyPermanent","sets":["BLB"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Thundertrap Trainer"}
-{"card":"Ticket Booth","template":"cast-resolve","status":"harness","api":"UnlockDoor:ManifestDread","detail":"xmage: AssertionError: Can't find ability to activate command: Cast Ticket Booth"}
 {"card":"Treacherous Greed","template":"cast-resolve","status":"harness","api":"Draw+LoseLife+GainLife","sets":["MKM"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Treacherous Greed"}
-{"card":"Underwater Tunnel","template":"cast-resolve","status":"harness","api":"UnlockDoor:Surveil","detail":"xmage: AssertionError: Can't find ability to activate command: Cast Underwater Tunnel"}
 {"card":"Unfortunate Accident","template":"cast-resolve","status":"harness","api":"Charm","sets":["OTJ"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Unfortunate Accident"}
-{"card":"Unholy Annex","template":"cast-resolve","status":"harness","api":"Phase:Draw","detail":"xmage: AssertionError: Can't find ability to activate command: Cast Unholy Annex"}
-{"card":"Walk-In Closet","template":"cast-resolve","status":"harness","api":"-","detail":"xmage: AssertionError: Can't find ability to activate command: Cast Walk-In Closet"}

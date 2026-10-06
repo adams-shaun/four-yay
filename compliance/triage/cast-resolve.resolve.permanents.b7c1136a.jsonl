@@ -1,0 +1,3 @@
+{"shape":{"template":"cast-resolve","op":"resolve","field":"permanents","diff":"$CARD colors gorge=R xmage=UR"},"key":"cast-resolve | resolve | permanents | $CARD colors gorge=R xmage=UR","cards":2}
+{"card":"Roaring Furnace","template":"cast-resolve","status":"diverge","api":"UnlockDoor:DealDamage","detail":"step 1 (resolve) permanents: gorge \"c0 o0 Roaring Furnace [enchantment room] {R}\", xmage \"c0 o0 Roaring Furnace [enchantment room] {UR}\""}
+{"card":"Smoky Lounge","template":"cast-resolve","status":"diverge","api":"Phase:Mana","detail":"step 1 (resolve) permanents: gorge \"c0 o0 Smoky Lounge [enchantment room] {R}\", xmage \"c0 o0 Smoky Lounge [enchantment room] {UR}\""}

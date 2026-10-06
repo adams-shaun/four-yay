@@ -98,6 +98,7 @@ type Answer struct {
 // Scenario is one generated scenario in the runner's schema.
 type Scenario struct {
 	Name  string          `json:"name"`
+	Turn  int             `json:"turn,omitempty"`
 	CR    []string        `json:"cr"`
 	Why   string          `json:"why"`
 	Setup map[string]Seat `json:"setup"`
@@ -435,10 +436,21 @@ func SlotIsStack(filter string) bool {
 	return true
 }
 
+// RequiresTurnFour identifies cards whose Oracle cast restriction ends after
+// their controller's third turn.
+func RequiresTurnFour(card string) bool {
+	return card == "Jace Reawakened" || card == "Spider-Man 2099"
+}
+
 // NewItem names a template's scenario. The template's version is part of
 // the id and the scenario name, so bumping one template's version stales
 // only that template's verdicts (compliance/oraclegen/templates).
 func NewItem(card, template string, version int, sc Scenario) Item {
+	// These cards explicitly cannot be cast during their controller's first
+	// three turns. Their generated cast fixture must start after that window.
+	if RequiresTurnFour(card) {
+		sc.Turn = 7
+	}
 	sc.Name = fmt.Sprintf("gen%d-%s", version, template)
 	sc.CR = []string{"601.2"}
 	sc.Why = "generated level-A scenario"
@@ -652,10 +664,18 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSt
 			namedSearch[d.Step] = true
 		}
 	}
-	for _, d := range ds {
+	routing := newAnswerRouting(ds)
+	for i, d := range ds {
 		if d.Step < 0 || d.Step >= steps || (d.Via == "target" && castSteps[d.Step]) {
 			// A cast step's own targets reach XMage through castSpell; a
 			// target decision posed at a resolve step is scripted below.
+			continue
+		}
+		if as, owned := routing.route(i); owned {
+			if len(as) > 0 {
+				out[d.Step] = append(out[d.Step], as...)
+				any = true
+			}
 			continue
 		}
 		if pickKind(d, 0) == "name" && namedSearch[d.Step] && len(d.Picks) == 1 {
@@ -1255,7 +1275,7 @@ func yesNo(d rules.OracleDecision) (string, bool) {
 func hasTargetPick(d rules.OracleDecision) bool {
 	for k := range d.Picks {
 		switch pickKind(d, k) {
-		case "permanent", "player":
+		case "permanent", "player", "opponent_choice":
 			return true
 		}
 	}
@@ -1267,7 +1287,7 @@ func hasTargetPick(d rules.OracleDecision) bool {
 // choice queue.
 func pickKind(d rules.OracleDecision, k int) string {
 	if k >= 0 && k < len(d.PickKinds) {
-		if d.Resume == "opp_pick" && d.PickKinds[k] == "player" {
+		if (d.Resume == "opp_pick" || d.Resume == "choice") && d.PickKinds[k] == "player" {
 			// The TargetingPlayer$ Opponent flow's controller-facing
 			// which-opponent ask: XMage's ChoicePlayer, the choice queue.
 			return "opponent_choice"
