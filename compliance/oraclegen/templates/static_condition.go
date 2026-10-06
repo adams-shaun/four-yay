@@ -375,7 +375,9 @@ func staticConditionGap(f *cards.Face, st cards.Static) string {
 		return false
 	}
 	switch {
-	case has("setmaxhandsize", "adjustlandplays"):
+	case has("setmaxhandsize"):
+		return "hand size is not observable in the permanent snapshot"
+	case has("adjustlandplays"):
 		return "changes a player rule (hand size, land plays), not a permanent"
 	case has("token"):
 		return "needs a token (setup places none)"
