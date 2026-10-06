@@ -196,7 +196,7 @@
 "HA5": {"outstanding":25},
 "HHO": {"outstanding":4},
 "HML": {"outstanding":115},
-"HOB": {"outstanding":0},
+"HOB": {"level":"A","outstanding":0},
 "HOC": {"outstanding":109},
 "HOP": {"outstanding":129},
 "HOU": {"outstanding":187},
