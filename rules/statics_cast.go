@@ -608,39 +608,26 @@ func (e *Engine) countStaticPresent(sv staticView, spec string) int {
 }
 
 // presentZoneFromParam maps a Forge PresentZone$ value onto the state.Zone the
-// IsPresent$ count family scans. An ABSENT (or Battlefield) value is the
-// battlefield -- the default every card without PresentZone$ reads, so the
-// empty string is a valid mapping, not an unknown one. An unrecognised value
-// reports false and the caller must fail closed (count 0), which is the
-// direction countStaticPresent has always taken and the delayed-trigger
-// presence gate (rules/trigger_delayed.go) now shares, so a new PresentZone$
-// spelling cannot mean two different things at the two count sites.
+// IsPresent$ count family scans. An ABSENT value is the battlefield -- the
+// default every card without PresentZone$ reads, so the empty string is a valid
+// mapping, not an unknown one. Every other word is classified by
+// effects.ParseZoneWord, the one zone-word table the trigger-side clause
+// (presentClauseHolds) and the activation gate (abilityPresentHolds) already
+// share, so a PresentZone$ word cannot be known at one count site and unknown
+// at another. forEachObject walks every seat's library, hand, battlefield,
+// graveyard, exile, stack and command zone, so each of those zones is counted
+// by the same scan (Living Conundrum's `IsPresent$ Card.YouOwn | PresentZone$
+// Library | PresentCompare$ EQ0`, Kefnet the Mindful's hand, Ketramose's
+// exile, Molten Disaster's stack). An unrecognised value (a comma list such as
+// `Battlefield,Graveyard`) reports false and the caller must fail closed
+// (count 0), the direction countStaticPresent and the delayed-trigger presence
+// gate (rules/trigger_delayed.go) share.
 func presentZoneFromParam(zone string) (state.Zone, bool) {
-	switch presentZoneFromParamCodes.Code(string(strings.TrimSpace(zone))) {
-	case presentZoneFromParamBattlefield:
+	zone = strings.TrimSpace(zone)
+	if zone == "" {
 		return state.ZBattlefield, true
-	case presentZoneFromParamGraveyard:
-		return state.ZGraveyard, true
-	case presentZoneFromParamExile:
-		// IsPresent$ over exile (Ketramose, the New Dawn's
-		// `IsPresent$ Card | PresentZone$ Exile | PresentCompare$ LT7`
-		// CantAttack,CantBlock static). forEachObject walks every zone of
-		// every seat, exile included, so the same scan covers it.
-		return state.ZExile, true
-	case presentZoneFromParamHand:
-		// IsPresent$ over a hand (Kefnet the Mindful's
-		// `IsPresent$ Card.YouOwn | PresentZone$ Hand | PresentCompare$ LE6`
-		// CantAttack,CantBlock static). forEachObject walks hands too.
-		return state.ZHand, true
-	case presentZoneFromParamStack:
-		// IsPresent$ over the stack (Molten Disaster's kicked-gated AddKeyword$
-		// Split second static: IsPresent$ Card.Self+kicked | PresentZone$ Stack
-		// on its own stack object). forEachObject walks the stack zone, so the
-		// same scan covers it.
-		return state.ZStack, true
-	default:
-		return 0, false
 	}
+	return effects.ParseZoneWord(zone)
 }
 
 // spellMatchesValidSA checks the spell-side subset of Forge's ValidSA grammar.
@@ -727,25 +714,6 @@ func (e *Engine) spellTimingOK(p state.PlayerID, id state.ObjID, f *cards.Face, 
 	}
 	return sorcery || (f.IsInstant() || e.hasKeywordH(id, kwhFlash) || mayFlashSacFace(f) || e.castWithFlash(p, id))
 }
-
-type presentZoneFromParamCode uint16
-
-const (
-	presentZoneFromParamBattlefield presentZoneFromParamCode = iota + 1
-	presentZoneFromParamGraveyard
-	presentZoneFromParamExile
-	presentZoneFromParamHand
-	presentZoneFromParamStack
-)
-
-var presentZoneFromParamCodes = state.NewStrCodes(
-	state.StrEntry[presentZoneFromParamCode]{Key: "", Val: presentZoneFromParamBattlefield},
-	state.StrEntry[presentZoneFromParamCode]{Key: "Battlefield", Val: presentZoneFromParamBattlefield},
-	state.StrEntry[presentZoneFromParamCode]{Key: "Graveyard", Val: presentZoneFromParamGraveyard},
-	state.StrEntry[presentZoneFromParamCode]{Key: "Exile", Val: presentZoneFromParamExile},
-	state.StrEntry[presentZoneFromParamCode]{Key: "Hand", Val: presentZoneFromParamHand},
-	state.StrEntry[presentZoneFromParamCode]{Key: "Stack", Val: presentZoneFromParamStack},
-)
 
 type spellMatchesValidSACode uint16
 
