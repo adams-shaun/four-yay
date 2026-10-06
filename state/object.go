@@ -804,6 +804,19 @@ type Object struct {
 	CrewedVehicles []ObjID
 	CrewedTurn     int32
 
+	// LatestCastFrom and LatestCastBy record the zone and caster of this
+	// object's LATEST events.PutOnStack: the same pair a reverse scan of the
+	// event log returns (rules' latestCastOrigin). The fold in events.Apply
+	// writes them on every PutOnStack, so a log-only replay derives the same
+	// values and a clone carries them by value; unlike PreStackEntry* they are
+	// NOT cleared by the reverse move, because the PutOnStack the scan finds
+	// remains in the log after a CR 733.1 reversal. HasLatestCast is false
+	// only until an object's first PutOnStack (a card cheated into play was
+	// never cast).
+	LatestCastFrom Zone
+	LatestCastBy   PlayerID
+	HasLatestCast  bool
+
 	// preStackEntry* carries a card's entry history only while it is on the
 	// stack. events.Apply captures it before PutOnStack overwrites the public
 	// fields, then restores and clears it for CR 733.1's logged reverse move.
