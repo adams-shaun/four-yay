@@ -77,15 +77,6 @@ var wantTriggerCensus = map[string]map[string]int{
 	},
 }
 
-func containsString(values []string, want string) bool {
-	for _, value := range values {
-		if value == want {
-			return true
-		}
-	}
-	return false
-}
-
 func TestTriggerCensus(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	root := filepath.Join("..", "..", "..")
