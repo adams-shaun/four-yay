@@ -2072,6 +2072,11 @@ var handRoots = struct {
 		// shape mustAttackRequired has. Its reads are the shared
 		// EffectZone$/ValidCard$ static gate.
 		"CantBeCopied": {"Engine.SpellCopyAllowed"},
+		// castLimitBinds calls staticView.numLimitEachTurn through sv, a
+		// selector edge the scanner does not infer. Both callers are
+		// CantBeCast paths (offer and CR 601.2e recheck), so its
+		// NumLimitEachTurn$ read belongs to that mode alone.
+		"CantBeCast": {"numLimitEachTurn"},
 		// tapPowerValue is the caller of the TapPowerValue literal root
 		// tapPowerValueStatics (activeStatics("TapPowerValue")): it reads the
 		// matched static's own ValidSA$/ValidCard$/Value$ from one shared

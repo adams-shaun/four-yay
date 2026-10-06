@@ -6,6 +6,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
+	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -147,7 +148,8 @@ func (e *Engine) castRestrictedUsing(statics []staticView, p state.PlayerID, id 
 		if !e.continuousGateHolds(sv) || !e.restrictionGateHolds(sv, id) {
 			continue
 		}
-		spec := sv.ParamStr(cards.PKValidCard)
+		spec := castValidCardSpec(sv)
+		countSpec := spec
 		// The origin-zone cast-provenance split (task wascastfrom): a
 		// CantBeCast restriction's ValidCard$ carrying a wasCastFromExile /
 		// wasCastFromTheirHand-shaped token gates the cast IN PROGRESS -
@@ -165,11 +167,49 @@ func (e *Engine) castRestrictedUsing(statics []staticView, p state.PlayerID, id 
 				spec = s
 			}
 		}
-		if e.matchesSpec(spec, id, e.staticSpecCtx(sv)) {
+		if e.matchesSpec(spec, id, e.staticSpecCtx(sv)) &&
+			castLimitBinds(e.L.Events, sv, p, id, func(oid state.ObjID) bool { return e.matchesSpec(countSpec, oid, e.staticSpecCtx(sv)) }) {
 			return true
 		}
 	}
 	return false
+}
+
+// castValidCardSpec is a CantBeCast static's ValidCard$ with an absent one
+// read as "Card" (Fires of Invention carries none: every spell). A static
+// naming an Origin$ instead (Grafdigger's Cage's "from graveyards") keeps
+// its empty spec, so the default never turns an origin restriction into a
+// blanket one.
+func castValidCardSpec(sv staticView) string {
+	spec := strings.TrimSpace(sv.ParamStr(cards.PKValidCard))
+	if spec == "" && !sv.HasParam(cards.PKOrigin) {
+		return "Card"
+	}
+	return spec
+}
+
+// numLimitEachTurn parses NumLimitEachTurn$ N once: a positive decimal
+// literal, else ok=false (absent, empty, non-numeric or non-positive).
+func (sv staticView) numLimitEachTurn() (int, bool) {
+	n, err := strconv.Atoi(strings.TrimSpace(sv.ParamStr(cards.PKNumLimitEachTurn)))
+	if err != nil || n <= 0 {
+		return 0, false
+	}
+	return n, true
+}
+
+// castLimitBinds is the ONE per-turn cast-limit rule CantBeCast's
+// NumLimitEachTurn$ names ("can't cast more than N spells each turn"),
+// shared by the offer (castRestrictedUsing) and the CR 601.2e recheck
+// (recheckIllegal). A static without the parameter always binds; with it the
+// static binds only once p has already cast N matching spells this turn,
+// the candidate's own in-flight PutOnStack excluded.
+func castLimitBinds(log []events.Event, sv staticView, p state.PlayerID, candidate state.ObjID, match func(state.ObjID) bool) bool {
+	n, ok := sv.numLimitEachTurn()
+	if !ok {
+		return true
+	}
+	return castsThisTurnMatchingBy(log, p, candidate, match) >= n
 }
 
 // castRestrictionSources merges the battlefield restriction statics with the
