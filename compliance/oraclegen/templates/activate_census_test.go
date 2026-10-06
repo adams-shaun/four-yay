@@ -48,6 +48,17 @@ var activateCensusSets = []string{"BIG", "EOE", "FDN", "FRA"}
 // as "xmage text ambiguous" (planeswalkers, the shared-cost Chandras, the
 // Theorist's Sanctum intrinsic mana) are now served; FRA gains one
 // SubCounter<...> cost gap from a newly served planeswalker row.
+//
+// Re-measured for the setup-entry-provenance ticket
+// (cli-20261005T142245Z-5f9ed803): setup permanents no longer read as
+// entered this turn in either engine, so FRA Gallia, the Merrymaker lost its
+// activate.battlefield row and moved to the no-fixture bucket. Its ability is
+// "{1}{R}, {T}: Put a +1/+1 counter on target creature that entered this
+// turn" (ValidTgts$ Creature.ThisTurnEntered); the row was served only
+// BECAUSE the setup battlefield creature wrongly read as entered this turn.
+// The ActivateAbility template has no genuine turn-1 entry prelude -- every
+// battlefield target fixture is placed at setup -- so it cannot serve the
+// filter now. FRA battlefield 71 -> 70 and no-fixture 4 -> 5.
 var wantActivateCensus = map[string]map[string]int{
 	"BIG": {
 		"served:activate.battlefield":             10,
@@ -78,12 +89,12 @@ var wantActivateCensus = map[string]map[string]int{
 		"skip:activate no fixture":                             6,
 	},
 	"FRA": {
-		"served:activate.battlefield":             71,
+		"served:activate.battlefield":             70,
 		"served:activate.graveyard":               7,
 		"served:activate.hand":                    8,
 		"served:activate.mana":                    27,
 		"skip:activate cost gap: SubCounter<...>": 1,
-		"skip:activate no fixture":                4,
+		"skip:activate no fixture":                5,
 		"skip:activate target gap: attackedThisTurn needs a combat prelude (Creature.attackedThisTurn)": 1,
 	},
 }
