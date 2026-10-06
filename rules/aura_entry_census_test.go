@@ -264,6 +264,7 @@ var auraEntryCensusRules = map[string]string{
 	"opening_hand.go:Engine.applyOpeningEffect":                 "gate: Leyline-style opening-hand entry",
 	"oracle_run.go:oracleRun.build":                             "gate: oracle-audit scenario setup through e.emit",
 	"oracle_run.go:oracleRun.do":                                "gate: oracle-audit scenario move op through e.emit",
+	"oracle_run.go:oraclePrelude":                               "attach: oracle-audit attach prelude for an existing battlefield permanent",
 	"replacement_cmdzone.go:Engine.handleCmdZone":               "noentry: CR 903.9 command-zone redirect",
 	"replacement_copytoken.go:Engine.ProposeCopyTokens":         "token: CreateToken replacement copy mints",
 	"replacement_copytoken.go:Engine.continueCopyTokenProposal": "token: CreateToken replacement copy mints",

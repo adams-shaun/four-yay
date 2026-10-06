@@ -109,6 +109,7 @@ type oracleStep struct {
 	Active       string         `json:"active,omitempty"`
 	Decision     string         `json:"decision,omitempty"`
 	To           string         `json:"to,omitempty"`
+	AttachedTo   string         `json:"attached_to,omitempty"`
 	Amount       int32          `json:"amount,omitempty"`
 	Answers      []oracleAnswer `json:"answers,omitempty"`
 	Observe      *oracleObserve `json:"observe,omitempty"`
@@ -917,6 +918,25 @@ func (r *oracleRun) priorityFor(seat state.PlayerID, op string) (*decision.Decis
 	return d, nil
 }
 
+func oraclePrelude(r *oracleRun, st oracleStep, seat state.PlayerID) error {
+	if oracleOpCodes.Code(st.Op) == oracleOpAttach {
+		equipment, err := r.resolve(st.Card)
+		if err != nil {
+			return err
+		}
+		bearer, err := r.resolve(st.AttachedTo)
+		if err != nil {
+			return err
+		}
+		r.e.emit(events.Event{Kind: events.Attach, Obj: equipment, IDs: []state.ObjID{bearer}})
+		r.e.priorityRound()
+		return r.untilPriority("attach")
+	}
+	r.e.emit(events.Event{Kind: events.LifeChange, Player: seat, Amount: st.Amount})
+	r.e.priorityRound()
+	return r.untilPriority("life")
+}
+
 // oraclePickStepOption resolves the option index a `cast` or `activate` step
 // selects. A cast picks the option whose Mode matches ("kicked" for a kicked
 // cast, an explicit cast_mode when given, the Adventure offer for a ref naming
@@ -1370,10 +1390,8 @@ func (r *oracleRun) do(st oracleStep) error {
 		e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: e.G.Obj(id).Zone, To: to})
 		e.priorityRound()
 		return r.untilPriority("move")
-	case oracleOpLife:
-		e.emit(events.Event{Kind: events.LifeChange, Player: seat, Amount: st.Amount})
-		e.priorityRound()
-		return r.untilPriority("life")
+	case oracleOpAttach, oracleOpLife:
+		return oraclePrelude(r, st, seat)
 	}
 	return harnessf("unknown op %q", st.Op)
 }
@@ -1778,6 +1796,7 @@ const (
 	oracleOpPassTo
 	oracleOpMove
 	oracleOpLife
+	oracleOpAttach
 )
 
 var oracleOpCodes = state.NewStrCodes(
@@ -1792,4 +1811,5 @@ var oracleOpCodes = state.NewStrCodes(
 	state.StrEntry[oracleOpCode]{Key: "pass_to", Val: oracleOpPassTo},
 	state.StrEntry[oracleOpCode]{Key: "move", Val: oracleOpMove},
 	state.StrEntry[oracleOpCode]{Key: "life", Val: oracleOpLife},
+	state.StrEntry[oracleOpCode]{Key: "attach", Val: oracleOpAttach},
 )
