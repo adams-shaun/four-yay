@@ -57,7 +57,7 @@ func (f *Face) Primitives() []string {
 	for _, k := range f.Keywords {
 		head := KeywordHead(k)
 		set["kw:"+head] = struct{}{}
-		if head == "Craft" && !CraftUniformShape(keywordParam(k)) {
+		if head == "Craft" && !CraftShapeSupported(keywordParam(k)) {
 			set["api:Craft.OtherShape"] = struct{}{}
 		}
 	}

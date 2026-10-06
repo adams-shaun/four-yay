@@ -248,15 +248,11 @@ func (e *Engine) xAsk() bool {
 			applyCap(int32(len(pay.DiscardCandidates(asPayer(e), pc.player, pc.card, part, !pc.isAbility(), nil))))
 		}
 	}
-	for _, part := range pc.cost.Exile {
-		if !part.Announced {
-			continue
-		}
-		// Use the same source exclusion and zone-order filter as exAsk: a
-		// spell cast from this graveyard cannot exile itself as its cost.
-		candidates := pay.CostCandidates(asPayer(e), pc.player, pc.card, state.ZGraveyard, part.Spec, !pc.isAbility(), false)
-		applyCap(int32(len(candidates)))
-	}
+	// Every announced Exile cost part caps the shared X: the same zone set,
+	// source exclusion and battlefield cost-block the chooser (exAsk) and the
+	// offer gate apply, so the announced ceiling can never be lower than what
+	// the pick will settle.
+	announcedExileBounds(e, pc, applyCap)
 	for _, part := range pc.cost.SubCounter {
 		if !part.Announced {
 			continue
