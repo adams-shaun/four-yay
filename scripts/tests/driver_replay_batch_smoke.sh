@@ -69,12 +69,15 @@ with open(sys.argv[1], "w") as sc:
             gb = set()
             for g in glob.glob("compliance/oraclegen/*.genregress"):
                 gb |= set(open(g).read().split("\n")) - {""}
+            if os.environ.get("STUB_RUNNER_SCEN") and os.path.exists("rules/oracle_run.go"):
+                gb |= set(open("rules/oracle_run.go").read().split("\n")) - {""}
             sc.write(json.dumps({"id": r["id"], "card": r["card"], "scen": "bad" if r["id"] in gb else "ok"}) + "\n")
             if r["id"] in bad:
                 r["status"] = "diverge"
             elif r["card"] == "Gamma":
                 r["status"] = "agree"   # an improvement
         open(f, "w").write("\n".join(json.dumps(r) for r in rows) + "\n")
+    sc.flush()
     scenarios = {}
     for line in open(sys.argv[1]):
         if line.strip():
@@ -116,6 +119,8 @@ if os.environ.get("STUB_REQUIRE_CARDS") and (len(sys.argv) < 3 or sys.argv[2] !=
 gb = set()
 for g in glob.glob("compliance/oraclegen/*.genregress"):
     gb |= set(open(g).read().split("\n")) - {""}
+if os.environ.get("STUB_RUNNER_SCEN") and os.path.exists("rules/oracle_run.go"):
+    gb |= set(open("rules/oracle_run.go").read().split("\n")) - {""}
 with open(sys.argv[1], "w") as sc:
     for f in glob.glob("compliance/verdicts/*.jsonl"):
         for l in open(f):
@@ -169,7 +174,29 @@ cat >"$S/ticket.sh" <<'EOF'
 # ticket.sh TITLE BRIEF: records one filed agentctl ticket.
 printf 'TICKET %s\n%s\n--END--\n' "$1" "$2" >>"$DRB_REPO/tickets.out"
 EOF
-chmod +x "$S"/*.sh
+# Fake `systemd-run` + `go` so the production `capped go run ./cmd/oraclediff gen|diff`
+# branches run (DRB_GEN_CMD / DRB_DIFF_CMD unset): they forward to gen.sh / diff.sh.
+mkdir -p "$S/bin"
+cat >"$S/bin/systemd-run" <<'EOF'
+#!/usr/bin/env bash
+while [ $# -gt 0 ] && [ "$1" != env ]; do shift; done
+exec "$@"
+EOF
+cat >"$S/bin/go" <<'EOF'
+#!/usr/bin/env bash
+# go run ./cmd/oraclediff gen|diff FLAGS...
+[ "$1 $2" = "run ./cmd/oraclediff" ] || { echo "unexpected go $*" >&2; exit 1; }
+sub=$3; shift 3
+declare -A f
+while [ $# -gt 1 ]; do f[${1#-}]=$2; shift 2; done
+printf '%s %s cards=%s\n' "$PWD" "$sub" "${f[cards]:-}" >>"$DRB_GO_TRACE"
+case $sub in
+gen) "$STUB_DIR/gen.sh" "$(basename "${f[manifest]}" .json)" "${f[out]}" "${f[cards]:-}" ;;
+diff) "$STUB_DIR/diff.sh" "${f[scenarios]}" "${f[xmage]}" "${f[out]}" ;;
+*) exit 1 ;;
+esac
+EOF
+chmod +x "$S"/*.sh "$S"/bin/*
 
 # ---- fixtures ------------------------------------------------------------------
 # mkrepo <name>: a main checkout with three verdict rows (Gamma diverges on main).
@@ -235,6 +262,7 @@ runpass() {
 			DRB_SCENARIO_CMD=$S/scen.sh DRB_GEN_CMD=$S/gen.sh DRB_DIFF_CMD=$S/diff.sh DRB_CHECK_CMD=$S/check.sh \
 			DRB_RATCHET_CMD=true DRB_ISSUE_TOOL=$S/issue.sh DRB_ISSUES=$R/.ds4/issues DRB_TICKET_TOOL=$S/ticket.sh \
 			STUB_ALWAYS=$R/always.txt
+		if [ -n "${STUB_PROD_GO:-}" ]; then unset DRB_GEN_CMD DRB_DIFF_CMD; export PATH=$S/bin:$PATH STUB_DIR=$S; fi
 		timeout 120 bash "$SCRIPT" >"$R/pass.out" 2>&1
 	)
 	rc=$?
@@ -482,6 +510,40 @@ check "I2 a runner regression is not UNATTRIBUTED" $?
 check "I2 only the runner culprit stays parked; innocent branches land" $?
 /usr/bin/grep -qE 'LANDED [0-9a-f]{9} t1 t8$' "$L"
 check "I2 the non-culprit branches land" $?
+
+# ---- I3: a runner change that alters the GENERATED scenario (generation runs the engine) ----
+mkrepo I3
+mkticket t1 2026-10-06T03:00:00Z tools/xmageoracle/t1.txt one
+mkticket t3 2026-10-06T04:00:00Z rules/oracle_run.go 'Beta/cast-resolve/v1'
+mkticket t8 2026-10-06T05:00:00Z tools/xmageoracle/t8.txt eight
+export STUB_RUNNER_SCEN=1 DRB_SCENARIO_TRACE=$R/scenario.trace
+runpass
+unset STUB_RUNNER_SCEN DRB_SCENARIO_TRACE
+has "$L" 'CULPRIT t3 row Beta/cast-resolve/v1'
+check "I3 a runner change that alters the scenario is attributed to its branch" $?
+hasnt "$L" 'UNATTRIBUTED'
+check "I3 it is not UNATTRIBUTED (no stale snapshot paired with the regenerated scenario)" $?
+/usr/bin/grep -q '/\.worktrees/.*-probe Beta/cast-resolve/v1 ok$' "$R/scenario.trace"
+check "I3 the regenerated scenario is replayed on the probe" $?
+[ "$(status_of t3)" = human_needed ] && [ "$(status_of t1)" = merged ] && [ "$(status_of t8)" = merged ]
+check "I3 only the runner culprit stays parked; innocent branches land" $?
+
+# ---- I4: the production `go run ./cmd/oraclediff gen|diff` branches (no DRB_GEN_CMD/DRB_DIFF_CMD) ----
+mkrepo I4
+mkticket t1 2026-10-06T03:00:00Z tools/xmageoracle/t1.txt one
+mkticket t3 2026-10-06T04:00:00Z rules/oracle_run.go 'Beta/cast-resolve/v1'
+mkticket t8 2026-10-06T05:00:00Z tools/xmageoracle/t8.txt eight
+mkdir -p "$R/.cards"
+export STUB_PROD_GO=1 STUB_REQUIRE_CARDS=1 STUB_RUNNER_SCEN=1 DRB_GO_TRACE=$R/go.trace
+: >"$DRB_GO_TRACE"
+runpass
+unset STUB_PROD_GO STUB_REQUIRE_CARDS STUB_RUNNER_SCEN
+has "$L" 'CULPRIT t3 row Beta/cast-resolve/v1'
+check "I4 the production go-run path attributes a runner change" $?
+/usr/bin/grep -qE '/\.worktrees/.*-probe gen cards='"$R"'/\.cards$' "$DRB_GO_TRACE" &&
+  /usr/bin/grep -qE '/\.worktrees/.*-probe diff cards='"$R"'/\.cards$' "$DRB_GO_TRACE"
+check "I4 gen and diff run in the probe with the main checkout's .cards" $?
+unset DRB_GO_TRACE
 
 # ---- J: DRIFT -- the generator moved and no ticket is parked: replay main, land ------
 # mkdrift <name>: a repo whose last replayed main is recorded, then main's generator moves.

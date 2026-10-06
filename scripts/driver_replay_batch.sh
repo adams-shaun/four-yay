@@ -486,9 +486,10 @@ attribute() {
         rowfile=$(py rowfile "$r" "$SCEN_ROOT"/*/scen.jsonl) || { left+=("$r"); continue; }
         setname=$(basename "$(dirname "$rowfile")")
         xm="$SCEN_ROOT/$setname/xmage.jsonl"
-        if [ "$generator" = 1 ] || [ ! -s "$xm" ]; then
-          # A generator/manifest candidate may regenerate a different scenario;
-          # only reuse the batch snapshot when the scenario is unchanged.
+        if [ "$generator" = 1 ] || [ ! -s "$xm" ] || [ "$(cat -- "$src")" != "$(py row "$r" "$rowfile")" ]; then
+          # Generation runs the rules engine, so any gorge-side change can
+          # regenerate a different scenario: reuse the batch's XMage snapshot
+          # only when the regenerated row is byte-identical to the batch's row.
           one_scenario "$probe" "$r" "$candidate" "$src" || { left+=("$r"); continue; }
           xm="$candidate"
         fi
