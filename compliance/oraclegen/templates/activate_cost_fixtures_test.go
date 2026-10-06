@@ -11,8 +11,11 @@ func TestActivateCostTokenShapes(t *testing.T) {
 	}{
 		{"2 T Discard<1/Card>", "CC", ""},
 		{"1 T Discard<1/Card.Legendary/legendary>", "C", ""},
+		{"1 T Discard<1/Hand>", "C", ""},
+		{"1 T Discard<1/Land>", "C", ""},
 		{"2 T Sac<1/Artifact.Other/another artifact>", "CC", ""},
 		{"5 T Exile<1/CARDNAME>", "CCCCC", ""},
+		{"1 T Exile<1/Creature>", "C", ""},
 		{"tapXType<2/Artifact>", "", ""},
 		{"tapXType<Any/Creature.Other+withTotalPowerGE 3>", "", ""},
 		{"tapXType<1/Elf>", "", ""},
@@ -20,10 +23,14 @@ func TestActivateCostTokenShapes(t *testing.T) {
 		{"tapXType<X/Artifact>", "", "tapXType<X>"},
 		{"tapXType<2/Permanent.token>", "", "tapXType<token-filter>"},
 		{"tapXType<1/Mount.Other;Vehicle.Other>", "", "tapXType<unsupported-filter>"},
-		{"Return<1/CARDNAME>", "", "Return<...>"},
+		{"Return<1/CARDNAME>", "", ""},
+		{"ExileCtrlOrGrave<1/Artifact.Other|Creature.Other>", "", ""},
+		{"ExileFromGrave<2/Creature.Other>", "", ""},
+		{"ExileFromGrave<1/Land.Other>", "", ""},
+		{"CollectEvidence<6>", "", ""},
 	}
 	for _, tc := range cases {
-		pool, gap := activationCost(tc.cost)
+		pool, gap := activationCostIn(tc.cost, "battlefield")
 		if pool != tc.wantPool || gap != tc.wantGap {
 			t.Errorf("activationCost(%q) = (%q, %q), want (%q, %q)", tc.cost, pool, gap, tc.wantPool, tc.wantGap)
 		}
