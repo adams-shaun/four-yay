@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/compliance/oraclegen"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
@@ -79,7 +80,7 @@ func (p *filterProbe) victimProbes(reg *cards.Registry, skip string, limit int) 
 	sort.Strings(names)
 	var out []string
 	for _, n := range names {
-		if n == skip {
+		if n == skip || !oraclegen.XMageKnown(n) {
 			continue
 		}
 		card, ok := reg.Lookup(n)

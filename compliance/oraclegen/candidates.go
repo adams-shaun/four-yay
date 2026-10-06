@@ -623,7 +623,7 @@ func registryCardType(reg *cards.Registry, cardType string) (string, bool) {
 		c := reg.Cards[i]
 		for fi := range c.Faces {
 			for _, typ := range c.Faces[fi].Types {
-				if strings.EqualFold(strings.TrimSpace(typ), cardType) {
+				if strings.EqualFold(strings.TrimSpace(typ), cardType) && XMageKnown(c.Faces[fi].Name) {
 					return c.Faces[fi].Name, true
 				}
 			}
@@ -649,7 +649,7 @@ func registrySubtype(reg *cards.Registry, subtype string) (string, bool) {
 	for i := range reg.Cards {
 		c := reg.Cards[i]
 		for fi := range c.Faces {
-			if faceHasSubtype(c.Faces[fi], subtype) {
+			if faceHasSubtype(c.Faces[fi], subtype) && XMageKnown(c.Faces[fi].Name) {
 				return c.Faces[fi].Name, true
 			}
 		}
@@ -680,7 +680,7 @@ func registryQuietSubtype(reg *cards.Registry, subtype string) (string, bool) {
 			continue
 		}
 		f := c.Faces[0]
-		if !faceHasSubtype(f, subtype) || !faceHasSubtype(f, "Creature") ||
+		if !XMageKnown(f.Name) || !faceHasSubtype(f, subtype) || !faceHasSubtype(f, "Creature") ||
 			faceHasSubtype(f, "Legendary") || len(f.Triggers) != 0 || len(f.Statics) != 0 {
 			continue
 		}
