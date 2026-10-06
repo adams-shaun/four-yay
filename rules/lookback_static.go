@@ -2,7 +2,6 @@ package rules
 
 import (
 	"fmt"
-	"reflect"
 )
 
 // Look-back observer static memo seeding.
@@ -46,7 +45,7 @@ func (e *Engine) seedLookBackStatic(o *Engine) {
 	if layerInertVerify {
 		seeded := append([]ContinuousEffect(nil), o.staticContinuous...)
 		fresh := o.staticEffects(nil)
-		if len(fresh) != len(seeded) || (len(fresh) > 0 && !reflect.DeepEqual(fresh, seeded)) {
+		if len(fresh) != len(seeded) || (len(fresh) > 0 && !continuousEffectsEqual(fresh, seeded)) {
 			panic(fmt.Sprintf("rules: look-back observer seeded %d static effects, a rescan of the snapshot finds %d", len(seeded), len(fresh)))
 		}
 		if o.staticMemoGated || o.staticMemoStateRead {

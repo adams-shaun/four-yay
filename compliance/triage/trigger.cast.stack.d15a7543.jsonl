@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"cast","field":"stack","diff":"gorge=[spell:$CARD@p0] xmage=[spell:Misty Salon@p0]"},"key":"trigger | cast | stack | gorge=[spell:$CARD@p0] xmage=[spell:Misty Salon@p0]","cards":1}
+{"card":"Smoky Lounge","template":"trigger#1.0","status":"diverge","api":"Phase:Mana","detail":"step 0 (cast) stack: gorge \"[spell:Smoky Lounge@p0]\", xmage \"[spell:Misty Salon@p0]\""}

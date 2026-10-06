@@ -1,39 +1,33 @@
 package tsgen
 
 import (
-	"encoding/json"
+	"go/types"
 	"os"
 	"reflect"
 	"strings"
 	"testing"
 )
 
-type inner struct {
-	N    int32            `json:"n"`
-	Tags map[string]int32 `json:"tags,omitempty"`
-	Pair [2]uint32        `json:"pair"`
-	Raw  json.RawMessage  `json:"raw"`
-	Skip string           `json:"-"`
-}
+const selfPkg = "github.com/adams-shaun/gorge/internal/tsgen"
 
-type outer struct {
-	ID       uint64  `json:"id"`
-	Name     string  `json:"name,omitempty"`
-	Flag     bool    `json:"flag"`
-	Inner    inner   `json:"inner"`
-	Inners   []inner `json:"inners"`
-	MaybeN   *int32  `json:"maybe_n"`
-	Kind     kindT   `json:"kind"`
-	Bytes    []byte  `json:"bytes"`
-	Any      any     `json:"any"`
-	Optional *inner  `json:"optional,omitempty"`
+// fixtureRoot type-checks fixture_types_test.go from source and returns its
+// named type.
+func fixtureRoot(t *testing.T, l *Loader, name string) types.Type {
+	t.Helper()
+	pkg, err := l.CheckFiles(selfPkg, "fixture_types_test.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ty, err := LookupIn(pkg, name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return ty
 }
-
-type kindT string
 
 func TestGenerateMatchesFixture(t *testing.T) {
 	got, err := Generate(Options{
-		Roots:  []reflect.Type{reflect.TypeOf(outer{})},
+		Roots:  []types.Type{fixtureRoot(t, NewLoader(), "outer")},
 		Unions: map[string][]string{"Kind": {"a", "b"}},
 		Header: "// test header\n",
 	})
@@ -50,14 +44,15 @@ func TestGenerateMatchesFixture(t *testing.T) {
 }
 
 func TestGenerateRejectsTwoStructsWithOneName(t *testing.T) {
-	_, err := Generate(Options{Roots: []reflect.Type{reflect.TypeOf(outer{}), reflect.TypeOf(struct{ X int }{})}})
+	anon := types.NewStruct([]*types.Var{types.NewField(0, nil, "X", types.Typ[types.Int], false)}, nil)
+	_, err := Generate(Options{Roots: []types.Type{fixtureRoot(t, NewLoader(), "outer"), anon}})
 	if err == nil {
 		t.Fatal("anonymous struct accepted")
 	}
 }
 
 func TestGenerateIsDeterministic(t *testing.T) {
-	o := Options{Roots: []reflect.Type{reflect.TypeOf(outer{})}, Unions: map[string][]string{"Z": {"z"}, "A": {"a"}}}
+	o := Options{Roots: []types.Type{fixtureRoot(t, NewLoader(), "outer")}, Unions: map[string][]string{"Z": {"z"}, "A": {"a"}}}
 	a, _ := Generate(o)
 	b, _ := Generate(o)
 	if a != b {
@@ -65,5 +60,20 @@ func TestGenerateIsDeterministic(t *testing.T) {
 	}
 	if strings.Index(a, "export type A") > strings.Index(a, "export type Z") {
 		t.Fatal("unions are not emitted in sorted order")
+	}
+}
+
+// TestLookupTagMatchesStructTagGet holds the hand-written tag parser to the
+// reflect.StructTag.Get it replaced (tests may still use reflect).
+func TestLookupTagMatchesStructTagGet(t *testing.T) {
+	for _, tag := range []string{
+		``, `json:"a"`, `json:"a,omitempty"`, `json:"-"`, `json:"-,"`, `xml:"x" json:"b"`,
+		`json:",omitempty"`, `  json:"c"  `, `json:"d\"e"`, `json:bad`, `json:"unterminated`,
+		`yaml:"y"`, `json:"f" json:"g"`, `j son:"h"`,
+	} {
+		want := reflect.StructTag(tag).Get("json")
+		if got, _ := lookupTag(tag, "json"); got != want {
+			t.Errorf("lookupTag(%q) = %q, StructTag.Get = %q", tag, got, want)
+		}
 	}
 }

@@ -28,12 +28,16 @@ import "embed"
 //go:embed control_static_probe.go
 //go:embed counter_keyword.go
 //go:embed doc.go
+//go:embed equal.go
 //go:embed face.go
 //go:embed fetch.go
 //go:embed fingerprint.go
 //go:embed fingerprint_sources.go
 //go:embed gitenv.go
 //go:embed hiddenkeyword.go
+//go:embed image.go
+//go:embed image_build.go
+//go:embed image_mat.go
 //go:embed intrinsic.go
 //go:embed ir.go
 //go:embed keywords.go

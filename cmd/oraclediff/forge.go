@@ -65,9 +65,11 @@ const defaultForgeOracleDir = "/mnt/sata/gorge-training/forgeoracle"
 //   - trigger_cost_pay and trigger_cost_decline answer the payment of a
 //     triggered ability's cost; gift_decline declines a gift (gift_promise
 //     names the opponent in its label).
-//   - A cost is paid only if a decision records it: gen's Step carries no
-//     kicked or cast_mode, so a cast is the plain one (or the face the card
-//     ref names) unless a logged optional-cost decision says otherwise.
+//   - A cast step's cast_mode names a non-default cast option the driver
+//     must select (currently only "optionalcost", a self-spell optional cost
+//     paid at cast time; empty is the ordinary cast). gen's Step still
+//     carries no kicked: a kick is paid only through a logged optional-cost
+//     decision.
 //   - abilities is keyed by the decimal step index.
 //   - library_top is not compared when a seat's setup names library cards
 //     (see forgeIgnore).
@@ -159,10 +161,11 @@ func forgeExport(reg *cards.Registry, scen, out string) (int, error) {
 }
 
 // forgeAbilityLines maps each step that names an ability by ability_index to
-// the script line (cards.SA.Line) of Face.Abilities[index] on the step's
-// card, read from the card's first face. A step whose card does not resolve
-// to a corpus card, or whose index is out of range, is left out: the driver
-// then falls back to its own matching rather than trusting a wrong line.
+// the script line (cards.SA.Line) of Face.Abilities[index] on the step's card.
+// It reads face 1 when that card is listed in the owning seat's back_face
+// setup. A step whose card does not resolve to a corpus card, or whose index
+// is out of range, is left out: the driver then falls back to its own matching
+// rather than trusting a wrong line.
 func forgeAbilityLines(reg *cards.Registry, it oraclegen.Item) map[string]string {
 	lines := map[string]string{}
 	for i, st := range it.Steps {
@@ -173,7 +176,19 @@ func forgeAbilityLines(reg *cards.Registry, it oraclegen.Item) map[string]string
 		if !ok || len(c.Faces) == 0 {
 			continue
 		}
-		f := c.Faces[0]
+		face := 0
+		if seat, _, hasSeat := strings.Cut(st.Card, ":"); hasSeat {
+			for _, name := range it.Setup[seat].BackFace {
+				if name == refCardName(st.Card) {
+					face = 1
+					break
+				}
+			}
+		}
+		if face >= len(c.Faces) {
+			continue
+		}
+		f := c.Faces[face]
 		if k := *st.AbilityIndex; k >= 0 && k < len(f.Abilities) && f.Abilities[k] != nil {
 			lines[strconv.Itoa(i)] = f.Abilities[k].Line
 		}

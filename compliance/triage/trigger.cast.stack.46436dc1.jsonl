@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"cast","field":"stack","diff":"gorge=[spell:$CARD@p0] xmage=[spell:Awakening Hall@p0]"},"key":"trigger | cast | stack | gorge=[spell:$CARD@p0] xmage=[spell:Awakening Hall@p0]","cards":1}
+{"card":"Funeral Room","template":"trigger#1.0","status":"diverge","api":"ChangesZone:LoseLife","detail":"step 0 (cast) stack: gorge \"[spell:Funeral Room@p0]\", xmage \"[spell:Awakening Hall@p0]\""}

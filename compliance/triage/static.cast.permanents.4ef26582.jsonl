@@ -1,0 +1,2 @@
+{"shape":{"template":"static","op":"cast","field":"permanents","diff":"Hill Giant gorge+[1/1, counters=M1M1=2] xmage+[3/3]"},"key":"static | cast | permanents | Hill Giant gorge+[1/1, counters=M1M1=2] xmage+[3/3]","cards":1}
+{"card":"Pyrrhic Strike","template":"static#0.0","status":"diverge","api":"Charm","sets":["ECL"],"detail":"step 0 (cast) permanents: gorge \"c0 o0 Hill Giant [creature giant] {R} 1/1 counters=M1M1=2\", xmage \"c0 o0 Hill Giant [creature giant] {R} 3/3\""}

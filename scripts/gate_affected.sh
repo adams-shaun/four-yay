@@ -29,6 +29,15 @@ pkgs=$(git diff --name-only "$mb" HEAD | while read -r f; do
   d=$(dirname "$f"); d=${d%%/testdata*}
   if [ -d "$d" ] && compgen -G "$d/*.go" >/dev/null; then echo "./$d"; fi
 done | sort -u | /usr/bin/grep -v -x -E '\./rules' || true)
+# A package whose every file is build-tagged (cmd/autopayaudit) has nothing to
+# vet or test in a default build, and naming it fails the whole run with
+# "build constraints exclude all Go files" (9b9bd27a, 2026-10-06). Keep only
+# packages with at least one default-build file.
+if [ -n "$pkgs" ]; then
+  pkgs=$(for p in $pkgs; do
+    [ -n "$(go list -e -f '{{if or .GoFiles .TestGoFiles .XTestGoFiles}}y{{end}}' "$p" 2>/dev/null)" ] && echo "$p"
+  done || true)
+fi
 others=$(printf '%s\n' $pkgs ./internal/codeshape ./view | sort -u)
 # Any change can move compliance verdicts: generator/harness edits did
 # (a407ddeff, FDN:A) and so did rules edits that reshape target asks
@@ -53,27 +62,59 @@ if git diff --name-only "$mb" HEAD | /usr/bin/grep -v -E '_test\.go$' | /usr/bin
 fi
 echo "gate_affected: rules + $(echo $others)$([ $traj = 1 ] && echo ' + cardfuzz findings')"
 
-# The vet and test phases are sequential. Vet can build two package actions
-# concurrently; the test phase is kept to four binaries total across all
-# go test processes (including the optional trajectory check).
-go vet -p=2 $others ./rules
+# Gate wall is the longest chain, so the phases below overlap everything that
+# does not depend on another phase (measured on the 2026-10-06 gate logs: for
+# a ticket that moves engine code the `$others` packages summed to ~115 s of
+# test time run one after another, longer than the ~70 s ./rules run).
+#
+# Vet and the ./rules test build overlap: vet type-checks from source and the
+# build compiles, so they share no work (go-build has already warmed the
+# non-test packages). Both must pass before any test starts, as before.
+# GOMAXPROCS=6/-p=6: the scope's CPUQuota is 800% (8 cores) but the gate env
+# exports GOMAXPROCS=2, which caps each compile action to two threads. Measured
+# on a fresh `rules/mana.go` edit, inside the gate's own scope
+# (`systemd-run -p MemoryMax=8G -p CPUQuota=800%`): `go vet -p=2` over the
+# `$others` set plus ./rules took 75.9 s / 147 cpu-s; `GOMAXPROCS=6 go vet -p=6`
+# took 18.8 s / 68 cpu-s, peak RSS 3.7 GiB (under the 8 GiB scope). The quota,
+# not the flag, is the ceiling -- at 800% the extra -p is real parallelism.
+GOMAXPROCS=6 go vet -p=6 $others ./rules & v=$!
+# Build the ./rules test binary ONCE before the three concurrent rules runs.
+# They are separate `go test` processes, and a process does not see a compile
+# another one is still running, so each used to compile and link the same
+# (large) test variant itself. Measured under a 200% cpu cap after a rules
+# edit: three concurrent runs 112 s wall / 200 cpu-s, build-once-then-run
+# 38 s / 62 cpu-s (the three then hit the build cache). The runs below are
+# unchanged, so the result cache and the reported output are too.
+GOMAXPROCS=6 go test -c -o /dev/null ./rules/ & w=$!
+rc=0
+wait "$v" || rc=1
+wait "$w" || rc=1
+[ "$rc" = 0 ] || exit 1
 
 go test -p=1 -skip "^($global|$kr8|$postmerge)$" ./rules/ & a=$!
 go test -p=1 -run '^TestKr8WorldsInFuzzGames$' ./rules/ & b=$!
 go test -p=1 -run '^TestKr8HeadsCheckpointAll$' ./rules/ & c=$!
-go test -p=1 -skip "^($global)$" $others & d=$!
-rc=0
-for p in "$a" "$b" "$c" "$d"; do wait "$p" || rc=1; done
+# -p=6: the $others packages are independent test binaries; with -p=1 they
+# ran strictly one at a time and were the long pole of the gate. Measured on
+# the `$others` set alone under the gate scope (800% quota, test results
+# expired with `go clean -testcache`): -p=2 62.3 s, -p=4 40.8 s, -p=6 32.5 s,
+# peak RSS ~1.0 GiB. At most six others binaries run here (the two Kr8 runs
+# have already finished, ./rules is one binary), so the scope stays well
+# under its 8 GiB MemoryMax.
+GOMAXPROCS=6 go test -p=6 -skip "^($global)$" $others & d=$!
 # Event-text changes (any new or reworded event) move the committed
 # overshoot capture and the searchprobe digests; e2e19ebae and 5fa9f31a both
-# broke them unseen by this gate on 2026-10-05. Both checks are seconds.
+# broke them unseen by this gate on 2026-10-05. Both checks are seconds, so
+# they start as soon as the two short Kr8 runs free their slots instead of
+# waiting for ./rules and every other package to finish.
+wait "$b" || rc=1
+wait "$c" || rc=1
 go test -p=1 ./internal/searchprobe/ & e=$!
 go test -p=1 -run '^TestCommittedOvershootCaptureReplaysToTheParkedAsk$' ./host/ & f=$!
+pids="$a $d $e $f"
 if [ "$traj" = 1 ]; then
   go test -p=1 -run '^(TestRoundTenFindings|TestForbiddenRitualRepeatYesFinding)$' ./cmd/cardfuzz/ & g=$!
-  pids="$e $f $g"
-else
-  pids="$e $f"
+  pids="$pids $g"
 fi
 for p in $pids; do wait "$p" || rc=1; done
 exit "$rc"

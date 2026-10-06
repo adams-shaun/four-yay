@@ -19,9 +19,11 @@ const openingHand = 7
 // per-game allocations (~450 KB and ~200 KB for a 60-card 2-seat game), and a
 // runner that plays thousands of games back to back otherwise allocates,
 // zeroes and collects them once per game; the intent array and the Derived
-// memo tables ride along. Reuse is invisible to the game: events.NewLogInto
-// and state.NewGameInto re-cap their arrays to exactly the capacity a fresh
-// allocation would have had, so growth points are unchanged; every slot of
+// memo tables ride along. Reuse is invisible to the game: events.NewLogIntoHint
+// keeps whatever capacity the recycled log array had (a pure allocation
+// choice -- no event, Seq or chain byte depends on it), state.NewGameInto
+// re-caps its array to exactly the capacity a fresh allocation would have had,
+// every slot of
 // every array is cleared by Release and overwritten before it is read; the
 // memo tables are a cache whose capacity no answer depends on; and the
 // intent array is only ever appended to (Log.Clone caps it). The zero Spare
@@ -44,7 +46,7 @@ type Spare struct {
 	// filled from empty by every engine, so a recycled pair saves their
 	// regrowth; the watcher reads only their length.
 	loopSigs   []uint64
-	loopRecent []events.Event
+	loopRecent []livelockRecent
 	// loopPrev / loopHeads are the watcher's candidate-index arrays
 	// (prevPos, slotHead), recycled like the windows: prevPos is read only
 	// below its length and slotHead is zeroed by the next watcher.
@@ -250,7 +252,7 @@ func newEngineShell(cfg Config, random *rng) *Engine {
 	e := &Engine{
 		G:                 state.NewGameInto(cfg.Names, life, initialObjects, spare.objs),
 		deckManifests:     make([]deck.Manifest, len(cfg.Names)),
-		L:                 events.NewLogInto(cfg.Seed, spare.events),
+		L:                 events.NewLogIntoHint(cfg.Seed, spare.events, cfg.ExpectedEvents),
 		format:            cfg.Format,
 		rng:               random,
 		loop:              newLivelockWatcherInto(cfg.LoopGuard, spare.loopSigs, spare.loopRecent, spare.loopPrev, spare.loopHeads, spare.loopHash),
@@ -298,9 +300,7 @@ func newEngineShell(cfg Config, random *rng) *Engine {
 		e.intentBuf = spare.intents[:0]
 	}
 	e.G.Tokens = cfg.Tokens
-	e.setNameInPool = poolHasSetNameStatic(cfg)
-	e.layer4InPool = poolHasLayer4Static(cfg)
-	e.controlStaticInPool = poolHasControlStatic(cfg)
+	e.setNameInPool, e.layer4InPool, e.controlStaticInPool = poolGates(cfg)
 	e.trigGrant.free = true // held per object as they appear (trigger_grantfree.go)
 	e.G.NameUniverse = cfg.NameUniverse
 	e.G.NamedCorpus = cfg.NamedCorpus

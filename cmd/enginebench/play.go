@@ -87,6 +87,9 @@ func randomIntent(d *decision.Decision, r *rand.Rand) decision.Intent {
 func playRandom(cfg rules.Config, st *randomStats) {
 	r := rand.New(rand.NewPCG(cfg.Seed, cfg.Seed^0x5bd1e9955bd1e995))
 	e := rules.New(cfg)
+	if walkStatsFlag {
+		wm.reset()
+	}
 	var fb [2]*seat.Bot
 	board := botpolicy.NewBoard(2)
 	stall := ""
@@ -139,6 +142,9 @@ func playRandom(cfg rules.Config, st *randomStats) {
 				return
 			}
 			d := e.Pending()
+			if walkStatsFlag {
+				wm.observe(e, d)
+			}
 			ok := false
 			for try := 0; try < retries; try++ {
 				if err := e.Submit(randomIntent(d, r)); err == nil {
@@ -210,7 +216,20 @@ func playBot(cfg rules.Config, autopay bool, st *botStats) error {
 		}
 		seats[i] = b
 	}
-	o, _, err := bench.PlayGame(cfg, seats, maxTurns, maxIntents, bench.Hooks{SyncAnswer: syncAnswer})
+	hooks := bench.Hooks{SyncAnswer: syncAnswer}
+	if walkStatsFlag {
+		// A Decision hook disables the kernel's synchronous answerer; it does
+		// not change priority asks. It is how the observer sees each posed
+		// decision on the bot row (spec §9.1).
+		var eng *rules.Engine
+		hooks.SyncAnswer = false
+		hooks.Setup = func(e *rules.Engine) { eng = e; wm.reset() }
+		hooks.Decision = func(_ int, d *decision.Decision, _ decision.Intent, _ *botpolicy.Board) error {
+			wm.observe(eng, d)
+			return nil
+		}
+	}
+	o, _, err := bench.PlayGame(cfg, seats, maxTurns, maxIntents, hooks)
 	if err != nil {
 		return err
 	}

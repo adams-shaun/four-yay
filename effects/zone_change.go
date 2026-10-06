@@ -131,6 +131,20 @@ func clearChangeZoneImprint(h Host, c *Ctx) {
 // OriginAlternative$ Note. It runs once per resolution: an ask answered in
 // place continues past it and never re-emits it.
 func changeZonePrelude(h Host, c *Ctx, cz *ChangeZoneParams) (to state.Zone, stop bool) {
+	// A nonempty Destination$ the zone vocabulary does not model (Ante,
+	// PlanarDeck) must fail closed BEFORE any prelude side effect or move:
+	// the compiler's graveyard fallback is only a safe default for an
+	// unmodelled destination when the effect still resolves, and moving the
+	// card to the graveyard for "Ante" is a silently wrong board. Emit one
+	// deterministic Note naming the raw text and stop. An absent/empty
+	// Destination$ keeps the pre-existing graveyard default (no text to
+	// name, and its omission is the established contract). This sits above
+	// noteUnread/clearChangeZoneImprint so nothing is mutated before bailing.
+	if cz.DestinationText != "" && !cz.DestinationKnown {
+		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+			Text: "unsupported ChangeZone Destination$ " + cz.DestinationText})
+		return 0, true
+	}
 	// A remembered-player binding alone is not a remembered destroyed object.
 	// Krenko's Buzzcrusher's "for each land destroyed this way" search is
 	// owed only when this resolution actually remembers a land it destroyed;

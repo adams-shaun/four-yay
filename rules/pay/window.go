@@ -1,7 +1,6 @@
 package pay
 
 import (
-	"reflect"
 	"slices"
 	"strings"
 
@@ -115,10 +114,11 @@ func PlanAltOK(a WindowAlt) bool {
 	return a.Mana().Total() > 0
 }
 
-// SameManaAbility is potentialMembersVerify's comparison: the same ability,
+// SameManaAbility is potentialMembersVerify's comparison (and the live
+// paymentPlanCensusOf coverage check): the same ability,
 // or (for an ability a grant builds per call) an identical one.
 func SameManaAbility(a, b *cards.SA) bool {
-	return a == b || (a != nil && b != nil && reflect.DeepEqual(*a, *b))
+	return cards.SAEqual(a, b)
 }
 
 // SameUnits compares two source censuses unit by unit and

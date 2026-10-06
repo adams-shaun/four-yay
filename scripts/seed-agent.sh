@@ -507,6 +507,14 @@ else
 			skipped "ticket cap $CAP reached; $cid and the rest stay in the backlog"
 			break
 		}
+		# Contended-file tickets are disabled (operator, 2026-10-06): they
+		# mostly cleared by themselves when a holder landed (~130 of ~190
+		# ended superseded) while their P1 rounds jumped real work.
+		case $cid in flow-hotspot-*)
+			skipped "$cid: contended-file tickets are disabled"
+			continue
+			;;
+		esac
 		marker_new "cand-$cid" || {
 			skipped "$cid already filed"
 			continue

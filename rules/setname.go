@@ -92,6 +92,26 @@ func (e *Engine) refreshRenames() {
 		}
 		return
 	}
+	// No-SetName gate (setname_gate.go): an empty table with no SetName
+	// effect in either source of active() stays empty, with no rebuild.
+	// The static refresh is the same memoised one active() makes first (an
+	// out-of-band call, as staticControlWants makes; it only bumps the
+	// static build seq active() keys on). Skipped refreshes are recomputed
+	// in full under renameGateVerify and panic on any difference.
+	if len(e.renames) == 0 {
+		e.refreshStaticContinuous()
+		if !setNameInLists(e.continuous, e.staticContinuous) {
+			e.renameEpoch, e.renameVersion, e.renameObjs = len(e.L.Events), e.continuousVersion, len(e.G.Objs)
+			e.renameDSeq = 0
+			if renameGateVerify {
+				if e.anySetNameActive() {
+					panic(fmt.Sprintf("rules: rename gate skipped at log %d but an active SetName effect exists", len(e.L.Events)))
+				}
+				e.verifyBoundedRenames()
+			}
+			return
+		}
+	}
 	// Derived-transparent reuse (derived_transparent.go): a table built at
 	// the derivedSeq active() still holds read names that no battlefield
 	// derivation has changed since -- a transparent rebuild spans no event

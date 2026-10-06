@@ -9,8 +9,8 @@
 # the median of the per-rep CAND/BASE ratios.
 #
 #   ROWS  ';'-separated enginebench argument strings (default: lib.sh DEFAULT_ROWS)
-#   REPS  repetitions per row (default 3)
-#   SECS  -secs for every timed row (default 10)
+#   REPS  repetitions per row (default 2: the smallest ABBA)
+#   SECS  -secs for every timed row (default: BUDGET split over every run, lib.sh)
 #   GOGC  passed through to both binaries if set
 set -euo pipefail
 . "$(dirname "$0")/lib.sh"
@@ -18,17 +18,20 @@ base_rev=${1:?usage: pair.sh BASE CAND [OUT]}
 cand_rev=${2:?usage: pair.sh BASE CAND [OUT]}
 mkdir -p "$BENCH_DIR/results"
 out=${3:-$BENCH_DIR/results/pair-$(date +%Y%m%dT%H%M%S).jsonl}
-reps=${REPS:-3}
-secs=${SECS:-10}
+reps=${REPS:-2}
 base=$("$(dirname "$0")/build.sh" "$base_rev")
 cand=$("$(dirname "$0")/build.sh" "$cand_rev")
 echo "base $base_rev -> $base"
 echo "cand $cand_rev -> $cand"
 echo "results -> $out"
 IFS=';' read -r -a rows <<<"${ROWS:-$DEFAULT_ROWS}"
+secs=${SECS:-$(budget_secs $((${#rows[@]} * reps * 2)))}
+echo "budget ${BUDGET}s: -secs $secs per run"
+budget_start
 run1() { # run1 LABEL BIN REP ROWARGS...
 	local label=$1 bin=$2 rep=$3
 	shift 3
+	budget_left || return 0
 	# shellcheck disable=SC2046
 	heavy "$bin" "$@" -secs "$secs" $(workload_args) -label "$label" -rep "$rep" -out "$out" \
 		>/dev/null 2>>"$out.stderr" || echo "FAIL $label rep=$rep $*" | tee -a "$out.stderr" >&2

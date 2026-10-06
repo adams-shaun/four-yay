@@ -2,7 +2,6 @@ package rules
 
 import (
 	"fmt"
-	"reflect"
 
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
@@ -190,7 +189,7 @@ func (e *Engine) potentialWalkOf(p state.PlayerID, full bool) (state.Mana, []dec
 				e.potentialWalkDepth++
 				want := e.legalActionsWalk(p, &mana, false)
 				e.potentialWalkDepth--
-				if !reflect.DeepEqual(want, opts) {
+				if !optionsEqual(want, opts) {
 					panic(fmt.Sprintf("rules: priority walk served as the potential walk %+v, the priced walk is %+v", opts, want))
 				}
 			}
@@ -209,7 +208,7 @@ func (e *Engine) potentialWalkOf(p state.PlayerID, full bool) (state.Mana, []dec
 				e.potentialWalkDepth++
 				want := e.legalActionsWalk(p, &mana, false)
 				e.potentialWalkDepth--
-				if !reflect.DeepEqual(want, opts) {
+				if !optionsEqual(want, opts) {
 					panic(fmt.Sprintf("rules: potential walk with reused blocks %+v, the walk is %+v", opts, want))
 				}
 			}
@@ -272,7 +271,7 @@ func (e *Engine) verifyPotentialWalk(p state.PlayerID, full bool, mana state.Man
 		panic(fmt.Sprintf("rules: potential walk cache served PotentialMana %v, recomputed %v", mana, wantMana))
 	}
 	if e.potentialWalk.full {
-		if !reflect.DeepEqual(opts, want) {
+		if !optionsEqual(opts, want) {
 			panic(fmt.Sprintf("rules: potential walk cache served %+v, recomputed %+v", opts, want))
 		}
 		return
@@ -329,7 +328,7 @@ func (e *Engine) planCastPaymentMemo(p state.PlayerID, cast decision.PlannedCast
 		if c.plans[i].cast == cast {
 			if walkCacheVerify {
 				fs, fc := costStaticSource{e: e}, paymentCastCandidates{e: e, p: p}
-				if want := e.planCastPaymentChecked(p, cast, &fs, &fc); !reflect.DeepEqual(want, c.plans[i].out) {
+				if want := e.planCastPaymentChecked(p, cast, &fs, &fc); !pay.PlanOutcomeEqual(want, c.plans[i].out) {
 					panic(fmt.Sprintf("rules: cast plan memo for %+v served %+v, re-planned %+v", cast, c.plans[i].out, want))
 				}
 			}

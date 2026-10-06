@@ -75,9 +75,13 @@ func costStatic(reg *cards.Registry, f *cards.Face, name string, req levelb.Requ
 	case "Terror of the Peaks":
 		cands = []costProbe{{spell: "Shock", mana: "R", battlefield: []string{name}, targeted: true, opponent: true}}
 	default:
-		if p, ok := parameterCostProbe(reg, f, name, idx); ok {
-			cands = []costProbe{p}
+		ps, pgap, handled := parameterCostProbes(reg, f, name, idx)
+		if len(ps) > 0 {
+			cands = ps
 			break
+		}
+		if handled && pgap != "" {
+			return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: costStaticGap(f.Statics[idx], pgap)}
 		}
 		var gap string
 		if cands, gap = otherCostProbes(reg, f, name, idx); len(cands) == 0 {
@@ -117,17 +121,17 @@ func costStatic(reg *cards.Registry, f *cards.Face, name string, req levelb.Requ
 	return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: "cost static has no fixture"}
 }
 
-// parameterCostProbe derives the simple own-spell cost shapes from the static
-// itself. Unsupported conditions fail with a specific skip rather than
-// silently guessing a fixture.
-func parameterCostProbe(reg *cards.Registry, f *cards.Face, name string, idx int) (costProbe, bool) {
+// parameterCostProbes derives the own-spell cost shapes from the static
+// itself. handled is false for a static that is not an own-spell cost shape;
+// a handled static with no probe carries the named gap that says why.
+func parameterCostProbes(reg *cards.Registry, f *cards.Face, name string, idx int) (probes []costProbe, gap string, handled bool) {
 	st := f.Statics[idx]
 	if !strings.EqualFold(st.Params["ValidCard"], "Card.Self") || !strings.EqualFold(st.Params["Type"], "Spell") || (st.Params["EffectZone"] != "" && !strings.EqualFold(st.Params["EffectZone"], "All")) {
-		return costProbe{}, false
+		return nil, "", false
 	}
 	base, why := oraclegen.PoolFor(f.ManaCost)
 	if why != "" {
-		return costProbe{}, false
+		return nil, "", false
 	}
 	p := costProbe{spell: name, hand: []string{name}, mana: base}
 	if st.ModeKind() == cards.StaticRaiseCost {
@@ -151,110 +155,50 @@ func parameterCostProbe(reg *cards.Registry, f *cards.Face, name string, idx int
 		// ChooseCard, a behold type with no fixture) must not become a probe
 		// whose precondition is false.
 		p.mustReplay = true
-		return p, true
+		return []costProbe{p}, "", true
 	}
 	if st.ModeKind() != cards.StaticReduceCost {
-		return costProbe{}, false
-	}
-	reduction := 0
-	amount := st.Params["Amount"]
-	switch {
-	case strings.HasPrefix(st.Params["KeywordLine"], "Affinity:"):
-		typ := strings.TrimPrefix(st.Params["KeywordLine"], "Affinity:")
-		// A small, deterministic board turns affinity on without depending on
-		// the corpus-specific maximum reduction.
-		fixtures := affinityFixtures(reg, typ, 3)
-		if len(fixtures) < 3 {
-			return costProbe{}, false
-		}
-		p.battlefield = fixtures
-		reduction = 3
-	case strings.HasPrefix(amount, "__kwAffinity"):
-		return costProbe{}, false
-	case amount == "X" || amount == "Y" || amount == "Z":
-		// Recognised count descriptions get a real matching zone/permanent
-		// fixture; unknown formulas are not represented by a guessed 1.
-		desc := strings.ToLower(st.Params["Description"])
-		switch {
-		case strings.Contains(desc, "instant and sorcery card in your graveyard"):
-			p.graveyard = []string{"Opt", "Shock"}
-		case strings.Contains(desc, "artifact and/or creature card in your graveyard"):
-			p.graveyard = []string{"Silver Myr"}
-		case strings.Contains(desc, "creature card you own in exile and in your graveyard"):
-			p.graveyard = []string{"Grizzly Bears"}
-		case strings.Contains(desc, "each color among permanents you control"):
-			p.battlefield = append([]string(nil), costColourFixtures...)
-		case strings.Contains(desc, "greatest mana value among elementals you control"):
-			p.battlefield = affinityFixtures(reg, "Elemental", 1)
-			if len(p.battlefield) == 0 {
-				return costProbe{}, false
-			}
-		case strings.Contains(desc, "each cave you control"):
-			p.battlefield = affinityFixtures(reg, "Cave", 1)
-			if len(p.battlefield) == 0 {
-				return costProbe{}, false
-			}
-			p.graveyard = []string{"Wastes"}
-		default:
-			return costProbe{}, false
-		}
-		reduction = 1
-	case amount != "":
-		if _, err := fmt.Sscanf(amount, "%d", &reduction); err != nil || reduction < 1 {
-			return costProbe{}, false
-		}
-	default:
-		return costProbe{}, false
-	}
-	// Conditions are served only when this generator can establish their
-	// truth from scenario state. Unknown condition grammars remain named gaps.
-	if cond := strings.ToLower(st.Params["Condition"]); cond != "" {
-		if cond == "delirium" {
-			p.graveyard = appendUnique(p.graveyard, "Wastes", "Opt", "Grizzly Bears", "Silver Myr")
-		} else {
-			return costProbe{}, false
-		}
-	}
-	if strings.Contains(strings.ToLower(st.Params["Description"]), "during your turn") {
-		// The generated cast is p0's turn.
-	} else if st.Params["CheckSVar"] != "" && st.Params["Amount"] != "X" && st.Params["Amount"] != "Y" && st.Params["Amount"] != "Z" {
-		return costProbe{}, false
+		return nil, "", false
 	}
 	if st.Params["ValidSpell"] != "" {
-		return costProbe{}, false
+		// A spell-kind filter (bargained, kicked) needs an additional-cost
+		// payment, not a board; it keeps its own skip reason.
+		return nil, "", false
 	}
-	present := st.Params["IsPresent"]
-	if present != "" {
-		head := strings.SplitN(present, ".", 2)[0]
-		card := costPresentFixtures[head]
-		if card != "" {
-			p.battlefield = appendUnique(p.battlefield, card)
-		}
+	// The amount, the count it tallies and every gate come from the static's
+	// own parameters (costConditionProbes); unknown grammars are named gaps.
+	probes, reduction, gap := costConditionProbes(reg, f, st, name, p)
+	if gap != "" {
+		return nil, gap, true
 	}
 	if target := st.Params["ValidTarget"]; target != "" {
 		// SlotSpecs/Fixtures provides the target objects for ValidTarget. Do not
 		// replace those object refs with the player target used by legacy probes.
 		if strings.Contains(target, "tapped") {
-			p.battlefield = appendUnique(p.battlefield, "Grizzly Bears")
+			for i := range probes {
+				probes[i].battlefield = appendUnique(probes[i].battlefield, "Grizzly Bears")
+			}
 		}
 	}
 	if available := strings.Count(base, "C"); reduction > available {
 		reduction = available
 	}
-	var ok bool
-	p.mana, ok = removeGenericMana(base, reduction)
+	mana, ok := removeGenericMana(base, reduction)
 	if !ok {
-		return costProbe{}, false
+		return nil, "", false
 	}
-	p.mustReplay = true
-	return p, true
+	for i := range probes {
+		probes[i].mana = mana
+		probes[i].mustReplay = true
+	}
+	return probes, "", true
 }
 
 func affinityFixtures(reg *cards.Registry, typ string, count int) []string {
 	// Sort by printed name so fixture selection does not depend on corpus
 	// compilation order. Distinct permanents are required: appendUnique removes
 	// duplicate names from setup and each permanent reduces the cost once.
-	cardsInOrder := append([]*cards.Card(nil), reg.Cards...)
+	cardsInOrder := append([]*cards.Card(nil), reg.AllCards()...)
 	firstName := func(c *cards.Card) string {
 		if len(c.Faces) == 0 || c.Faces[0] == nil {
 			return ""

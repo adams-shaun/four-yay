@@ -304,6 +304,9 @@ type fixture struct {
 	// pre are steps that must run before the card's cast (create a token,
 	// attach an Aura, stamp a this-turn zone change).
 	pre []Step
+	// castMode is the cast option the card's own cast step selects (the
+	// runner's cast_mode); empty is the ordinary cast.
+	castMode string
 }
 
 // combatPlan is the attack/block preamble a fixture needs: attacker is the
@@ -625,8 +628,8 @@ func registryCardType(reg *cards.Registry, cardType string) (string, bool) {
 	if reg == nil {
 		return "", false
 	}
-	for i := range reg.Cards {
-		c := reg.Cards[i]
+	for i := 0; i < reg.Len(); i++ {
+		c := reg.Card(i)
 		for fi := range c.Faces {
 			for _, typ := range c.Faces[fi].Types {
 				if strings.EqualFold(strings.TrimSpace(typ), cardType) && XMageKnown(c.Faces[fi].Name) {
@@ -644,12 +647,12 @@ func registrySubtype(reg *cards.Registry, subtype string) (string, bool) {
 	if reg == nil {
 		return "", false
 	}
-	for i := range reg.Cards {
-		c := reg.Cards[i]
-		for fi := range c.Faces {
-			if faceHasSubtype(c.Faces[fi], subtype) && XMageKnown(c.Faces[fi].Name) {
-				return c.Faces[fi].Name, true
-			}
+	for i := 0; i < reg.Len(); i++ {
+		c := reg.Card(i)
+		// Only the front face: setup deals a card by its front name, so a back
+		// face (Tecutlan, the Searing Rift) is "not dealt".
+		if len(c.Faces) > 0 && faceHasSubtype(c.Faces[0], subtype) && XMageKnown(c.Faces[0].Name) {
+			return c.Faces[0].Name, true
 		}
 	}
 	return "", false
@@ -672,19 +675,37 @@ func registryQuietSubtype(reg *cards.Registry, subtype string) (string, bool) {
 	if reg == nil {
 		return "", false
 	}
-	for i := range reg.Cards {
-		c := reg.Cards[i]
+	for i := 0; i < reg.Len(); i++ {
+		c := reg.Card(i)
 		if len(c.Faces) != 1 {
 			continue
 		}
 		f := c.Faces[0]
 		if !XMageKnown(f.Name) || !faceHasSubtype(f, subtype) || !faceHasSubtype(f, "Creature") ||
-			faceHasSubtype(f, "Legendary") || len(f.Triggers) != 0 || len(f.Statics) != 0 {
+			faceHasSubtype(f, "Legendary") || len(f.Triggers) != 0 || len(f.Statics) != 0 || entersWithCounters(f) {
 			continue
 		}
 		return f.Name, true
 	}
 	return "", false
+}
+
+// entersWithCounters reports a face that would die as a 0/0 without its
+// etbCounter counters (Academy Elite, a 0/0 Wizard): it dies on the
+// battlefield unless it enters through a cast, so it is not an inert setup
+// fixture. The printed-P/T gate matters: a 1/1 etbCounter creature (Arctic
+// Merfolk, whose counter keyword is conditional) survives setup fine, and
+// excluding it would move an already-frozen verdict for no reason.
+func entersWithCounters(f *cards.Face) bool {
+	if !strings.HasPrefix(strings.TrimSpace(f.PT), "0/0") {
+		return false
+	}
+	for _, kw := range f.Keywords {
+		if strings.HasPrefix(strings.ToLower(kw), "etbcounter") {
+			return true
+		}
+	}
+	return false
 }
 
 // faceHasSubtype reports whether the face's printed types include the

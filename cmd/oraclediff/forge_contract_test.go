@@ -200,11 +200,12 @@ func TestForgeDiffIgnoresLibraryTopOnlyForNamedLibrary(t *testing.T) {
 	}
 }
 
-// TestForgeContractStepCarriesNoCastVariant pins what the contract says about
-// costs: an Item step names no kicked or cast_mode, so gorge pays an optional
-// cost only through a decision it logs. If gen ever adds either field, the
+// TestForgeContractStepCastVariant pins what the contract says about costs.
+// gen's Step carries cast_mode, a non-default cast option (currently only
+// "optionalcost") the driver must select, and still carries no kicked, so
+// gorge pays a kick only through a decision it logs. If gen adds kicked, the
 // driver must read it from the step and the contract text must change.
-func TestForgeContractStepCarriesNoCastVariant(t *testing.T) {
+func TestForgeContractStepCastVariant(t *testing.T) {
 	tags := map[string]bool{}
 	st := reflect.TypeOf(oraclegen.Step{})
 	for i := 0; i < st.NumField(); i++ {
@@ -213,9 +214,10 @@ func TestForgeContractStepCarriesNoCastVariant(t *testing.T) {
 	if !tags["ability_index"] || !tags["targets"] {
 		t.Fatalf("precondition: expected step tags not found: %v", tags)
 	}
-	for _, name := range []string{"kicked", "cast_mode"} {
-		if tags[name] {
-			t.Errorf("oraclegen.Step gained %q: the Forge contract (forgeRequest doc) says no step names a cast variant", name)
-		}
+	if !tags["cast_mode"] {
+		t.Errorf("oraclegen.Step lost cast_mode: the Forge contract (forgeRequest doc) says the driver selects the named cast option")
+	}
+	if tags["kicked"] {
+		t.Errorf("oraclegen.Step gained kicked: the Forge contract (forgeRequest doc) says no step names a kick, so gorge pays one only through a logged optional-cost decision")
 	}
 }

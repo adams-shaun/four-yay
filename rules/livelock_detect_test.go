@@ -102,37 +102,71 @@ func refEventSignature(ev events.Event, damageSource state.ObjID, mint uint64) u
 	return h
 }
 
-// TestEventSignatureMatchesByteFormulation pins the register-local FNV fold
-// to the byte-slice one, including the damage-source and mint suffixes.
-func TestEventSignatureMatchesByteFormulation(t *testing.T) {
+// newSignature is the watcher's signature with its damage-source and mint
+// suffixes, exactly as observeFrom composes it.
+func newSignature(ev *events.Event, damageSource state.ObjID, mint uint64) uint64 {
+	sig := eventSignature(ev)
+	if damageSource != 0 {
+		sig = sigMix(sig, uint64(damageSource)|livelockDamageTag)
+	}
+	if mint != 0 {
+		sig = sigMix(sigMix(sig, livelockMintTag), mint)
+	}
+	return sig
+}
+
+// TestEventSignatureEquivalence holds the word-packed signature to the
+// byte-wise FNV-1a formulation it replaced: over a small field alphabet (so
+// equal and near-equal events are common), two events share a new
+// signature exactly when they shared the old one. The watcher only ever
+// compares signatures for equality, so equal equality classes mean equal
+// verdicts.
+func TestEventSignatureEquivalence(t *testing.T) {
 	rng := rand.New(rand.NewPCG(3, 4))
-	for i := 0; i < 5000; i++ {
-		ev := events.Event{Kind: events.Kind(rng.IntN(int(events.NumKinds))), Player: state.PlayerID(rng.IntN(8)),
-			From: state.Zone(rng.IntN(10)), To: state.Zone(rng.IntN(10)), Step: state.Step(rng.IntN(14)),
-			Secret: rng.IntN(2) == 0, Obj: state.ObjID(rng.Uint32()), Counter: []string{"", "P1P1", "TIME", "infect"}[rng.IntN(4)]}
+	type rec struct{ old, new uint64 }
+	var recs []rec
+	counters := []string{"", "P1P1", "TIME", "infect", "LOYALTY", "M1M1x", "abcdefgh", "abcdefghi"}
+	for i := 0; i < 3000; i++ {
+		ev := events.Event{Kind: events.Kind(rng.IntN(3)), Player: state.PlayerID(rng.IntN(2)),
+			From: state.Zone(rng.IntN(2)), To: state.Zone(rng.IntN(2)), Step: state.Step(rng.IntN(2)),
+			Secret: rng.IntN(2) == 0, Obj: state.ObjID(rng.IntN(3)), Counter: counters[rng.IntN(len(counters))],
+			Amount: int32(rng.IntN(5)), Seq: uint64(i), Text: []string{"", "x"}[rng.IntN(2)]}
 		for k := rng.IntN(4); k > 0; k-- {
-			ev.IDs = append(ev.IDs, state.ObjID(rng.Uint32()))
+			ev.IDs = append(ev.IDs, state.ObjID(rng.IntN(2)))
 		}
 		for k := rng.IntN(3); k > 0; k-- {
-			ev.Pairs = append(ev.Pairs, [2]state.ObjID{state.ObjID(rng.Uint32()), state.ObjID(rng.Uint32())})
+			ev.Pairs = append(ev.Pairs, [2]state.ObjID{state.ObjID(rng.IntN(2)), state.ObjID(rng.IntN(2))})
 		}
 		src := state.ObjID(0)
 		if rng.IntN(2) == 0 {
-			src = state.ObjID(1 + rng.Uint32N(1000))
+			src = state.ObjID(1 + rng.IntN(2))
 		}
 		mint := uint64(0)
 		if rng.IntN(2) == 0 {
-			mint = 1 + rng.Uint64()>>1
+			mint = 1 + uint64(rng.IntN(2))
 		}
-		got := eventSignature(&ev)
-		if src != 0 {
-			got = fnvU32(got, uint32(src))
+		recs = append(recs, rec{refEventSignature(ev, src, mint), newSignature(&ev, src, mint)})
+	}
+	equalOld := 0
+	for i := range recs {
+		for j := i + 1; j < len(recs); j++ {
+			eo, en := recs[i].old == recs[j].old, recs[i].new == recs[j].new
+			if eo != en {
+				t.Fatalf("events %d and %d: old signatures equal=%v, new equal=%v", i, j, eo, en)
+			}
+			if eo {
+				equalOld++
+			}
 		}
-		if mint != 0 {
-			got = fnvU64(got, mint)
-		}
-		if want := refEventSignature(ev, src, mint); got != want {
-			t.Fatalf("event %+v (src %d, mint %d): signature %x, byte formulation %x", ev, src, mint, got, want)
-		}
+	}
+	if equalOld == 0 {
+		t.Fatal("alphabet too large: no equal signature pairs exercised")
+	}
+	// A long counter and a long ID list take the overflow path.
+	long := events.Event{Counter: string(make([]byte, 1<<16)), IDs: make([]state.ObjID, 3)}
+	short := long
+	short.Counter = ""
+	if eventSignature(&long) == eventSignature(&short) {
+		t.Fatal("overflow length not folded")
 	}
 }

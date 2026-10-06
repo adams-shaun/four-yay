@@ -76,9 +76,12 @@ tasks = ["review", "triage"]
 [[tiers]]
 name = "sol"
 provider = "openai-codex"
-# 2026-10-05: gpt-6.1-sol (DevDay 2026-09-29) replaces gpt-6-sol: higher
-# agentic-coding scores at ~1/4 the cost per task; smoke-tested via pi.
-model = "gpt-6.1-sol"
+# 2026-10-05: gpt-6.1-sol (DevDay 2026-09-29) replaced gpt-6-sol.
+# 2026-10-06 (operator): the ChatGPT account pi is logged into rejects every
+# sol model ("not supported when using Codex with a ChatGPT account"), so this
+# tier runs gpt-5.6-terra (smoke-tested via pi). Name and tag prefix kept so
+# in-flight round tags stay valid; restore gpt-6.1-sol when sol is back.
+model = "gpt-5.6-terra"
 thinking = "high"
 paid = true
 cap = 0
@@ -375,7 +378,7 @@ env = { GOMEMLIMIT = "1536MiB", GOMAXPROCS = "2", GOGC = "200", GOFLAGS = "-p=2 
 
 [[gates]]
 name = "CR conformance"
-cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "-p", "CPUQuota=200%", "go", "test", "-p=1", "./rules", "-run", "TestCR", "-v"]
+cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "-p", "CPUQuota=400%", "go", "test", "-p=1", "./rules", "-run", "TestCR", "-v"]
 timeout = 300
 # GOGC=200: same setting as the module gate above, for the same reason -- this
 # runs the same rules test binary, whose GC cost GOGC=200 cuts ~20%.
@@ -384,7 +387,7 @@ accept = "orchestrator.hooks:cr_no_fail_lines"
 
 [[gates]]
 name = "TestHeads"
-cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "-p", "CPUQuota=200%", "go", "test", "./rules", "-run", "TestHeads", "-v"]
+cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "-p", "CPUQuota=400%", "go", "test", "./rules", "-run", "TestHeads", "-v"]
 timeout = 120
 # GOGC=200: as for the module and CR gates -- same rules test binary.
 env = { GOMEMLIMIT = "1GiB", GOGC = "200", GOFLAGS = "-p=2 -trimpath" }
@@ -392,7 +395,7 @@ blocking = false          # the TestHeads policy (hooks.testheads_policy) decide
 
 [[gates]]
 name = "make sim"
-cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "-p", "CPUQuota=200%", "make", "sim"]
+cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "-p", "CPUQuota=400%", "make", "sim"]
 timeout = 600
 env = { GOMEMLIMIT = "1GiB", GOFLAGS = "-p=2 -trimpath" }
 accept = "orchestrator.hooks:sim_all_replayed"
@@ -465,10 +468,10 @@ push = false
 # a redeploy kills every in-flight vs-bot game (SIGTERM aborts live matches
 # and the persistence dir is wiped). Deploy by hand: `make deploy-demo`.
 deploy_cmd = []
-# make ledger is regenerable, so it waits at most 300 s for the heavy lock
-# (scripts/heavy_lock.sh) and is SKIPPED (-s: logged, exit 0) rather than
-# stalling the merge path behind a multi-hour lease or a full suite.
-post_merge = [["scripts/heavy_lock.sh", "run", "-w", "300", "-s", "--", "make", "ledger"]]
+# make ledger serialises on its OWN lock (.ds4/ledger.lock, scripts/ledger-lane.sh),
+# never the shared heavy lock (operator, 2026-10-06): behind benches and full
+# suites it stalled every merge. It waits at most 300 s; a failure only logs.
+post_merge = [["env", "LEDGER_LANE_WAIT=300", "make", "ledger"]]
 carry_trailers = []
 
 # config.py:35, 138-163.
@@ -490,7 +493,11 @@ post_gates = "orchestrator.hooks:testheads_policy"
 # it restates them. GOFLAGS adds -trimpath: without it every worktree's
 # absolute path is in every compile's cache key and no seat reuses another's
 # builds (measured: 0 cross-worktree hits; 4/5 with -trimpath).
+# 2026-10-06 (operator): compiles get 4 CPUs. ./rules is one 118k-line
+# package and the compiler parallelises it only up to GOMAXPROCS (max 4);
+# at 2 a seat's cold rules compile took ~1 min. Test runs keep the 2-CPU
+# budget through their own capped scope (AGENTS.md test command).
 [seats.scope]
 memory_max = "4G"
-cpu_quota = "200%"
-env = { GOMAXPROCS = "2", GOMEMLIMIT = "1536MiB", GOFLAGS = "-p=2 -trimpath" }
+cpu_quota = "400%"
+env = { GOMAXPROCS = "4", GOMEMLIMIT = "1536MiB", GOFLAGS = "-p=2 -trimpath" }

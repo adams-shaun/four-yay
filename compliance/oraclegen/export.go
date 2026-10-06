@@ -75,6 +75,11 @@ func (fx Fixture) Prelude() []Step { return fx.pre }
 // combat.
 func (fx *Fixture) AddPrelude(steps ...Step) { fx.pre = append(fx.pre, steps...) }
 
+// SetCastMode makes the card's own cast step select cast option mode (the
+// runner's cast_mode, e.g. "optionalcost"); CastMode reads it back.
+func (fx *Fixture) SetCastMode(mode string) { fx.castMode = mode }
+func (fx Fixture) CastMode() string         { return fx.castMode }
+
 // SlotSpec is one target slot: its filter and whether the cast may omit it.
 type SlotSpec = Slot
 

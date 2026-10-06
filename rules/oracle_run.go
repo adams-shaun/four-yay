@@ -448,7 +448,7 @@ func (r *oracleRun) build(sc oracleScenario) error {
 			return err
 		}
 	}
-	cfg := Config{Seed: 42, Names: []string{"a", "b"}, Decks: decks, Tokens: r.reg.Tokens, NamedCorpus: r.reg.Cards}
+	cfg := Config{Seed: 42, Names: []string{"a", "b"}, Decks: decks, Tokens: r.reg.Tokens, NamedCorpus: r.reg.AllCards()}
 	for p := range sideboards {
 		if len(sideboards[p]) > 0 {
 			// Only a scenario that names a sideboard sets the field, so every
@@ -515,13 +515,7 @@ func (r *oracleRun) build(sc oracleScenario) error {
 				ref = fmt.Sprintf("%s#%d", ref, counts[pl.name])
 			}
 			r.refs[ref] = id
-			backFace := false
-			for _, back := range sc.Setup[fmt.Sprintf("p%d", p)].BackFace {
-				if cards.NormalizeName(back) == cards.NormalizeName(pl.name) {
-					backFace = true
-					break
-				}
-			}
+			backFace := setupPlacedBackFace(sc.Setup[fmt.Sprintf("p%d", p)], pl.name)
 			if from := e.G.Obj(id).Zone; from != pl.zone {
 				pendingBefore := len(e.pendingTriggers)
 				e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: from, To: pl.zone})

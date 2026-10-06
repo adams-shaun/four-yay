@@ -27,6 +27,9 @@ func classifyEventTrigger(t *cards.Trigger) (sub string, ok bool) {
 	if sub, ok := classifyZoneChangeTrigger(t); ok {
 		return sub, true
 	}
+	if sub, ok := classifyRoomTrigger(t); ok {
+		return sub, true
+	}
 	switch t.ModeKind() {
 	case cards.TriggerChangesZone, cards.TriggerChangesZoneAll:
 		// Any non-self Battlefield->Graveyard trigger, whichever side, type

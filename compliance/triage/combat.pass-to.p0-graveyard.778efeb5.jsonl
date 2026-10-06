@@ -1,2 +1,0 @@
-{"shape":{"template":"combat","op":"pass_to","field":"p0.graveyard","diff":"gorge+[Wanderbrine Shield] xmage+[Wanderwine Wisdom]"},"key":"combat | pass_to | p0.graveyard | gorge+[Wanderbrine Shield] xmage+[Wanderwine Wisdom]","cards":1}
-{"card":"Sygg, Wanderwine Wisdom","template":"combat#1.block","status":"diverge","api":"ChangesZone:Animate+Transformed:Animate+Phase:SetState","sets":["ECL"],"detail":"step 2 (pass_to) p0.graveyard: gorge \"[Sygg, Wanderbrine Shield]\", xmage \"[Sygg, Wanderwine Wisdom]\""}

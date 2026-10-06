@@ -52,8 +52,8 @@ func spellCastProbeCauses(reg *cards.Registry, name string, t *cards.Trigger) []
 	if count == 2 {
 		candidates = append([]string{shockProbe}, candidates...)
 	}
-	all := make([]string, 0, len(reg.Cards))
-	for _, c := range reg.Cards {
+	all := make([]string, 0, reg.Len())
+	for _, c := range reg.AllCards() {
 		if len(c.Faces) != 0 {
 			all = append(all, c.Faces[0].Name)
 		}

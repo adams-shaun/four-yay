@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"resolve","field":"permanents","diff":"$CARD types gorge+[allcreaturetypes] xmage+[shapeshifter]"},"key":"activate | resolve | permanents | $CARD types gorge+[allcreaturetypes] xmage+[shapeshifter]","cards":1}
-{"card":"Firdoch Core","template":"activate#0.1","status":"diverge","api":"-","sets":["ECL"],"detail":"step 1 (resolve) permanents: gorge \"c0 o0 Firdoch Core [allcreaturetypes artifact creature kindred] {} 4/4\", xmage \"c0 o0 Firdoch Core [artifact creature kindred shapeshifter] {} 4/4\""}
