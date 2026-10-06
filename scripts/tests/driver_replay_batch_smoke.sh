@@ -388,15 +388,20 @@ check "C a fresh full replay ran without the culprit" $?
 /usr/bin/grep -qE 'LANDED [0-9a-f]{9} t1 t8$' "$L"
 check "C only the non-culprits landed" $?
 
-# ---- D: no single branch clears it: land nothing -------------------------------
+# ---- D: no single branch clears it and main alone agrees: land nothing -----------
+# (brief case b) each branch alone breaks the row, so removing either leaves it
+# broken; main alone is clean, so it is the batch's regression, not main drift.
 mkrepo D
-printf 'Beta/cast-resolve/v1\n' >"$R/always.txt"
-mkticket t1 2026-10-06T03:00:00Z tools/xmageoracle/t1.txt one
-mkticket t3 2026-10-06T04:00:00Z tools/xmageoracle/t3.txt three
+mkticket t1 2026-10-06T03:00:00Z tools/xmageoracle/t1.regress 'Beta/cast-resolve/v1'
+mkticket t3 2026-10-06T04:00:00Z tools/xmageoracle/t3.regress 'Beta/cast-resolve/v1'
 main0=$(git -C "$R" rev-parse main)
 runpass
 has "$L" 'UNATTRIBUTED row Beta/cast-resolve/v1'
 check "D an unattributable row is reported" $?
+has "$L" "MAIN-ALONE Beta/cast-resolve/v1: main alone says 'agree" && hasnt "$L" 'DRIFT-MAIN' && hasnt "$L" 'CULPRIT'
+check "D (b) the row is replayed on main alone, agrees there, and is not main drift" $?
+has "$L" 'HOLD nothing landed' && [ ! -e "$R/.ds4/driver-drift.log" ] && [ ! -e "$R/tickets.out" ]
+check "D (b) the batch HOLDs and records no drift" $?
 hasnt "$L" 'LANDED'
 check "D nothing lands" $?
 [ "$(git -C "$R" rev-parse main)" = "$main0" ]
@@ -796,11 +801,8 @@ mkdrift K4
 gencommit gen.txt changed
 mkticket t1 2026-10-06T03:00:00Z tools/xmageoracle/t1.txt one
 runpass
-has "$L" 'DRIFT-START' && hasnt "$L" 'MERGED-INTO-BATCH t1'
-check "K a parked ticket waits for main's DRIFT pass first" $?
-runpass
-has "$L" 'MERGED-INTO-BATCH t1'
-check "K the parked ticket batches once main's drift is replayed" $?
+hasnt "$L" 'DRIFT-START' && has "$L" 'MERGED-INTO-BATCH t1'
+check "K a parked ticket runs the normal batch, not a DRIFT pass" $?
 [ "$(cat "$R/.ds4/driver-replay-last-main")" = "$(git -C "$R" rev-parse main)" ]
 check "K a batch landing records last-main too" $?
 
@@ -849,8 +851,10 @@ mkticket t3 2026-10-06T04:00:00Z tools/xmageoracle/t3.txt three
 printf 'Beta/cast-resolve/v1\n' >"$R/always.txt"
 echo "2026-10-06 09:00:00 0123456789ab Beta/cast-resolve/v1 | diverge" >"$R/.ds4/driver-drift.log"
 runpass
-hasnt "$L" 'DRIFT-KNOWN' && has "$L" 'UNATTRIBUTED row Beta/cast-resolve/v1'
-check "M2 a drift record for another driver+generator excludes nothing" $?
+hasnt "$L" 'DRIFT-KNOWN' && has "$L" 'DRIFT-MAIN Beta/cast-resolve/v1 diverge'
+check "M2 a drift record for another driver+generator is not DRIFT-KNOWN; the row is re-proved on main alone" $?
+/usr/bin/grep -qE 'LANDED [0-9a-f]{9} t1 t3$' "$L" && hasnt "$L" 'UNATTRIBUTED' && hasnt "$L" 'HOLD'
+check "M2 two tickets with a main-drift row land (fresh main-alone replay)" $?
 
 # ---- N: a manifests-only change drifts, and its commit is a candidate ------------------
 mkdrift N
@@ -863,6 +867,46 @@ has "$L" 'DRIFT-START' && /usr/bin/grep -qE "DRIFT Beta/cast-resolve/v1 diverge 
 check "N a manifests-only drift runs, and the DRIFT row names the manifests commit" $?
 has "$R/tickets.out" "$mc"
 check "N the ticket's candidate commits include the manifests commit" $?
+
+# ---- P: (brief case a) a row that diverges on main alone is main drift, not the batch's ----
+mkrepo P
+mkticket t1 2026-10-06T03:00:00Z tools/xmageoracle/t1.txt one
+printf 'Beta/cast-resolve/v1\n' >"$R/always.txt"
+export DRB_SCENARIO_TRACE=$R/scen.trace
+runpass
+unset DRB_SCENARIO_TRACE
+has "$L" 'DRIFT-MAIN Beta/cast-resolve/v1 diverge' && hasnt "$L" 'UNATTRIBUTED' && hasnt "$L" 'HOLD' && hasnt "$L" 'CULPRIT'
+check "P a row diverging the same way on main alone is DRIFT-MAIN, not UNATTRIBUTED" $?
+/usr/bin/grep -qE 'LANDED [0-9a-f]{9} t1$' "$L" && [ "$(status_of t1)" = merged ] && hasnt "$R/.ds4/issues/t1.md" 'HELD'
+check "P the ticket lands" $?
+git -C "$R" show main:compliance/verdicts/a.jsonl | /usr/bin/grep -q '"card": "Beta".*"status": "diverge"'
+check "P the batch's refreshed row lands for the drift row" $?
+key=$(git -C "$R" ls-tree -d "$(git -C "$R" rev-parse main^1)" -- tools/xmageoracle compliance/oraclegen cmd/oraclediff compliance/manifests | sha1sum | cut -c1-12)
+/usr/bin/grep -qE " $key Beta/cast-resolve/v1 \| diverge" "$R/.ds4/driver-drift.log"
+check "P a drift line is written under the replayed main's key" $?
+[ "$(/usr/bin/grep -c '^TICKET XMage drift: cast-resolve' "$R/tickets.out" 2>/dev/null)" = 1 ] && has "$R/tickets.out" 'Beta/cast-resolve/v1'
+check "P the per-class drift ticket is filed" $?
+[ "$(/usr/bin/grep -c 'probe Beta/cast-resolve/v1 ' "$R/scen.trace")" = 1 ]
+check "P one ticket: the without-candidate replay is reused as main alone (one probe replay)" $? "($(/usr/bin/grep -c 'probe Beta' "$R/scen.trace") probe replays)"
+[ "$(cat "$R/.ds4/driver-replay-last-main")" = "$(git -C "$R" rev-parse main)" ]
+check "P the batch landing records last-main" $?
+
+# ---- P2: a refused DRIFT landing (10:04) leaves the drift unrecorded; the next ticket
+# batch still classifies the generator-drift row as main drift and HOLDs nothing ----
+mkdrift P2
+gencommit x.genregress 'Beta/cast-resolve/v1'
+gc=$(git -C "$R" rev-parse --short HEAD)
+mkticket t1 2026-10-06T03:00:00Z tools/xmageoracle/t1.txt one
+runpass
+hasnt "$L" 'DRIFT-START' && has "$L" 'DRIFT-MAIN Beta/cast-resolve/v1 diverge' && hasnt "$L" 'HOLD'
+check "P2 no DRIFT pass first; the batch proves the row is main drift" $?
+/usr/bin/grep -qE 'LANDED [0-9a-f]{9} t1$' "$L" && [ "$(status_of t1)" = merged ]
+check "P2 the ticket lands" $?
+has "$R/tickets.out" "$gc" && has "$R/.ds4/driver-drift.log" 'Beta/cast-resolve/v1 | diverge'
+check "P2 the drift ticket names the generator commit and the drift log has the row" $?
+runpass
+hasnt "$L" 'DRIFT-START'
+check "P2 the drift the batch covered is not replayed again by a DRIFT pass" $?
 
 # ---- O: a generator change that reaches main during a batch replay is not marked replayed
 mkrepo O
