@@ -153,17 +153,17 @@ func TestActivateSacSelfAndNICKNAME(t *testing.T) {
 // never silently celled.
 func TestActivateSacGapClasses(t *testing.T) {
 	cases := []struct{ cost, gap string }{
-		{"Sac<1/Food>", "Sac<token>"},
-		{"Sac<1/Treasure>", "Sac<token>"},
-		{"Sac<1/Clue>", "Sac<token>"},
-		{"Sac<1/Permanent.token/token>", "Sac<token>"},
-		{"Sac<1/Card.token/token>", "Sac<token>"},
-		{"Sac<3/Artifact.token+WithDifferentNames/artifact tokens>", "Sac<token>"},
+		// A '+' modifier narrows the accepted token; this build does not
+		// evaluate a Sac spec modifier, so both stay named gaps.
+		{"Sac<3/Artifact.token+WithDifferentNames/artifact tokens with different names>", "Sac<token>"},
+		{"Sac<1/Permanent.token+namedWood/token named Wood>", "Sac<token>"},
+		{"Sac<1/Blood>", "Sac<unsupported-filter>"},
 		{"Sac<1/Equipment.Attached/an Equipment attached to NICKNAME>", "Sac<attached>"},
 		{"Sac<1/Aura.Attached>", "Sac<attached>"},
-		{"Sac<2/Artifact>", "Sac<count>"},
-		{"Sac<3/Creature.Other/other creatures>", "Sac<count>"},
-		{"Sac<3/Rat>", "Sac<count>"},
+		// A count above the distinct fixtures the table names.
+		{"Sac<4/Artifact>", "Sac<count>"},
+		{"Sac<7/Creature.Other/other creatures>", "Sac<count>"},
+		{"Sac<4/Rat>", "Sac<count>"},
 		{"Sac<X/Artifact>", "Sac<announced>"},
 		{"Sac<1/Creature.IsSuspected/suspected creature>", "Sac<unsupported-filter>"},
 	}

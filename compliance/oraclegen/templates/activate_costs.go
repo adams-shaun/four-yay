@@ -81,7 +81,7 @@ func activationCostIn(cost, zone string) (pool, gap string) {
 				continue
 			}
 		case "tapXType":
-			if tapXTypeFixtureSupported(tok) {
+			if tapXTypeFixtureSupported(tok) || tokenCostSupported(tok) {
 				continue
 			}
 			return "", tapXTypeGapClass(tok)
@@ -121,7 +121,7 @@ func discardZoneFixtureSupported(tok string) bool {
 		return false
 	}
 	parts := strings.Split(payload, "/")
-	return len(parts) >= 2 && parts[0] == "1" &&
+	return len(parts) >= 2 && (parts[0] == "1" || parts[0] == "0" && strings.EqualFold(parts[1], "Hand")) &&
 		(strings.EqualFold(parts[1], "Hand") || strings.EqualFold(parts[1], "Land"))
 }
 
@@ -271,14 +271,31 @@ func evidenceCostFixtures(tok string) []string {
 	return nil
 }
 
+// tapXTypeFixtures returns the catalogue permanents that pay a tapXType cost.
 func tapXTypeFixtures(tok string) ([]string, bool) {
+	picks, gap := tapXTypeResolve(tok)
+	return picks, gap == ""
+}
+
+// tapXTypePowers are the known power values of the creature fixtures a
+// tapXType total-power (Crew-shaped) cost taps.
+var tapXTypePowers = map[string]int{"Grizzly Bears": 2, "Llanowar Elves": 1, "Nessian Asp": 4, "Colossal Dreadmaw": 6, "Craw Wurm": 6, "Siege Wurm": 5}
+
+// tapXTypeResolve is tapXTypeFixtures with the cause: it returns the picks, or
+// the gap class naming why no catalogue permanent pays the cost. The payload
+// is `count/filter[/description]`; the Forge description is display text and
+// is dropped, so a described filter reads exactly as an undescribed one.
+func tapXTypeResolve(tok string) ([]string, string) {
 	payload, ok := bracketPayload(tok)
 	if !ok {
-		return nil, false
+		return nil, "tapXType<malformed>"
 	}
-	parts := strings.SplitN(payload, "/", 2)
-	if len(parts) != 2 {
-		return nil, false
+	parts := strings.SplitN(payload, "/", 3)
+	if len(parts) < 2 {
+		return nil, "tapXType<malformed>"
+	}
+	if strings.EqualFold(strings.TrimSpace(parts[0]), "X") {
+		return nil, "tapXType<X>"
 	}
 	filter := parts[1]
 	threshold := 0
@@ -287,20 +304,20 @@ func tapXTypeFixtures(tok string) ([]string, bool) {
 		var err error
 		threshold, err = strconv.Atoi(raw)
 		if err != nil || threshold < 1 {
-			return nil, false
+			return nil, "tapXType<unsupported-filter>"
 		}
 		filter = filter[:i]
 	}
 	count := 0
 	if strings.EqualFold(parts[0], "Any") {
 		if threshold == 0 {
-			return nil, false
+			return nil, "tapXType<unsupported-filter>"
 		}
 	} else {
 		var err error
 		count, err = strconv.Atoi(parts[0])
 		if err != nil || count < 1 {
-			return nil, false
+			return nil, "tapXType<unsupported-filter>"
 		}
 	}
 
@@ -310,7 +327,7 @@ func tapXTypeFixtures(tok string) ([]string, bool) {
 	for _, clause := range strings.Split(filter, ";") {
 		clause = strings.ToLower(clause)
 		if strings.Contains(clause, ".token") {
-			return nil, false
+			return nil, "tapXType<token-filter>"
 		}
 		switch {
 		case clause == "artifact" || clause == "artifact.other":
@@ -323,28 +340,33 @@ func tapXTypeFixtures(tok string) ([]string, bool) {
 			choices = append(choices, "Hada Freeblade", "Kazandu Blademaster")
 		case clause == "permanent" || clause == "permanent.other":
 			choices = append(choices, "Llanowar Elves", "Ornithopter", "Forest")
+		case clause == "vehicle" || clause == "vehicle.other":
+			choices = append(choices, "Smuggler's Copter")
+		case clause == "mount" || clause == "mount.other":
+			// XMage's driver cannot pick a Mount card (candidates.go
+			// subtypeBattlefield), so a Mount alternative adds no fixture; an
+			// alternative beside it (Vehicle) pays the cost.
 		default:
-			return nil, false
+			return nil, "tapXType<unsupported-filter>"
 		}
 	}
 	if len(choices) == 0 {
-		return nil, false
+		return nil, "tapXType<unsupported-filter>"
 	}
 	choices = uniqueFixtureNames(choices)
 	if threshold > 0 {
-		// Known power values for the creature fixtures above. Take the highest
-		// available bodies first, then add smaller bodies until Crew is paid.
-		power := map[string]int{"Grizzly Bears": 2, "Llanowar Elves": 1, "Nessian Asp": 4, "Colossal Dreadmaw": 6, "Craw Wurm": 6, "Siege Wurm": 5}
+		// Take the highest available bodies first, then add smaller bodies
+		// until Crew is paid.
 		var creatures []string
 		for _, name := range choices {
-			if power[name] > 0 {
+			if tapXTypePowers[name] > 0 {
 				creatures = append(creatures, name)
 			}
 		}
 		// Catalogue order is deterministic; use descending power with name tie-break.
 		sort.Slice(creatures, func(i, j int) bool {
-			if power[creatures[i]] != power[creatures[j]] {
-				return power[creatures[i]] > power[creatures[j]]
+			if tapXTypePowers[creatures[i]] != tapXTypePowers[creatures[j]] {
+				return tapXTypePowers[creatures[i]] > tapXTypePowers[creatures[j]]
 			}
 			return creatures[i] < creatures[j]
 		})
@@ -352,20 +374,20 @@ func tapXTypeFixtures(tok string) ([]string, bool) {
 		total := 0
 		for _, name := range creatures {
 			selected = append(selected, name)
-			total += power[name]
+			total += tapXTypePowers[name]
 			if total >= threshold {
 				break
 			}
 		}
 		if total < threshold {
-			return nil, false
+			return nil, "tapXType<count-above-catalogue>"
 		}
-		return selected, true
+		return selected, ""
 	}
 	if len(choices) < count {
-		return nil, false
+		return nil, "tapXType<count-above-catalogue>"
 	}
-	return choices[:count], true
+	return choices[:count], ""
 }
 
 func uniqueFixtureNames(names []string) []string {
@@ -383,24 +405,12 @@ func uniqueFixtureNames(names []string) []string {
 func tapXTypeFixtureSupported(tok string) bool { _, ok := tapXTypeFixtures(tok); return ok }
 
 // tapXTypeGapClass keeps census buckets useful without exposing every raw
-// filter payload. Unsupported X counts and token filters are distinct classes;
-// remaining parser/filter shapes share the unsupported-filter bucket.
+// filter payload. Unsupported X counts, token filters and counts above the
+// catalogue are distinct classes; remaining parser/filter shapes share the
+// unsupported-filter bucket.
 func tapXTypeGapClass(tok string) string {
-	payload, ok := bracketPayload(tok)
-	if !ok {
-		return "tapXType<malformed>"
-	}
-	parts := strings.SplitN(payload, "/", 2)
-	if len(parts) != 2 {
-		return "tapXType<malformed>"
-	}
-	if strings.EqualFold(strings.TrimSpace(parts[0]), "X") {
-		return "tapXType<X>"
-	}
-	if strings.Contains(strings.ToLower(parts[1]), ".token") {
-		return "tapXType<token-filter>"
-	}
-	return "tapXType<unsupported-filter>"
+	_, gap := tapXTypeResolve(tok)
+	return gap
 }
 
 func addTapXTypeAnswers(answers [][]oraclegen.XAnswer, step int, cost string, decisions []rules.OracleDecision) {
@@ -427,7 +437,15 @@ func addTapXTypeAnswers(answers [][]oraclegen.XAnswer, step int, cost string, de
 		// Preserve gorge's exact choice, rather than selecting the catalogue
 		// defaults. XAnswersForScenario may encode a batch as one compound
 		// answer, while XMage also needs the selected card labels individually.
-		for _, pick := range d.Picks {
+		var tokenPicks []string
+		for k, pick := range d.Picks {
+			if k < len(d.ObjectPicks) {
+				pick = xmageTokenName(pick, d.ObjectPicks[k])
+			}
+			if isTokenPick(pick) {
+				tokenPicks = append(tokenPicks, pick)
+				continue
+			}
 			present := false
 			for _, answer := range answers[step] {
 				if answer.Seat == 0 && answer.Kind == "choice" && strings.EqualFold(answer.Value, pick) {
@@ -439,6 +457,7 @@ func addTapXTypeAnswers(answers [][]oraclegen.XAnswer, step int, cost string, de
 				answers[step] = append(answers[step], oraclegen.XAnswer{Seat: 0, Kind: "choice", Value: pick})
 			}
 		}
+		answers[step] = appendTokenAnswers(answers[step], 0, tokenPicks...)
 		return
 	}
 	for _, tok := range costTokens(cost) {
@@ -447,6 +466,10 @@ func addTapXTypeAnswers(answers [][]oraclegen.XAnswer, step int, cost string, de
 		}
 		picks, ok := tapXTypeFixtures(tok)
 		if !ok {
+			if needs, isToken := tokenCostNeeds(tok); isToken {
+				// The tokens a prelude made: one answer per tapped token.
+				answers[step] = appendTokenAnswers(answers[step], 0, tokenCostAnswerNames(needs)...)
+			}
 			continue
 		}
 		for _, pick := range picks {
