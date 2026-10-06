@@ -743,6 +743,13 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSt
 					as = append(as, XAnswer{d.Seat, "choice", d.Picks[k]})
 					continue
 				}
+				if m, ok := modeNumberFor(d, k, modes); ok && (m == ModeYesQueue || m == ModeNoQueue) {
+					// A Timetwister-style per-player "may shuffle" GenericChoice
+					// (Turtles in Time): XMage asks chooseUse, so the answer is
+					// yes/no for whichever seat chose.
+					as = append(as, XAnswer{d.Seat, "choice", map[bool]string{true: "yes", false: "no"}[m == ModeYesQueue]})
+					continue
+				}
 				n := i + 1
 				if m, ok := modeNumberFor(d, k, modes); ok {
 					n = m
@@ -1127,6 +1134,17 @@ func allocationColour(d rules.OracleDecision, k int) (byte, bool) {
 // never a valid mode number and is unambiguous.
 const ModeChoiceQueue = 0
 
+// ModeYesQueue and ModeNoQueue are the sentinels for the two labels of a
+// DB$ GenericChoice | AILogic$ Timetwister body (Turtles in Time): a per-player
+// "may shuffle your hand and graveyard" ask that XMage poses as
+// player.chooseUse (the yes/no choice queue), never as a mode. Choices$ lists
+// the yes label first, the no label second. Negative, so neither collides with
+// a real 1-based charm position nor with ModeChoiceQueue.
+const (
+	ModeYesQueue = -1
+	ModeNoQueue  = -2
+)
+
 // modeNumbers maps each charm mode's label (as gorge's mode decision
 // shows it) to its 1-based position in its Choices$ list, for every Charm
 // on the face -- the spell's own and any modal trigger's. It ALSO carries
@@ -1144,6 +1162,23 @@ func modeNumbers(f *cards.Face) map[string]int {
 				continue
 			}
 			out[effects.CharmModeLabel(cards.ResolveSVar(f.SVars, name), name)] = i + 1
+		}
+	}
+	for _, body := range f.SVars {
+		p := svarParams(body)
+		if p["DB"] != "GenericChoice" || !strings.EqualFold(p["AILogic"], "Timetwister") {
+			continue
+		}
+		for i, name := range strings.Split(p["Choices"], ",") {
+			name = strings.TrimSpace(name)
+			if name == "" {
+				continue
+			}
+			sentinel := ModeNoQueue
+			if i == 0 {
+				sentinel = ModeYesQueue
+			}
+			out[effects.CharmModeLabel(cards.ResolveSVar(f.SVars, name), name)] = sentinel
 		}
 	}
 	// The SetChosenMode labels first, so a real Charm mode of the same
