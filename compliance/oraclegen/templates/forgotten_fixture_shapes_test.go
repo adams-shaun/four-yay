@@ -27,15 +27,21 @@ func TestLevelADiscoverSeedsLibrary(t *testing.T) {
 	if len(top) == 0 {
 		t.Fatal("precondition: discover scenario seeded no library_top, so nothing is discoverable")
 	}
-	nonland := false
-	for _, name := range top {
-		if c, ok := reg.Lookup(name); ok && len(c.Faces) > 0 && !c.Faces[0].IsLand() && c.Faces[0].Cmc() <= 10 {
-			nonland = true
-			break
-		}
+	// The FIRST card is what discover 10 finds: it must be a nonland card
+	// with mana value <= 10, so both engines exile the same card and the
+	// Treasure count (10 - mana value) is defined. A qualifying card buried
+	// under the top would let the two engines stop at different cards, so a
+	// weaker "some card qualifies" check is not enough.
+	first := top[0]
+	fc, ok := reg.Lookup(first)
+	if !ok || len(fc.Faces) == 0 {
+		t.Fatalf("library_top[0] %q is not in the corpus", first)
 	}
-	if !nonland {
-		t.Fatalf("library_top %v holds no nonland card with mana value <= 10, so discover 10 finds nothing", top)
+	if fc.Faces[0].IsLand() {
+		t.Fatalf("library_top[0] %q is a land, so discover 10 exiles past it and the discovered card is undefined", first)
+	}
+	if fc.Faces[0].Cmc() > 10 {
+		t.Fatalf("library_top[0] %q has mana value %d > 10, so discover 10 exiles past it", first, fc.Faces[0].Cmc())
 	}
 	if n, _, ok := oraclegen.Settle(reg, it.Scenario); !ok || n == 0 {
 		t.Fatalf("discover scenario does not settle (library_top %v)", top)
@@ -50,28 +56,38 @@ func TestLevelADiscoverSeedsLibrary(t *testing.T) {
 // declaring a non-Mount card the engine never offers. The NoAbilities slot
 // must name a real vanilla creature (Hill Giant), not an ability-bearing card
 // the engine's target decision would reject. The cast therefore names exactly
-// three targets in slot order.
+// three targets in slot order: creature, Vehicle, vanilla.
 func TestLevelATypedGraveyardSlotsFillOnlyServableSlots(t *testing.T) {
 	reg := oracleHarnessCorpus(t)
 	it, skip := Generate(reg, "Rise from the Wreck")
 	if skip != nil {
 		t.Fatalf("Rise from the Wreck: %s", skip.Reason)
 	}
-	var targets []string
-	for _, st := range it.Scenario.Steps {
-		if st.Op == "cast" && st.Card == "p0:Rise from the Wreck" {
-			targets = st.Targets
-			break
-		}
-	}
+	cast := castStep(t, it, "Rise from the Wreck")
+	targets := cast.Targets
 	if len(targets) != 3 {
 		t.Fatalf("Rise from the Wreck cast has %d targets %v, want 3 (creature, Vehicle, vanilla; Mount omitted)", len(targets), targets)
 	}
 	gy := it.Setup["p0"].Graveyard
-	for _, ref := range targets {
-		name := strings.TrimPrefix(ref, "p0:")
-		if !containsString(gy, name) {
+	named := make([]string, len(targets))
+	for i, ref := range targets {
+		named[i] = strings.TrimPrefix(ref, "p0:")
+		if !containsString(gy, named[i]) {
 			t.Errorf("target %q is not in p0's graveyard %v", ref, gy)
+		}
+	}
+	// Each target must match its slot's type, in slot order: creature,
+	// Mount (omitted), Vehicle, creature with no abilities. Asserting only
+	// the count would pass a fixture whose three targets are all creatures.
+	if !faceHasType(t, reg, named[0], "Creature") {
+		t.Errorf("slot 0 (Creature) named %q, not a creature", named[0])
+	}
+	if !faceHasType(t, reg, named[1], "Vehicle") {
+		t.Errorf("slot 1 (Vehicle) named %q, not a Vehicle", named[1])
+	}
+	for _, name := range named {
+		if faceHasType(t, reg, name, "Mount") {
+			t.Errorf("target %q is a Mount, but the Mount slot must stay unserved", name)
 		}
 	}
 	// The last slot is Creature.YouOwn+NoAbilities: its card must be a
@@ -79,9 +95,12 @@ func TestLevelATypedGraveyardSlotsFillOnlyServableSlots(t *testing.T) {
 	// precondition (the engine actually poses a distinct NoAbilities target
 	// decision) and that the picked card is vanilla, so a fixture that named
 	// an ability-bearing creature would fail here rather than pass silently.
-	last := strings.TrimPrefix(targets[len(targets)-1], "p0:")
+	last := named[len(named)-1]
 	if last != "Hill Giant" && last != "Grizzly Bears" {
 		t.Errorf("NoAbilities slot named %q, want a vanilla creature (Hill Giant or Grizzly Bears)", last)
+	}
+	if !faceHasType(t, reg, last, "Creature") {
+		t.Errorf("NoAbilities slot named %q, not a creature", last)
 	}
 	if n, res, ok := oraclegen.Settle(reg, it.Scenario); !ok || n == 0 {
 		t.Fatalf("Rise from the Wreck does not settle: fails=%v", res.Fails)
@@ -114,6 +133,19 @@ func TestLevelADealtDamageSacrificePrelude(t *testing.T) {
 	}
 	if !sawAttack || !sawEndCombat {
 		t.Fatalf("prelude must attack and pass to end of combat (attack=%v end-combat=%v), steps=%v", sawAttack, sawEndCombat, it.Scenario.Steps)
+	}
+	// The additional cost must actually be PAID with the creature that dealt
+	// damage: the cast step carries a choose answer naming it. A scenario
+	// that settled but never selected the sacrifice would otherwise pass.
+	cast := castStep(t, it, "Treacherous Greed")
+	paid := false
+	for _, a := range cast.Answers {
+		if a.Kind == "choose" && containsString(a.Pick, "Grizzly Bears") {
+			paid = true
+		}
+	}
+	if !paid {
+		t.Fatalf("cast does not sacrifice the creature that dealt damage (answers must choose Grizzly Bears): %+v", cast.Answers)
 	}
 	if n, res, ok := oraclegen.Settle(reg, it.Scenario); !ok || n == 0 {
 		t.Fatalf("Treacherous Greed does not settle: fails=%v", res.Fails)
