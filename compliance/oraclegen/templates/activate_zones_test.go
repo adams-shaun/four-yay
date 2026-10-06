@@ -123,7 +123,9 @@ func TestActivateFromGraveyardGalliaExilesOtherCreature(t *testing.T) {
 
 // TestActivateSelfZoneCostsStayGapsElsewhere guards the zone scoping: the
 // channel-style self costs are a cost gap on a battlefield source, and one
-// zone's cost is a gap in the other zone.
+// zone's cost is a gap in the other zone. A non-self graveyard filter cost
+// (ExileFromGrave naming another card's filter) is served from the
+// graveyard, its costFixtures supplying the exiled card.
 func TestActivateSelfZoneCostsStayGapsElsewhere(t *testing.T) {
 	cases := []struct {
 		cost, zone, wantGap string
@@ -136,7 +138,7 @@ func TestActivateSelfZoneCostsStayGapsElsewhere(t *testing.T) {
 		{"3 B ExileFromGrave<1/CARDNAME/this card>", "graveyard", ""},
 		{"3 B ExileFromGrave<1/CARDNAME/this card>", "hand", "ExileFromGrave<...>"},
 		{"4 B ExileFromGrave<1/Creature.Other/another creature card>", "graveyard", ""},
-		{"4 B ExileFromGrave<1/Land.Other>", "graveyard", "ExileFromGrave<...>"},
+		{"4 B ExileFromGrave<1/Land.Other>", "graveyard", ""},
 	}
 	for _, tc := range cases {
 		pool, gap := activationCostIn(tc.cost, tc.zone)
