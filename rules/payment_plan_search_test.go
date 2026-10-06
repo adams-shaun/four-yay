@@ -127,10 +127,15 @@ func paymentPlanSearchOracleOver(e *Engine, p state.PlayerID, cost Cost, choices
 		}
 		walk(at+1, produced, chosen)
 		for _, a := range choices[at] {
-			walk(at+1, pay.ManaAdd(produced, a.Mana), append(chosen[:len(chosen):len(chosen)], a))
+			// The DFS shares one backing array: a sibling overwrites slot
+			// len(chosen) only after the previous sibling's subtree has
+			// returned, and nothing keeps chosen (pay.Witness copies it,
+			// pay.RankPlan only reads it). A fresh copy per branch was
+			// this test oracle's whole allocation, gigabytes per suite run.
+			walk(at+1, pay.ManaAdd(produced, a.Mana), append(chosen, a))
 		}
 	}
-	walk(0, state.Mana{}, nil)
+	walk(0, state.Mana{}, make([]pay.Alt, 0, decision.MaxPaymentActivations))
 	return best, visited
 }
 
