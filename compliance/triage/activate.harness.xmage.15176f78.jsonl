@@ -1,3 +1,0 @@
-{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: Exhaust — Waterbend {N}"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: Exhaust — Waterbend {N}","cards":2}
-{"card":"Invasion Submersible","template":"activate#0.0","status":"harness","api":"ChangesZone:ChangeZone","sets":["TLA"],"detail":"xmage: AssertionError: Can't find ability to activate command: Exhaust — Waterbend {3}"}
-{"card":"The Legend of Kuruk","template":"activate#1.0","status":"harness","api":"-","sets":["TLA"],"detail":"xmage: AssertionError: Can't find ability to activate command: Exhaust — Waterbend {20}"}

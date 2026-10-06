@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: Trance — {N}{R}{G}, {T}"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: Trance — {N}{R}{G}, {T}","cards":1}
-{"card":"Terra, Magical Adept","template":"activate#0.0","status":"harness","api":"ChangesZone:Mill","sets":["FIN"],"detail":"xmage: AssertionError: Can't find ability to activate command: Trance — {4}{R}{G}, {T}"}

@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: {N}{R}{W}, {T}, Sacrifice this land"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: {N}{R}{W}, {T}, Sacrifice this land","cards":1}
-{"card":"Iron Hills","template":"activate#0.1","status":"harness","api":"-","sets":["HOB"],"detail":"xmage: AssertionError: Can't find ability to activate command: {2}{R}{W}, {T}, Sacrifice this land"}

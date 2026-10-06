@@ -1,5 +1,0 @@
-{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: Exhaust — {N}{G}"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: Exhaust — {N}{G}","cards":4}
-{"card":"Elvish Refueler","template":"activate#0.0","status":"harness","api":"-","sets":["DFT"],"detail":"xmage: AssertionError: Can't find ability to activate command: Exhaust — {1}{G}"}
-{"card":"Greenbelt Guardian","template":"activate#0.1","status":"harness","api":"-","sets":["DFT"],"detail":"xmage: AssertionError: Can't find ability to activate command: Exhaust — {3}{G}"}
-{"card":"Hazard of the Dunes","template":"activate#0.0","status":"harness","api":"-","sets":["DFT"],"detail":"xmage: AssertionError: Can't find ability to activate command: Exhaust — {6}{G}"}
-{"card":"Stampeding Scurryfoot","template":"activate#0.0","status":"harness","api":"-","sets":["DFT"],"detail":"xmage: AssertionError: Can't find ability to activate command: Exhaust — {3}{G}"}

@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: Power-up — {N}{G}{G}"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: Power-up — {N}{G}{G}","cards":1}
-{"card":"She-Hulk, Jade Defender","template":"activate#0.0","status":"harness","api":"-","sets":["MSH"],"detail":"xmage: AssertionError: Can't find ability to activate command: Power-up — {4}{G}{G}"}

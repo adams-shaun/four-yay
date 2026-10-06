@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: Hero's Sundering — {N}, {T}"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: Hero's Sundering — {N}, {T}","cards":1}
-{"card":"Venat, Heart of Hydaelyn","template":"activate#0.0","status":"harness","api":"SpellCast:Draw","sets":["FIN"],"detail":"xmage: AssertionError: Can't find ability to activate command: Hero's Sundering — {7}, {T}"}

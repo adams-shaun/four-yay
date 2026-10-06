@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: {N}, {T}, Exile this artifact"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: {N}, {T}, Exile this artifact","cards":1}
-{"card":"Elixir","template":"activate#0.0","status":"harness","api":"-","sets":["FIN"],"detail":"xmage: AssertionError: Can't find ability to activate command: {5}, {T}, Exile this artifact"}

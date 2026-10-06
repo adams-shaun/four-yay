@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: {N}{G}, Exile {this} from your graveyard"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: {N}{G}, Exile {this} from your graveyard","cards":1}
-{"card":"Colossal Rattlewurm","template":"activate#0.0","status":"harness","api":"-","sets":["OTJ"],"detail":"xmage: AssertionError: Can't find ability to activate command: {1}{G}, Exile {this} from your graveyard"}

@@ -1,3 +1,0 @@
-{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: {N}, Exile {this} from your graveyard"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: {N}, Exile {this} from your graveyard","cards":2}
-{"card":"Buried Treasure","template":"activate#0.1","status":"harness","api":"-","sets":["LCI"],"detail":"xmage: AssertionError: Can't find ability to activate command: {5}, Exile {this} from your graveyard"}
-{"card":"Gravestone Strider","template":"activate#0.1","status":"harness","api":"-","sets":["MKM"],"detail":"xmage: AssertionError: Can't find ability to activate command: {2}, Exile {this} from your graveyard"}

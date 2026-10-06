@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"resolve","field":"p0.library_top","diff":"gorge+[Forest, Jace Beleren] xmage+[Glorious Anthem, Grizzly Bears]"},"key":"activate | resolve | p0.library_top | gorge+[Forest, Jace Beleren] xmage+[Glorious Anthem, Grizzly Bears]","cards":1}
+{"card":"Radioactive Spider","template":"activate#0.0","status":"diverge","api":"-","sets":["SPM"],"detail":"step 1 (resolve) p0.library_top: gorge \"[Wastes, Jace Beleren, Wastes, Wastes, Forest]\", xmage \"[Wastes, Glorious Anthem, Grizzly Bears, Wastes, Wastes]\""}

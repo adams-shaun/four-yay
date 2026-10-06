@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: Power-up — {N}{U}{U}{U}"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: Power-up — {N}{U}{U}{U}","cards":1}
-{"card":"Kang the Conqueror","template":"activate#0.0","status":"harness","api":"-","sets":["MSH"],"detail":"xmage: AssertionError: Can't find ability to activate command: Power-up — {5}{U}{U}{U}"}

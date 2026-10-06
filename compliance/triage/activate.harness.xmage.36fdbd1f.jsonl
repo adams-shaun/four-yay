@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: Mental Organism — Pay N life"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: Mental Organism — Pay N life","cards":1}
-{"card":"M.O.D.O.K.","template":"activate#0.0","status":"harness","api":"-","sets":["MSH"],"detail":"xmage: AssertionError: Can't find ability to activate command: Mental Organism — Pay 3 life"}
