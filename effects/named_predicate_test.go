@@ -183,17 +183,17 @@ func TestNamedDFCKeepsFrontFaceAwayFromBattlefield(t *testing.T) {
 	l := events.NewLog(1)
 
 	// Transform the real DFC on the battlefield, then move it out through the
-	// event path. Move intentionally retains FaceIdx, so this reproduces the
-	// lifecycle that must nevertheless regain front-face characteristics in a
-	// library (CR 712).
+	// event path. Per CR 712.8a the exit resets the transformed permanent to
+	// its front face (events/apply_zone.go), so after the move FaceIdx is 0 and
+	// the library object has only its front-face name (CR 712).
 	events.Emit(g, l, events.Event{Kind: events.MoveZone, Obj: o.ID, From: state.ZLibrary, To: state.ZBattlefield})
 	events.Emit(g, l, events.Event{Kind: events.FlipFace, Obj: o.ID, Amount: 1})
 	if !MatchesSpec(g, "Card.namedInsectile Aberration", o.ID, 0) {
 		t.Error("transformed battlefield Delver missed its selected face")
 	}
 	events.Emit(g, l, events.Event{Kind: events.MoveZone, Obj: o.ID, From: state.ZBattlefield, To: state.ZLibrary})
-	if o.FaceIdx != 1 {
-		t.Fatalf("FaceIdx after leaving battlefield = %d, want retained transformed face", o.FaceIdx)
+	if o.FaceIdx != 0 {
+		t.Fatalf("FaceIdx after leaving battlefield = %d, want front face (CR 712.8a reset)", o.FaceIdx)
 	}
 	if !MatchesSpec(g, "Card.namedDelver of Secrets", o.ID, 0) {
 		t.Error("library Delver missed its front face after transforming")
