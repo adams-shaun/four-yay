@@ -378,7 +378,7 @@ env = { GOMEMLIMIT = "1536MiB", GOMAXPROCS = "2", GOGC = "200", GOFLAGS = "-p=2 
 
 [[gates]]
 name = "CR conformance"
-cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "-p", "CPUQuota=200%", "go", "test", "-p=1", "./rules", "-run", "TestCR", "-v"]
+cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "-p", "CPUQuota=400%", "go", "test", "-p=1", "./rules", "-run", "TestCR", "-v"]
 timeout = 300
 # GOGC=200: same setting as the module gate above, for the same reason -- this
 # runs the same rules test binary, whose GC cost GOGC=200 cuts ~20%.
@@ -387,7 +387,7 @@ accept = "orchestrator.hooks:cr_no_fail_lines"
 
 [[gates]]
 name = "TestHeads"
-cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "-p", "CPUQuota=200%", "go", "test", "./rules", "-run", "TestHeads", "-v"]
+cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "-p", "CPUQuota=400%", "go", "test", "./rules", "-run", "TestHeads", "-v"]
 timeout = 120
 # GOGC=200: as for the module and CR gates -- same rules test binary.
 env = { GOMEMLIMIT = "1GiB", GOGC = "200", GOFLAGS = "-p=2 -trimpath" }
@@ -395,7 +395,7 @@ blocking = false          # the TestHeads policy (hooks.testheads_policy) decide
 
 [[gates]]
 name = "make sim"
-cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "-p", "CPUQuota=200%", "make", "sim"]
+cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "-p", "CPUQuota=400%", "make", "sim"]
 timeout = 600
 env = { GOMEMLIMIT = "1GiB", GOFLAGS = "-p=2 -trimpath" }
 accept = "orchestrator.hooks:sim_all_replayed"
@@ -493,7 +493,11 @@ post_gates = "orchestrator.hooks:testheads_policy"
 # it restates them. GOFLAGS adds -trimpath: without it every worktree's
 # absolute path is in every compile's cache key and no seat reuses another's
 # builds (measured: 0 cross-worktree hits; 4/5 with -trimpath).
+# 2026-10-06 (operator): compiles get 4 CPUs. ./rules is one 118k-line
+# package and the compiler parallelises it only up to GOMAXPROCS (max 4);
+# at 2 a seat's cold rules compile took ~1 min. Test runs keep the 2-CPU
+# budget through their own capped scope (AGENTS.md test command).
 [seats.scope]
 memory_max = "4G"
-cpu_quota = "200%"
-env = { GOMAXPROCS = "2", GOMEMLIMIT = "1536MiB", GOFLAGS = "-p=2 -trimpath" }
+cpu_quota = "400%"
+env = { GOMAXPROCS = "4", GOMEMLIMIT = "1536MiB", GOFLAGS = "-p=2 -trimpath" }
