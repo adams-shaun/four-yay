@@ -191,9 +191,14 @@ type oracleExpect struct {
 	Offered        *oracleOffered    `json:"offered,omitempty"`
 	CanBlock       *oracleCanBlock   `json:"can_block,omitempty"`
 	CanAttack      *oracleCanAttack  `json:"can_attack,omitempty"`
-	Count          *oracleCount      `json:"count,omitempty"`
-	Eq             *int              `json:"eq,omitempty"`
-	Want           *bool             `json:"want,omitempty"`
+	// LookAtLibraryTop asserts, per seat, whether that player may look at
+	// the top card of their own library right now (a Continuous MayLookAt$
+	// grant, Engine.MayLookAtLibraryTop): hidden-information permission no
+	// snapshot field carries.
+	LookAtLibraryTop map[string]bool `json:"look_at_library_top,omitempty"`
+	Count            *oracleCount    `json:"count,omitempty"`
+	Eq               *int            `json:"eq,omitempty"`
+	Want             *bool           `json:"want,omitempty"`
 }
 
 type oracleOffered struct {
@@ -510,6 +515,13 @@ func (r *oracleRun) build(sc oracleScenario) error {
 				ref = fmt.Sprintf("%s#%d", ref, counts[pl.name])
 			}
 			r.refs[ref] = id
+			backFace := false
+			for _, back := range sc.Setup[fmt.Sprintf("p%d", p)].BackFace {
+				if cards.NormalizeName(back) == cards.NormalizeName(pl.name) {
+					backFace = true
+					break
+				}
+			}
 			if from := e.G.Obj(id).Zone; from != pl.zone {
 				pendingBefore := len(e.pendingTriggers)
 				e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: from, To: pl.zone})
@@ -529,7 +541,7 @@ func (r *oracleRun) build(sc oracleScenario) error {
 					tail := append([]pendingTrigger(nil), e.pendingTriggers[pendingBefore:]...)
 					for _, pt := range tail {
 						t, _ := e.triggerOf(pt)
-						if setupPlacementDropsTrigger(t, pt.Chapter) {
+						if setupPlacementDropsTrigger(t, pt.Chapter && backFace) {
 							continue
 						}
 						kept = append(kept, pt)
@@ -543,11 +555,8 @@ func (r *oracleRun) build(sc oracleScenario) error {
 				// Amount is the destination face index (1), applied through
 				// events.Apply like every other setup op, so the replay
 				// reconstructs the same face from the log.
-				for _, back := range sc.Setup[fmt.Sprintf("p%d", p)].BackFace {
-					if cards.NormalizeName(back) == cards.NormalizeName(pl.name) {
-						e.emit(events.Event{Kind: events.FlipFace, Obj: id, Amount: 1})
-						break
-					}
+				if backFace {
+					e.emit(events.Event{Kind: events.FlipFace, Obj: id, Amount: 1})
 				}
 			}
 			for _, tapped := range sc.Setup[fmt.Sprintf("p%d", p)].Tapped {
@@ -1651,6 +1660,11 @@ func (r *oracleRun) check(x oracleExpect) []string {
 	for k, want := range x.HandSize {
 		if p, ok := seatOf(k); ok && len(e.G.Zone(state.ZHand, p)) != want {
 			failf("%s hand size %d, want %d", k, len(e.G.Zone(state.ZHand, p)), want)
+		}
+	}
+	for k, want := range x.LookAtLibraryTop {
+		if p, ok := seatOf(k); ok && e.MayLookAtLibraryTop(p) != want {
+			failf("%s may look at library top=%v, want %v", k, !want, want)
 		}
 	}
 	for k, want := range x.GraveyardSize {

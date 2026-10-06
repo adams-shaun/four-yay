@@ -282,13 +282,16 @@ func TestDrawHappensOnceEvenWhenTwoDrawTriggersAreOrdered(t *testing.T) {
 	}
 }
 
-// TestStartingPlayerStillSkipsTheirFirstDraw pins CR 103.8a across the move:
-// turn 1 (the starting player's own first turn) still draws nothing, and
-// turn 2 (the next seat's first turn, but not the game's first turn) draws
-// exactly once. The starting seat is the engine's CR 103.1 toss, read off
-// e.G.Active after New -- never re-derived from the seed, which would make
-// the test compete with the implementation for the same rng stream.
-func TestStartingPlayerStillSkipsTheirFirstDraw(t *testing.T) {
+// TestStartingPlayerSkipsTheirFirstDrawStep pins CR 103.8a: "In a
+// two-player game, the player who plays first skips the draw step (see rule
+// 504) of their first turn." The STEP is skipped -- turn 1 goes from upkeep
+// straight to the precombat main phase with no StepChange to the draw step --
+// so the starting player draws nothing, while turn 2 (the next seat's first
+// turn, but not the game's first turn) enters its draw step and draws once.
+// The starting seat is the engine's CR 103.1 toss, read off e.G.Active after
+// New -- never re-derived from the seed, which would make the test compete
+// with the implementation for the same rng stream.
+func TestStartingPlayerSkipsTheirFirstDrawStep(t *testing.T) {
 	t.Parallel()
 	names := []string{"a", "b"}
 	decks := [][]*cards.Card{mountainDeck(t, 40), mountainDeck(t, 40)}
@@ -300,15 +303,85 @@ func TestStartingPlayerStillSkipsTheirFirstDraw(t *testing.T) {
 	}
 	other := 1 - start
 	handStart := len(e.G.Zone(state.ZHand, start))
-	driveToStep(t, e, 1, start, state.StepDraw)
+	driveToStep(t, e, 1, start, state.StepMain1)
 	if got := len(e.G.Zone(state.ZHand, start)); got != handStart {
-		t.Fatalf("starting player (seat %d) hand at turn 1's draw step = %d, want %d unchanged -- CR 103.8a", start, got, handStart)
+		t.Fatalf("starting player (seat %d) hand at turn 1's main phase = %d, want %d unchanged -- CR 103.8a", start, got, handStart)
+	}
+	if n := stepEntries(e, 1, state.StepDraw); n != 0 {
+		t.Fatalf("turn 1 entered the draw step %d time(s), want 0 -- CR 103.8a skips the whole step", n)
 	}
 
 	handOther := len(e.G.Zone(state.ZHand, other))
 	driveToStep(t, e, 2, other, state.StepDraw)
 	if got := len(e.G.Zone(state.ZHand, other)); got != handOther+1 {
 		t.Fatalf("seat %d hand at turn 2's draw step = %d, want %d -- seat %d is not the starting player", other, got, handOther+1, other)
+	}
+}
+
+// stepEntries counts the StepChange events into step logged during turn.
+func stepEntries(e *Engine, turn int32, step state.Step) int {
+	n, cur := 0, int32(0)
+	for _, ev := range e.L.Events {
+		switch ev.Kind {
+		case events.TurnChange:
+			cur = int32(ev.Amount)
+		case events.StepChange:
+			if cur == turn && ev.Step == step {
+				n++
+			}
+		}
+	}
+	return n
+}
+
+// drawStepDrawSrc is Dictate of Kruphix's trigger: "At the beginning of each
+// player's draw step, that player draws an additional card."
+const drawStepDrawSrc = `Name:Kruphix Dictate
+ManaCost:1 U U
+Types:Enchantment
+T:Mode$ Phase | Phase$ Draw | ValidPlayer$ Player | TriggerZones$ Battlefield | Execute$ TrigDraw | TriggerDescription$ At the beginning of each player's draw step, that player draws an additional card.
+SVar:TrigDraw:DB$ Draw | Defined$ TriggeredPlayer
+Oracle:x
+`
+
+// TestFirstTurnDrawStepTriggerDoesNotFireInTwoPlayer is the measured
+// compliance gap (FDN Dictate of Kruphix/trigger#0.0): a beginning-of-draw-
+// step trigger on the battlefield before turn 1 must not fire on the
+// starting player's first turn in a two-player game, because that turn has
+// no draw step (CR 103.8a). Turn 2's draw step still runs normally: the
+// turn-based draw plus the trigger's additional card. At three seats
+// (CR 103.8c) turn 1 keeps its draw step, draw and trigger.
+func TestFirstTurnDrawStepTriggerDoesNotFireInTwoPlayer(t *testing.T) {
+	t.Parallel()
+	e := newSeats(t, 2)
+	onBoard(t, e, 0, drawStepDrawSrc)
+	if e.G.Turn != 1 || e.G.Active != 0 || e.G.Step >= state.StepDraw {
+		t.Fatalf("fixture: want turn 1 seat 0 before the draw step, got turn %d seat %d step %s", e.G.Turn, e.G.Active, e.G.Step)
+	}
+	hand0 := len(e.G.Zone(state.ZHand, 0))
+	driveToStep(t, e, 1, 0, state.StepMain1)
+	if got := len(e.G.Zone(state.ZHand, 0)); got != hand0 {
+		t.Fatalf("turn 1 hand = %d, want %d unchanged -- the draw-step trigger fired on a skipped draw step", got, hand0)
+	}
+	if n := stepEntries(e, 1, state.StepDraw); n != 0 {
+		t.Fatalf("turn 1 entered the draw step %d time(s), want 0", n)
+	}
+
+	hand1 := len(e.G.Zone(state.ZHand, 1))
+	driveToStep(t, e, 2, 1, state.StepMain1)
+	if got := len(e.G.Zone(state.ZHand, 1)); got != hand1+2 {
+		t.Fatalf("turn 2 hand = %d, want %d -- the turn draw plus the trigger's additional card", got, hand1+2)
+	}
+	if n := stepEntries(e, 2, state.StepDraw); n != 1 {
+		t.Fatalf("turn 2 entered the draw step %d time(s), want 1", n)
+	}
+
+	m := newSeats(t, 3)
+	onBoard(t, m, 0, drawStepDrawSrc)
+	handM := len(m.G.Zone(state.ZHand, 0))
+	driveToStep(t, m, 1, 0, state.StepMain1)
+	if got := len(m.G.Zone(state.ZHand, 0)); got != handM+2 {
+		t.Fatalf("3-seat turn 1 hand = %d, want %d -- CR 103.8c: nobody skips the first draw step", got, handM+2)
 	}
 }
 

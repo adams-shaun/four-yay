@@ -183,9 +183,10 @@ func TestNamedDFCKeepsFrontFaceAwayFromBattlefield(t *testing.T) {
 	l := events.NewLog(1)
 
 	// Transform the real DFC on the battlefield, then move it out through the
-	// event path. Per CR 712.8a the exit resets the transformed permanent to
-	// its front face (events/apply_zone.go), so after the move FaceIdx is 0 and
-	// the library object has only its front-face name (CR 712).
+	// event path. Move resets FaceIdx (CR 712.8a), and the predicates must
+	// answer from the front face either way: below, a stale transformed
+	// FaceIdx is forced back on so the characteristic path off the battlefield
+	// is still pinned independently of the reset (CR 712).
 	events.Emit(g, l, events.Event{Kind: events.MoveZone, Obj: o.ID, From: state.ZLibrary, To: state.ZBattlefield})
 	events.Emit(g, l, events.Event{Kind: events.FlipFace, Obj: o.ID, Amount: 1})
 	if !MatchesSpec(g, "Card.namedInsectile Aberration", o.ID, 0) {
@@ -193,7 +194,14 @@ func TestNamedDFCKeepsFrontFaceAwayFromBattlefield(t *testing.T) {
 	}
 	events.Emit(g, l, events.Event{Kind: events.MoveZone, Obj: o.ID, From: state.ZBattlefield, To: state.ZLibrary})
 	if o.FaceIdx != 0 {
-		t.Fatalf("FaceIdx after leaving battlefield = %d, want front face (CR 712.8a reset)", o.FaceIdx)
+		t.Fatalf("FaceIdx after leaving battlefield = %d, want front face (CR 712.8a)", o.FaceIdx)
+	}
+	if !MatchesSpec(g, "Card.namedDelver of Secrets", o.ID, 0) {
+		t.Error("library Delver missed its front face after leaving the battlefield")
+	}
+	o.SetFaceIdx(1)
+	if o.FaceIdx != 1 {
+		t.Fatal("precondition: could not force a stale transformed FaceIdx")
 	}
 	if !MatchesSpec(g, "Card.namedDelver of Secrets", o.ID, 0) {
 		t.Error("library Delver missed its front face after transforming")
@@ -204,7 +212,7 @@ func TestNamedDFCKeepsFrontFaceAwayFromBattlefield(t *testing.T) {
 
 	// sameName takes a name from its source too. A candidate front-face Delver
 	// must still share its source's name after that source transformed and left
-	// the battlefield; retaining FaceIdx must not make it source the back name.
+	// the battlefield; a stale transformed FaceIdx must not make it source the back name.
 	candidate := g.AddObject(delver, 0)
 	g.SetZone(state.ZLibrary, 0, append(g.Zone(state.ZLibrary, 0), candidate.ID))
 	if !MatchesObjectCtx(g, "Card.sameName", candidate, SpecContext{Source: o.ID}) {

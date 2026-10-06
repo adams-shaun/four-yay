@@ -28,6 +28,10 @@ type conditionPrelude struct {
 	// lets the activate and trigger templates label the prelude's activations
 	// for XMage exactly as they label their own.
 	xability []string
+	// life is p0's setup life total when nonzero: an activation gated on
+	// "at least N life" (Count$YourLifeTotal against a literal or a
+	// starting-life offset) sets it rather than gaining the life by a cast.
+	life int32
 }
 
 // conditionPreludes offers condition setup candidates in stable order. It

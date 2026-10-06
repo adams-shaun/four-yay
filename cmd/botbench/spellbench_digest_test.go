@@ -47,7 +47,11 @@ import (
 // asks and taken answers), the mechanism evidence a mulligan policy A/B
 // reads. The field is the only mover: dropping the key from the canonical
 // rows reproduces the sb-pursuit golden byte for byte.
-const smokeDigestGolden = "e304d5fcf291be8931d03c5b2db2b1ae0ac05ddeec0649c4bf0a31e126d849e4"
+//
+// Re-pinned for CR 103.8a's turn-1 draw STEP skip (2026-10-06): the
+// starting player's first turn no longer has a draw step, so every game's
+// intent stream (and the per-game rows recording it) moves.
+const smokeDigestGolden = "dc4be0b6d55cb345962cc8f2f97c9e12fb49fac7981e5d234cded66cf62f467f"
 
 // TestSpellbenchSmokeDigestIsStable plays the smoke run and compares its
 // games.jsonl digest against the golden above.

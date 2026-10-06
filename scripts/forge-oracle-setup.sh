@@ -87,6 +87,9 @@ m2=$root/m2
 # only trigger javac in forge-oracle-run.sh, not a Maven build.
 if [ "$rebuild" = 1 ] || [ "$(cat "$root/build.ref" 2>/dev/null)" != "$oref" ]; then
   start=$(date +%s)
+  # The fork's .mvn/maven.config names its settings file by a relative path,
+  # so Maven must run from the clone root, not the caller's directory.
+  cd "$clone"
   GORGE_ROOT=$here "$here/scripts/heavy.sh" heavy --mem 7G --wait 3600 --name forge-oracle-build -- \
     /usr/bin/time -v -o "$root/build.time" \
     "$mvn" -B -T 2 -f "$clone/pom.xml" -pl forge-core,forge-game,forge-ai -am install -DskipTests -Dmaven.repo.local="$m2"

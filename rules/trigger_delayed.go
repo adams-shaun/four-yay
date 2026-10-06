@@ -454,19 +454,6 @@ func (e *Engine) checkEventDelayedTriggers(ev events.Event, lki *state.Object) {
 			}
 			referentsArg = nil
 		} else if dt.EventMode == "ChangesZone" {
-			// The Earthbend return promise. destinationAdmits handles the
-			// comma-separated Destination$ list (Graveyard,Exile) that
-			// trigmatch.ZoneChangeMatches reads with the single-word effects.ParseZone
-			// -- the engine-wide comma-Destination$ defect, ledgered
-			// separately. The special case is local to delayed
-			// registrations, so a face trigger keeps the existing single-word
-			// reading; a single-zone string is not touched at all.
-			if d, ok := t.Param(cards.PKDestination); ok && strings.Contains(d, ",") {
-				if !zoneDelayedDestinationAdmits(d, ev.To) {
-					continue
-				}
-				delete(t.Params, "Destination")
-			}
 			if !trigmatch.ZoneChangeMatchesWithCapture(boardOf(e), t, dt.Source, ev, lki, dt.Remembered) {
 				continue
 			}

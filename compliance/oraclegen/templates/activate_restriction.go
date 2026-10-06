@@ -146,7 +146,7 @@ func restrictCandidates(sources [][]conditionPrelude) []conditionPrelude {
 func (c conditionPrelude) empty() bool {
 	return len(c.hand) == 0 && len(c.battlefield) == 0 && len(c.tapped) == 0 &&
 		len(c.graveyard) == 0 && len(c.steps) == 0 && len(c.counters) == 0 &&
-		len(c.opponentHand) == 0 && len(c.opponentBattlefield) == 0
+		len(c.opponentHand) == 0 && len(c.opponentBattlefield) == 0 && c.life == 0
 }
 
 // activationPresentPrelude builds candidate setups for an IsPresent$ filter.
@@ -413,6 +413,11 @@ func activationSVarPrelude(reg *cards.Registry, f *cards.Face, check, compare st
 		// The CheckSVar$ value is the body inline (Omenport Vigilante).
 		body = check
 	}
+	if life, ok := lifeTotalGate(f, body, compare); ok {
+		// The gate reads p0's own life total; setup sets it outright, which
+		// both engines take as the seat's starting state.
+		return []conditionPrelude{{life: life}}, ""
+	}
 	n := staticCountFrom(compare)
 	var out []conditionPrelude
 	if pre, ok := staticBodyFixture(reg, body, n); ok {
@@ -439,6 +444,67 @@ func activationSVarPrelude(reg *cards.Registry, f *cards.Face, check, compare st
 		return out, ""
 	}
 	return nil, "activation restriction: SVar (" + svarLabel(check, body) + ")"
+}
+
+// startingLife is the two-player starting life total both engines deal
+// (CR 103.4); Count$YourStartingLife reads it.
+const startingLife = 20
+
+// lifeTotalGate reads an activation restriction on p0's own life total
+// (CheckSVar$ <V> with V = Count$YourLifeTotal) and returns the life total
+// that satisfies it: SVarCompare$ GE<n> / GT<n> with n a literal or an SVar
+// counting Count$YourStartingLife[/Plus.k] (Ayli, Eternal Pilgrim and
+// Speaker of the Heavens: "at least k life more than your starting life
+// total"). ok is false for any other body or comparison.
+func lifeTotalGate(f *cards.Face, body, compare string) (int32, bool) {
+	if !strings.EqualFold(strings.TrimSpace(body), "Count$YourLifeTotal") {
+		return 0, false
+	}
+	compare = strings.TrimSpace(compare)
+	if len(compare) < 3 {
+		return 0, false
+	}
+	op, rhs := strings.ToUpper(compare[:2]), compare[2:]
+	n, ok := lifeGateValue(f, rhs)
+	if !ok {
+		return 0, false
+	}
+	switch op {
+	case "GE":
+	case "GT":
+		n++
+	default:
+		return 0, false
+	}
+	if n < 1 {
+		return 0, false
+	}
+	return int32(n), true
+}
+
+// lifeGateValue evaluates a life-gate comparand: a literal, or an SVar whose
+// body is Count$YourStartingLife with an optional /Plus.k offset.
+func lifeGateValue(f *cards.Face, rhs string) (int, bool) {
+	if n, err := strconv.Atoi(strings.TrimSpace(rhs)); err == nil {
+		return n, true
+	}
+	body := strings.TrimSpace(f.SVars[strings.TrimSpace(rhs)])
+	head, offset, hasOffset := strings.Cut(body, "/")
+	if !strings.EqualFold(head, "Count$YourStartingLife") {
+		return 0, false
+	}
+	if !hasOffset {
+		return startingLife, true
+	}
+	k, ok := strings.CutPrefix(offset, "Plus.")
+	if !ok {
+		return 0, false
+	}
+	v, err := strconv.Atoi(k)
+	if err != nil {
+		return 0, false
+	}
+	return startingLife + v, true
 }
 
 // lifeLossBody reports whether an SVar body counts life an opponent lost or
@@ -497,6 +563,7 @@ func mergeConditionPreludes(parts []conditionPrelude) conditionPrelude {
 		out.graveyard = append(out.graveyard, p.graveyard...)
 		out.steps = append(out.steps, p.steps...)
 		out.xability = append(out.xability, p.xability...)
+		out.life = max(out.life, p.life)
 		for card, kinds := range p.counters {
 			if out.counters == nil {
 				out.counters = map[string]map[string]int{}
@@ -518,6 +585,10 @@ func mergeConditionPreludes(parts []conditionPrelude) conditionPrelude {
 func applyActivationPrelude(p0 oraclegen.Seat, name string, pre conditionPrelude) (oraclegen.Seat, []oraclegen.Step) {
 	p0.Hand = append(p0.Hand, pre.hand...)
 	p0.Graveyard = append(p0.Graveyard, pre.graveyard...)
+	if pre.life > 0 {
+		life := pre.life
+		p0.Life = &life
+	}
 	for _, card := range pre.battlefield {
 		p0.Battlefield = appendFixtureUnique(p0.Battlefield, card)
 	}

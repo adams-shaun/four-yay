@@ -50,6 +50,11 @@ type Seat struct {
 	Counters map[string]map[string]int32 `json:"counters,omitempty"`
 	// Speed is the seat's starting speed, 0..4 (the runner's setup field).
 	Speed int32 `json:"speed,omitempty"`
+	// Life is the seat's starting life total when set (the runner's and the
+	// XMage driver's setup "life"); nil keeps the format's starting life. An
+	// activation gated on "at least N life" (Ayli's CheckSVar$ X |
+	// SVarCompare$ GEY over Count$YourLifeTotal) rides it.
+	Life *int32 `json:"life,omitempty"`
 }
 
 // WithCounters returns s with n more counters of kind on its card name. The
@@ -150,7 +155,10 @@ type Expect struct {
 	Offered        *Offered   `json:"offered,omitempty"`
 	CanBlock       *CanBlock  `json:"can_block,omitempty"`
 	CanAttack      *CanAttack `json:"can_attack,omitempty"`
-	Want           *bool      `json:"want,omitempty"`
+	// LookAtLibraryTop is the runner's per-seat "may look at the top card of
+	// their library" assertion (rules oracleExpect.LookAtLibraryTop).
+	LookAtLibraryTop map[string]bool `json:"look_at_library_top,omitempty"`
+	Want             *bool           `json:"want,omitempty"`
 }
 
 // Answer is a queued answer for gorge's runner (kind = decision kind).
@@ -989,6 +997,13 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSt
 			if yn, ok := yesNo(d); ok {
 				as = append(as, XAnswer{d.Seat, "choice", yn})
 				break
+			}
+			if d.Resume == "sacrifice" && d.Min == 0 && len(d.Picks) > 0 {
+				// An accepted optional sacrifice ("any opponent may sacrifice
+				// a creature"): XMage asks chooseUse before the pick
+				// (DesecrationDemon.java:77, DoIfCostPaid), so the pick needs
+				// a "yes" ahead of it. The decline already scripts "no".
+				as = append(as, XAnswer{d.Seat, "choice", "yes"})
 			}
 			if len(d.Picks) > 1 && allChoiceQueue(d) {
 				// One makeChoose dialog consumes ONE definition, whose own
