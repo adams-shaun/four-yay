@@ -66,8 +66,9 @@ func TestPaymentPlanShapeGate(t *testing.T) {
 }
 
 // PP-08 keeps the cost-class exclusions that were already in place before
-// this ticket: an {X}, hybrid, Phyrexian or snow printed cost still receives
-// no plan, now with the machine-readable cost detail. This is the invariant
+// this ticket: an {X}, hybrid or snow printed cost still receives no plan, now
+// with the machine-readable cost detail. A Phyrexian cost is no longer in this
+// list (fb-20261006T065812Z-2782e8eb, see payment_plan_phyrexian_test.go). This is the invariant
 // the gaps audit proved on main; it must not regress when the additional-cost
 // and contribution gates above were added.
 func TestPaymentPlanShapeGateCostClassesStillDecline(t *testing.T) {
@@ -77,7 +78,6 @@ func TestPaymentPlanShapeGateCostClassesStillDecline(t *testing.T) {
 	}{
 		{"x", "X R", "cost:x"},
 		{"hybrid", "R/G", "cost:hybrid"},
-		{"phyrexian", "R/P", "cost:phyrexian"},
 		{"snow", "S", ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -89,7 +89,7 @@ func TestPaymentPlanShapeGateCostClassesStillDecline(t *testing.T) {
 			got := e.PlanCastPayment(0, paymentCast(spell))
 			// A snow cost is refused even earlier (the candidate walk), so its
 			// Detail is empty; the contract here is only that no plan is
-			// offered. X/hybrid/Phyrexian reach the cost classifier and name
+			// offered. X/hybrid reach the cost classifier and name
 			// their class.
 			if got.Plan != nil || got.Reason != "unsupported" || (tc.detail != "" && got.Detail != tc.detail) {
 				t.Fatalf("cost class %s outcome = %+v, want unsupported detail %q", tc.name, got, tc.detail)
