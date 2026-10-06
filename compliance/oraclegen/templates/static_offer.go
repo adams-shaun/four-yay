@@ -33,6 +33,29 @@ import (
 // card is hidden information neither engine's snapshot carries.
 const staticLookAtReason = "look-at not observable"
 
+// staticOffBattlefieldGrantGap names the skip for an AddAbility$ grant whose
+// static sits off the battlefield (the Surveyor cycle's graveyard "Max speed
+// -- {3}, Exile this card from your graveyard: Draw a card."). The engine
+// offers no activation for such a grant: collectAddAbilityCarriers is read
+// only by the mana-ability loops (rules/mana_activation.go), so a graveyard
+// AddAbility$ never reaches the offered-option list -- a graveyard activation
+// is not an "activate" option even at max speed (measured: with the Surveyor
+// in p0's graveyard and Speed 4, the pending options carry no activate). The
+// grant is named separately from staticConditionGap's MaxSpeed reason so the
+// census tells an engine gap apart from a setup gap. A BATTLEFIELD grant stays
+// with the ordinary observations: the engine does offer it (a max-speed
+// "{2}: Draw a card" on a permanent), so it is not this skip.
+func staticOffBattlefieldGrantGap(st cards.Static) string {
+	if st.ParamStr(cards.PKAddAbility) == "" {
+		return ""
+	}
+	z := strings.TrimSpace(st.ParamStr(cards.PKEffectZone))
+	if z == "" || strings.EqualFold(z, "Battlefield") {
+		return ""
+	}
+	return "granted ability in " + z + " is not offered by the engine"
+}
+
 // offerProbeNames are the candidate probe cards, tried in this order. A static
 // whose Affected$ filter the first probe does not satisfy is retried with the
 // next, so the probe that serves a row is the first card gorge offers (and

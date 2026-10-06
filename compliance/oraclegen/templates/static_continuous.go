@@ -135,6 +135,9 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 	if st.HasParam(cards.PKClassBand) {
 		return skip(staticClassReason)
 	}
+	if gap := staticOffBattlefieldGrantGap(st); gap != "" {
+		return skip(gap)
+	}
 	if gap := staticObserveGap(f, st); gap != "" {
 		return skip(gap)
 	}

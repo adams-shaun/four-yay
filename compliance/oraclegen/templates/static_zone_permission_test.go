@@ -143,12 +143,17 @@ func TestStaticZonePermissionLifelinkOnSpells(t *testing.T) {
 	}
 }
 
-// TestStaticZonePermissionNamedSkips keeps the two rows this level cannot
-// observe apart from the generic "not observable" bucket.
+// TestStaticZonePermissionNamedSkips keeps the rows this level cannot
+// observe apart from the generic "not observable" bucket: a look-at
+// permission, and the Surveyor cycle's graveyard AddAbility$ grant, which the
+// engine offers no activation for.
 func TestStaticZonePermissionNamedSkips(t *testing.T) {
 	for _, tc := range []struct{ card, key, reason string }{
 		{"Glarb, Calamity's Augur", "static#0.0", "static look-at not observable"},
-		{"Glitch Ghost Surveyor", "static#0.0", "static needs max speed (setup has no speed knob)"},
+		{"Glitch Ghost Surveyor", "static#0.0", "static granted ability in Graveyard is not offered by the engine"},
+		{"Goblin Surveyor", "static#0.0", "static granted ability in Graveyard is not offered by the engine"},
+		{"Loxodon Surveyor", "static#0.0", "static granted ability in Graveyard is not offered by the engine"},
+		{"Mutant Surveyor", "static#0.0", "static granted ability in Graveyard is not offered by the engine"},
 	} {
 		_, skip := zoneItem(t, tc.card, tc.key)
 		if skip == nil || skip.Reason != tc.reason {
