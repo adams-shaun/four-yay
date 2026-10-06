@@ -83,9 +83,9 @@ describe('layout profile model', () => {
     expect(a.panels.prompt.x).not.toBe(0.1);
   });
 
-  it('defaults payment prompts to the rail and round-trips rail width while accepting old profiles', () => {
+  it('defaults prompts to the lower rail slot and round-trips rail width while accepting old profiles', () => {
     const p = defaultProfile();
-    expect(p.panels.prompt.placement).toBe('dock');
+    expect(p.panels.prompt.placement).toBe('dock-bottom');
     expect(p.panels.prompt.placement).not.toBe('table');
     p.panels.railWidth = 0.32;
     expect(p.panels.railWidth).not.toBe(defaultProfile().panels.railWidth);

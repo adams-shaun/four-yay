@@ -113,7 +113,7 @@
      that guard has preserved any live End Turn/hard-skip run underneath. -->
 <svelte:window onkeydown={closeOnEscape} />
 
-<button type="button" class="feedback-badge" onclick={toggle} aria-haspopup="dialog" aria-expanded={open}>
+<button type="button" class="feedback-badge" data-feedback-button onclick={toggle} aria-haspopup="dialog" aria-expanded={open}>
   Feedback
 </button>
 
@@ -158,7 +158,9 @@
     bottom: var(--sp-2);
     right: var(--sp-2);
     z-index: 30;
-    padding: var(--sp-1) var(--sp-3);
+    box-sizing: border-box;
+    height: var(--feedback-h, 1.75rem);
+    padding: 0 var(--sp-3);
     border: var(--edge-w, 1px) solid var(--edge-inst);
     border-radius: var(--radius);
     background: var(--instrument);
