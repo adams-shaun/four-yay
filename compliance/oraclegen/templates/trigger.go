@@ -92,6 +92,12 @@ func triggerFires(reg *cards.Registry, f *cards.Face, name string, req levelb.Re
 		}
 	}
 	if !fired {
+		if triggerFromGraveyard(f, req) {
+			// The card sat in the graveyard, where the trigger functions,
+			// and its own condition (a threshold, an event count) still
+			// held it back: a named reason, not the bare "did not fire".
+			return skip("did not fire from the graveyard")
+		}
 		return skip("did not fire")
 	}
 	return skip("no fixture gorge can play")
@@ -99,11 +105,17 @@ func triggerFires(reg *cards.Registry, f *cards.Face, name string, req levelb.Re
 
 func triggerScenario(f *cards.Face, name string, c triggerCause, req levelb.Requirement, steps []oraclegen.Step, fx *oraclegen.Fixture) oraclegen.Scenario {
 	p0, p1 := mergedFixtureSeats(fx)
-	p0.Battlefield = appendFixtureUnique(p0.Battlefield, name)
+	grave := triggerFromGraveyard(f, req)
+	if grave {
+		p0.Graveyard = appendFixtureUnique(p0.Graveyard, name)
+	} else {
+		p0.Battlefield = appendFixtureUnique(p0.Battlefield, name)
+	}
 	p0.Hand = append(p0.Hand, c.hand...)
 	if c.selfInHand || c.castSelfX {
 		p0.Battlefield = removeString(p0.Battlefield, name)
-	} else {
+		p0.Graveyard = removeString(p0.Graveyard, name)
+	} else if !grave {
 		setupBackFace(&p0, name, req)
 	}
 	for _, b := range c.battlefield {
@@ -179,6 +191,19 @@ func triggerWithFixture(reg *cards.Registry, f *cards.Face, name string, req lev
 		copy(it.XAbility[len(triggerSteps(f, name, c, nil, fx)):], c.xability)
 	}
 	return it, true, true
+}
+
+// triggerFromGraveyard reports whether the trigger indexed by req functions
+// from its owner's graveyard (TriggerZones$ names Graveyard). Such a trigger
+// only fires with its source in the graveyard, so the scenario places the
+// card there instead of on the battlefield. A slot that does not parse names
+// no trigger and is not graveyard-scoped.
+func triggerFromGraveyard(f *cards.Face, req levelb.Requirement) bool {
+	idx, err := strconv.Atoi(req.Slot)
+	if err != nil || idx < 0 || idx >= len(f.Triggers) {
+		return false
+	}
+	return strings.Contains(strings.ToLower(f.Triggers[idx].ParamStr(cards.PKTriggerZones)), "graveyard")
 }
 
 // abilityOnStack reports whether any snapshot shows an ability stack entry

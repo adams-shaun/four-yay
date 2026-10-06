@@ -64,7 +64,7 @@ func triggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards.Tri
 	creature := f.IsCreature()
 	switch sub {
 	case "trigger.etb-other":
-		cast(bearsProbe)
+		return etbProbeCauses(reg, name, t)
 	case "trigger.dies":
 		if !creature {
 			return nil, "dies needs a creature"
