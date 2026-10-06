@@ -331,11 +331,15 @@ func (cs *Census) WriteDashboard(w io.Writer, sets []SetStatus, head string) {
 const RatchetFile = "compliance/ratchet.json"
 
 // RatchetEntry is one set's floor and ceiling: the level it is declared at
-// (which may only rise) and the outstanding count at level A (which may
-// only fall).
+// (which may only rise), the outstanding count at level A (which may only
+// fall), and, once the set has been measured at level B, its level-B
+// outstanding count (which may only fall). OutstandingB is nil when the set
+// has never been measured at B (an absent field in compliance/ratchet.json);
+// only a level-B write sets it, and a level-A write carries it forward.
 type RatchetEntry struct {
-	Level       string `json:"level,omitempty"`
-	Outstanding int    `json:"outstanding"`
+	Level        string `json:"level,omitempty"`
+	Outstanding  int    `json:"outstanding"`
+	OutstandingB *int   `json:"outstanding_b,omitempty"`
 }
 
 // LoadRatchet reads compliance/ratchet.json under root.
@@ -351,11 +355,33 @@ func LoadRatchet(root string) (map[string]RatchetEntry, error) {
 	return r, nil
 }
 
-// RatchetOf is the ratchet that records sets exactly as they stand.
-func RatchetOf(sets []SetStatus) map[string]RatchetEntry {
+// RatchetOf is the ratchet that records sets exactly as they stand at level
+// A. It carries each entry's existing level-B floor (OutstandingB) forward
+// from prev, because a level-A write measures nothing at B and must not
+// drop an entry a level-B write recorded.
+func RatchetOf(sets []SetStatus, prev map[string]RatchetEntry) map[string]RatchetEntry {
 	out := map[string]RatchetEntry{}
 	for _, s := range sets {
-		out[s.Set] = RatchetEntry{Level: s.Declared, Outstanding: s.Outstanding}
+		out[s.Set] = RatchetEntry{Level: s.Declared, Outstanding: s.Outstanding, OutstandingB: prev[s.Set].OutstandingB}
+	}
+	return out
+}
+
+// RatchetOfB records the level-B floor for the measured sets: it updates
+// only OutstandingB and keeps every other field of every entry (the level-A
+// count included), so a B write never moves a level-A number and a set not
+// measured at B keeps its previous B floor. sets must have been measured at
+// level B.
+func RatchetOfB(sets []SetStatus, prev map[string]RatchetEntry) map[string]RatchetEntry {
+	out := map[string]RatchetEntry{}
+	for k, e := range prev {
+		out[k] = e
+	}
+	for _, s := range sets {
+		e := out[s.Set]
+		n := s.Outstanding
+		e.OutstandingB = &n
+		out[s.Set] = e
 	}
 	return out
 }

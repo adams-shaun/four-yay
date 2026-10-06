@@ -41,12 +41,10 @@ func runRefreeze(dir string, apply bool) error {
 				continue
 			}
 			why := ""
-			it, skip := templates.Generate(reg, card)
+			it, skip := templates.ItemFor(reg, card, r.Template)
 			switch {
 			case skip != nil:
 				why = "no scenario now: " + skip.Reason
-			case it.Template != r.Template:
-				why = "template is now " + it.Template
 			case gate.ItemSHA(it) != r.ScenarioSHA:
 				why = "scenario changed"
 			}

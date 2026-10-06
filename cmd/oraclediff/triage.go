@@ -52,8 +52,8 @@ func printedSets(root string) map[string][]string {
 // row's scenario is no longer what the generator makes: it needs a pass
 // before a ruling can freeze anything.
 func freezeRuled(reg *cards.Registry, r *compliance.VerdictRow) bool {
-	it, skip := templates.Generate(reg, r.Card)
-	if skip != nil || it.Template != r.Template || gate.ItemSHA(it) != r.ScenarioSHA {
+	it, skip := templates.ItemFor(reg, r.Card, r.Template)
+	if skip != nil || gate.ItemSHA(it) != r.ScenarioSHA {
 		return false
 	}
 	fz, err := gate.Freeze(reg, it)
