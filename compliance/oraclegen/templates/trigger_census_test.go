@@ -10,14 +10,14 @@ import (
 )
 
 // wantTriggerCensus pins, per set, every non-gap trigger requirement's
-// outcome (served by sub-family, or skipped by reason). trigger.phase is
-// L8's and counted as "skip:phase"; a self-ETB trigger level A settles is "covered by level A". It fails in both directions.
+// outcome (served by sub-family, or skipped by reason). A self-ETB trigger
+// level A settles is "covered by level A". It fails in both directions.
 var wantTriggerCensus = map[string]map[string]int{
 	"BIG": {
-		"served:trigger.attacks":    2,
-		"served:trigger.dies":       1,
-		"served:trigger.spell-cast": 2,
-		"skip:phase":                5,
+		"served:trigger.attacks":                             2,
+		"served:trigger.dies":                                1,
+		"served:trigger.spell-cast":                          2,
+		"served:trigger.phase":                               5,
 		"skip:trigger.becomes-target: trigger did not fire":  1,
 		"skip:trigger.etb-other: trigger covered by level A": 12,
 		"skip:trigger.etb-other: trigger did not fire":       1,
@@ -28,7 +28,8 @@ var wantTriggerCensus = map[string]map[string]int{
 		"served:trigger.dies":                                         5,
 		"served:trigger.etb-other":                                    1,
 		"served:trigger.spell-cast":                                   1,
-		"skip:phase":                                                  20,
+		"served:trigger.phase":                                        6,
+		"skip:trigger.phase: trigger did not fire":                    14,
 		"skip:trigger.attacks: trigger did not fire":                  1,
 		"skip:trigger.becomes-target: trigger did not fire":           5,
 		"skip:trigger.dies: trigger did not fire":                     1,
@@ -46,7 +47,8 @@ var wantTriggerCensus = map[string]map[string]int{
 		"served:trigger.etb-other":                           10,
 		"served:trigger.life-gained":                         8,
 		"served:trigger.spell-cast":                          16,
-		"skip:phase":                                         26,
+		"served:trigger.phase":                               11,
+		"skip:trigger.phase: trigger did not fire":           16,
 		"skip:trigger.attacks: trigger did not fire":         7,
 		"skip:trigger.becomes-target: trigger did not fire":  5,
 		"skip:trigger.combat-damage: trigger did not fire":   1,
@@ -64,7 +66,8 @@ var wantTriggerCensus = map[string]map[string]int{
 		"served:trigger.etb-other":                           5,
 		"served:trigger.life-gained":                         7,
 		"served:trigger.spell-cast":                          17,
-		"skip:phase":                                         14,
+		"served:trigger.phase":                               5,
+		"skip:trigger.phase: trigger did not fire":           10,
 		"skip:trigger.attacks: trigger did not fire":         1,
 		"skip:trigger.becomes-target: trigger did not fire":  5,
 		"skip:trigger.combat-damage: trigger did not fire":   1,
@@ -98,12 +101,24 @@ func TestTriggerCensus(t *testing.T) {
 				if r.Family != "trigger" || r.Gap != "" {
 					continue
 				}
-				_, skip := GenerateB(reg, card, r)
+				item, skip := GenerateB(reg, card, r)
+				if skip == nil {
+					for _, step := range item.Scenario.Steps {
+						if step.Op != "pass_to" {
+							continue
+						}
+						checkpoint := step.Step
+						if step.Active != "" {
+							checkpoint += "@" + step.Active
+						}
+						if !containsString(PassToSteps(), checkpoint) {
+							t.Errorf("%s %s emitted unadvertised pass_to checkpoint %q", set, r.Key, checkpoint)
+						}
+					}
+				}
 				switch {
 				case skip == nil:
 					counts["served:"+r.Sub]++
-				case r.Sub == "trigger.phase":
-					counts["skip:phase"]++
 				default:
 					counts["skip:"+r.Sub+": "+skip.Reason]++
 				}

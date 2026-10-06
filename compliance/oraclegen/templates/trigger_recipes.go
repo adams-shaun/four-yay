@@ -110,6 +110,25 @@ func triggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards.Tri
 		for _, p := range drawProbes {
 			cast(p)
 		}
+	case "trigger.phase":
+		step, ok := phaseStep(t.ParamStr(cards.PKPhase))
+		if !ok {
+			return nil, "unsupported phase"
+		}
+		active := ""
+		if step == "upkeep" || step == "draw" {
+			// p0's turn-1 upkeep/draw have passed. For "each player" phase
+			// triggers, stop at p1's first matching step on turn 2; for You,
+			// wait for p0's next turn (turn 3).
+			if strings.EqualFold(t.ParamStr(cards.PKValidPlayer), "Player") {
+				active = "p1"
+			} else {
+				active = "p0"
+			}
+		}
+		out = append(out, triggerCause{steps: []oraclegen.Step{
+			{Op: "pass_to", Step: step, Active: active},
+		}})
 	default:
 		return nil, "no recipe for " + sub
 	}
@@ -117,4 +136,21 @@ func triggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards.Tri
 		return nil, "probe not in corpus"
 	}
 	return out, ""
+}
+
+// phaseStep maps the Phase$ vocabulary admitted by levelb to ParseStep's
+// scenario spelling.
+func phaseStep(phase string) (string, bool) {
+	switch phase {
+	case "BeginCombat":
+		return "begin-combat", true
+	case "End of Turn":
+		return "end", true
+	case "Upkeep":
+		return "upkeep", true
+	case "Draw":
+		return "draw", true
+	default:
+		return "", false
+	}
 }
