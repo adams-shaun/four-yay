@@ -850,7 +850,15 @@ func (r *oracleRun) answer(d *decision.Decision, why string) error {
 		used := map[int]bool{}
 		var choices []int
 		for _, p := range a.Pick {
-			idx, err := r.matchPick(d, p, used)
+			// A Repeatable modes decision accepts the same option index more
+			// than once (CanRepeatModes$ True, e.g. "Draw" twice): a repeated
+			// pick must SUBMIT the same index again, so each mode pick sees a
+			// fresh one-use map. Every other kind keeps its one-use rule.
+			pickUsed := used
+			if d.Kind == decision.KModes && d.Repeatable {
+				pickUsed = map[int]bool{}
+			}
+			idx, err := r.matchPick(d, p, pickUsed)
 			if err != nil {
 				return err
 			}
