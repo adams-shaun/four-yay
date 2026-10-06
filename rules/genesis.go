@@ -44,7 +44,7 @@ type Spare struct {
 	// filled from empty by every engine, so a recycled pair saves their
 	// regrowth; the watcher reads only their length.
 	loopSigs   []uint64
-	loopRecent []events.Event
+	loopRecent []livelockRecent
 	// loopPrev / loopHeads are the watcher's candidate-index arrays
 	// (prevPos, slotHead), recycled like the windows: prevPos is read only
 	// below its length and slotHead is zeroed by the next watcher.

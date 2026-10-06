@@ -327,7 +327,8 @@ func (e *Engine) emit(ev events.Event) events.Event {
 			wasTapped = o.Tapped
 		}
 	}
-	stored := foldTallyingExcess(e, &e.excessBatch, e.damageSourceLKI, e.damageBatchOpen, ev)
+	stored := ev
+	foldTallyingExcess(e, &e.excessBatch, e.damageSourceLKI, e.damageBatchOpen, &stored)
 	e.expireClonesOnEvent(stored, wasTapped)
 	// CR 303.4f: a non-cast Aura enters attached to its chosen bearer.
 	if stored.Kind == events.MoveZone {
