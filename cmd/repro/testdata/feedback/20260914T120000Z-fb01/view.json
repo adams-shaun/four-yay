@@ -1,5 +1,122 @@
 {
   "viewer": 0,
+  "own_deck": {
+    "name": "dimir-tempo",
+    "main": [
+      {
+        "name": "Baleful Strix",
+        "count": 3
+      },
+      {
+        "name": "Brainstorm",
+        "count": 4
+      },
+      {
+        "name": "Cabal Therapy",
+        "count": 2
+      },
+      {
+        "name": "Daze",
+        "count": 4
+      },
+      {
+        "name": "Delver of Secrets",
+        "count": 4
+      },
+      {
+        "name": "Dismember",
+        "count": 2
+      },
+      {
+        "name": "Fatal Push",
+        "count": 4
+      },
+      {
+        "name": "Force of Will",
+        "count": 4
+      },
+      {
+        "name": "Gurmag Angler",
+        "count": 3
+      },
+      {
+        "name": "Island",
+        "count": 3,
+        "land": true
+      },
+      {
+        "name": "Misty Rainforest",
+        "count": 2,
+        "land": true
+      },
+      {
+        "name": "Polluted Delta",
+        "count": 4,
+        "land": true
+      },
+      {
+        "name": "Ponder",
+        "count": 4
+      },
+      {
+        "name": "Spell Pierce",
+        "count": 2
+      },
+      {
+        "name": "Swamp",
+        "count": 2,
+        "land": true
+      },
+      {
+        "name": "Thoughtseize",
+        "count": 4
+      },
+      {
+        "name": "Tombstalker",
+        "count": 2
+      },
+      {
+        "name": "Underground Sea",
+        "count": 4,
+        "land": true
+      },
+      {
+        "name": "Wasteland",
+        "count": 3,
+        "land": true
+      }
+    ],
+    "curve": [
+      {
+        "cmc": 0,
+        "count": 18
+      },
+      {
+        "cmc": 1,
+        "count": 24
+      },
+      {
+        "cmc": 2,
+        "count": 7
+      },
+      {
+        "cmc": 3,
+        "count": 2
+      },
+      {
+        "cmc": 5,
+        "count": 4
+      },
+      {
+        "cmc": 7,
+        "count": 3
+      },
+      {
+        "cmc": 8,
+        "count": 2
+      }
+    ]
+  },
   "visibility": "seat",
   "turn": 2,
   "round": 1,
@@ -17,19 +134,85 @@
       "life": 20,
       "lost": false,
       "library_size": 52,
-      "hand_size": 8,
+      "hand_size": 7,
       "graveyard_size": 0,
-      "hand": [
+      "library": [
         {
-          "id": 60,
-          "name": "Spell Pierce",
+          "id": 23,
+          "name": "Baleful Strix",
+          "types": "Artifact Creature Bird",
+          "mana_cost": "U B",
+          "printing": {
+            "name": "Baleful Strix"
+          },
+          "token": "#23",
+          "tapped": false,
+          "power": 1,
+          "toughness": 1,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "Flying",
+            "Deathtouch"
+          ],
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 24,
+          "name": "Baleful Strix",
+          "types": "Artifact Creature Bird",
+          "mana_cost": "U B",
+          "printing": {
+            "name": "Baleful Strix"
+          },
+          "token": "#24",
+          "tapped": false,
+          "power": 1,
+          "toughness": 1,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "Flying",
+            "Deathtouch"
+          ],
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 25,
+          "name": "Baleful Strix",
+          "types": "Artifact Creature Bird",
+          "mana_cost": "U B",
+          "printing": {
+            "name": "Baleful Strix"
+          },
+          "token": "#25",
+          "tapped": false,
+          "power": 1,
+          "toughness": 1,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "Flying",
+            "Deathtouch"
+          ],
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 39,
+          "name": "Brainstorm",
           "types": "Instant",
           "mana_cost": "U",
-          "spell_api": "Counter",
+          "spell_api": "Draw",
           "printing": {
-            "name": "Spell Pierce"
+            "name": "Brainstorm"
           },
-          "token": "#60",
+          "token": "#39",
           "tapped": false,
           "power": 0,
           "toughness": 0,
@@ -40,14 +223,884 @@
           "summon_sick": false
         },
         {
-          "id": 1,
+          "id": 40,
+          "name": "Brainstorm",
+          "types": "Instant",
+          "mana_cost": "U",
+          "spell_api": "Draw",
+          "printing": {
+            "name": "Brainstorm"
+          },
+          "token": "#40",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 41,
+          "name": "Brainstorm",
+          "types": "Instant",
+          "mana_cost": "U",
+          "spell_api": "Draw",
+          "printing": {
+            "name": "Brainstorm"
+          },
+          "token": "#41",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 42,
+          "name": "Brainstorm",
+          "types": "Instant",
+          "mana_cost": "U",
+          "spell_api": "Draw",
+          "printing": {
+            "name": "Brainstorm"
+          },
+          "token": "#42",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 56,
+          "name": "Cabal Therapy",
+          "types": "Sorcery",
+          "mana_cost": "B",
+          "spell_api": "NameCard",
+          "printing": {
+            "name": "Cabal Therapy"
+          },
+          "token": "#56",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "Flashback:Sac\u003c1/Creature\u003e"
+          ],
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 35,
+          "name": "Daze",
+          "types": "Instant",
+          "mana_cost": "1 U",
+          "spell_api": "Counter",
+          "printing": {
+            "name": "Daze"
+          },
+          "token": "#35",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 36,
+          "name": "Daze",
+          "types": "Instant",
+          "mana_cost": "1 U",
+          "spell_api": "Counter",
+          "printing": {
+            "name": "Daze"
+          },
+          "token": "#36",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 37,
+          "name": "Daze",
+          "types": "Instant",
+          "mana_cost": "1 U",
+          "spell_api": "Counter",
+          "printing": {
+            "name": "Daze"
+          },
+          "token": "#37",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 38,
+          "name": "Daze",
+          "types": "Instant",
+          "mana_cost": "1 U",
+          "spell_api": "Counter",
+          "printing": {
+            "name": "Daze"
+          },
+          "token": "#38",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 19,
+          "name": "Delver of Secrets",
+          "types": "Creature Human Wizard",
+          "mana_cost": "U",
+          "printing": {
+            "name": "Delver of Secrets"
+          },
+          "token": "#19",
+          "tapped": false,
+          "power": 1,
+          "toughness": 1,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 20,
+          "name": "Delver of Secrets",
+          "types": "Creature Human Wizard",
+          "mana_cost": "U",
+          "printing": {
+            "name": "Delver of Secrets"
+          },
+          "token": "#20",
+          "tapped": false,
+          "power": 1,
+          "toughness": 1,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 21,
+          "name": "Delver of Secrets",
+          "types": "Creature Human Wizard",
+          "mana_cost": "U",
+          "printing": {
+            "name": "Delver of Secrets"
+          },
+          "token": "#21",
+          "tapped": false,
+          "power": 1,
+          "toughness": 1,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 22,
+          "name": "Delver of Secrets",
+          "types": "Creature Human Wizard",
+          "mana_cost": "U",
+          "printing": {
+            "name": "Delver of Secrets"
+          },
+          "token": "#22",
+          "tapped": false,
+          "power": 1,
+          "toughness": 1,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 57,
+          "name": "Dismember",
+          "types": "Instant",
+          "mana_cost": "1 BP BP",
+          "spell_api": "Pump",
+          "printing": {
+            "name": "Dismember"
+          },
+          "token": "#57",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 47,
+          "name": "Fatal Push",
+          "types": "Instant",
+          "mana_cost": "B",
+          "spell_api": "Destroy",
+          "printing": {
+            "name": "Fatal Push"
+          },
+          "token": "#47",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 48,
+          "name": "Fatal Push",
+          "types": "Instant",
+          "mana_cost": "B",
+          "spell_api": "Destroy",
+          "printing": {
+            "name": "Fatal Push"
+          },
+          "token": "#48",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 49,
+          "name": "Fatal Push",
+          "types": "Instant",
+          "mana_cost": "B",
+          "spell_api": "Destroy",
+          "printing": {
+            "name": "Fatal Push"
+          },
+          "token": "#49",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 50,
+          "name": "Fatal Push",
+          "types": "Instant",
+          "mana_cost": "B",
+          "spell_api": "Destroy",
+          "printing": {
+            "name": "Fatal Push"
+          },
+          "token": "#50",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 31,
+          "name": "Force of Will",
+          "types": "Instant",
+          "mana_cost": "3 U U",
+          "spell_api": "Counter",
+          "printing": {
+            "name": "Force of Will"
+          },
+          "token": "#31",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 32,
+          "name": "Force of Will",
+          "types": "Instant",
+          "mana_cost": "3 U U",
+          "spell_api": "Counter",
+          "printing": {
+            "name": "Force of Will"
+          },
+          "token": "#32",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 33,
+          "name": "Force of Will",
+          "types": "Instant",
+          "mana_cost": "3 U U",
+          "spell_api": "Counter",
+          "printing": {
+            "name": "Force of Will"
+          },
+          "token": "#33",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 26,
+          "name": "Gurmag Angler",
+          "types": "Creature Zombie Fish",
+          "mana_cost": "6 B",
+          "printing": {
+            "name": "Gurmag Angler"
+          },
+          "token": "#26",
+          "tapped": false,
+          "power": 5,
+          "toughness": 5,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "Delve"
+          ],
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 27,
+          "name": "Gurmag Angler",
+          "types": "Creature Zombie Fish",
+          "mana_cost": "6 B",
+          "printing": {
+            "name": "Gurmag Angler"
+          },
+          "token": "#27",
+          "tapped": false,
+          "power": 5,
+          "toughness": 5,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "Delve"
+          ],
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 28,
+          "name": "Gurmag Angler",
+          "types": "Creature Zombie Fish",
+          "mana_cost": "6 B",
+          "printing": {
+            "name": "Gurmag Angler"
+          },
+          "token": "#28",
+          "tapped": false,
+          "power": 5,
+          "toughness": 5,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "Delve"
+          ],
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 5,
+          "name": "Island",
+          "types": "Basic Land Island",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Island"
+          },
+          "token": "#5",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              0,
+              1,
+              0,
+              0,
+              0,
+              0
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 6,
+          "name": "Island",
+          "types": "Basic Land Island",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Island"
+          },
+          "token": "#6",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              0,
+              1,
+              0,
+              0,
+              0,
+              0
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 7,
+          "name": "Island",
+          "types": "Basic Land Island",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Island"
+          },
+          "token": "#7",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              0,
+              1,
+              0,
+              0,
+              0,
+              0
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 15,
+          "name": "Misty Rainforest",
+          "types": "Land",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Misty Rainforest"
+          },
+          "token": "#15",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 10,
+          "name": "Polluted Delta",
+          "types": "Land",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Polluted Delta"
+          },
+          "token": "#10",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 11,
+          "name": "Polluted Delta",
+          "types": "Land",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Polluted Delta"
+          },
+          "token": "#11",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 12,
+          "name": "Polluted Delta",
+          "types": "Land",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Polluted Delta"
+          },
+          "token": "#12",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 13,
+          "name": "Polluted Delta",
+          "types": "Land",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Polluted Delta"
+          },
+          "token": "#13",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 43,
+          "name": "Ponder",
+          "types": "Sorcery",
+          "mana_cost": "U",
+          "spell_api": "RearrangeTopOfLibrary",
+          "printing": {
+            "name": "Ponder"
+          },
+          "token": "#43",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 44,
+          "name": "Ponder",
+          "types": "Sorcery",
+          "mana_cost": "U",
+          "spell_api": "RearrangeTopOfLibrary",
+          "printing": {
+            "name": "Ponder"
+          },
+          "token": "#44",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 45,
+          "name": "Ponder",
+          "types": "Sorcery",
+          "mana_cost": "U",
+          "spell_api": "RearrangeTopOfLibrary",
+          "printing": {
+            "name": "Ponder"
+          },
+          "token": "#45",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 46,
+          "name": "Ponder",
+          "types": "Sorcery",
+          "mana_cost": "U",
+          "spell_api": "RearrangeTopOfLibrary",
+          "printing": {
+            "name": "Ponder"
+          },
+          "token": "#46",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 59,
+          "name": "Spell Pierce",
+          "types": "Instant",
+          "mana_cost": "U",
+          "spell_api": "Counter",
+          "printing": {
+            "name": "Spell Pierce"
+          },
+          "token": "#59",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 8,
+          "name": "Swamp",
+          "types": "Basic Land Swamp",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Swamp"
+          },
+          "token": "#8",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              0,
+              0,
+              1,
+              0,
+              0,
+              0
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 9,
+          "name": "Swamp",
+          "types": "Basic Land Swamp",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Swamp"
+          },
+          "token": "#9",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              0,
+              0,
+              1,
+              0,
+              0,
+              0
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 51,
+          "name": "Thoughtseize",
+          "types": "Sorcery",
+          "mana_cost": "B",
+          "spell_api": "Discard",
+          "printing": {
+            "name": "Thoughtseize"
+          },
+          "token": "#51",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 52,
+          "name": "Thoughtseize",
+          "types": "Sorcery",
+          "mana_cost": "B",
+          "spell_api": "Discard",
+          "printing": {
+            "name": "Thoughtseize"
+          },
+          "token": "#52",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 53,
+          "name": "Thoughtseize",
+          "types": "Sorcery",
+          "mana_cost": "B",
+          "spell_api": "Discard",
+          "printing": {
+            "name": "Thoughtseize"
+          },
+          "token": "#53",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 54,
+          "name": "Thoughtseize",
+          "types": "Sorcery",
+          "mana_cost": "B",
+          "spell_api": "Discard",
+          "printing": {
+            "name": "Thoughtseize"
+          },
+          "token": "#54",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 29,
+          "name": "Tombstalker",
+          "types": "Creature Demon",
+          "mana_cost": "6 B B",
+          "printing": {
+            "name": "Tombstalker"
+          },
+          "token": "#29",
+          "tapped": false,
+          "power": 5,
+          "toughness": 5,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "Flying",
+            "Delve"
+          ],
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 2,
           "name": "Underground Sea",
           "types": "Land Island Swamp",
           "mana_cost": "no cost",
           "printing": {
             "name": "Underground Sea"
           },
-          "token": "#1",
+          "token": "#2",
           "tapped": false,
           "power": 0,
           "toughness": 0,
@@ -67,6 +1120,143 @@
             ],
             "any": false
           }
+        },
+        {
+          "id": 3,
+          "name": "Underground Sea",
+          "types": "Land Island Swamp",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Underground Sea"
+          },
+          "token": "#3",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              0,
+              1,
+              1,
+              0,
+              0,
+              0
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 4,
+          "name": "Underground Sea",
+          "types": "Land Island Swamp",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Underground Sea"
+          },
+          "token": "#4",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              0,
+              1,
+              1,
+              0,
+              0,
+              0
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 16,
+          "name": "Wasteland",
+          "types": "Land",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Wasteland"
+          },
+          "token": "#16",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              1
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 18,
+          "name": "Wasteland",
+          "types": "Land",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Wasteland"
+          },
+          "token": "#18",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              1
+            ],
+            "any": false
+          }
+        }
+      ],
+      "hand": [
+        {
+          "id": 60,
+          "name": "Spell Pierce",
+          "types": "Instant",
+          "mana_cost": "U",
+          "spell_api": "Counter",
+          "printing": {
+            "name": "Spell Pierce"
+          },
+          "token": "#60",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
         },
         {
           "id": 14,
@@ -204,12 +1394,55 @@
           "summon_sick": false
         }
       ],
-      "battlefield": [],
+      "battlefield": [
+        {
+          "id": 1,
+          "name": "Underground Sea",
+          "types": "Land Island Swamp",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Underground Sea"
+          },
+          "token": "#1",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": true,
+          "produces": {
+            "colour": [
+              0,
+              1,
+              1,
+              0,
+              0,
+              0
+            ],
+            "any": false
+          }
+        }
+      ],
       "graveyard": [],
       "exile": [],
       "pool": {},
+      "potential_actions": [
+        {
+          "kind": "cast",
+          "obj": 55,
+          "label": "Cast Cabal Therapy"
+        },
+        {
+          "kind": "cast",
+          "obj": 58,
+          "label": "Cast Dismember"
+        }
+      ],
       "command": [],
       "commanders": [],
+      "completed_dungeons": 0,
       "commander_casts": []
     },
     {
@@ -278,52 +1511,51 @@
       "pool": {},
       "command": [],
       "commanders": [],
-      "commander_casts": []
+      "completed_dungeons": 0,
+      "commander_casts": [],
+      "archetype": {
+        "known": true,
+        "seen": 2,
+        "top": "aggro",
+        "top_score": 0.5319148936170213,
+        "scores": {
+          "aggro": 0.5319148936170213,
+          "burn": 0,
+          "control": 0,
+          "go-wide": 0.2127659574468085,
+          "midrange": 0,
+          "ramp": 0.2553191489361702,
+          "tempo": 0
+        }
+      }
     }
   ],
   "stack": [],
   "pending": [],
   "decision": {
-    "seq": 143,
+    "seq": 145,
     "player": 0,
-    "kind": "priority",
-    "prompt": "turn 2, main1 — Player 1 has priority",
+    "kind": "choose",
+    "prompt": "Choose a mana ability of Underground Sea",
     "min": 1,
     "max": 1,
     "options": [
       {
         "index": 0,
-        "kind": "play_land",
-        "label": "Play Underground Sea",
+        "kind": "mana",
+        "label": "Add U",
         "obj": 1,
         "player": 0
       },
       {
         "index": 1,
-        "kind": "play_land",
-        "label": "Play Misty Rainforest",
-        "obj": 14,
-        "player": 0
-      },
-      {
-        "index": 2,
-        "kind": "play_land",
-        "label": "Play Wasteland",
-        "obj": 17,
-        "player": 0
-      },
-      {
-        "index": 3,
-        "kind": "pass",
-        "label": "Pass priority",
-        "player": 0
-      },
-      {
-        "index": 4,
-        "kind": "concede",
-        "label": "Concede",
-        "player": 0
+        "kind": "mana",
+        "label": "Add B",
+        "obj": 1,
+        "player": 0,
+        "ability": 1
       }
-    ]
+    ],
+    "source": 1
   }
 }

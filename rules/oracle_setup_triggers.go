@@ -21,11 +21,14 @@ import (
 //     are the entry shapes ("when this enters, ..."; "whenever one or more
 //     creatures enter"). Both are XMage-addCard-silent and are dropped.
 //   - A Saga's synthesized chapter ability (pendingTrigger.Chapter) is dropped
+//   - A Saga's synthesized chapter ability (pendingTrigger.Chapter) is dropped
 //     only for a back-face placement (backFaceChapter): XMage's transformed
-//     permanent has no Saga ability, so no lore counter and no chapter I. A
-//     front-face Saga placed with addCard DOES enter with its lore counter
-//     and fire chapter I there (Summon: Anima's life loss, Summon: Titan's
-//     mill, Summon: Knights of Round's tokens), so it stays queued.
+//     permanent carries the back face, which has no Saga ability, so no lore
+//     counter and no chapter I. A front-face Saga placed with addCard DOES
+//     enter with its lore counter and fire chapter I there (Summon: Anima's
+//     life loss, Summon: Titan's mill, Summon: Knights of Round's tokens, and
+//     Summon: Leviathan bouncing Grizzly Bears before the setup checkpoint),
+//     so it stays queued.
 //   - Everything else stays. In particular a planeswalker's entry loyalty
 //     counters are emitted as CounterChanges inside the same entry fold, so a
 //     CounterAdded / CounterAddedOnce / CounterAddedAll trigger on a permanent
@@ -46,7 +49,8 @@ func setupPlacementDropsTrigger(t cards.Trigger, backFaceChapter bool) bool {
 		// read the merge-base filter used), so this is a trip through the
 		// compiled zone enum rather than a fresh string comparison.
 		d, ok := t.ParamCode(cards.PKDestination)
-		return ok && effects.Destination(d).Zone() == state.ZBattlefield
+		z, sole := effects.Destination(d).SoleZone()
+		return ok && sole && z == state.ZBattlefield
 	case cards.TriggerChangesZoneAll:
 		return true
 	}

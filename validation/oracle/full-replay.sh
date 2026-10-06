@@ -16,10 +16,29 @@ set -uo pipefail
 out=${1:?usage: full-replay.sh OUTDIR}; mkdir -p "$out"
 level=${ORACLE_LEVEL:-B}
 go build -o "$out/oraclediff" ./cmd/oraclediff || exit 1
+# Phase 1, parallel: gen + XMage replay per set. Each set is independent and
+# the replay is mostly JVM start-up (about 10 s a set), so the serial loop
+# spent ~8 of its ~12 minutes waiting. FULL_REPLAY_JOBS sets the width; each
+# job's JVM scope is XMAGE_ORACLE_MEM (default 3G here) with the heap 1G
+# under it, so 6 jobs stay inside the heavy lock's budget; each JVM gets a
+# private copy of the H2 card DB (XMAGE_ORACLE_PRIVATE_DB).
+jobs=${FULL_REPLAY_JOBS:-6}
+export XMAGE_ORACLE_MEM=${XMAGE_ORACLE_MEM:-3G} XMAGE_ORACLE_PRIVATE_DB=1
+mem_g=${XMAGE_ORACLE_MEM%[Gg]}
+export XMAGE_ORACLE_HEAP=${XMAGE_ORACLE_HEAP:-$(( mem_g > 2 ? mem_g - 1 : 1 ))g}
+export out level repo
+one_set() {
+  s=$1; d=$out/$s; mkdir -p "$d"
+  GOMEMLIMIT=2GiB GOMAXPROCS=4 "$out/oraclediff" gen -level "$level" -manifest compliance/manifests/$s.json -out "$d/scen.jsonl" >"$d/gen.log" 2>&1 || { echo "$s gen FAILED"; return; }
+  "$repo/scripts/xmage-oracle-run.sh" "$d/scen.jsonl" "$d/xmage.jsonl" || { echo "$s xmage FAILED"; rm -f "$d/xmage.jsonl"; }
+}
+export -f one_set
+for f in compliance/printed/*.json; do basename "$f" .json; done | xargs -P "$jobs" -I{} bash -c 'one_set "$@"' _ {}
+# Phase 2, serial: diff -write shares compliance/verdicts/<letter>.jsonl
+# across sets, so it must not run concurrently.
 for f in compliance/printed/*.json; do
-  s=$(basename "$f" .json); d=$out/$s; mkdir -p "$d"
-  "$out/oraclediff" gen -level "$level" -manifest compliance/manifests/$s.json -out "$d/scen.jsonl" >"$d/gen.log" 2>&1 || { echo "$s gen FAILED"; continue; }
-  "$repo/scripts/xmage-oracle-run.sh" "$d/scen.jsonl" "$d/xmage.jsonl" || { echo "$s xmage FAILED"; continue; }
+  s=$(basename "$f" .json); d=$out/$s
+  [ -s "$d/scen.jsonl" ] && [ -f "$d/xmage.jsonl" ] || continue
   "$out/oraclediff" diff -scenarios "$d/scen.jsonl" -xmage "$d/xmage.jsonl" -out "$d/verdicts.jsonl" -write compliance/verdicts -xmage-ref "$ref" >"$d/diff.log" 2>&1 || { echo "$s diff FAILED"; tail -3 "$d/diff.log"; continue; }
   echo "$s $(tr '\n' ' ' <"$d/diff.log" | cut -c1-160)"
 done

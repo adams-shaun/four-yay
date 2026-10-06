@@ -7,8 +7,11 @@ import "testing"
 // compliance replay measured Summon: Anima's chapter I (p0 at 19 life), Summon: Titan's (five Wastes in p0's graveyard) and
 // Summon: Knights of Round's (three Knight tokens) at XMage's setup checkpoint. Only a
 // back-face placement drops the chapter trigger
-// (TestOracleSetupBackFacePlacementFiresNoChapterTrigger).
-func TestOracleSetupFrontFaceSagaFiresChapterI(t *testing.T) {
+// (TestOracleSetupBackFacePlacementFiresNoChapterTrigger). This is the
+// ticket-specific multi-card companion to TestOracleSetupFrontFaceSagaFiresChapterI
+// (Summon: Leviathan) and TestOracleSetupFrontFaceSagaDrawChapterFires
+// (Summon: Anima draw chapter).
+func TestOracleSetupFrontFaceSagaCombatRowsFireChapterI(t *testing.T) {
 	lib := `"library":["Wastes","Wastes","Wastes","Wastes","Wastes","Wastes","Wastes","Wastes"]`
 	opp := `"p1":{"battlefield":["Grizzly Bears"]}`
 

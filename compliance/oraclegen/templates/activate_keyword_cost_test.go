@@ -138,6 +138,6 @@ func TestActivateKeywordCostScenarios(t *testing.T) {
 	})
 
 	t.Run("Basri, Tomorrow's Champion", func(t *testing.T) {
-		assertActivateItem(t, reg, "Basri, Tomorrow's Champion", "activate#0.0", "{W}, {T}, Exert Basri")
+		assertActivateItem(t, reg, "Basri, Tomorrow's Champion", "activate#0.0", "{W}, {T}, Exert {this}")
 	})
 }

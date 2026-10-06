@@ -119,8 +119,6 @@ func TestStaticGrantedAbilityNamedSkips(t *testing.T) {
 		{"Barrensteppe Siege", "static#0.0", "static grants a triggered ability (needs a probe-sourced trigger cause)"},
 		{"Frostcliff Siege", "static#0.1", "static grants a static ability (observed only through its own effect)"},
 		{"Tomik, Orzhov Lawmage", "static#0.0", "static grants a static ability (observed only through its own effect)"},
-		{"Cracked Skull", "static#0.0", "static adds an SVar a granted trigger reads (needs that trigger's cause)"},
-		{"Ordeal of Nylea", "static#0.0", "static adds an SVar a granted trigger reads (needs that trigger's cause)"},
 		{"Marvin, Murderous Mimic", "static#0.0", "static gains the activated abilities of other cards (needs a donor card)"},
 		{"Koh, the Face Stealer", "static#0.0", "static gains the activated abilities of other cards (needs a donor card)"},
 		{"Etrata, Deadly Fugitive", "static#0.0", "static grants an activated ability (needs the driver's activate on a granted ability)"},

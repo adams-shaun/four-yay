@@ -32,12 +32,15 @@ import (
 // blocker-not-offered one. EOE both Defender rows (Mechan Shieldmate,
 // Monoist Sentry) moved from scenario-does-not-replay to served; FDN four
 // Defender attack rows did, and two CantBlock rows moved from block-not-offered
-// to served; FRA's one Defender row did.
+// to served; FRA's one Defender row did. A block requirement for a creature
+// that does not survive to the opponent's turn from setup is served by the
+// late-entry block (combat_late_entry.go): FDN Ball Lightning, FRA Frostbite
+// Pyromental.
 var wantCombatCensus = map[string]map[string]int{
 	"BIG": {"served:combat.attack": 4, "served:combat.block": 4},
 	"EOE": {"served:combat.attack": 49, "served:combat.block": 49},
-	"FDN": {"served:combat.attack": 127, "served:combat.block": 124, "skip:combat block not offered": 3},
-	"FRA": {"served:combat.attack": 63, "served:combat.block": 62, "skip:combat block not offered": 1},
+	"FDN": {"served:combat.attack": 127, "served:combat.block": 125, "skip:combat block not offered": 2},
+	"FRA": {"served:combat.attack": 63, "served:combat.block": 63},
 }
 
 func TestCombatCensusB(t *testing.T) {
