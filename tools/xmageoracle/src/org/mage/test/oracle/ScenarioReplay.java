@@ -542,6 +542,12 @@ public class ScenarioReplay extends CardTestPlayerBase {
             List<String> top = names(s, "library_top");
             named += top.size();
             int filler = Math.max(0, 40 - named);
+            // Same draw reserve as oracleRun.build: preserve turn 1 exactly,
+            // otherwise allow TURN/2 draws plus one card at the checkpoint,
+            // even when all named setup cards are outside the library.
+            if (TURN > 1) {
+                filler = Math.max(filler, TURN / 2 + 1);
+            }
             if (filler > 0) {
                 addCard(Zone.LIBRARY, p, "Wastes", filler);
             }

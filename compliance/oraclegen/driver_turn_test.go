@@ -38,6 +38,10 @@ func TestScenarioReplayConsumesScenarioTurn(t *testing.T) {
 		// requested turn, and the stop-at checkpoint snapshots the same one.
 		"runCode(\"setup\", TURN, MAIN, playerA, (info, p, g) -> {",
 		"setStopAt(endTurnScenario ? TURN + 1 : TURN,",
+		// A valid upper-bound turn must not exhaust a fixed 40-card library.
+		// Keep turn-1 padding unchanged, and mirror gorge's later draw reserve.
+		"int filler = Math.max(0, 40 - named);",
+		"if (TURN > 1) {\n                filler = Math.max(filler, TURN / 2 + 1);",
 	} {
 		if !strings.Contains(java, required) {
 			t.Errorf("ScenarioReplay.java no longer consumes the scenario turn contract %q", required)

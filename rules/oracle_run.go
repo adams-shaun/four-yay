@@ -213,7 +213,7 @@ var oracleZones = map[string]state.Zone{
 	"command": state.ZCommand, "sideboard": state.ZSideboard,
 }
 
-// oracleFiller pads every library to 40 cards. Wastes has no colour, no
+// oracleFiller pads setup decks (with extra draw room for later turns). Wastes has no colour, no
 // subtype and no ability beyond {T}: Add {C}, so it influences no Oracle
 // condition a scenario is likely to test.
 const oracleFiller = "Wastes"
@@ -379,7 +379,15 @@ func (r *oracleRun) build(sc oracleScenario) error {
 				places[p] = append(places[p], placement{n, z.zone, top})
 			}
 		}
-		for len(decks[p]) < 40 {
+		// Preserve turn-1 decks exactly. Later checkpoints need at most
+		// turn/2 ordinary draws per seat, plus one card left in the library.
+		// Count named cards even when setup moves them OUT of the library;
+		// match ScenarioReplay.build's filler calculation.
+		deckSize := 40
+		if turn > 1 {
+			deckSize = max(deckSize, len(decks[p])+turn/2+1)
+		}
+		for len(decks[p]) < deckSize {
 			decks[p] = append(decks[p], filler)
 		}
 		for _, n := range s.Sideboard {
@@ -525,7 +533,7 @@ func (r *oracleRun) build(sc oracleScenario) error {
 	// placements caused resolve here under the fallback answers; the transcript names
 	// every one.
 	setupEntered := false
-	for i := 0; i < 400; i++ {
+	for i := 0; i < 400*turn; i++ {
 		// SetupEntered restores the pre-TurnChange entry history the setup
 		// placements lost; events.Apply only folds it at turn 1, where XMage's
 		// seeded battlefield likewise counts as entered. At a requested later
