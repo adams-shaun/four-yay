@@ -119,7 +119,9 @@ checks() {
     if [ "$1" = pre ]; then capped go build ./... || exit 1; fi
     capped go test -timeout 2m ./compliance/oraclegen ./compliance/oraclegen/templates ./cmd/oraclediff || exit 1
     if [ "$1" = post ]; then capped go test -timeout 2m ./compliance/adopt ./compliance/gate ./compliance || exit 1; fi
-    capped go test -timeout 2m -run Oracle ./rules || exit 1
+    # Census guards too: a driver/runner branch that edits rules/ trips the
+    # param census (50a74c19c went red on oracleRun.build). ~10s, 0.9 GB.
+    capped go test -timeout 2m -run 'Oracle|Census' ./rules || exit 1
   ) >"$2" 2>&1
 }
 
