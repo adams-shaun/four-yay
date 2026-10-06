@@ -342,9 +342,12 @@ env = { GOMEMLIMIT = "1GiB", GOMAXPROCS = "4", GOFLAGS = "-p=2 -trimpath" }
 # their own processes, ./view, ./internal/codeshape and every package the
 # branch touched. Run from the BASE copy so a branch cannot edit its own gate.
 name = "go test (affected)"
-cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=8G", "-p", "CPUQuota=1600%", "bash", "-c", "set -o pipefail; git show {base}:scripts/gate_affected.sh | bash -s {base}"]
+# gate_affected bounds the test phase to four concurrent test binaries
+# (each invocation uses -p=1); its vet phase is sequential and uses -p=2.
+# Four binaries x 1536MiB stays below the 8G scope with headroom.
+cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=8G", "-p", "CPUQuota=800%", "bash", "-c", "set -o pipefail; git show {base}:scripts/gate_affected.sh | bash -s {base}"]
 timeout = 600
-env = { GOMEMLIMIT = "4GiB", GOMAXPROCS = "16", GOGC = "200", GOFLAGS = "-p=2 -trimpath" }
+env = { GOMEMLIMIT = "1536MiB", GOMAXPROCS = "2", GOGC = "200", GOFLAGS = "-p=2 -trimpath" }
 
 [[gates]]
 name = "CR conformance"

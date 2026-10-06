@@ -17,5 +17,5 @@ skip='^(TestHeads|TestInvariantsUnderSeedFuzz|TestLargeEliminationSweepDoesNotTr
 export GORGE_ORACLEGEN_FULL_TARGET_AUDIT=1
 go vet -p=8 ./...
 go test -p=8 -skip "$skip" ./...
-go test ./rules -run '^TestHeads$'
+go test -p=1 ./rules -run '^TestHeads$'
 make sim
