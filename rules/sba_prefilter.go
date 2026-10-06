@@ -257,7 +257,7 @@ func (e *Engine) mayHaveLegendPair() bool {
 // false flag means that action's walk would find nothing and return false
 // with no side effect:
 //
-//   - pw: planeswalkerZeroLoyalty's phased-in printed planeswalker;
+//   - pw: planeswalkerZeroLoyalty's phased-in face-up printed planeswalker;
 //   - battle: battleZeroDefense's phased-in face-up printed battle;
 //   - saga: checkSagas' face with a chapter count;
 //   - counterPair: annihilateOppositeCounters' phased-in P1P1+M1M1 holder;
@@ -313,7 +313,7 @@ func (e *Engine) sbaFacts(f *sbaBoardFacts) *sbaBoardFacts {
 					}
 				}
 				if face != nil {
-					if face.IsPlaneswalker() {
+					if !o.FaceDown && face.IsPlaneswalker() {
 						f.pw = true
 					}
 					if !o.FaceDown && face.IsBattle() {
