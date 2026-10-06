@@ -36,17 +36,17 @@ func SetXMageKnown(names []string) {
 
 // XMageKnown reports whether a probe or fixture card may be placed, cast or
 // put in a zone: XMage's addCard throws "Couldn't find a card" on a name its
-// database lacks (Un-set cards, Alchemy "A-" rebalances, Alchemy-only and
-// Commander-only cards). Every probe picker that walks the corpus or lists
-// names by hand gates on it. With no set installed it falls back to the name
-// heuristic a deck list and XMage both satisfy: no "A-" rebalance, no quoted
-// name.
+// database lacks (Un-set cards, Alchemy-only and Commander-only cards). Every
+// probe picker that walks the corpus or lists names by hand gates on it. An
+// Alchemy "A-" rebalance and a quoted name are never used, whatever the set
+// holds: a deck list does not carry them (the exclusion the cost pickers had
+// before this predicate). With no set installed that is all it checks.
 func XMageKnown(name string) bool {
-	if name == "" {
+	if name == "" || strings.HasPrefix(name, "A-") || strings.Contains(name, `"`) {
 		return false
 	}
 	if set := xmageKnown.Load(); set != nil {
 		return (*set)[compliance.FoldName(name)]
 	}
-	return !strings.HasPrefix(name, "A-") && !strings.Contains(name, `"`)
+	return true
 }

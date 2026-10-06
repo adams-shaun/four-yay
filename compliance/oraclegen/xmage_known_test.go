@@ -11,10 +11,10 @@ import (
 // probe, and a card it holds, in any accent or split spelling, is.
 func TestXMageKnownRejectsNonXMageProbes(t *testing.T) {
 	// The names are what the manifests hold: one printing per entry.
-	SetXMageKnown([]string{"Grizzly Bears", "Pyre-Sledge Arsonist", "Extremis Elite", "Dain Ironfoot", "Fire // Ice"})
+	SetXMageKnown([]string{"Grizzly Bears", "Pyre-Sledge Arsonist", "Extremis Elite", "Dain Ironfoot", "Fire // Ice", `"Name Sticker" Goblin`, "A-Pyre-Sledge Arsonist"})
 	t.Cleanup(func() { SetXMageKnown(nil) })
 
-	for _, n := range []string{"Disguise Agent", "1996 World Champion", `"Lifetime" Pass Holder`, "A-Pyre-Sledge Arsonist", "A Golden Opportunity", "Adorable Kitten", ""} {
+	for _, n := range []string{"Disguise Agent", "1996 World Champion", `"Lifetime" Pass Holder`, "A-Pyre-Sledge Arsonist", "A Golden Opportunity", "Adorable Kitten", `"Name Sticker" Goblin`, ""} {
 		if XMageKnown(n) {
 			t.Errorf("XMageKnown(%q) = true, want false: XMage's database has no such card", n)
 		}
