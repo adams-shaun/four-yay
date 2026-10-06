@@ -642,7 +642,27 @@ func (e *Engine) ValidateCastPayment(p state.PlayerID, cast decision.PlannedCast
 	if lastResort && !pay.PlanUsesLastResort(*got.Plan) {
 		return fmt.Errorf("payment plan uses a last-resort source while a normal plan exists")
 	}
-	cost := pay.PlanManaHalf(e.offerCostFor(p, cast.Object, pay.WithSpellAbilityExtras(e.G.Obj(cast.Object).Face(), pay.RawBaseCost(asPayer(e), p, cast.Object)), spellScope("")))
+	// The settle price is the planner's: for a may-play origin the free grant
+	// empties the mana part, the permission's RaiseCost$ surcharge is added
+	// before the cost statics, and the spell-ability extras follow in
+	// "mayplay" scope -- exactly planCastPaymentChecked and beginCast. Pricing
+	// it here in plain scope would under-charge a raised cast and reject the
+	// witness the planner just built.
+	settleBase := pay.RawBaseCost(asPayer(e), p, cast.Object)
+	settleScope := spellScope("")
+	if o := e.G.Obj(cast.Object); o != nil && plannedMayPlayZone(o.Zone) {
+		settleScope = spellScope("mayplay")
+		if free, granted := e.mayPlayGrant(p, cast.Object); granted && free {
+			settleBase = Cost{}
+		}
+		if raise, hasRaise, priced := e.mayPlayRaiseCost(p, cast.Object); hasRaise {
+			if !priced {
+				return fmt.Errorf("payment plan may-play raise cost no longer priceable")
+			}
+			settleBase = settleBase.Plus(raise)
+		}
+	}
+	cost := pay.PlanManaHalf(e.offerCostFor(p, cast.Object, pay.WithSpellAbilityExtras(e.G.Obj(cast.Object).Face(), settleBase), settleScope))
 	payment, ok := resolveManaWith(cost, pool, state.Mana{}, [7]state.Mana{}, e.G.Players[p].Life, false, pipRider{}, nil)
 	expected := pay.Witness(cost, e.G.Players[p].Pool, produced, nil, payment.Pool)
 	if !ok || pay.ManaAmount(payment.Pool) != plan.PoolAfter || expected.PoolSpend != plan.PoolSpend {

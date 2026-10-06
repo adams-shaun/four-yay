@@ -247,3 +247,32 @@ func TestMayPlayGraveyardPlannedPaymentCompletesTheCast(t *testing.T) {
 		}
 	}
 }
+
+// The planned (Intent.Payment) route settles a may-play cast whose permission
+// adds a RaiseCost$ surcharge. ValidateCastPayment's witness settle must price
+// the same composed cost the planner and beginCast charge ({1}{R} + {1}, three
+// Mountains); the plain-scope composition under-charges and rejects the
+// witness, so the cast never leaves the manual window.
+func TestMayPlayGraveyardRaiseCostPlannedPaymentSettles(t *testing.T) {
+	e, bears := mayPlayPlanBoard(t, mpRaiseGrantSrc, 3)
+	a, ok := mayPlayAction(e, bears)
+	if !ok {
+		t.Fatalf("no payment action for the {1}{R}+{1} may-play cast of %d", bears)
+	}
+	if got := len(a.Plans[0].Activations); got != 3 {
+		t.Fatalf("plan taps %d sources, want 3", got)
+	}
+	d := e.Pending()
+	sel := &decision.PaymentSelection{ActionID: a.ID, Plan: a.Plans[0]}
+	if err := e.Submit(decision.Intent{Seq: d.Seq, Player: d.Player, Payment: sel}); err != nil {
+		t.Fatalf("Submit planned payment: %v", err)
+	}
+	if got := e.G.Obj(bears).Zone; got != state.ZStack {
+		t.Fatalf("bears in zone %v, want the stack", got)
+	}
+	for _, id := range e.G.Zone(state.ZBattlefield, 0) {
+		if o := e.G.Obj(id); o.Face().Name == "Mountain" && !o.Tapped {
+			t.Fatalf("Mountain %d untapped: the surcharge was not charged", id)
+		}
+	}
+}
