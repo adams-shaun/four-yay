@@ -50,13 +50,8 @@ func TestLevelADiscoverSeedsLibrary(t *testing.T) {
 
 // TestLevelATypedGraveyardSlotsFillOnlyServableSlots: Rise from the Wreck
 // (DFT) offers four optional graveyard slots (creature, Mount, Vehicle,
-// creature with no abilities). The Mount slot is deliberately unserved
-// (XMage's driver cannot target a Mount card), so the fixture must omit it:
-// zoneCandidates now fails closed on an unserved subtype rather than
-// declaring a non-Mount card the engine never offers. The NoAbilities slot
-// must name a real vanilla creature (Hill Giant), not an ability-bearing card
-// the engine's target decision would reject. The cast therefore names exactly
-// three targets in slot order: creature, Vehicle, vanilla.
+// creature with no abilities). Each slot names a real matching object, in
+// order; the NoAbilities slot must name a vanilla creature the engine offers.
 func TestLevelATypedGraveyardSlotsFillOnlyServableSlots(t *testing.T) {
 	reg := oracleHarnessCorpus(t)
 	it, skip := Generate(reg, "Rise from the Wreck")
@@ -65,8 +60,8 @@ func TestLevelATypedGraveyardSlotsFillOnlyServableSlots(t *testing.T) {
 	}
 	cast := castStep(t, it, "Rise from the Wreck")
 	targets := cast.Targets
-	if len(targets) != 3 {
-		t.Fatalf("Rise from the Wreck cast has %d targets %v, want 3 (creature, Vehicle, vanilla; Mount omitted)", len(targets), targets)
+	if len(targets) != 4 {
+		t.Fatalf("Rise from the Wreck cast has %d targets %v, want 4 (creature, Mount, Vehicle, vanilla)", len(targets), targets)
 	}
 	gy := it.Setup["p0"].Graveyard
 	named := make([]string, len(targets))
@@ -76,19 +71,16 @@ func TestLevelATypedGraveyardSlotsFillOnlyServableSlots(t *testing.T) {
 			t.Errorf("target %q is not in p0's graveyard %v", ref, gy)
 		}
 	}
-	// Each target must match its slot's type, in slot order: creature,
-	// Mount (omitted), Vehicle, creature with no abilities. Asserting only
-	// the count would pass a fixture whose three targets are all creatures.
+	// Each target must match its slot's type, in slot order. Asserting only
+	// the count would pass a fixture whose targets are all creatures.
 	if !faceHasType(t, reg, named[0], "Creature") {
 		t.Errorf("slot 0 (Creature) named %q, not a creature", named[0])
 	}
-	if !faceHasType(t, reg, named[1], "Vehicle") {
-		t.Errorf("slot 1 (Vehicle) named %q, not a Vehicle", named[1])
+	if !faceHasType(t, reg, named[1], "Mount") {
+		t.Errorf("slot 1 (Mount) named %q, not a Mount", named[1])
 	}
-	for _, name := range named {
-		if faceHasType(t, reg, name, "Mount") {
-			t.Errorf("target %q is a Mount, but the Mount slot must stay unserved", name)
-		}
+	if !faceHasType(t, reg, named[2], "Vehicle") {
+		t.Errorf("slot 2 (Vehicle) named %q, not a Vehicle", named[2])
 	}
 	// The last slot is Creature.YouOwn+NoAbilities: its card must be a
 	// vanilla creature the engine's NoAbilities decision offers. Assert the

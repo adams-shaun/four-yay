@@ -1,2 +1,0 @@
-{"shape":{"template":"trigger","op":"cast","field":"stack","diff":"gorge=[ability:$CARD@p0, spell:Shock@p1] xmage=[spell:Shock@p1]"},"key":"trigger | cast | stack | gorge=[ability:$CARD@p0, spell:Shock@p1] xmage=[spell:Shock@p1]","cards":1}
-{"card":"Talion, the Kindly Lord","template":"trigger#0.0","status":"diverge","api":"SpellCast:LoseLife","sets":["WOE"],"detail":"step 1 (cast) stack: gorge \"[ability:Talion, the Kindly Lord@p0, spell:Shock@p1]\", xmage \"[spell:Shock@p1]\""}

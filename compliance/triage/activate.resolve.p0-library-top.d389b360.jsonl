@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"resolve","field":"p0.library_top","diff":"gorge+[Forest] xmage+[Grizzly Bears]"},"key":"activate | resolve | p0.library_top | gorge+[Forest] xmage+[Grizzly Bears]","cards":1}
-{"card":"Canyon Crawler","template":"activate#0.0","status":"diverge","api":"ChangesZone:Token","sets":["TLA"],"detail":"step 1 (resolve) p0.library_top: gorge \"[Wastes, Jace Beleren, Wastes, Wastes, Forest]\", xmage \"[Wastes, Grizzly Bears, Jace Beleren, Wastes, Wastes]\""}
