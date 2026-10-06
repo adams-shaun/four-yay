@@ -10,9 +10,10 @@
 // filtered other permanent), Exile<1/CARDNAME>, and in the matching zone
 // Discard / ExileFromHand / ExileFromGrave of the source itself (plus one
 // other graveyard creature card), supported tapXType fixture
-// shapes, a source loyalty AddCounter/SubCounter, and the keyword costs of
-// activate_keyword_costs.go (Waterbend, XMin, PayLife<X>, Blight, Forage,
-// Exert, a non-loyalty AddCounter). Anything else is a cost gap. The XMage
+// shapes, source loyalty AddCounter/SubCounter, and literal source-counter
+// removal (SubCounter/RemoveAnyCounter, seeded by setup). Also supported are
+// activate_keyword_costs.go's Waterbend, XMin, PayLife<X>, Blight, Forage,
+// Exert and non-loyalty AddCounter. Anything else is a cost gap. The XMage
 // rule-text prefix rides the Item's XAbility slice (parallel to Steps), so
 // the runner -- which decodes steps strictly -- never sees it.
 package templates
@@ -134,8 +135,9 @@ func activateWithFixture(reg *cards.Registry, f *cards.Face, name string, req le
 		p0.Battlefield = appendFixtureUnique(p0.Battlefield, name)
 	}
 	addActivationCostFixtures(&p0, cost)
+	addActivationCounterFixtures(&p0, name, cost)
 	if extra := loyaltyHeadroom(f, f.Abilities[idx]); extra > 0 {
-		p0 = oraclegen.WithCounters(p0, name, "LOYALTY", extra)
+		p0 = oraclegen.WithCounters(p0, name, "LOYALTY", int32(extra))
 	}
 	p0, prelude := applyActivationPrelude(p0, name, pre)
 	setupBackFace(&p0, name, req)
@@ -173,6 +175,14 @@ func activateWithFixture(reg *cards.Registry, f *cards.Face, name string, req le
 	res, ok = oraclegen.PlaysThrough(reg, sc)
 	if !ok {
 		return oraclegen.Item{}, false
+	}
+	// A hidden library search gorge's fallback declined: re-run taking the
+	// search's first eligible card, so XMage's mandatory TargetCardInLibrary
+	// ask is answered with a card instead of the [target_skip] it rejects.
+	if search, changed := oraclegen.SearchPicks(sc, res.Decisions); changed {
+		if res2, ok2 := oraclegen.PlaysThrough(reg, search); ok2 {
+			sc, res = search, res2
+		}
 	}
 	it := oraclegen.NewLevelBItem(name, req.Key, ActivateAbility.Version, []string{"602.2"}, sc)
 	it.XAnswers = oraclegen.XAnswersForScenario(res, sc, oraclegen.ModeNumbers(f), targetSteps)

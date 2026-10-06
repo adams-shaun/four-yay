@@ -19,9 +19,15 @@
 #      gets a line; a row id already in that log is FLAKY without re-testing,
 #      so a known flake is never named CULPRIT); stable = attributed by
 #      replaying that row on the batch WITHOUT each branch in turn (newest
-#      first). A branch that changes compliance/oraclegen/ or cmd/oraclediff/
-#      changes the scenario itself, so for it the row is REGENERATED on the
-#      batch without that branch (oraclediff gen, that set) before the replay.
+#      first). A branch that touches gorge's side of the comparison -- any Go
+#      change outside tools/xmageoracle (touches_gorge), which includes the
+#      compliance/oraclegen and cmd/oraclediff generator -- can change both the
+#      scenario and gorge's result, so the row is REGENERATED on the batch
+#      without that branch (oraclediff gen, that set) AND replayed on the
+#      probe's own driver (one_scenario). Every selected ticket changed the
+#      driver, so that replay is what removes the driver half too: the batch's
+#      XMage snapshot was produced WITH the candidate's driver and must never
+#      be reused for it, or a driver-caused row could never clear.
 #      The branch whose removal clears the row is the CULPRIT: it is re-parked with a History line and the
 #      rest land after a fresh full replay. A row no single branch clears lands
 #      NOTHING and every ticket stays parked with the findings.
@@ -419,9 +425,11 @@ known_flaky() {
   return 1
 }
 
-# touches_generator <ticket>: 0 iff that branch changes the scenario generator.
-touches_generator() {
-  git diff --name-only "$MAIN"..."${BR[$1]}" -- compliance/oraclegen cmd/oraclediff 2>/dev/null | /usr/bin/grep -q .
+# touches_gorge <ticket>: 0 iff that branch changes gorge-generated scenarios
+# or the code that computes gorge's side of the comparison. Driver-only Java
+# changes remain on the XMage replay path.
+touches_gorge() {
+  git diff --name-only "$MAIN"..."${BR[$1]}" -- compliance/oraclegen cmd/oraclediff compliance/manifests '*.go' ':!tools/xmageoracle/**' 2>/dev/null | /usr/bin/grep -q .
 }
 
 # regen_row <probe> <id> <outfile>: regenerate the scenario row <id> on <probe>'s
@@ -432,10 +440,11 @@ regen_row() {
   set=$(basename "$(dirname "$f")")
   gen="$out.gen.jsonl"
   rm -f -- "$gen" "$out"
+  local genlog="$gen.log"
   if [ "${#GEN_CMD[@]}" -gt 0 ]; then
-    (cd "$dir" && "${GEN_CMD[@]}" "$set" "$gen") >/dev/null 2>&1 || return 1
+    (cd "$dir" && "${GEN_CMD[@]}" "$set" "$gen" "$repo/.cards") >"$gen.stdout.log" 2>"$genlog" || { say "ATTRIBUTE generator failed for $id: $(head -n1 "$genlog")"; return 1; }
   else
-    (cd "$dir" && capped go run ./cmd/oraclediff gen -level "${ORACLE_LEVEL:-B}" -manifest "compliance/manifests/$set.json" -out "$gen") >/dev/null 2>&1 || return 1
+    (cd "$dir" && capped go run ./cmd/oraclediff gen -cards "$repo/.cards" -level "${ORACLE_LEVEL:-B}" -manifest "compliance/manifests/$set.json" -out "$gen") >"$gen.stdout.log" 2>"$genlog" || { say "ATTRIBUTE generator failed for $id: $(head -n1 "$genlog")"; return 1; }
   fi
   py row "$id" "$gen" >"$out" || return 1
   [ -s "$out" ]
@@ -462,9 +471,13 @@ flaky_check() {
 # so agree again is exactly "no longer regressed"; a snapshot merely equal to
 # main's driver would also pass when the regression is not the driver's at all).
 cleared() {
-  local id=$1 xm=$2 scen=$3 v="$2.verdict.jsonl"
+  local id=$1 xm=$2 scen=$3 tree=${4:-} v="$xm.verdict.jsonl"
+  rm -f -- "$v"
   if [ -n "${DRB_DIFF_CMD:-}" ]; then
-    $DRB_DIFF_CMD "$scen" "$xm" "$v" >/dev/null 2>&1
+    if [ -n "$tree" ]; then (cd "$tree" && $DRB_DIFF_CMD "$scen" "$xm" "$v") >/dev/null 2>&1
+    else $DRB_DIFF_CMD "$scen" "$xm" "$v" >/dev/null 2>&1; fi
+  elif [ -n "$tree" ]; then
+    (cd "$tree" && capped go run ./cmd/oraclediff diff -cards "$repo/.cards" -scenarios "$scen" -xmage "$xm" -out "$v" -xmage-ref "$(sed -n 's/^XMAGE_REF *?= *//p' "$wt/Makefile")") >/dev/null 2>&1
   else
     "$SCEN_ROOT/oraclediff" diff -scenarios "$scen" -xmage "$xm" -out "$v" -xmage-ref "$(sed -n 's/^XMAGE_REF *?= *//p' "$wt/Makefile")" >/dev/null 2>&1
   fi
@@ -490,19 +503,37 @@ attribute() {
     done
     [ "$ok" = 1 ] || { say "ATTRIBUTE cannot build the batch without $cand (conflict); skipping it as a candidate"; continue; }
     local -a left=()
-    local gen=0
-    touches_generator "$cand" && gen=1
+    local gorge=0
+    touches_gorge "$cand" && gorge=1
     for r in "${todo[@]}"; do
       local tag src=""
       tag=$(echo "$r" | tr -c 'A-Za-z0-9\n' _)
-      if [ "$gen" = 1 ]; then
-        # The branch changes the scenario itself: replaying the batch's row
-        # without it can never clear, so regenerate the row without it.
+      if [ "$gorge" = 1 ]; then
+        # Recompute gorge's result on the probe without this branch.
         src="$d/regen-$cand-$tag.jsonl"
         regen_row "$probe" "$r" "$src" || { say "ATTRIBUTE cannot regenerate row $r without $cand; skipping it as a candidate"; left+=("$r"); continue; }
       fi
-      if one_scenario "$probe" "$r" "$d/without-$cand-$tag.jsonl" "$src" &&
-        cleared "$r" "$d/without-$cand-$tag.jsonl" "$d/without-$cand-$tag.jsonl.in.jsonl"; then
+      local candidate="$d/without-$cand-$tag.jsonl" xm
+      xm="$candidate"
+      if [ "$gorge" = 1 ]; then
+        # Recompute BOTH halves on the probe without this branch: the gorge
+        # scenario (regen_row above) and the XMage result (one_scenario
+        # compiles the probe's driver, which lacks the branch). Every selected
+        # candidate changed the driver, so reusing the batch's snapshot here
+        # would pair a regenerated scenario with the candidate's own driver and
+        # a driver-caused row could never clear.
+        one_scenario "$probe" "$r" "$candidate" "$src" || { left+=("$r"); continue; }
+      else
+        one_scenario "$probe" "$r" "$candidate" || { left+=("$r"); continue; }
+        src="$candidate.in.jsonl"
+      fi
+      if [ "$gorge" = 1 ]; then
+        if cleared "$r" "$xm" "$src" "$probe"; then
+          CULPRIT[$r]=$cand
+        else
+          left+=("$r")
+        fi
+      elif cleared "$r" "$xm" "$src"; then
         CULPRIT[$r]=$cand
       else
         left+=("$r")

@@ -506,7 +506,7 @@ func applyActivationPrelude(p0 oraclegen.Seat, name string, pre conditionPrelude
 			target = name
 		}
 		for _, kind := range sortedCounterKinds(pre.counters[card]) {
-			p0 = oraclegen.WithCounters(p0, target, kind, pre.counters[card][kind])
+			p0 = oraclegen.WithCounters(p0, target, kind, int32(pre.counters[card][kind]))
 		}
 	}
 	return p0, append([]oraclegen.Step(nil), pre.steps...)

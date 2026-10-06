@@ -97,6 +97,9 @@ type oracleSeat struct {
 	// stands in for an unspecified outside effect, as logged CounterChange
 	// events, so the scenario still replays from its log.
 	Counters map[string]map[string]int32 `json:"counters,omitempty"`
+	// Speed is the seat's starting speed (CR 702.179), 0..4, set with a
+	// SpeedChange event during setup.
+	Speed int32 `json:"speed,omitempty"`
 }
 
 // setupCounters lists the counters a seat's setup puts on a battlefield
@@ -187,6 +190,7 @@ type oracleExpect struct {
 	StackSize      *int              `json:"stack_size,omitempty"`
 	Offered        *oracleOffered    `json:"offered,omitempty"`
 	CanBlock       *oracleCanBlock   `json:"can_block,omitempty"`
+	CanAttack      *oracleCanAttack  `json:"can_attack,omitempty"`
 	Count          *oracleCount      `json:"count,omitempty"`
 	Eq             *int              `json:"eq,omitempty"`
 	Want           *bool             `json:"want,omitempty"`
@@ -435,6 +439,9 @@ func (r *oracleRun) build(sc oracleScenario) error {
 			}
 			sideboards[p] = append(sideboards[p], c)
 		}
+		if err := validateSetupState(p, s); err != nil {
+			return err
+		}
 	}
 	cfg := Config{Seed: 42, Names: []string{"a", "b"}, Decks: decks, Tokens: r.reg.Tokens, NamedCorpus: r.reg.Cards}
 	for p := range sideboards {
@@ -574,6 +581,7 @@ func (r *oracleRun) build(sc oracleScenario) error {
 				e.emit(events.Event{Kind: events.LifeChange, Player: pid, Amount: d})
 			}
 		}
+		emitSetupSpeed(e.emit, p, e.G.Players[p].Speed, sc.Setup[fmt.Sprintf("p%d", p)])
 	}
 	if sc.xmageFixture {
 		// Generated scenarios start from a position XMage creates with
@@ -603,9 +611,16 @@ func (r *oracleRun) build(sc oracleScenario) error {
 	// earlier: a pool added during an earlier step would empty at that step's
 	// end (CR 500.4), and the first-main-phase trigger is posed in main1.
 	seededMana := false
-	// Drive to the requested turn's first main phase. Triggers that setup
-	// placements caused resolve here under the fallback answers; the transcript names
-	// every one.
+	// Drive to the requested turn's first main phase. Only a generated
+	// compliance scenario (xmageFixture) stops at the FIRST priority even
+	// with a non-empty stack -- that is the exact point XMage's
+	// ScenarioReplay pauses at for its "setup" snapshot (runCode("setup",
+	// TURN, MAIN, ...)), so a beginning-of-first-main-phase trigger (and a
+	// Saga's precombat-main chapter trigger) is still on the stack at the
+	// setup checkpoint, not already resolved under the fallback. Every other
+	// scenario keeps the empty-stack stop: its fixture is written for the
+	// trigger to resolve during setup, and there is no XMage snapshot to
+	// align with.
 	for i := 0; i < 400*turn; i++ {
 		if !seededMana && e.G.Turn == targetTurn && e.G.Step == state.StepMain1 {
 			seededMana = true
@@ -619,8 +634,9 @@ func (r *oracleRun) build(sc oracleScenario) error {
 		if d == nil || e.G.Over {
 			return harnessf("game stopped during setup")
 		}
-		if d.Kind == decision.KPriority && e.G.Step == state.StepMain1 && e.G.Turn == targetTurn && len(e.G.Stack) == 0 {
-			r.logf("setup done: turn %d %s, stack empty", e.G.Turn, e.G.Step)
+		if d.Kind == decision.KPriority && e.G.Step == state.StepMain1 && e.G.Turn == targetTurn &&
+			(len(e.G.Stack) == 0 || sc.xmageFixture) {
+			r.logf("setup done: turn %d %s, stack %d", e.G.Turn, e.G.Step, len(e.G.Stack))
 			return nil
 		}
 		if err := r.answer(d, "setup"); err != nil {
@@ -1708,6 +1724,13 @@ func (r *oracleRun) check(x oracleExpect) []string {
 				failf("%s can block %s = %v, want %v", x.CanBlock.Blocker, x.CanBlock.Attacker, found, r.wantBool(x))
 			}
 		}
+	}
+	if x.CanAttack != nil {
+		id, err := r.resolve(x.CanAttack.Attacker)
+		if err != nil {
+			return []string{err.Error()}
+		}
+		bad = append(bad, canAttackFails(e.Pending(), id, x.CanAttack.Attacker, r.wantBool(x))...)
 	}
 	if x.Count != nil {
 		z, ok := oracleZones[x.Count.Zone]

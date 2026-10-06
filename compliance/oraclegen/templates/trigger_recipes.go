@@ -69,6 +69,17 @@ func baseTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards
 	}
 	creature := f.IsCreature()
 	switch sub {
+	case "trigger.etb-land":
+		// A land's own ETB fires when the land is played from hand, never
+		// cast, so the cause is the play itself (the runner's `play` op
+		// submits the play_land offered for the card). The card starts in
+		// hand, not on the battlefield, because setup placement would move
+		// it to the battlefield without playing it and never trigger.
+		return []triggerCause{{
+			selfInHand: true,
+			hand:       []string{name},
+			steps:      []oraclegen.Step{{Op: "play", Seat: 0, Card: "p0:" + name}},
+		}}, ""
 	case "trigger.etb-other":
 		return etbProbeCauses(reg, name, t)
 	case "trigger.dies":

@@ -152,13 +152,13 @@ func TestRequirementsClassificationTable(t *testing.T) {
 			}},
 		},
 		{
-			name: "land self-etb is NOT covered by A",
+			name: "land self-etb is its own sub-family",
 			c: cardOf(&cards.Face{Types: []string{"Land"}, Triggers: []cards.Trigger{
 				trig("ChangesZone", selfETB),
 			}}),
 			want: []Requirement{{
 				Key: "trigger#0.0", Family: "trigger", Face: 0, Slot: "0",
-				Sub: "trigger.gap:ChangesZone", Gap: "trigger mode ChangesZone",
+				Sub: "trigger.etb-land",
 			}},
 		},
 		{

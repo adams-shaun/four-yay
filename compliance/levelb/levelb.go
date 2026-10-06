@@ -179,11 +179,12 @@ func classifyTrigger(f *cards.Face, t *cards.Trigger) (sub, gap string, covered 
 			if !self {
 				return "trigger.etb-other", "", false
 			}
-			// A self-ETB trigger is the one shape the level-A cast-resolve
-			// scenario settles, but only off a non-land: a land's play-land
-			// scenario never puts a spell on the stack.
+			// A self-ETB trigger on a non-land is the one shape the level-A
+			// cast-resolve scenario settles. A land is played, never cast, so
+			// its self-ETB gets its own sub-family with a play-land cause
+			// (the level-A scenario never puts a spell on the stack for it).
 			if f.IsLand() {
-				return gapMode()
+				return "trigger.etb-land", "", false
 			}
 			return "trigger.etb-other", "", true
 		}
@@ -320,6 +321,19 @@ func supportedLegalityStatic(f *cards.Face, st *cards.Static) (string, bool) {
 		if strings.EqualFold(st.ParamStr(cards.PKValidAttacker), "Creature.YouCtrl+powerLE1,Creature.YouCtrl+toughnessLE1") && !st.HasParam(cards.PKValidBlocker) && !st.HasParam(cards.PKIsPresent) && !st.HasParam(cards.PKCondition) {
 			return "static.cant-block-by", true
 		}
+		// The unfiltered self form ("can't be blocked"); the Tetsuko filter
+		// shape above keeps its own sub-family.
+		if f.IsCreature() && SelfLegalityStatic(st, cards.PKValidAttacker) {
+			return "static.cant-block-by-self", true
+		}
+	case "cantblock":
+		if f.IsCreature() && SelfLegalityStatic(st, cards.PKValidCard) {
+			return "static.cant-block-self", true
+		}
+	case "minmaxblocker":
+		if f.IsCreature() && SelfLegalityStatic(st, cards.PKValidCard, cards.PKMin) && MinBlockers(st) > 0 {
+			return "static.min-blockers", true
+		}
 	case "cantbecast":
 		if strings.EqualFold(st.ParamStr(cards.PKValidCard), "Card.Self") && strings.EqualFold(st.ParamStr(cards.PKCheckSVar), "X") && strings.EqualFold(st.ParamStr(cards.PKSVarCompare), "LT7") && strings.EqualFold(st.ParamStr(cards.PKEffectZone), "All") && !st.HasParam(cards.PKPhases) && !st.HasParam(cards.PKCondition) && !st.HasParam(cards.PKCaster) {
 			return "static.cant-be-cast-threshold", true
@@ -333,6 +347,44 @@ func supportedLegalityStatic(f *cards.Face, st *cards.Static) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+// SelfLegalityStatic reports whether st is a combat-legality static that
+// applies to its own host only and carries no condition: key (the param that
+// scopes the static) names the host ("Card.Self" or "Creature.Self"), every
+// other parameter in extra is a value the caller reads, and the only other
+// parameters present are the Mode and display ones. A static with an IsPresent,
+// Condition, CheckSVar, UnlessDefender, ValidBlocker, Phases ... parameter is
+// conditional or filtered and is not this shape.
+func SelfLegalityStatic(st *cards.Static, key cards.ParamKey, extra ...cards.ParamKey) bool {
+	scope := st.ParamStr(key)
+	if !strings.EqualFold(scope, "Card.Self") && !strings.EqualFold(scope, "Creature.Self") {
+		return false
+	}
+	allowed := 1
+	for _, k := range extra {
+		if !st.HasParam(k) {
+			return false
+		}
+		allowed++
+	}
+	for _, k := range []cards.ParamKey{cards.PKMode, cards.PKDescription, cards.PKSecondary} {
+		if st.HasParam(k) {
+			allowed++
+		}
+	}
+	return len(st.Params) == allowed
+}
+
+// MinBlockers is the Min$ of a MinMaxBlocker static ("can't be blocked except
+// by N or more creatures"), or 0 when it is not a plain integer bound the
+// level-B template can observe (2 to 6; "All" and larger bounds are not).
+func MinBlockers(st *cards.Static) int {
+	n, err := strconv.Atoi(strings.TrimSpace(st.ParamStr(cards.PKMin)))
+	if err != nil || n < 2 || n > 6 {
+		return 0
+	}
+	return n
 }
 
 // isCombatStaticMode reports whether mode names a combat-legality static.

@@ -13,7 +13,7 @@ import (
 func setupLoyalty(t *testing.T, reg *cards.Registry, name, key string) int {
 	t.Helper()
 	it, _ := activateRequirement(t, reg, name, key)
-	return it.Scenario.Setup["p0"].Counters[name]["LOYALTY"]
+	return int(it.Scenario.Setup["p0"].Counters[name]["LOYALTY"])
 }
 
 // printedLoyalty is the precondition every headroom case rests on: the cost
