@@ -33,7 +33,7 @@ func effMeld(h Host, c *Ctx, sa *cards.SA) {
 		for _, id := range g.Zone(state.ZBattlefield, player) {
 			o := g.Obj(id)
 			if o == nil || id == c.Source || o.Face() == nil || o.Face().Name != partnerName ||
-				o.Controller != c.Controller || o.Owner != c.Controller {
+				o.Controller != c.Controller {
 				continue
 			}
 			if p.Attacking && (!source.IsAttacking || !o.IsAttacking || source.Attacking != o.Attacking) {
@@ -46,7 +46,7 @@ func effMeld(h Host, c *Ctx, sa *cards.SA) {
 			break
 		}
 	}
-	if partner == 0 || source.Owner != c.Controller || source.Controller != c.Controller {
+	if partner == 0 || source.Controller != c.Controller {
 		return
 	}
 	var defender state.PlayerID

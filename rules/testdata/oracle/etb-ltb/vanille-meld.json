@@ -14,12 +14,29 @@
       },
       "steps": [
         {"op": "pass_to", "step": "begin-combat", "active": "p0"},
-        {"op": "pass_to", "step": "main1", "active": "p0"},
-        {"op": "resolve", "answers": [{"kind": "any", "pick": ["Do not pay"]}]}
+        {"op": "pass_to", "step": "main1", "active": "p0"}
       ],
       "expect": [
         {"card": "p0:Vanille, Cheerful l'Cie", "zone": "battlefield", "pt": "3/2"},
         {"card": "p0:Fang, Fearless l'Cie", "zone": "battlefield"}
+      ]
+    },
+    {
+      "name": "first-main-phase-pays-and-melds",
+      "cr": ["603.4", "701.42", "712.4"],
+      "why": "With {3}{B}{G} available, Vanille's first-main-phase trigger may pay to exile Vanille and Fang and meld them into Ragnarok, Divine Deliverance -- one 7/6 permanent with the result's combined characteristics.",
+      "setup": {
+        "p0": {"battlefield": ["Vanille, Cheerful l'Cie", "Fang, Fearless l'Cie"], "mana": "BBGGG"},
+        "p1": {}
+      },
+      "setup_answers": [{"kind": "choose", "pick": ["Wastes"]}, {"kind": "any", "pick": ["pay"]}],
+      "steps": [
+        {"op": "pass_to", "step": "begin-combat", "active": "p0"},
+        {"op": "pass_to", "step": "main1", "active": "p0"}
+      ],
+      "expect": [
+        {"card": "p0:Ragnarok, Divine Deliverance", "zone": "battlefield", "pt": "7/6",
+         "keywords": ["Vigilance", "Menace", "Trample", "Reach", "Haste"]}
       ]
     }
   ]
