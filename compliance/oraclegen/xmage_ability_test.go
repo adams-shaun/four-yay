@@ -98,11 +98,10 @@ func TestXMageAbilityGateKeepsPrintedIntrinsicLine(t *testing.T) {
 	}
 }
 
-// TestXMageAbilityUnchangedFaces pins the mapping main produced before the
-// loyalty/shared-cost/intrinsic change for the activate template's test cards
-// (compliance/oraclegen/templates/activate*_test.go) plus faces whose cost is
-// only a string prefix of another line's cost or that name themselves in the
-// rule text. Only an exactly shared cost is extended, so none of these move.
+// TestXMageAbilityUnchangedFaces pins the main-era mapping for the activate
+// template's test cards (compliance/oraclegen/templates/activate*_test.go).
+// Most prefixes remain unchanged; Abandoned Outpost and Blinkmoth Nexus now
+// carry a unique extension because their legacy prefixes selected two abilities.
 func TestXMageAbilityUnchangedFaces(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	for _, tc := range []struct {
@@ -134,8 +133,8 @@ func TestXMageAbilityUnchangedFaces(t *testing.T) {
 		{"Theoretical Necromancer", map[int]string{0: "{3}{B}, Exile this card from your graveyard"}},
 		{"Tomik, Orzhov Lawmage", map[int]string{0: "{T}"}},
 		{"Yoshimaru, Beloved Companion", map[int]string{0: "{6}"}},
-		{"Abandoned Outpost", map[int]string{0: "{T}", 1: "{T}, Sacrifice {this}"}},
-		{"Blinkmoth Nexus", map[int]string{0: "{T}", 1: "{1}", 2: "{1}, {T}"}},
+		{"Abandoned Outpost", map[int]string{0: "{T}:", 1: "{T}, Sacrifice {this}"}},
+		{"Blinkmoth Nexus", map[int]string{0: "{T}", 1: "{1}:", 2: "{1}, {T}"}},
 	} {
 		c, ok := reg.Lookup(tc.card)
 		if !ok || len(c.Faces) == 0 {
