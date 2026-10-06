@@ -138,7 +138,10 @@ func classifyAnswer(answer string, ref string, options []string) (bucket string,
 			seen[o] = true
 		}
 	}
-	if len(seen) == 1 {
+	// The answer must select the pick itself, not merely one object: an
+	// alias naming a same-name sibling is a wrong answer, and a pick whose
+	// own option is missing from options cannot be proven resolved.
+	if len(seen) == 1 && seen[ref] {
 		if strings.HasPrefix(answer, "@") {
 			return "alias", 1
 		}
@@ -151,14 +154,17 @@ func classifyAnswer(answer string, ref string, options []string) (bucket string,
 }
 
 // segmentFor finds the emitted answer segment (answers may be '^'-joined)
-// that NAMES the pick's ref: an exact "@ref"/ref alias, or a bare/copy-marked
-// name equal to the pick's name. Returns "" when no segment names the pick,
-// which is the ordinary case for a pick XMage answers with a number, a
-// yes/no, or a skip token rather than a name selection.
-func segmentFor(value, ref string) string {
-	segs := []string{value}
-	if strings.Contains(value, "^") {
-		segs = strings.Split(value, "^")
+// that NAMES the pick's ref, across every answer value of the step: first an
+// exact "@ref"/ref alias, then a bare/copy-marked name equal to the pick's
+// name, then an alias of a same-name SIBLING (a wrong answer, which
+// classifyAnswer then counts as unresolved rather than letting it go
+// uncounted). Returns "" when no segment names the pick, which is the
+// ordinary case for a pick XMage answers with a number, a yes/no, or a skip
+// token rather than a name selection.
+func segmentFor(values []string, ref string) string {
+	var segs []string
+	for _, v := range values {
+		segs = append(segs, strings.Split(v, "^")...)
 	}
 	for _, seg := range segs {
 		if seg == "@"+ref || seg == ref {
@@ -171,6 +177,12 @@ func segmentFor(value, ref string) string {
 		}
 		base := strings.TrimSuffix(strings.TrimSuffix(seg, "[no copy]"), "[only copy]")
 		if strings.EqualFold(base, refName(ref)) {
+			return seg
+		}
+	}
+	for _, seg := range segs {
+		alias := strings.TrimPrefix(seg, "@")
+		if isRefSpelling(alias) && strings.EqualFold(refName(alias), refName(ref)) {
 			return seg
 		}
 	}
@@ -220,21 +232,20 @@ func TestSameNameAnswerCensus(t *testing.T) {
 					// object identity never reaches XMage's name match).
 					answer := ""
 					if d.Step >= 0 && d.Step < len(it.XAnswers) {
+						var values []string
 						for _, a := range it.XAnswers[d.Step] {
-							if seg := segmentFor(a.Value, ref); seg != "" {
-								answer = seg
-								break
-							}
+							values = append(values, a.Value)
 						}
+						answer = segmentFor(values, ref)
 					}
 					if answer == "" {
 						continue
 					}
 					bucket, matches := classifyAnswer(answer, ref, d.OptionRefs)
-					if matches != 1 && answer != "" {
-						// The answer named something, but not exactly one
-						// candidate: report both the defect and the pick.
-						t.Errorf("%s: ambiguous pick %q emitted %q, which matches %d distinct offered objects (kind=%s resume=%s via=%s pk=%v)", id, ref, answer, matches, d.Kind, d.Resume, d.Via, d.PickKinds)
+					if bucket == "unresolved" {
+						// The answer named something, but not exactly the
+						// pick: report both the defect and the pick.
+						t.Errorf("%s: ambiguous pick %q emitted %q, which matches %d distinct offered objects, not exactly the pick (kind=%s resume=%s via=%s pk=%v)", id, ref, answer, matches, d.Kind, d.Resume, d.Via, d.PickKinds)
 					}
 					switch bucket {
 					case "alias":

@@ -1101,11 +1101,37 @@ public class ScenarioReplay extends CardTestPlayerBase {
      * live objects of that name in registerAliases' zone order. Additive and
      * idempotent: it never rebinds a ref registerAliases already bound.
      */
-    private void bindAnswerAlias(String ref) {
-        if (refAlias.containsKey(ref) || currentGame == null || !isScenarioRef(ref)) {
+    private void bindAnswerAlias(String value) {
+        for (String ref : answerRefs(value)) {
+            bindOneAlias(ref);
+        }
+    }
+
+    /** The seat index of a scenario ref: "p1:Forest#2" -> 1. */
+    static int refSeat(String ref) {
+        return Integer.parseInt(ref.substring(1, ref.indexOf(':')));
+    }
+
+    /** The scenario refs an answer value names. A multi-pick answer joins its
+     * picks with "^" ("@p0:Wastes#27^@p0:Wastes#39"); each segment loses its
+     * "@" alias marker, and a segment that is not a ref ("X=2", a label) is
+     * dropped. */
+    static List<String> answerRefs(String value) {
+        List<String> refs = new ArrayList<>();
+        for (String seg : value.split("\\^")) {
+            String ref = seg.startsWith("@") ? seg.substring(1) : seg;
+            if (isScenarioRef(ref)) {
+                refs.add(ref);
+            }
+        }
+        return refs;
+    }
+
+    private void bindOneAlias(String ref) {
+        if (refAlias.containsKey(ref) || currentGame == null) {
             return;
         }
-        int seatIndex = Integer.parseInt(ref.substring(0, ref.indexOf(':')));
+        int seatIndex = refSeat(ref);
         String name = refName(ref);
         boolean token = ref.contains(":token:");
         int wanted = 1;
@@ -1172,7 +1198,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
      */
     private String aliasChoiceValue(String v) {
         if (v.startsWith("@")) {
-            bindAnswerAlias(v.substring(1));
+            bindAnswerAlias(v);
             return v;
         }
         if (isScenarioRef(v)) {

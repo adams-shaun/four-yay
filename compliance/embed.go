@@ -28,8 +28,8 @@ func EmbeddedDeclared() (Declared, error) {
 }
 
 // EmbeddedPrinted parses the embedded compliance/printed/<code>.json for a
-// declared set, or a zero Printed when the set has no printed manifest (the
-// same shape LoadPrinted produces for a missing file).
+// declared set. A set with no printed manifest returns the ReadFile error, as
+// LoadPrinted does for a missing file.
 func EmbeddedPrinted(code string) (Printed, error) {
 	raw, err := embeddedPrinted.ReadFile(path.Join("printed", ManifestFileName(code)))
 	if err != nil {

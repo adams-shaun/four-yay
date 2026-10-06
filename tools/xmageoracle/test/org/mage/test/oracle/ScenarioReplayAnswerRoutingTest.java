@@ -238,5 +238,32 @@ public final class ScenarioReplayAnswerRoutingTest {
         equal(false, ScenarioReplay.isScenarioRef("[target_skip]"));
         equal(false, ScenarioReplay.isScenarioRef("Forest"));
         System.out.println("PASS scenario-ref predicate excludes seats and skip tokens");
+
+        // bindAnswerAlias parses a ref's seat ("p0:..." -> 0, not "p0") and
+        // binds each "^"-joined pick of a multi-pick answer separately; the
+        // joined string is not itself a ref.
+        equal(0, ScenarioReplay.refSeat("p0:Forest#2"));
+        equal(1, ScenarioReplay.refSeat("p1:token:Goblin Token#2"));
+        equal(List.of("p0:Wastes#27", "p0:Wastes#39"), ScenarioReplay.answerRefs("@p0:Wastes#27^@p0:Wastes#39"));
+        equal(List.of("p1:Grizzly Bears"), ScenarioReplay.answerRefs("@p1:Grizzly Bears"));
+        equal(List.of("p1:Grizzly Bears"), ScenarioReplay.answerRefs("p1:Grizzly Bears^X=2"));
+        equal(List.of(), ScenarioReplay.answerRefs("[target_skip]"));
+        System.out.println("PASS answer refs parse their seat and split a joined multi-pick");
+
+        // The corpus emits "@p0:Wastes#27^@p0:Wastes#39" on the choice queue.
+        // With a live game the driver must bind each segment (here both are
+        // already bound by setup, so nothing touches the board) and queue the
+        // value unchanged, never throw on the joined string.
+        RecordingDriver joined = driver();
+        @SuppressWarnings("unchecked")
+        java.util.Map<String, String> bound = (java.util.Map<String, String>) field(joined, "refAlias");
+        bound.put("p0:Wastes#27", "@p0:Wastes#27");
+        bound.put("p0:Wastes#39", "@p0:Wastes#39");
+        Object game = UNSAFE.allocateInstance(mage.game.TwoPlayerDuel.class);
+        set(joined, "currentGame", game);
+        equal(true, field(joined, "currentGame") != null);
+        scripted(joined, answers("choice", "@p0:Wastes#27^@p0:Wastes#39"));
+        equal(List.of("@p0:Wastes#27^@p0:Wastes#39"), field(field(joined, "playerA"), "choices"));
+        System.out.println("PASS joined same-name multi-pick choice binds per segment with a live game (Wastes)");
     }
 }
