@@ -112,6 +112,11 @@ type OracleDecision struct {
 	// PerOpponent marks a per-player target ask whose filter admits only
 	// opponents' objects: XMage asks no target for the controller's seat.
 	PerOpponent bool `json:"per_opponent,omitempty"`
+	// AltPayable counts the options of an AlternateAdditionalCost either-or
+	// ask (option kind "altaddcost") the cast could pay. XMage's OrCost poses
+	// its chooseUse only when two or more of its costs can be paid, so the
+	// generator scripts the boolean only for AltPayable >= 2.
+	AltPayable int `json:"alt_payable,omitempty"`
 }
 
 const oracleLibraryTopN = 5

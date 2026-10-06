@@ -652,10 +652,18 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSt
 			namedSearch[d.Step] = true
 		}
 	}
-	for _, d := range ds {
+	routing := newAnswerRouting(ds)
+	for i, d := range ds {
 		if d.Step < 0 || d.Step >= steps || (d.Via == "target" && castSteps[d.Step]) {
 			// A cast step's own targets reach XMage through castSpell; a
 			// target decision posed at a resolve step is scripted below.
+			continue
+		}
+		if as, owned := routing.route(i); owned {
+			if len(as) > 0 {
+				out[d.Step] = append(out[d.Step], as...)
+				any = true
+			}
 			continue
 		}
 		if pickKind(d, 0) == "name" && namedSearch[d.Step] && len(d.Picks) == 1 {
@@ -1220,7 +1228,7 @@ func yesNo(d rules.OracleDecision) (string, bool) {
 func hasTargetPick(d rules.OracleDecision) bool {
 	for k := range d.Picks {
 		switch pickKind(d, k) {
-		case "permanent", "player":
+		case "permanent", "player", "opponent_choice":
 			return true
 		}
 	}
@@ -1232,7 +1240,7 @@ func hasTargetPick(d rules.OracleDecision) bool {
 // choice queue.
 func pickKind(d rules.OracleDecision, k int) string {
 	if k >= 0 && k < len(d.PickKinds) {
-		if d.Resume == "opp_pick" && d.PickKinds[k] == "player" {
+		if (d.Resume == "opp_pick" || d.Resume == "choice") && d.PickKinds[k] == "player" {
 			// The TargetingPlayer$ Opponent flow's controller-facing
 			// which-opponent ask: XMage's ChoicePlayer, the choice queue.
 			return "opponent_choice"
