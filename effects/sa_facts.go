@@ -110,6 +110,8 @@ type SAFacts struct {
 	// Vote is api:Vote's compiled parameter set (vote_params.go),
 	// non-nil exactly when the API is Vote.
 	Vote *VoteParams
+	// Meld is api:Meld's compiled operand set (meld_params.go).
+	Meld *MeldParams
 	// RepeatEach is api:RepeatEach's compiled parameter set (repeateach_params.go),
 	// non-nil exactly when the API is RepeatEach.
 	RepeatEach *RepeatEachParams
