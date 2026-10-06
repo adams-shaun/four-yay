@@ -60,8 +60,12 @@ func TestCompilePutCounter(t *testing.T) {
 // TestPutCounterOfIsAllocationFree: a configured record or a front-cache hit
 // allocates nothing (the entry-counter fold reads it on every entry).
 func TestPutCounterOfIsAllocationFree(t *testing.T) {
-	bound := &cards.SA{API: "PutCounter", Params: map[string]string{"CounterNum": "1", "ETB": "True"}}
+	bound := slottedSA(t, "PutCounter", map[string]string{"CounterNum": "1", "ETB": "True"})
 	f := NewSAFacts(bound)
+	f.Publish()
+	if LoadSAFacts(bound) != f {
+		t.Fatal("precondition: the configured record is not published on bound's facts slot")
+	}
 	cached := &cards.SA{API: "PutCounter", Params: map[string]string{"CounterNum": "2"}}
 	PutCounterOf(cached)
 	if n := allocsPerRun(100, func() {

@@ -46,9 +46,12 @@ func TestCompileVote(t *testing.T) {
 // TestVoteOfIsAllocationFree: a configured record or a front-cache hit
 // allocates nothing.
 func TestVoteOfIsAllocationFree(t *testing.T) {
-	bound := &cards.SA{API: "Vote", Params: map[string]string{"Choices": "DBA,DBB", "Defined": "Player"}}
+	bound := slottedSA(t, "Vote", map[string]string{"Choices": "DBA,DBB", "Defined": "Player"})
 	f := NewSAFacts(bound)
 	f.Publish()
+	if LoadSAFacts(bound) != f {
+		t.Fatal("precondition: the configured record is not published on bound's facts slot")
+	}
 	cached := &cards.SA{API: "Vote", Params: map[string]string{"VoteCard": "Permanent.nonLand"}}
 	VoteOf(cached)
 	if n := allocsPerRun(100, func() {

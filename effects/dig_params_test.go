@@ -1,8 +1,6 @@
 package effects
 
 import (
-	"os"
-	"os/exec"
 	"slices"
 	"testing"
 
@@ -59,27 +57,17 @@ func TestCompileDig(t *testing.T) {
 	}
 }
 
-// TestDigOfIsAllocationFree measures the configured-record and front-cache
-// hits in a fresh test process. Other tests can leave background goroutines
-// running in the package test process; their allocations (or Dig compiles
-// evicting this direct-mapped slot) are visible to AllocsPerRun even though
-// neither measured lookup allocates. The child runs only this test, so the
-// primed front-cache entry cannot be evicted by unrelated test activity.
+// TestDigOfIsAllocationFree: a configured record or a front-cache hit
+// allocates nothing.
 func TestDigOfIsAllocationFree(t *testing.T) {
-	if os.Getenv("GORGE_DIG_ALLOCS_CHILD") != "1" {
-		cmd := exec.Command(os.Args[0], "-test.run=^TestDigOfIsAllocationFree$")
-		cmd.Env = append(os.Environ(), "GORGE_DIG_ALLOCS_CHILD=1")
-		if output, err := cmd.CombinedOutput(); err != nil {
-			t.Fatalf("isolated Dig allocation check failed: %v\n%s", err, output)
-		}
-		return
-	}
-
-	bound := &cards.SA{API: "Dig", Params: map[string]string{"DigNum": "3", "ChangeNum": "1"}}
+	bound := slottedSA(t, "Dig", map[string]string{"DigNum": "3", "ChangeNum": "1"})
 	f := NewSAFacts(bound)
 	f.Publish()
+	if LoadSAFacts(bound) != f {
+		t.Fatal("precondition: the configured record is not published on bound's facts slot")
+	}
 
-	cached := &cards.SA{API: "Dig", Params: map[string]string{"DigNum": "2", "slot": "allocation-check"}}
+	cached := &cards.SA{API: "Dig", Params: map[string]string{"DigNum": "2"}}
 	cachedParams := DigOf(cached)
 	if cachedParams == nil || DigOf(cached) != cachedParams {
 		t.Fatal("could not prime and verify Dig front-cache hit")
