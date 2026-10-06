@@ -471,7 +471,8 @@ flaky_check() {
 # so agree again is exactly "no longer regressed"; a snapshot merely equal to
 # main's driver would also pass when the regression is not the driver's at all).
 cleared() {
-  local id=$1 xm=$2 scen=$3 tree=${4:-} v="$d/cleared-$(echo "$id" | tr -c 'A-Za-z0-9\n' _).verdict.jsonl"
+  local id=$1 xm=$2 scen=$3 tree=${4:-} v="$xm.verdict.jsonl"
+  rm -f -- "$v"
   if [ -n "${DRB_DIFF_CMD:-}" ]; then
     if [ -n "$tree" ]; then (cd "$tree" && $DRB_DIFF_CMD "$scen" "$xm" "$v") >/dev/null 2>&1
     else $DRB_DIFF_CMD "$scen" "$xm" "$v" >/dev/null 2>&1; fi
