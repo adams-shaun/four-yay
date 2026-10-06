@@ -19,6 +19,9 @@ type costProbe struct {
 	battlefield []string
 	hand        []string
 	first       *oraclegen.Step
+	// targeted offers the probe cast a surplus player target; gorge's own
+	// target decision rewrites it to the exact pick before the item is kept.
+	targeted bool
 }
 
 func costStatic(reg *cards.Registry, f *cards.Face, name string, req levelb.Requirement) (oraclegen.Item, *oraclegen.Skip) {
@@ -31,7 +34,9 @@ func costStatic(reg *cards.Registry, f *cards.Face, name string, req levelb.Requ
 	var p costProbe
 	switch name {
 	case "Geist of Saint Thalia":
-		p = costProbe{spell: "Shock", mana: "R", battlefield: []string{name}}
+		// Lightning Strike is {1}{R}: the generic {1} is what the reduction
+		// removes, so {R} alone casts it only while Geist's static applies.
+		p = costProbe{spell: "Lightning Strike", mana: "R", battlefield: []string{name}, targeted: true}
 	case "Tam, the Possibility":
 		p = costProbe{spell: "Jace Beleren", mana: "UU", battlefield: []string{name}}
 	case "Ghalta the Immovable":
@@ -39,7 +44,7 @@ func costStatic(reg *cards.Registry, f *cards.Face, name string, req levelb.Requ
 	case "Ghalta the Unstoppable":
 		p = costProbe{spell: name, mana: "CCCCG", hand: []string{name}, battlefield: []string{"Serra Angel"}}
 	case "Traxos, Academy Guardian":
-		first := oraclegen.Step{Op: "cast", Seat: 0, Card: "p0:Shock", Mana: "R"}
+		first := oraclegen.Step{Op: "cast", Seat: 0, Card: "p0:Shock", Mana: "R", Targets: []string{"p1"}}
 		p = costProbe{spell: name, mana: "CU", hand: []string{name}, first: &first}
 	case "Wrath of the Bloodmane":
 		p = costProbe{spell: name, mana: "CR", hand: []string{name}, battlefield: []string{"Tam, the Possibility"}}
@@ -67,15 +72,32 @@ func costStatic(reg *cards.Registry, f *cards.Face, name string, req levelb.Requ
 		if p.first != nil {
 			sc.Steps = append(sc.Steps, *p.first, oraclegen.Step{Op: "resolve"})
 		}
-		cast := oraclegen.Step{Op: "cast", Seat: 0, Card: "p0:" + p.spell, Mana: p.mana, Targets: fx.Targets()}
+		targets := fx.Targets()
+		if p.targeted {
+			targets = []string{"p1"}
+		}
+		cast := oraclegen.Step{Op: "cast", Seat: 0, Card: "p0:" + p.spell, Mana: p.mana, Targets: targets}
 		sc.Steps = append(sc.Steps, cast)
 		oraclegen.Baseline(sc.Setup, f)
 		it := oraclegen.NewLevelBItem(name, req.Key, CostStatic.Version, []string{"601.2"}, sc)
-		if _, res, ok := oraclegen.Settle(reg, sc); ok {
-			sc, _ = oraclegen.ChooseTargets(sc, res.Decisions)
-			if res2, ok2 := oraclegen.PlaysThrough(reg, sc); ok2 {
-				it.Scenario = sc
-				it.XAnswers = oraclegen.XAnswersForScenario(res2, sc, nil, nil)
+		// Settle plays a temporary copy with resolve steps, so the target
+		// rewrite is validated against a scenario whose stack empties. The
+		// settled copy is what is kept: every cast carries gorge's exact
+		// targets (cast steps' target decisions travel through castSpell and
+		// are not scripted a second time). When gorge cannot cast at the
+		// reduced price Settle fails and the unnormalized item is returned
+		// as is, so the failed cast surfaces as a divergence, not a Skip.
+		if n, res, ok := oraclegen.Settle(reg, sc); ok {
+			settled := sc
+			settled.Steps = append([]oraclegen.Step(nil), sc.Steps...)
+			for i := 0; i < n; i++ {
+				settled.Steps = append(settled.Steps, oraclegen.Step{Op: "resolve"})
+			}
+			settled, castSteps := oraclegen.ChooseTargets(settled, res.Decisions)
+			if res2, ok2 := oraclegen.PlaysThrough(reg, settled); ok2 {
+				settled.Name, settled.CR, settled.Why = it.Name, it.CR, it.Why
+				it.Scenario = settled
+				it.XAnswers = oraclegen.XAnswersForScenario(res2, settled, nil, castSteps)
 			}
 		}
 		return it, nil
