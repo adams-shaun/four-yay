@@ -119,6 +119,20 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 	if gap := staticProbeCapGap(probePlan); gap != "" {
 		return skip(gap)
 	}
+	if st.HasParam(cards.PKMayLookAt) {
+		return skip("look-at not observable")
+	}
+	if st.HasParam(cards.PKMayPlay) {
+		for _, plan := range plans {
+			base, why := staticBase(reg, c, f, name, req, plan, nil)
+			if why != "" {
+				continue
+			}
+			if it, ok := staticMayPlayOffer(reg, base, st); ok {
+				return it, nil
+			}
+		}
+	}
 	if st.HasParam(cards.PKClassBand) {
 		return skip(staticClassReason)
 	}
@@ -212,6 +226,47 @@ func staticAttackers(reg *cards.Registry, name string, probes []string, self boo
 // seats, and no steps. The static is live from the first checkpoint, so the
 // final snapshot is where its effect shows. The probe is placed by Baseline on
 // p1 and appended here on p0, matching the cast-based path's probe layout.
+func staticMayPlayOffer(reg *cards.Registry, base oraclegen.Item, st cards.Static) (oraclegen.Item, bool) {
+	zone := st.ParamStr(cards.PKAffectedZone)
+	affected := st.ParamStr(cards.PKAffected)
+	probe, mana := "Shock", "R"
+	switch {
+	case strings.Contains(affected, "Artifact"):
+		probe, mana = "Ornithopter", ""
+	case strings.Contains(affected, "Dinosaur"):
+		probe, mana = "Gigantosaurus", "GGGGG"
+	case strings.Contains(affected, "Creature"):
+		probe, mana = "Llanowar Elves", "G"
+	case strings.Contains(affected, "Land"):
+		probe, mana = "Forest", ""
+	}
+	seat := base.Setup["p0"]
+	switch zone {
+	case "Library":
+		seat.LibraryTop = appendFixtureUnique(seat.LibraryTop, probe)
+	case "Graveyard":
+		seat.Graveyard = appendFixtureUnique(seat.Graveyard, probe)
+	case "Exile":
+		seat.Exile = appendFixtureUnique(seat.Exile, probe)
+	case "Hand", "":
+		seat.Hand = appendFixtureUnique(seat.Hand, probe)
+	default:
+		return oraclegen.Item{}, false
+	}
+	base.Setup["p0"] = seat
+	if mana != "" {
+		base.Steps = append(base.Steps, oraclegen.Step{Op: "mana", Seat: 0, Mana: mana})
+	}
+	base.Steps = append(base.Steps,
+		oraclegen.Step{Op: "pass_to", Seat: 0, Decision: "priority", Expect: []oraclegen.Expect{{Offered: &oraclegen.Offered{Seat: 0, Kind: "cast", Card: "p0:" + probe}, Want: boolPtr(true)}}},
+	)
+	res, err := rules.RunOracleScenarioJSON(reg, base.Raw())
+	if err != nil || len(res.Fails) != 0 {
+		return oraclegen.Item{}, false
+	}
+	return base, true
+}
+
 func staticBackFaceScenario(f *cards.Face, name string, req levelb.Requirement, probes []string, cond *staticFixture) oraclegen.Item {
 	p0, p1 := oraclegen.Seat{Battlefield: []string{name}}, oraclegen.Seat{}
 	setupBackFace(&p0, name, req)
