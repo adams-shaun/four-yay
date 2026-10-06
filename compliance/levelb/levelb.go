@@ -84,7 +84,7 @@ func Requirements(c *cards.Card) []Requirement {
 		}
 		for ti := range f.Triggers {
 			sub, gap, covered := classifyTrigger(f, &f.Triggers[ti])
-			out = append(out, newReq("trigger", fi, strconv.Itoa(ti), sub, gap, covered, servable))
+			out = append(out, newReq("trigger", fi, strconv.Itoa(ti), sub, gap, covered, servable || roomDoorServable(c)))
 		}
 		for si := range f.Statics {
 			if AIHintOnlyStatic(f, &f.Statics[si]) {

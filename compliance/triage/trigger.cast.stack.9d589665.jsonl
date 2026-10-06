@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"cast","field":"stack","diff":"gorge=[spell:$CARD@p0] xmage=[spell:Slimy Aquarium@p0]"},"key":"trigger | cast | stack | gorge=[spell:$CARD@p0] xmage=[spell:Slimy Aquarium@p0]","cards":1}
+{"card":"Underwater Tunnel","template":"trigger#1.0","status":"diverge","api":"UnlockDoor:Surveil","detail":"step 0 (cast) stack: gorge \"[spell:Underwater Tunnel@p0]\", xmage \"[spell:Slimy Aquarium@p0]\""}

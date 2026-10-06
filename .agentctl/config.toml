@@ -76,9 +76,12 @@ tasks = ["review", "triage"]
 [[tiers]]
 name = "sol"
 provider = "openai-codex"
-# 2026-10-05: gpt-6.1-sol (DevDay 2026-09-29) replaces gpt-6-sol: higher
-# agentic-coding scores at ~1/4 the cost per task; smoke-tested via pi.
-model = "gpt-6.1-sol"
+# 2026-10-05: gpt-6.1-sol (DevDay 2026-09-29) replaced gpt-6-sol.
+# 2026-10-06 (operator): the ChatGPT account pi is logged into rejects every
+# sol model ("not supported when using Codex with a ChatGPT account"), so this
+# tier runs gpt-5.6-terra (smoke-tested via pi). Name and tag prefix kept so
+# in-flight round tags stay valid; restore gpt-6.1-sol when sol is back.
+model = "gpt-5.6-terra"
 thinking = "high"
 paid = true
 cap = 0
