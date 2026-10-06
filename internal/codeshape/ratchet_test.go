@@ -272,7 +272,7 @@ const (
 	// string literal plus strings.EqualFold calls with a literal argument: the
 	// if-chain spelling of the `case "X":` dispatch stringCaseLiterals froze
 	// at zero. Measured on main at 00363b185.
-	stringLiteralCompares = 2220
+	stringLiteralCompares = 2218
 	// rawBoolParamParses is the strings.EqualFold calls whose argument holds a
 	// Param/ParamStr call: a flag parameter re-parsed at each use. Measured on
 	// main at 00363b185.
@@ -289,7 +289,7 @@ const (
 	// string switches, and a word named in a second table is the vocabulary
 	// splitting again. Measured on main at 00363b185.
 	strCodesTables = 336
-	strCodesKeyDup = 1260
+	strCodesKeyDup = 1259
 )
 
 // longFuncCeilings freezes every non-test function in rules/ and effects/
