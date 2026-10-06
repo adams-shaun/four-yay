@@ -323,7 +323,7 @@ func (w *legalWalk) battlefieldWalk() {
 						// no cards in hand"): the keyword activation condition at offer
 						// time, the same funnel the CheckSVar$ gate below applies --
 						// a gate you can read must not leave a paid no-op reachable.
-						if !e.activationConditionOK(p, ab) {
+						if !e.activationConditionOK(p, id, ab) {
 							continue
 						}
 						// F05-2 (CR 733.2): a card whose activation aborted with no
@@ -496,7 +496,7 @@ func (w *legalWalk) battlefieldWalk() {
 						if w.abilityRestricted(p, id, ab) || e.castSuppressed(p, id) {
 							continue
 						}
-						if !e.activationConditionOK(p, ab) {
+						if !e.activationConditionOK(p, id, ab) {
 							continue
 						}
 						if e.activationLimitBlocked(p, id, ab, -1, line, 0) {

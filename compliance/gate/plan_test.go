@@ -13,7 +13,10 @@ import (
 
 func corpus(t *testing.T) *cards.Registry {
 	t.Helper()
-	reg, err := cards.LoadRegistry(cards.CachePath(filepath.Join("..", "..", ".cards")))
+	// SharedCorpus (not bare LoadRegistry) so an absent fingerprint-keyed IR
+	// cache is compiled on demand instead of failing: see the note on
+	// TestDeclaredSetsCompliant.
+	reg, err := cards.SharedCorpus(filepath.Join("..", "..", ".cards"))
 	if err != nil {
 		t.Fatalf("the compliance gate needs the corpus (make fetch-cards compile-cards): %v", err)
 	}
