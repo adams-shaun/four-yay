@@ -41,6 +41,10 @@ func TestXMageAbilityCostSpelling(t *testing.T) {
 		{"North Pole Patrol", map[int]string{0: "{T}", 1: "waterbend {3}, {T}"}},
 		{"Katara, Water Tribe's Hope", map[int]string{0: "waterbend {X}"}},
 		{"Invasion Submersible", map[int]string{0: "Exhaust &mdash; waterbend {3}"}},
+		// "Remove five +1/+1 counters from Ramos": the Oracle names the
+		// card by its short name; RemoveCountersSourceCost prints
+		// "remove five +1/+1 counters from {this}".
+		{"Ramos, Dragon Engine", map[int]string{0: "Remove five +1/+1 counters from {this}"}},
 	} {
 		c, ok := reg.Lookup(tc.card)
 		if !ok || len(c.Faces) == 0 {
