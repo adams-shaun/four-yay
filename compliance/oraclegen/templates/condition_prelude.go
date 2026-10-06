@@ -6,6 +6,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/compliance/oraclegen"
+	"github.com/adams-shaun/gorge/effects"
 )
 
 // conditionPrelude is one deliberately cheap way to make a conditional
@@ -231,9 +232,22 @@ func conditionPreludes(reg *cards.Registry, params, svars map[string]string) []c
 // it true. This keeps an unavailable setup condition distinct from a trigger
 // that had no recognized condition at all.
 func triggerConditionSkip(t *cards.Trigger, svars map[string]string) string {
+	for _, spec := range []string{t.ParamStr(cards.PKIsPresent), t.ParamStr(cards.PKIsPresent2)} {
+		if unknown := effects.UnknownPredicates(spec); len(unknown) > 0 {
+			return "condition: engine predicate unread (" + strings.Join(unknown, ",") + ")"
+		}
+	}
 	check := t.ParamStr(cards.PKCheckSVar)
 	if check != "" {
 		body, hasBody := svars[check]
+		if !hasBody {
+			body = check
+		}
+		if strings.Contains(strings.ToLower(body), "validself") {
+			if unknown := effects.UnknownPredicates(body); len(unknown) > 0 {
+				return "condition: engine predicate unread (" + strings.Join(unknown, ",") + ")"
+			}
+		}
 		label := check
 		if hasBody {
 			head := strings.Fields(body)

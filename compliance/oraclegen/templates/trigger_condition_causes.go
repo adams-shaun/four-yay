@@ -110,7 +110,10 @@ func triggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards.Tri
 	return append(causes, conditionCauses(reg, f, name, t, sub, causes)...), ""
 }
 
-var attackersAmountRE = regexp.MustCompile(`validattackersamount ge(\d+)`)
+var (
+	attackersAmountRE = regexp.MustCompile(`validattackersamount ge(\d+)`)
+	counterFilterRE   = regexp.MustCompile(`counters_ge(\d+)_([a-z0-9]+)`)
+)
 
 // conditionCauses derives variants of base. A shape variant (attackers,
 // counters, Equipment) comes first, bare and then with each prelude; with no
@@ -123,6 +126,7 @@ func conditionCauses(reg *cards.Registry, f *cards.Face, name string, t *cards.T
 			preludes = append(preludes, p)
 		}
 	}
+	preludes = append(preludes, triggerConditionFixtures(reg, f, t)...)
 	var out []triggerCause
 	for _, b := range base {
 		starts := []triggerCause{b}
@@ -204,7 +208,7 @@ func conditionShape(reg *cards.Registry, f *cards.Face, name string, t *cards.Tr
 		} else {
 			c.battlefield = appendFixtureUnique(c.battlefield, subject)
 		}
-		c.counters = mergeCounters(base.counters, map[string]map[string]int{key: {kind: 1}})
+		c.counters = mergeCounters(base.counters, map[string]map[string]int{key: {kind: counterAmount(text)}})
 		changed = true
 	}
 	if attackTriggerSub(sub) {
@@ -217,13 +221,26 @@ func conditionShape(reg *cards.Registry, f *cards.Face, name string, t *cards.Tr
 
 // counterKind is the counter a "with a counter" filter wants on its subject.
 func counterKind(text string) string {
-	switch {
-	case strings.Contains(text, "counters_ge1_m1m1"):
-		return "M1M1"
-	case strings.Contains(text, "counters_ge1_p1p1"), strings.Contains(text, "hascounters"):
+	if strings.Contains(text, "hascounters") {
 		return "P1P1"
 	}
+	m := counterFilterRE.FindStringSubmatch(text)
+	if m != nil {
+		return strings.ToUpper(m[2])
+	}
 	return ""
+}
+
+func counterAmount(text string) int {
+	m := counterFilterRE.FindStringSubmatch(text)
+	if m == nil {
+		return 1
+	}
+	n, err := strconv.Atoi(m[1])
+	if err != nil || n < 1 {
+		return 1
+	}
+	return n
 }
 
 // attackShape widens c's attack step to satisfy attacker-count and

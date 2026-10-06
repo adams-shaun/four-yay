@@ -160,15 +160,9 @@ func baseTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards
 		}
 		base := triggerCause{steps: steps}
 		out = append(out, base)
-		for _, condition := range conditionPreludes(reg, t.Params, f.SVars) {
-			candidate := base
-			candidate.hand = append(append([]string(nil), base.hand...), condition.hand...)
-			candidate.battlefield = append(append([]string(nil), base.battlefield...), condition.battlefield...)
-			candidate.tapped = append([]string(nil), condition.tapped...)
-			candidate.graveyard = append([]string(nil), condition.graveyard...)
-			candidate.counters = condition.counters
-			candidate.prelude = append([]oraclegen.Step(nil), condition.steps...)
-			out = append(out, candidate)
+		conditions := append(conditionPreludes(reg, t.Params, f.SVars), triggerConditionFixtures(reg, f, t)...)
+		for _, condition := range conditions {
+			out = append(out, applyPrelude(base, condition))
 		}
 	default:
 		if causes, why, ok := eventTriggerRecipe(reg, f, name, t, sub); ok {
