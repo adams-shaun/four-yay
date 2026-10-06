@@ -798,27 +798,7 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSt
 				// unused (measured on the std pass).
 				continue
 			}
-			if d.PerPlayer {
-				// TargetsForEachPlayer$ (CR 601.2c): XMage asks one target
-				// per player, in seat order starting at seat 0. Answer each
-				// seat with the pick its controller made, or a target skip
-				// when the seat chose none.
-				as = append(as, perPlayerTargetAnswers(d)...)
-				break
-			}
-			for _, ref := range d.PickRefs {
-				v := ref
-				if !isSeat(ref) {
-					v = oraclediffRefName(ref)
-				}
-				as = append(as, XAnswer{d.Seat, "target", v})
-			}
-			if len(d.PickRefs) < d.Max {
-				// Fewer picks than the "up to N" ask allows: XMage keeps
-				// asking, so stop it with the target queue's skip token. This
-				// also covers a slot gorge never posed at all (zero picks).
-				as = append(as, XAnswer{d.Seat, "target", "[target_skip]"})
-			}
+			as = targetDecisionAnswers(ds, i)
 		case "mode":
 			if (d.Resume == "unless_pay" || d.Resume == "unless_decline") && unlessPolarity(d) == "no" {
 				// An unless-pay (UnlessCost$) is XMage's boolean chooseUse,
@@ -1164,6 +1144,77 @@ func refSeat(ref string) (int, bool) {
 		return 0, false
 	}
 	return n, true
+}
+
+// targetDecisionAnswers scripts one target decision. A TargetsForEachPlayer$
+// ask is answered per seat, a DividedAsYouChoose$ ask in XMage's divided
+// "<ref>^X=<share>" form, anything else one answer per pick. Every form is
+// followed by a target skip for each "up to N" chain slot the engine settled
+// without posing it (XMage still asks those).
+func targetDecisionAnswers(ds []rules.OracleDecision, i int) []XAnswer {
+	d := ds[i]
+	var as []XAnswer
+	switch {
+	case d.PerPlayer:
+		// TargetsForEachPlayer$ (CR 601.2c): XMage asks one target
+		// per player, in seat order starting at seat 0. Answer each
+		// seat with the pick its controller made, or a target skip
+		// when the seat chose none.
+		as = perPlayerTargetAnswers(d)
+	case d.Divided > 0 && len(d.PickRefs) > 0:
+		// A TargetAmount slot (distribute counters, divided damage): XMage's
+		// chooseTargetAmount takes one "<ref>^X=<share>" per target and is
+		// complete once the shares reach the total, so no skip follows.
+		as = dividedTargetAnswers(ds, i)
+	default:
+		for _, ref := range d.PickRefs {
+			v := ref
+			if !isSeat(ref) {
+				v = oraclediffRefName(ref)
+			}
+			as = append(as, XAnswer{d.Seat, "target", v})
+		}
+		if len(d.PickRefs) < d.Max {
+			// Fewer picks than the "up to N" ask allows: XMage keeps
+			// asking, so stop it with the target queue's skip token. This
+			// also covers a slot gorge never posed at all (zero picks).
+			as = append(as, XAnswer{d.Seat, "target", "[target_skip]"})
+		}
+	}
+	for n := 0; n < d.UnposedSlots; n++ {
+		as = append(as, XAnswer{d.Seat, "target", "[target_skip]"})
+	}
+	return as
+}
+
+// dividedTargetAnswers answers a divided target ask with each pick's share of
+// the total. A divided-damage ask with several targets is followed by the
+// engine's own damage_split decision, which carries the shares (and is
+// answered by damageSplitAnswers), so the picks alone say nothing. Counters
+// have no such decision: the engine deals them round-robin over the picks.
+func dividedTargetAnswers(ds []rules.OracleDecision, i int) []XAnswer {
+	d := ds[i]
+	n := len(d.PickRefs)
+	if n > 1 {
+		for _, next := range ds[i+1:] {
+			if next.Step == d.Step && next.Seat == d.Seat && next.Resume == "damage_split" {
+				return nil
+			}
+		}
+	}
+	as := make([]XAnswer, 0, n)
+	for k, ref := range d.PickRefs {
+		share := d.Divided / n
+		if k < d.Divided%n {
+			share++
+		}
+		if share == 0 {
+			continue
+		}
+		// Keep the scenario ref (including #N), as the damage split does.
+		as = append(as, XAnswer{d.Seat, "target", ref + "^X=" + strconv.Itoa(share)})
+	}
+	return as
 }
 
 // damageSplitAnswers turns a "damage_split" KChoose into one target answer

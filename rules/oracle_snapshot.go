@@ -127,6 +127,16 @@ type OracleDecision struct {
 	// PerOpponent marks a per-player target ask whose filter admits only
 	// opponents' objects: XMage asks no target for the controller's seat.
 	PerOpponent bool `json:"per_opponent,omitempty"`
+	// Divided is the literal DividedAsYouChoose$ total of a target ask whose
+	// ability divides its amount among the targets (distribute counters,
+	// divided damage). XMage poses that slot as a TargetAmount and needs the
+	// amount with each target, even a lone one gorge never split.
+	Divided int `json:"divided,omitempty"`
+	// UnposedSlots counts the "up to N" target slots of a triggered ability's
+	// chain that the engine settled with an empty answer right after this
+	// decision, without posing them (no legal candidate). XMage still asks
+	// each such slot, so the generator closes it with a target skip.
+	UnposedSlots int `json:"unposed_slots,omitempty"`
 	// AltPayable counts the options of an AlternateAdditionalCost either-or
 	// ask (option kind "altaddcost") the cast could pay. XMage's OrCost poses
 	// its chooseUse only when two or more of its costs can be paid, so the
