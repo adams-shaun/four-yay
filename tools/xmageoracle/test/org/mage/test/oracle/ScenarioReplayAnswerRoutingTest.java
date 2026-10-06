@@ -210,12 +210,13 @@ public final class ScenarioReplayAnswerRoutingTest {
         equal(List.of("A:target:Forest"), threats.queues);
         System.out.println("PASS manifest dread pick and basic land fetch route to the choice and target queues (Threats)");
 
-        // A same-name token copy uses XMage's supported copy discriminator.
-        // It must leave through the target queue; a bare choice label would
-        // resolve by name and could select the original instead.
+        // The sacrifice selector calls TestPlayer.choose and consumes the
+        // choice queue. The discriminator is interpreted there by TestPlayer;
+        // routing it to targets leaves the sacrifice answer unconsumed.
         RecordingDriver copy = driver();
         scripted(copy, answers("choice", "Joo Dee, One of Many [only copy]"));
-        equal(List.of("A:target:Joo Dee, One of Many [only copy]"), copy.queues);
-        System.out.println("PASS same-name token copy choice uses XMage's [only copy] selector");
+        equal(List.of("Joo Dee, One of Many [only copy]"), field(field(copy, "playerA"), "choices"));
+        equal(List.of(), copy.queues);
+        System.out.println("PASS same-name token copy choice uses XMage's choice queue");
     }
 }

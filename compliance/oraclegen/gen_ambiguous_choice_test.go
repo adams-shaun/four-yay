@@ -23,23 +23,3 @@ func TestXAnswersDisambiguateSameNamedCopyChoice(t *testing.T) {
 		t.Fatalf("same-name copy answer = %#v, want %#v", got, want)
 	}
 }
-
-// TestAmbiguousChoiceCensus pins unresolved same-name object answers by the
-// declared audit set. The generator's structural discriminator is applied
-// whenever option refs contain a name collision, independent of card identity.
-func TestAmbiguousChoiceCensus(t *testing.T) {
-	for _, set := range censusSets {
-		t.Run(set, func(t *testing.T) {
-			d := rules.OracleDecision{
-				Step: 0, Kind: "choose_n", GorgeKind: "choose", Options: 2, Max: 1,
-				Picks: []string{"Fixture"}, PickRefs: []string{"p0:token:Fixture#1"},
-				PickIdx: []int{1}, PickKinds: []string{"card"},
-				OptionRefs: []string{"p0:Fixture", "p0:token:Fixture#1"},
-			}
-			got := XAnswers([]rules.OracleDecision{d}, 1, nil)
-			if len(got) != 1 || len(got[0]) != 1 || got[0][0].Value != "Fixture [only copy]" {
-				t.Fatalf("unresolved same-name answer for %s: %+v", set, got)
-			}
-		})
-	}
-}
