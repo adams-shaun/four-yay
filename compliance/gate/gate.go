@@ -63,7 +63,7 @@ func GorgeCanon(reg *cards.Registry, it oraclegen.Item) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return Hash([]byte(oraclediff.Canonical(res.Snapshots, it.Ignore...))), nil
+	return Hash([]byte(oraclediff.CanonicalOpts(res.Snapshots, it.Compare, it.Ignore...))), nil
 }
 
 // HandScenarios lists the cards that have a hand-authored oracle scenario
@@ -149,6 +149,8 @@ type setScan struct {
 	sup      map[string]bool
 	has      func(string) bool
 	folded   map[string]string
+	// xmageSpelling maps a folded name to XMage's spelling of the card.
+	xmageSpelling map[string]string
 }
 
 // loadSet reads and resolves everything a card walk needs. The returned
@@ -180,7 +182,14 @@ func loadSet(reg *cards.Registry, root, set string) (*setScan, []Problem, error)
 		unfinished[compliance.FoldName(u)] = true
 	}
 	names := make([]string, 0, len(m.Cards))
+	// xmageSpelling maps a folded name to XMage's own spelling, which the
+	// pass (oraclediff gen) stamps on the scenario as XMageName whenever it
+	// differs from the corpus face name. The gate must build the very same
+	// Item, or ItemSHA never matches the pass's row (Dáin, Bespoke Bō,
+	// "With Great Power . . .").
+	xmageSpelling := map[string]string{}
 	for _, mc := range m.Cards {
+		xmageSpelling[compliance.FoldName(mc.Name)] = mc.Name
 		if unfinished[compliance.FoldName(mc.Name)] {
 			continue
 		}
@@ -206,6 +215,8 @@ func loadSet(reg *cards.Registry, root, set string) (*setScan, []Problem, error)
 		sup:      effects.Supported(),
 		has:      func(n string) bool { _, ok := reg.Lookup(n); return ok },
 		folded:   compliance.FoldedNames(reg),
+
+		xmageSpelling: xmageSpelling,
 	}, lead, nil
 }
 
@@ -268,7 +279,17 @@ func checkA(reg *cards.Registry, root, set string) ([]Problem, *setScan, map[str
 			bad(name, "unsupported %v", u)
 			continue
 		}
+		// The pass names a scenario by the card's first face (a split or
+		// Room half, "Cease" for "Cease // Desist"), and its verdict rows
+		// carry that name; generate and look up the same way.
+		face := name
+		if c != nil && len(c.Faces) > 0 && c.Faces[0].Name != "" {
+			face = c.Faces[0].Name
+		}
 		rows := scan.verdicts[name]
+		if len(rows) == 0 && face != name {
+			rows = scan.verdicts[face]
+		}
 		wrong := false
 		lacks := false
 		for _, r := range rows {
@@ -283,19 +304,27 @@ func checkA(reg *cards.Registry, root, set string) ([]Problem, *setScan, map[str
 		if wrong {
 			continue
 		}
-		if scan.hand[name] {
+		if scan.hand[name] || scan.hand[face] {
 			continue
 		}
 		if !scan.inXMage[compliance.FoldName(printed)] || lacks {
 			bad(name, "XMage does not implement it; needs a hand-authored oracle scenario")
 			continue
 		}
-		it, skip := templates.Generate(reg, name)
+		it, skip := templates.Generate(reg, face)
+		if skip == nil {
+			if xm, ok := scan.xmageSpelling[compliance.FoldName(printed)]; ok && xm != face {
+				it.XMageName = xm
+			}
+		}
 		if skip != nil {
 			bad(name, "no generated scenario (%s) and no hand oracle scenario", skip.Reason)
 			continue
 		}
-		if !rowOK(reg, it, rows, bad) {
+		// Report under the printed card's corpus name, not the face the
+		// scenario is named by.
+		badName := func(_ string, format string, a ...any) { bad(name, format, a...) }
+		if !rowOK(reg, it, rows, badName) {
 			continue
 		}
 		okA[name] = true

@@ -56,6 +56,12 @@ type Step struct {
 	Step     string   `json:"step,omitempty"`
 	Decision string   `json:"decision,omitempty"`
 	Answers  []Answer `json:"answers,omitempty"`
+	// AbilityIndex selects an activated ability by its IR index (the index
+	// into the source's Face().Abilities), the anchor decision.Option.Ability
+	// carries and rules' `activate` step resolves. It lets a level-B activate
+	// step name an ability without pasting the script's SpellDescription
+	// text. Nil on every level-A step, so level-A items are byte-identical.
+	AbilityIndex *int `json:"ability_index,omitempty"`
 	// A scenario step may move a card into a zone; the move op stamps the
 	// object as having entered this turn (a board-history target such as
 	// ThisTurnEntered@Graveyard needs that).
@@ -101,9 +107,19 @@ type Item struct {
 	// name it alike. Empty means the two spellings are equal.
 	XMageName string      `json:"xmage_name,omitempty"`
 	XAnswers  [][]XAnswer `json:"xmage_answers,omitempty"`
+	// XAbility is parallel to Scenario.Steps: entry i is the XMage rule-text
+	// prefix of step i's activated ability ("{T}", "Equip {2}"), or "" for a
+	// step that is not an activate. It lives on the Item, not the Step,
+	// because rules' runner decodes steps with DisallowUnknownFields and
+	// would reject an unknown per-step field. Empty for every level-A item.
+	XAbility []string `json:"xmage_ability,omitempty"`
 	// Ignore names snapshot fields the comparison leaves out for this
 	// scenario: library_top after the card shuffles a library.
 	Ignore []string `json:"ignore,omitempty"`
+	// Compare opts a snapshot field into the comparison. The one legal value
+	// for now is "keywords": a permanent's key gains its folded evergreen
+	// keywords. Empty (omitempty) keeps a level-A item byte-identical.
+	Compare []string `json:"compare,omitempty"`
 	Scenario
 }
 
@@ -549,34 +565,41 @@ func countName(names []string, want string) int {
 	return n
 }
 
-// chooseTargets rewrites every cast step's Targets from the target
-// decisions gorge's deterministic runner actually made, in order. The static
-// fixture only promises a legal candidate per slot; it over-offers -- an
-// "up to N" slot gorge declines, a token slot with no token on the board, a
-// slot in a mixed chain -- and XMage's castSpell rejects a target list whose
-// count does not match the ability's, so the scenario must carry exactly
-// gorge's picks (the target decision's PickRefs, in order).
+// chooseTargets rewrites the target-carrying step's Targets from the target
+// decisions gorge's deterministic runner actually made, in order. A
+// target-carrying step is a cast (XMage's castSpell) or an activated
+// ability's activate step (activateAbility): both take the step's Targets
+// directly. The static fixture only promises a legal candidate per slot; it
+// over-offers -- an "up to N" slot gorge declines, a token slot with no token
+// on the board, a slot in a mixed chain -- and XMage rejects a target list
+// whose count does not match the ability's, so the scenario must carry
+// exactly gorge's picks (the target decision's PickRefs, in order).
 //
-// castSteps is the set of step indices whose targets were taken from a cast
-// (the steps held on the Item): xanswers sends those through castSpell, not
-// through a scripted target answer, while a target decision posed during a
-// resolve step still needs an XMage answer. A cast step that posed no target
-// decision (every slot skipped, or a spell with no targets) has its fixture
-// targets cleared, so the surplus never reaches XMage.
+// castSteps is the set of step indices whose targets were taken from such a
+// step (the steps held on the Item): xanswers sends those through castSpell
+// or activateAbility, not through a scripted target answer, while a target
+// decision posed during a resolve step still needs an XMage answer. A step
+// that posed no target decision (every slot skipped, or an ability with no
+// targets) has its fixture targets cleared, so the surplus never reaches
+// XMage. Level-A scenarios hold only cast steps, so their bytes and
+// castSteps are unchanged.
 func chooseTargets(sc Scenario, ds []rules.OracleDecision) (Scenario, map[int]bool) {
 	out := sc
 	out.Steps = append([]Step(nil), sc.Steps...)
+	// carriesTargets is the op set whose own targets XMage consumes: cast
+	// through castSpell, activate through activateAbility.
+	carriesTargets := func(op string) bool { return op == "cast" || op == "activate" }
 	chosen := map[int][]string{}
 	castSteps := map[int]bool{}
 	for _, d := range ds {
-		if d.Via != "target" || d.Step < 0 || d.Step >= len(out.Steps) || out.Steps[d.Step].Op != "cast" {
+		if d.Via != "target" || d.Step < 0 || d.Step >= len(out.Steps) || !carriesTargets(out.Steps[d.Step].Op) {
 			continue
 		}
 		chosen[d.Step] = append(chosen[d.Step], d.PickRefs...)
 		castSteps[d.Step] = true
 	}
 	for i := range out.Steps {
-		if out.Steps[i].Op != "cast" {
+		if !carriesTargets(out.Steps[i].Op) {
 			continue
 		}
 		if _, ok := castSteps[i]; ok {

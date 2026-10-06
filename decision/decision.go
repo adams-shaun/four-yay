@@ -215,6 +215,9 @@ type Option struct {
 	// the same maximum with a different blocker or attacker; the quota must
 	// count that alternative too. Server-side only.
 	BlockMust bool `json:"-"`
+	// BlockMustAll makes this particular blocker-attacker pair a separate
+	// required unit for a BlockAllDefined$ effect (not one unit per blocker).
+	BlockMustAll bool `json:"-"`
 	// AttackMust marks a block option whose ATTACKER carries a CR 509.1c
 	// requirement to be blocked if able ("CARDNAME must be blocked if
 	// able."): at least one legal blocker must be declared against that
@@ -1310,7 +1313,7 @@ func (d *Decision) Validate(in Intent) error {
 			acc = SetPropMerge(d.SetPropMode, acc, add)
 		}
 	}
-	for _, c := range in.Choices {
+	for choicePos, c := range in.Choices {
 		if c < 0 || c >= len(d.Options) {
 			return fmt.Errorf("choice %d out of range (%d options)", c, len(d.Options))
 		}
@@ -1342,6 +1345,9 @@ func (d *Decision) Validate(in Intent) error {
 				return fmt.Errorf("choice %d exceeds the per-group limit of %d (group %q)", c, limit, g)
 			}
 			tally[i].count++
+		}
+		if d.Kind == KBlockers && !d.BlockPairAdmits(in.Choices[:choicePos], c) {
+			return fmt.Errorf("blocker %d cannot block multiple attackers outside BlockAllDefined pairs", d.Options[c].Obj)
 		}
 	}
 	if d.DistinctTypePicks && !d.DistinctTypesFit(in.Choices) {

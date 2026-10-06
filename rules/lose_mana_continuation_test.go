@@ -69,8 +69,10 @@ func TestLoseManaBoundaryWaitsForChoiceBeforeOtherSeatsAndCombatReset(t *testing
 	if err := e.Submit(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{optionForObj(d, ozai)}}); err != nil {
 		t.Fatal(err)
 	}
-	if p := e.G.Players[0].Pool; p.Total() != 1 || p[state.MR] != 0 {
-		t.Fatalf("first seat not converted: %v", p)
+	// Ozai alone applies (CR 616.1f): the converted red is no longer lost,
+	// so Horizon Stone does not then turn it colorless at this boundary.
+	if p := e.G.Players[0].Pool; p.Total() != 1 || p[state.MR] != 1 {
+		t.Fatalf("first seat not converted by the chosen Ozai: %v", p)
 	}
 	if e.G.Players[1].Pool.Total() != 0 {
 		t.Fatalf("second seat not cleared after choice: %v", e.G.Players[1].Pool)
