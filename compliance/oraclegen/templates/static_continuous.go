@@ -61,8 +61,9 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 		affected = st.ParamStr(cards.PKAffected)
 	}
 	plans := []staticProbePlan{{}}
-	if p := staticPlanFor(affected); !p.empty() {
-		plans = append(plans, p)
+	probePlan := staticPlanFor(affected)
+	if !probePlan.empty() {
+		plans = append(plans, probePlan)
 	}
 	for i, plan := range plans {
 		base, why := staticBase(reg, c, f, name, req, plan)
@@ -88,6 +89,9 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 		it.Ignore = base.Ignore
 		it.Compare = []string{oraclediff.CompareKeywords}
 		return it, nil
+	}
+	if gap := staticProbeCapGap(probePlan); gap != "" {
+		return skip(gap)
 	}
 	if gap := staticGap(st, affected); gap != "" {
 		return skip(gap)

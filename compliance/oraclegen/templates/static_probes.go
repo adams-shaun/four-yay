@@ -79,9 +79,10 @@ var staticProbeTable = []struct{ word, card string }{
 
 // staticProbePlan is what a filter asks of the scenario beyond the Bear.
 type staticProbePlan struct {
-	probes []string // table probes added to p0's battlefield
-	attack bool     // the filter selects attacking or tapped permanents: attack with p0's creatures
-	self   bool     // the card itself must attack: place it, do not cast it
+	probes  []string // table probes added to p0's battlefield
+	dropped []string // filter words whose table probes exceeded the cap
+	attack  bool     // the filter selects attacking or tapped permanents: attack with p0's creatures
+	self    bool     // the card itself must attack: place it, do not cast it
 }
 
 func (p staticProbePlan) empty() bool {
@@ -100,6 +101,9 @@ func affectedWords(affected string) []string {
 func staticPlanFor(affected string) staticProbePlan {
 	var plan staticProbePlan
 	words := affectedWords(affected)
+	seenProbes := make(map[string]bool)
+	droppedProbes := make(map[string]bool)
+	seenDroppedWords := make(map[string]bool)
 	for _, w := range words {
 		switch {
 		// A setup-tapped p0 permanent is untapped by p0's first untap step,
@@ -110,19 +114,39 @@ func staticPlanFor(affected string) staticProbePlan {
 			plan.self = true
 		}
 		for _, row := range staticProbeTable {
-			if row.word == w {
-				plan.probes = appendFixtureUnique(plan.probes, row.card)
-				break
+			if row.word != w {
+				continue
 			}
+			if !seenProbes[row.card] {
+				seenProbes[row.card] = true
+				if len(plan.probes) < maxExtraProbes {
+					plan.probes = append(plan.probes, row.card)
+				} else {
+					droppedProbes[row.card] = true
+					plan.dropped = append(plan.dropped, w)
+					seenDroppedWords[w] = true
+				}
+			} else if droppedProbes[row.card] && !seenDroppedWords[w] {
+				plan.dropped = append(plan.dropped, w)
+				seenDroppedWords[w] = true
+			}
+			break
 		}
 	}
 	// "Self" only matters beside an attack: the card must be on the
 	// battlefield unsick to attack, which a cast one is not.
 	plan.self = plan.self && plan.attack
-	if len(plan.probes) > maxExtraProbes {
-		plan.probes = plan.probes[:maxExtraProbes]
-	}
 	return plan
+}
+
+// staticProbeCapGap names filter words whose table probes were omitted by the
+// scenario-size cap. It is used only when the retained probes fail to observe
+// the static, so served rows remain served.
+func staticProbeCapGap(plan staticProbePlan) string {
+	if len(plan.dropped) == 0 {
+		return ""
+	}
+	return "filter names more words than the probe cap (" + strconv.Itoa(len(plan.dropped)) + " dropped: " + strings.Join(plan.dropped, ", ") + ")"
 }
 
 // staticProbeSpec is a probe's printed observable state, read from the
