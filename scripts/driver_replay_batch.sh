@@ -355,6 +355,7 @@ drift_known() {
 }
 
 # ---- per-pass state ----------------------------------------------------------
+LAST_PASS=""        # drift | batch: the previous pass with work, for alternation
 declare -A BR       # ticket id -> branch
 declare -A WT_OF    # ticket id -> worktree dir
 MERGED=()           # ticket ids on the integration branch, merge order
@@ -674,7 +675,14 @@ pass() {
   # regresses in every batch, no branch clears it, and the batch HOLDs every
   # ticket (df2d53b8, 2026-10-06) while the drift pass that would refresh it
   # waited for an empty queue.
-  if [ "${#PIDS[@]}" -lt 1 ] || drift_due; then drift_pass; return 0; fi
+  # Alternate while tickets wait: generator commits land faster than a DRIFT
+  # pass runs (14 arrived during one 30-minute pass), so "drift first, always"
+  # starved every parked ticket. After a drift pass the next pass is a ticket
+  # batch.
+  if [ "${#PIDS[@]}" -lt 1 ] || { [ "$LAST_PASS" != drift ] && drift_due; }; then
+    LAST_PASS=drift; drift_pass; return 0
+  fi
+  LAST_PASS=batch
   if [ -e "$PAUSE" ]; then say "IDLE pipeline paused (${#PIDS[@]} parked)"; return 0; fi
   if ! main_green; then say "IDLE main is not GREEN in $PMLOG (${#PIDS[@]} parked)"; return 0; fi
   if [ "$INFRA_FAIL_AT" -gt 0 ] && [ $(($(date +%s) - INFRA_FAIL_AT)) -lt "$COOLDOWN" ]; then return 0; fi
