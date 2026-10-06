@@ -30,7 +30,7 @@ var wantCensus = map[string]map[string]int{
 	"BIG": {
 		"activate.battlefield":        13,
 		"activate.mana":               4,
-		"activate.zone:Hand":          2,
+		"activate.hand":               2,
 		"combat.attack":               4,
 		"combat.block":                4,
 		"covered-by-A":                12,
@@ -84,7 +84,7 @@ var wantCensus = map[string]map[string]int{
 	"FDN": {
 		"activate.battlefield":       91,
 		"activate.mana":              53,
-		"activate.zone:Graveyard":    2,
+		"activate.graveyard":         2,
 		"combat.attack":              127,
 		"combat.block":               127,
 		"covered-by-A":               80,
@@ -125,8 +125,8 @@ var wantCensus = map[string]map[string]int{
 	"FRA": {
 		"activate.battlefield":                         74,
 		"activate.mana":                                27,
-		"activate.zone:Graveyard":                      9,
-		"activate.zone:Hand":                           9,
+		"activate.graveyard":                           9,
+		"activate.hand":                                9,
 		"combat.attack":                                63,
 		"combat.block":                                 63,
 		"covered-by-A":                                 66,

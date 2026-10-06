@@ -1,12 +1,15 @@
 // Level-B activate template (spec
 // docs/superpowers/specs/2026-10-05-compliance-level-b.md section 2.1; ticket
-// L5). It serves the activate.battlefield and activate.mana requirements: the
-// card on p0's battlefield, the ability's targets from the ordinary fixture
+// L5). It serves the activate.battlefield and activate.mana requirements --
+// and the channel-style activate.hand and activate.graveyard ones -- with the
+// card on p0's battlefield (or in p0's hand or graveyard), the ability's targets from the ordinary fixture
 // cross product, one `activate` step naming the ability by IR index, and a
 // resolve for a non-mana ability.
 //
 // v1 cost tokens: mana, T, Q, PayLife<n>, one-card Discard, Sac (self or
-// filtered other permanent), Exile<1/CARDNAME>, supported tapXType fixture
+// filtered other permanent), Exile<1/CARDNAME>, and in the matching zone
+// Discard / ExileFromHand / ExileFromGrave of the source itself (plus one
+// other graveyard creature card), supported tapXType fixture
 // shapes, and a source loyalty AddCounter/SubCounter. Anything else is a cost gap. The XMage
 // rule-text prefix rides the Item's XAbility slice (parallel to Steps), so
 // the runner -- which decodes steps strictly -- never sees it.
@@ -29,7 +32,21 @@ var ActivateAbility = Template{ID: "activate", Version: 1}
 
 // activateSubs are the level-B sub-families this template serves.
 func activateSubs(sub string) bool {
-	return sub == "activate.battlefield" || sub == "activate.mana"
+	return sub == "activate.battlefield" || sub == "activate.mana" ||
+		sub == "activate.hand" || sub == "activate.graveyard"
+}
+
+// activationZone names the zone p0's card starts in for a served sub-family:
+// "hand" and "graveyard" for the channel-style abilities, "battlefield" for
+// every other one (activate.mana included).
+func activationZone(sub string) string {
+	switch sub {
+	case "activate.hand":
+		return "hand"
+	case "activate.graveyard":
+		return "graveyard"
+	}
+	return "battlefield"
 }
 
 // activateAbility builds the scenario serving one activate requirement.
@@ -47,7 +64,8 @@ func activateAbility(reg *cards.Registry, f *cards.Face, name string, req levelb
 	if !ok {
 		return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: "activate xmage text ambiguous"}
 	}
-	pool, gap := activationCost(sa.ParamStr(cards.PKCost))
+	zone := activationZone(req.Sub)
+	pool, gap := activationCostIn(sa.ParamStr(cards.PKCost), zone)
 	if gap != "" {
 		return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: "activate cost gap: " + gap}
 	}
@@ -62,7 +80,7 @@ func activateAbility(reg *cards.Registry, f *cards.Face, name string, req levelb
 				Reason: "activate target gap: attackedThisTurn needs a combat prelude (" + sl.Filter + ")"}
 		}
 	}
-	it, ok := activateWith(reg, f, name, req, idx, prefix, pool, sa.ParamStr(cards.PKCost), slots)
+	it, ok := activateWith(reg, f, name, req, idx, prefix, pool, sa.ParamStr(cards.PKCost), zone, slots)
 	if !ok {
 		return oraclegen.Item{}, &oraclegen.Skip{Card: name,
 			Reason: fmt.Sprintf("activate no fixture gorge can activate (targets %v)", filterStrings(slots))}
@@ -72,11 +90,18 @@ func activateAbility(reg *cards.Registry, f *cards.Face, name string, req levelb
 
 // activateWith tries every fixture for the ability's target plan and returns
 // the named level-B item.
-func activateWith(reg *cards.Registry, f *cards.Face, name string, req levelb.Requirement, idx int, prefix, mana, cost string, slots []oraclegen.Slot) (oraclegen.Item, bool) {
+func activateWith(reg *cards.Registry, f *cards.Face, name string, req levelb.Requirement, idx int, prefix, mana, cost, zone string, slots []oraclegen.Slot) (oraclegen.Item, bool) {
 	for _, fx := range oraclegen.Fixtures(reg, slots) {
 		abilityIndex := idx
 		p0 := *fx.P0()
-		p0.Battlefield = appendFixtureUnique(p0.Battlefield, name)
+		switch zone {
+		case "hand":
+			p0.Hand = appendFixtureUnique(p0.Hand, name)
+		case "graveyard":
+			p0.Graveyard = appendFixtureUnique(p0.Graveyard, name)
+		default:
+			p0.Battlefield = appendFixtureUnique(p0.Battlefield, name)
+		}
 		addActivationCostFixtures(&p0, cost)
 		if extra := loyaltyHeadroom(f, f.Abilities[idx]); extra > 0 {
 			p0 = oraclegen.WithCounters(p0, name, "LOYALTY", extra)
@@ -296,6 +321,18 @@ func selfZoneCost(tok string) bool {
 	return len(parts) >= 2 && parts[0] == "1" && strings.EqualFold(parts[1], "CARDNAME")
 }
 
+// graveyardCreatureCost recognises ExileFromGrave<1/Creature.Other[/text]>:
+// one creature card from the graveyard other than the source, which the
+// fixture supplies as Grizzly Bears.
+func graveyardCreatureCost(tok string) bool {
+	payload, ok := bracketPayload(tok)
+	if !ok {
+		return false
+	}
+	parts := strings.Split(payload, "/")
+	return len(parts) >= 2 && parts[0] == "1" && strings.EqualFold(parts[1], "Creature.Other")
+}
+
 func bracketPayload(tok string) (string, bool) {
 	i := strings.IndexByte(tok, '<')
 	if i < 0 || !strings.HasSuffix(tok, ">") {
@@ -318,11 +355,18 @@ func addActivationCostAnswers(answers [][]oraclegen.XAnswer, step int, cost stri
 		var picks []string
 		switch head {
 		case "Discard":
+			if selfZoneCost(tok) {
+				break
+			}
 			payload, _ := bracketPayload(tok)
 			if strings.Contains(strings.ToLower(payload), "legendary") {
 				picks = []string{"Ajani, Caller of the Pride"}
 			} else {
 				picks = []string{"Wastes"}
+			}
+		case "ExileFromGrave":
+			if graveyardCreatureCost(tok) {
+				picks = []string{"Grizzly Bears"}
 			}
 		case "Sac":
 			if !sacSelf(tok) {
@@ -364,11 +408,18 @@ func addActivationCostFixtures(p0 *oraclegen.Seat, cost string) {
 		}
 		switch head {
 		case "Discard":
+			if selfZoneCost(tok) {
+				break
+			}
 			payload, _ := bracketPayload(tok)
 			if strings.Contains(strings.ToLower(payload), "legendary") {
 				p0.Hand = appendFixtureUnique(p0.Hand, "Ajani, Caller of the Pride")
 			} else {
 				p0.Hand = appendFixtureUnique(p0.Hand, "Wastes")
+			}
+		case "ExileFromGrave":
+			if graveyardCreatureCost(tok) {
+				p0.Graveyard = appendFixtureUnique(p0.Graveyard, "Grizzly Bears")
 			}
 		case "Sac":
 			if !sacSelf(tok) {
