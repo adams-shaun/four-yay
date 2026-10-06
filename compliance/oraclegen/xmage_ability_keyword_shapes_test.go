@@ -23,6 +23,7 @@ func TestXMageAbilityKeywordShapes(t *testing.T) {
 		{"Cori-Steel Cutter", map[int]string{0: "Equip {1}{R}"}},
 		{"Caduceus Staff of Hermes", map[int]string{0: "Equip {W}{W}"}},
 		{"A.I.M. Scientists", map[int]string{0: "Basic landcycling {2}"}},
+		{"Sojourner's Companion", map[int]string{0: "Artifact landcycling {2}"}},
 		{"Silver-Fur Master", map[int]string{0: "Ninjutsu {U}{B}"}},
 		// Forge spells these costs in a collapsed form ("T W", "UB", "BP BP",
 		// "4 R XMin1 ...") that does not round-trip to the printed braces, so

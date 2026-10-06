@@ -397,13 +397,11 @@ func keywordMatches(head string, sa *cards.SA, lines []string) []string {
 	for _, line := range lines {
 		switch head {
 		case "TypeCycling":
-			// Forge's TypeCycling covers basic-landcycling and arbitrary
-			// typecycling (for example Halflingcycling). Basic is the one
-			// exception where the printed keyword includes "land".
-			word := strings.TrimSpace(sa.ParamStr(cards.PKChangeType))
-			if strings.EqualFold(word, "Basic") {
-				word = "Basic land"
-			}
+			// Forge's TypeCycling covers basic-landcycling, arbitrary
+			// typecycling (for example Halflingcycling) and dotted type
+			// specs (Sojourner's Companion's Land.Artifact, printed
+			// "Artifact landcycling").
+			word := typeCyclingWord(sa.ParamStr(cards.PKChangeType))
 			if word != "" && strings.HasPrefix(strings.ToLower(line), strings.ToLower(word+"cycling")) {
 				matches = append(matches, line)
 			}
@@ -423,6 +421,24 @@ func keywordMatches(head string, sa *cards.SA, lines []string) []string {
 		}
 	}
 	return matches
+}
+
+// typeCyclingWord renders the printed word a TypeCycling AB's line begins
+// with. "Basic" is printed "Basic land"; a dotted spec (Land.Artifact) is
+// printed in English word order, the reverse of the dotted order.
+func typeCyclingWord(spec string) string {
+	spec = strings.TrimSpace(spec)
+	if strings.EqualFold(spec, "Basic") {
+		return "Basic land"
+	}
+	parts := strings.Split(spec, ".")
+	if len(parts) < 2 {
+		return spec
+	}
+	for i, j := 0, len(parts)-1; i < j; i, j = i+1, j-1 {
+		parts[i], parts[j] = parts[j], parts[i]
+	}
+	return strings.ToLower(strings.Join(parts, " "))
 }
 
 // commaSegments splits every line that lists several comma-separated
