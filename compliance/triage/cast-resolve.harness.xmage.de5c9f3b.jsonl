@@ -1,2 +1,0 @@
-{"shape":{"template":"cast-resolve","op":"harness","field":"xmage","diff":"AssertionError: Must be target amount, but found unknown target: targetPlayer=PlayerA"},"key":"cast-resolve | harness | xmage | AssertionError: Must be target amount, but found unknown target: targetPlayer=PlayerA","cards":1}
-{"card":"Gandalf, Spark Starter","template":"cast-resolve","status":"harness","api":"ChangesZone:DealDamage","sets":["HOB"],"detail":"xmage: AssertionError: Must be target amount, but found unknown target: targetPlayer=PlayerA"}
