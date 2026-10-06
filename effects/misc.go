@@ -104,11 +104,22 @@ func effAlterAttribute(h Host, c *Ctx, sa *cards.SA) {
 	}
 	activate := !strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKActivate)), "False")
 	for _, name := range strings.FieldsFunc(attr, func(r rune) bool { return r == ',' || r == ' ' }) {
-		code := alterAttributeCodes.Code(name)
-		if code == 0 {
+		prepared := strings.EqualFold(name, "Prepared")
+		saddled := strings.EqualFold(name, "Saddled")
+		solved := strings.EqualFold(name, "Solved")
+		if !strings.EqualFold(name, "Suspected") && !prepared && !saddled && !solved {
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 				Text: "AlterAttribute: attribute " + name + " not modelled"})
 			continue
+		}
+		text := "Suspected"
+		switch {
+		case prepared:
+			text = "Prepared"
+		case saddled:
+			text = "Saddled"
+		case solved:
+			text = "Solved"
 		}
 		amount := int32(1)
 		if !activate {
@@ -122,23 +133,19 @@ func effAlterAttribute(h Host, c *Ctx, sa *cards.SA) {
 			if o == nil || o.Zone != state.ZBattlefield {
 				continue
 			}
-			switch code {
-			case alterAttrPrepared:
-				// CR 722.3a: only a permanent that HAS a prepare spell can
-				// gain the prepared designation; an unprepare (Activate$
-				// False) always applies, exactly like Suspected's removal.
-				if activate && !o.HasPrepareSpell() {
-					continue
-				}
-			case alterAttrSolved:
-				// CR 719.3b: a solved Case stays solved -- no removal, and
-				// no second solve of an already-solved Case.
-				if !activate || o.Solved {
-					continue
-				}
+			// CR 722.3a: only a permanent that HAS a prepare spell can gain
+			// the prepared designation; an unprepare (Activate$ False) always
+			// applies, exactly like Suspected's removal.
+			if prepared && activate && !o.HasPrepareSpell() {
+				continue
 			}
-			ev := events.Event{Kind: events.AlterAttribute, Obj: o.ID, Text: name, Amount: amount}
-			if code == alterAttrSolved {
+			// CR 719.3b: a solved Case stays solved -- no removal, and no
+			// second solve of an already-solved Case.
+			if solved && (!activate || o.Solved) {
+				continue
+			}
+			ev := events.Event{Kind: events.AlterAttribute, Obj: o.ID, Text: text, Amount: amount}
+			if solved {
 				// The solving player is the Case's controller -- Mode$
 				// CaseSolved's ValidPlayer$ You subject.
 				ev.Player = c.Controller
@@ -147,24 +154,6 @@ func effAlterAttribute(h Host, c *Ctx, sa *cards.SA) {
 		}
 	}
 }
-
-type alterAttrCode uint16
-
-const (
-	alterAttrSuspected alterAttrCode = iota + 1
-	alterAttrPrepared
-	alterAttrSaddled
-	alterAttrSolved
-)
-
-// alterAttributeCodes is the modelled AlterAttribute vocabulary; the key is
-// also the event's Text, the name events.Apply's fold switches on.
-var alterAttributeCodes = state.NewStrCodes(
-	state.StrEntry[alterAttrCode]{Key: "Suspected", Val: alterAttrSuspected},
-	state.StrEntry[alterAttrCode]{Key: "Prepared", Val: alterAttrPrepared},
-	state.StrEntry[alterAttrCode]{Key: "Saddled", Val: alterAttrSaddled},
-	state.StrEntry[alterAttrCode]{Key: "Solved", Val: alterAttrSolved},
-)
 
 // effWard is the resolution half of the Ward keyword trigger. The triggering
 // spell/ability is held in TriggerSource; after a declined payment it is
