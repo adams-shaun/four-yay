@@ -4,7 +4,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/compliance/oraclegen"
 	"github.com/adams-shaun/gorge/internal/testutil"
 )
@@ -45,7 +44,7 @@ func TestXMageAbilityIntrinsicLandMana(t *testing.T) {
 	var intrinsic int
 	found := false
 	for i, sa := range f.Abilities {
-		if sa.IsActivated() && sa.API == "Mana" && strings.TrimSpace(sa.ParamStr(cards.PKCost)) == "T" {
+		if sa.IsActivated() && sa.Line == "intrinsic: basic land mana" {
 			intrinsic, found = i, true
 			break
 		}
@@ -59,5 +58,35 @@ func TestXMageAbilityIntrinsicLandMana(t *testing.T) {
 	}
 	if got[intrinsic] != "{T}: Add {U}." {
 		t.Fatalf("intrinsic mana prefix = %q, want %q", got[intrinsic], "{T}: Add {U}.")
+	}
+}
+
+// A basic-typed land whose Oracle prints "{T}: Add {X}." (the Gates) has an
+// injected intrinsic that DOES own a printed line: it must keep its ordinal
+// mapping, not be dropped as a line-less intrinsic.
+func TestXMageAbilityGateKeepsPrintedIntrinsicLine(t *testing.T) {
+	reg := testutil.CorpusRegistry(t)
+	for _, name := range []string{
+		"Gate of the Black Dragon", "Gate to Manorborn", "Gate to Seatower",
+		"Gate to the Citadel", "Gate to Tumbledown",
+	} {
+		c, ok := reg.Lookup(name)
+		if !ok || len(c.Faces) == 0 {
+			t.Fatalf("precondition: %s missing from corpus", name)
+		}
+		f := c.Faces[0]
+		if len(f.Abilities) != 2 || f.Abilities[1].Line != "intrinsic: basic land mana" {
+			t.Fatalf("precondition: %s should be one printed AB plus the injected intrinsic", name)
+		}
+		got, why := oraclegen.XMageAbility(f)
+		if why != "" {
+			t.Fatalf("%s mapping ambiguous: %s", name, why)
+		}
+		if got[1] != "{T}" {
+			t.Errorf("%s intrinsic prefix = %q, want the printed line's cost {T}", name, got[1])
+		}
+		if !strings.HasPrefix(got[0], "{3}") {
+			t.Errorf("%s printed ability prefix = %q, want its own cost", name, got[0])
+		}
 	}
 }

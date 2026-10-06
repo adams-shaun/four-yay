@@ -38,11 +38,14 @@ var keywordDisplay = map[string]string{
 // mapping is derived from the whole face.
 func XMageAbility(f *cards.Face) (map[int]string, string) {
 	lines := abilityLines(f.Oracle)
-	var nonKeyword []int
-	for i, sa := range f.Abilities {
-		if sa.IsActivated() && sa.ParamStr(cards.PKKeyword) == "" && !intrinsicLandMana(f, sa) {
-			nonKeyword = append(nonKeyword, i)
-		}
+	// An injected basic-land-type mana ability usually has no printed line (a
+	// dual land's second type), but a face whose Oracle prints "{T}: Add {B}."
+	// (the Gates) has one. Keep the intrinsic in the ordinal match when that is
+	// what makes the counts agree; drop it only when dropping it does.
+	nonKeyword := nonKeywordAbilities(f, true)
+	intrinsicHasLine := len(lines) == len(nonKeyword)
+	if !intrinsicHasLine {
+		nonKeyword = nonKeywordAbilities(f, false)
 	}
 	if len(lines) != len(nonKeyword) {
 		return nil, "activate xmage text ambiguous"
@@ -84,9 +87,11 @@ func XMageAbility(f *cards.Face) (map[int]string, string) {
 		out[i] = prefix
 		seen[prefix] = true
 	}
-	for i, sa := range f.Abilities {
-		if sa.IsActivated() && intrinsicLandMana(f, sa) {
-			out[i] = intrinsicManaText(sa)
+	if !intrinsicHasLine {
+		for i, sa := range f.Abilities {
+			if sa.IsActivated() && intrinsicLandMana(sa) {
+				out[i] = intrinsicManaText(sa)
+			}
 		}
 	}
 	for i, sa := range f.Abilities {
@@ -139,21 +144,29 @@ func conflictsWithOtherLine(prefix string, own int, lines []string) bool {
 	return false
 }
 
-// intrinsicLandMana identifies a mana ability generated from a land subtype,
-// rather than a printed activated ability. Such an ability has no Oracle line.
-func intrinsicLandMana(f *cards.Face, sa *cards.SA) bool {
-	if !f.IsLand() || sa.API != "Mana" || strings.TrimSpace(sa.ParamStr(cards.PKCost)) != "T" {
-		return false
-	}
-	produced := strings.TrimSpace(sa.ParamStr(cards.PKProduced))
-	for _, typ := range f.Types {
-		color := map[string]string{"Plains": "W", "Island": "U", "Swamp": "B", "Mountain": "R", "Forest": "G"}[typ]
-		if color != "" && produced == color {
-			return true
+// nonKeywordAbilities lists the indices of f's activated ABs that are not
+// keyword-expanded, in IR order; withIntrinsic keeps the injected basic-land
+// mana abilities.
+func nonKeywordAbilities(f *cards.Face, withIntrinsic bool) []int {
+	var out []int
+	for i, sa := range f.Abilities {
+		if sa.IsActivated() && sa.ParamStr(cards.PKKeyword) == "" && (withIntrinsic || !intrinsicLandMana(sa)) {
+			out = append(out, i)
 		}
 	}
-	return false
+	return out
 }
+
+// intrinsicLandMana identifies the mana ability cards.ApplyIntrinsics injects
+// for a basic land subtype (CR 305.6), by the marker the injector stamps on
+// it, so a land's own printed "{T}: Add {C}." ability is never mistaken for one.
+func intrinsicLandMana(sa *cards.SA) bool {
+	return sa.Line == intrinsicManaLine
+}
+
+// intrinsicManaLine is the SA.Line cards.IntrinsicManaAbility stamps on the
+// ability it builds.
+const intrinsicManaLine = "intrinsic: basic land mana"
 
 func intrinsicManaText(sa *cards.SA) string {
 	return fmt.Sprintf("{T}: Add {%s}.", strings.TrimSpace(sa.ParamStr(cards.PKProduced)))

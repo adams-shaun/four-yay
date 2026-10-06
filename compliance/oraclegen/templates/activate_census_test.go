@@ -18,8 +18,8 @@ var activateCensusSets = []string{"BIG", "EOE", "FDN", "FRA"}
 
 // wantActivateCensus pins, per set, every non-gap activate requirement's
 // outcome: served, split by sub-family, or skipped, keyed by the skip reason
-// with the no-fixture target list folded away. Measured 2026-10-06 with this
-// ticket's generator. The test fails in both directions: a template or
+// with the no-fixture target list folded away. Measured 2026-10-06 (re-pinned by the
+// XMage loyalty/intrinsic-mana text ticket). The test fails in both directions: a template or
 // classifier change that changes a count shows up as a diff, and so does a
 // stale pin. activate.zone:* requirements are gaps the level-B classifier
 // owns, so they are not counted here (compliance/levelb/census_test.go pins
@@ -33,31 +33,30 @@ var wantActivateCensus = map[string]map[string]int{
 		"skip:activate no fixture":                1,
 	},
 	"EOE": {
-		"served:activate.battlefield":                 30,
-		"served:activate.mana":                        4,
+		"served:activate.battlefield":                 32,
+		"served:activate.mana":                        16,
 		"skip:activate cost gap: ExileFromGrave<...>": 1,
 		"skip:activate cost gap: Sac<...>":            3,
 		"skip:activate cost gap: SubCounter<...>":     1,
 		"skip:activate cost gap: tapXType<X>":         1,
 		"skip:activate no fixture":                    2,
-		"skip:activate xmage text ambiguous":          20,
+		"skip:activate xmage text ambiguous":          6,
 	},
 	"FDN": {
 		"served:activate.battlefield":                          69,
-		"served:activate.mana":                                 50,
+		"served:activate.mana":                                 52,
 		"skip:activate cost gap: AddCounter<...>":              2,
 		"skip:activate cost gap: Return<...>":                  1,
 		"skip:activate cost gap: Sac<...>":                     6,
 		"skip:activate cost gap: SubCounter<...>":              4,
 		"skip:activate cost gap: tapXType<unsupported-filter>": 1,
 		"skip:activate no fixture":                             9,
-		"skip:activate xmage text ambiguous":                   2,
 	},
 	"FRA": {
-		"served:activate.battlefield":        59,
-		"served:activate.mana":               24,
-		"skip:activate no fixture":           8,
-		"skip:activate xmage text ambiguous": 10,
+		"served:activate.battlefield":             63,
+		"served:activate.mana":                    27,
+		"skip:activate cost gap: SubCounter<...>": 1,
+		"skip:activate no fixture":                10,
 	},
 }
 
