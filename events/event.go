@@ -1143,10 +1143,20 @@ const (
 	// 2 planeswalker, 4 battle). Appended after Meld so every earlier
 	// ordinal, hash chain and golden replay is unchanged.
 	ExcessDamage
+	// AbilityTriggered records that a triggered ability was put on the stack
+	// (Forge Mode$ AbilityTriggered), carrying the provenance TriggerPush does
+	// not: Obj is the ability's source permanent, Player its controller,
+	// Counter the CAUSING trigger's Mode$ name and Amount 1 when the source
+	// is itself the object whose event caused the trigger (its "own"
+	// ability), else 0. A pure marker, emitted right after the TriggerPush
+	// and only while a battlefield permanent carries a Mode$ AbilityTriggered
+	// line, so games without one keep their chains. Appended after
+	// ExcessDamage so every earlier ordinal is unchanged.
+	AbilityTriggered
 	// NumKinds is the explicit upper bound for the append-only event kind
 	// registry below. New kinds must be appended above this line: inserting or
 	// reordering a kind renumbers the hash-chained event stream and breaks replay.
-	NumKinds = int(ExcessDamage) + 1
+	NumKinds = int(AbilityTriggered) + 1
 )
 
 // PlanarWalkDontPlaneswalkAway is PlanarWalk's Amount flag: the resolving

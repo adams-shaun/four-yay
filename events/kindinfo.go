@@ -216,6 +216,7 @@ var kindInfo = [NumKinds]KindInfo{
 	MillProposal:         {Name: "mill_proposal", Trigger: TriggerNone, Describe: "{player} would mill {amount} cards"},
 	Meld:                 {Name: "meld", Trigger: TriggerNone, Describe: "{obj}: {text}"},
 	ExcessDamage:         {Name: "excess_damage", Trigger: TriggerNone, Describe: "{obj} was dealt excess damage"},
+	AbilityTriggered:     {Name: "ability_triggered", Trigger: TriggerFullMatch},
 }
 
 // Info returns k's descriptor; ok is false for a value past the enum.

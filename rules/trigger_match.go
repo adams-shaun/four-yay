@@ -2711,7 +2711,7 @@ func init() {
 		"trig:TurnFaceUp", "trig:Transformed",
 		"trig:ManaExpend",
 		"trig:Connives",
-		"trig:Discover", "trig:SeekAll",
+		"trig:Discover", "trig:SeekAll", "trig:AbilityTriggered",
 		"trig:Surveil", "trig:Scry",
 		"trig:PhaseOutAll",
 		// trig-proliferate: "Whenever you proliferate ..." (CR 701.27; the 6

@@ -466,6 +466,9 @@ var triggerModeEventRows = [...]struct {
 	// the Tap events of one tapping action, UntapAll the Untap events of one
 	// untapping action. Naming them here keeps a TapAll/UntapAll-only face's
 	// mask narrow to the one kind it can fire on.
+	// AbilityTriggered is past the 64-bit mask's reach: admitted through the
+	// fail-open path and gated by trigmatch.abilityTriggeredMatches.
+	{cards.TriggerAbilityTriggered, 0},
 	{cards.TriggerTapAll, 1 << events.Tap},
 	{cards.TriggerUntapAll, 1 << events.Untap},
 	{cards.TriggerDamageDone, 1 << events.Damage},

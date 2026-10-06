@@ -189,6 +189,10 @@ func ApplyPtr(g *state.Game, e *Event) {
 		// (the Clue token mint) is its own TokenCreate event that preceded
 		// this one, and the record is what trig:Investigated matches. Player
 		// is the investigating seat, Obj the resolving source permanent.
+	case AbilityTriggered:
+		// Pure marker: the TriggerPush just before it minted the ability;
+		// this record only carries the causing trigger's mode for
+		// trig:AbilityTriggered.
 	case SearchedLibrary:
 		// Pure marker for one completed library search; all resulting card
 		// moves and the shuffle have their own events.

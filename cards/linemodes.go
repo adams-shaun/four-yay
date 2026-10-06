@@ -129,7 +129,8 @@ const (
 	TriggerCounterAddedAll     TriggerMode = 95
 	TriggerCounterTypeAddedAll TriggerMode = 96
 	TriggerExcessDamageAll     TriggerMode = 97
-	TriggerModeCount                       = 98 // one past the last; sizes a dense per-TriggerMode array
+	TriggerAbilityTriggered    TriggerMode = 98
+	TriggerModeCount                       = 99 // one past the last; sizes a dense per-TriggerMode array
 )
 
 var triggerModeNames = [TriggerModeCount]string{
@@ -230,6 +231,7 @@ var triggerModeNames = [TriggerModeCount]string{
 	TriggerTurnBegin:                  "TurnBegin",
 	TriggerCounterAddedAll:            "CounterAddedAll",
 	TriggerCounterTypeAddedAll:        "CounterTypeAddedAll",
+	TriggerAbilityTriggered:           "AbilityTriggered",
 }
 
 var triggerModeCodes = func() StrCodes[TriggerMode] {

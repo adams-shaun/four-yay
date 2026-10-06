@@ -1122,6 +1122,7 @@ func (e *Engine) pushTrigger(pt pendingTrigger) {
 			}
 			e.damageSourceLKI[id] = cloneDamageSourceLKI(pt.Ctx.Snap.DamageSource)
 		}
+		emitAbilityTriggered(e.G, e.triggerOf, e.emit, pt)
 	}
 	// Task 7: a trigger that declares ValidTgts$ asks its controller for
 	// targets RIGHT AFTER its TriggerPush -- the ability object is now top of
@@ -1136,9 +1137,7 @@ func (e *Engine) pushTrigger(pt pendingTrigger) {
 	// e.Pending(), not from "we wanted to ask". SA is nil only for a
 	// hand-seeded queue entry (clone_test's seeded fake), which never has
 	// ValidTgts$ -- mirror the nil-tolerance the TriggerPush out-of-range
-	// guard already provides.
-	//
-	// CR 603.3c: a modal triggered ability announces its mode choice when it
+	// guard already provides. CR 603.3c: a modal triggered ability announces its mode choice when it
 	// is put on the stack, not at resolution. That ask is posed here too,
 	// in preference to the target ask for a trigger whose effect carries
 	// both a Choices$ clause and a ValidTgts$ (the modal shape a Charm
