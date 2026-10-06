@@ -638,14 +638,6 @@ func registrySubtype(reg *cards.Registry, subtype string) (string, bool) {
 	if reg == nil {
 		return "", false
 	}
-	if strings.EqualFold(subtype, "mount") {
-		// XMage's driver cannot target any Mount card (Alacrian Jaguar,
-		// Bounding Felidar, Trained Arynx, Gila Courser all fail with "Can't
-		// find ability to activate command" where Grizzly Bears works), so a
-		// Mount fixture only turns One Last Job into a harness row. Leave the
-		// slot unserved until the driver question is answered.
-		return "", false
-	}
 	for i := range reg.Cards {
 		c := reg.Cards[i]
 		for fi := range c.Faces {
@@ -671,7 +663,7 @@ func registrySubtype(reg *cards.Registry, subtype string) (string, bool) {
 // 2 of 4 replays). Nil registry or no quiet card: not found, and the caller
 // falls back to registrySubtype.
 func registryQuietSubtype(reg *cards.Registry, subtype string) (string, bool) {
-	if reg == nil || strings.EqualFold(subtype, "mount") {
+	if reg == nil {
 		return "", false
 	}
 	for i := range reg.Cards {
@@ -785,9 +777,8 @@ func zoneCandidates(reg *cards.Registry, filter, zone string) []cand {
 			}
 			return out
 		}
-		// An unserved subtype (the registry has no card of it, or the
-		// subtype is a deliberately unserved one such as Mount) fails
-		// closed: offering a non-matching card would declare a target the
+		// A subtype the registry has no card for fails closed: offering a
+		// non-matching card would declare a target the
 		// engine never offers. subtypeBattlefield already fails closed the
 		// same way; a mandatory slot then sinks the card and an optional one
 		// is omitted by fixtures.
