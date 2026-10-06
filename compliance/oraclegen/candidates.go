@@ -953,7 +953,7 @@ func place(fx *fixture, c cand) {
 		case "battlefield":
 			s.Battlefield = append(s.Battlefield, c.card)
 			if c.counterN > 0 {
-				*s = WithCounters(*s, c.card, c.counterKind, c.counterN)
+				*s = WithCounters(*s, c.card, c.counterKind, int32(c.counterN))
 			}
 		case "graveyard":
 			s.Graveyard = append(s.Graveyard, c.card)
@@ -1028,22 +1028,11 @@ func fixtureAlreadyTargetsCard(targets []string, seat, card string) bool {
 }
 
 func clone(s Seat) Seat {
-	counters := map[string]map[string]int32(nil)
-	for name, kinds := range s.Counters {
-		if counters == nil {
-			counters = map[string]map[string]int32{}
-		}
-		counters[name] = map[string]int32{}
-		for kind, n := range kinds {
-			counters[name][kind] = n
-		}
-	}
 	return Seat{
-		Counters: counters, Speed: s.Speed,
+		Counters: cloneCounters(s.Counters), Speed: s.Speed,
 		Battlefield: append([]string(nil), s.Battlefield...), Tapped: append([]string(nil), s.Tapped...), Hand: append([]string(nil), s.Hand...),
 		Graveyard: append([]string(nil), s.Graveyard...), Exile: append([]string(nil), s.Exile...),
 		Library: append([]string(nil), s.Library...), LibraryTop: append([]string(nil), s.LibraryTop...),
-		Counters: cloneCounters(s.Counters),
 	}
 }
 

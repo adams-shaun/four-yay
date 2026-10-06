@@ -706,7 +706,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
                             continue;
                         }
                         for (Map.Entry<String, JsonElement> byKind : byCard.getValue().getAsJsonObject().entrySet()) {
-                            CounterType kind = xmageCounter(byKind.getKey());
+                            CounterType kind = CounterType.valueOf(byKind.getKey());
                             perm.addCounters(kind.createInstance(byKind.getValue().getAsInt()), pl.getId(), null, g);
                         }
                         placed = true;
@@ -740,6 +740,37 @@ public class ScenarioReplay extends CardTestPlayerBase {
             addCard(zone, p, xmageSpelling(n), 1, tapped.contains(n));
         }
         return ns.size();
+    }
+
+    /** Puts each seat's setup "counters" (card name -> gorge counter kind ->
+     * n) on every battlefield permanent of that name the seat controls,
+     * added to what it entered with, exactly as gorge's runner does at setup
+     * (a planeswalker's loyalty headroom, a +1/+1-counter target fixture). */
+    private void addSetupCounters(Game g) {
+        JsonObject setup = sc0.has("setup") ? sc0.getAsJsonObject("setup") : new JsonObject();
+        for (int i = 0; i < 2; i++) {
+            JsonObject s = setup.has("p" + i) ? setup.getAsJsonObject("p" + i) : new JsonObject();
+            if (!s.has("counters")) {
+                continue;
+            }
+            TestPlayer pl = seat(i);
+            for (Map.Entry<String, JsonElement> card : s.getAsJsonObject("counters").entrySet()) {
+                String name = xmageSpelling(card.getKey());
+                boolean placed = false;
+                for (Permanent perm : g.getBattlefield().getAllPermanents()) {
+                    if (!pl.getId().equals(perm.getControllerId()) || !perm.getName().equals(name)) {
+                        continue;
+                    }
+                    placed = true;
+                    for (Map.Entry<String, JsonElement> c : card.getValue().getAsJsonObject().entrySet()) {
+                        perm.addCounters(xmageCounter(c.getKey()).createInstance(c.getValue().getAsInt()), pl.getId(), null, g);
+                    }
+                }
+                if (!placed) {
+                    throw new IllegalArgumentException("setup counters: p" + i + " controls no " + name);
+                }
+            }
+        }
     }
 
     /** Maps a gorge counter kind (P1P1, M1M1, LOYALTY) to XMage's type. */

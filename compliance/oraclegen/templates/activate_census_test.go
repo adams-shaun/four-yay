@@ -36,38 +36,43 @@ var activateCensusSets = []string{"BIG", "EOE", "FDN", "FRA"}
 // battlefield counts rose by the +4/+6 main measured); the attackedThisTurn
 // combat-prelude shape is still a named skip, and the remaining hand- and
 // graveyard-zone requirements merge into the no-fixture bucket.
-// Re-measured after this branch merged with main (levelb per-seat setup
-// counters, ticket 725d3fdb) and this ticket added the SubCounter /
-// RemoveAnyCounter source-counter activation fixtures: every source-counter
-// cost is now served (BIG and FDN battlefield counts rose, their
-// SubCounter<...> skips are gone).
+//
+// Re-measured for the Sac<N/filter> fixture-table ticket
+// (cli-20261006T071710Z-750ea5c3) merged onto that zone work: the Sac costs
+// main pinned as a coarse Sac<...> gap are now cellable from the shared
+// fixture table, so EOE and FDN battlefield counts rise (EOE +2, FDN +5) and
+// the Sac gap bucket names its own cause (Sac<token>).
+//
+// Re-measured for the source-counter-cost ticket
+// (cli-20261006T071711Z-73e67abe): a SubCounter / RemoveAnyCounter that takes
+// literal counters off the source itself now starts the source holding them,
+// so the SubCounter<...> gap is gone (BIG and FDN battlefield counts rise).
 var wantActivateCensus = map[string]map[string]int{
 	"BIG": {
 		"served:activate.battlefield":      11,
 		"served:activate.hand":             2,
 		"served:activate.mana":             4,
-		"skip:activate cost gap: Sac<...>": 1,
-		"skip:activate no fixture":         1,
+		"skip:activate cost gap: Sac<token>": 1,
+		"skip:activate no fixture":          1,
 	},
 	"EOE": {
-		"served:activate.battlefield":                 31,
+		"served:activate.battlefield":                 33,
 		"served:activate.mana":                        4,
 		"skip:activate cost gap: ExileFromGrave<...>": 1,
-		"skip:activate cost gap: Sac<...>":            3,
+		"skip:activate cost gap: Sac<token>":          1,
 		"skip:activate cost gap: SubCounter<...>":     1,
 		"skip:activate cost gap: tapXType<X>":         1,
 		"skip:activate no fixture":                    1,
 		"skip:activate xmage text ambiguous":          20,
 	},
 	"FDN": {
-		"served:activate.battlefield":                          76,
+		"served:activate.battlefield":                          81,
 		"served:activate.graveyard":                            2,
 		"served:activate.mana":                                 51,
 		"skip:activate cost gap: AddCounter<...>":              2,
 		"skip:activate cost gap: Return<...>":                  1,
-		"skip:activate cost gap: Sac<...>":                     6,
 		"skip:activate cost gap: tapXType<unsupported-filter>": 1,
-		"skip:activate no fixture":                             5,
+		"skip:activate no fixture":                             6,
 		"skip:activate xmage text ambiguous":                   2,
 	},
 	"FRA": {

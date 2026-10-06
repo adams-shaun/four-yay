@@ -78,8 +78,7 @@ func cloneCounters(m map[string]map[string]int32) map[string]map[string]int32 {
 		}
 		out[card] = k
 	}
-	return out
-}
+	return out}
 
 // Step is one scenario step (a subset of the runner's op set).
 type Step struct {

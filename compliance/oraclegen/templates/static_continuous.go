@@ -58,6 +58,10 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 	kind, need, gated := staticCounterGate(st)
 	var base oraclegen.Item
 	switch {
+	case gated:
+		// The card starts on the battlefield holding the counters its gate
+		// names, so the effect is already on at the first checkpoint.
+		base = counterGatedBase(f, name, kind, need)
 	case req.Face > 0:
 		// A face-1 static is served by setup-on-back-face, not by casting:
 		// the card cannot be cast on its back face (that is out of scope),
@@ -65,10 +69,6 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 		base = staticBackFaceScenario(f, name, req)
 	case requestedFace(c, name) != f:
 		return skip("face is not the castable face")
-	case gated:
-		// The card starts on the battlefield holding the counters its gate
-		// names, so the effect is already on at the first checkpoint.
-		base = counterGatedBase(f, name, kind, need)
 	case oraclegen.HasType(f, "Land"):
 		base = playLandWith(reg, name, f, func(setup map[string]oraclegen.Seat) {
 			p0 := setup["p0"]
@@ -133,8 +133,8 @@ func staticBackFaceScenario(f *cards.Face, name string, req levelb.Requirement) 
 // a probe off its printed 2/2 with no keywords, or the card (p0's) off its
 // printed P/T or evergreen keywords. The card is matched by its active face's
 // printed name (f.Name), so a face-after-0 static whose permanent reports the
-// back-face name is still recognised. typed also counts the card turning into a
-// creature it is not printed as (a Spacecraft's station, a Vehicle's crew
+// back-face name is still recognised. typed also counts the card turning into
+// a creature it is not printed as (a Spacecraft's station, a Vehicle's crew
 // condition); only the counter-gated path asks for it, so every other static
 // is judged exactly as before.
 func staticObserved(s rules.OracleSnapshot, f *cards.Face, name string, typed bool) bool {

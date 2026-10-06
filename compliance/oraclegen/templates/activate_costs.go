@@ -66,6 +66,13 @@ func activationCostIn(cost, zone string) (pool, gap string) {
 			if loyaltyCounter(tok) {
 				continue
 			}
+			if _, _, ok := sourceCounterCost(tok); ok {
+				continue
+			}
+		case "RemoveAnyCounter":
+			if _, _, ok := sourceCounterCost(tok); ok {
+				continue
+			}
 		}
 		if _, why := oraclegen.PoolFor(tok); why == "" {
 			mana = append(mana, tok)
