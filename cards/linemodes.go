@@ -129,7 +129,10 @@ const (
 	TriggerCounterAddedAll     TriggerMode = 95
 	TriggerCounterTypeAddedAll TriggerMode = 96
 	TriggerExcessDamageAll     TriggerMode = 97
-	TriggerModeCount                       = 98 // one past the last; sizes a dense per-TriggerMode array
+	// CaseSolved (MKM Case File Auditor, "whenever you solve a Case"):
+	// appended after ExcessDamageAll so no earlier ordinal moves.
+	TriggerCaseSolved TriggerMode = 98
+	TriggerModeCount              = 99 // one past the last; sizes a dense per-TriggerMode array
 )
 
 var triggerModeNames = [TriggerModeCount]string{
@@ -178,6 +181,7 @@ var triggerModeNames = [TriggerModeCount]string{
 	TriggerCounterRemovedOnce:         "CounterRemovedOnce",
 	TriggerDamageAll:                  "DamageAll",
 	TriggerExcessDamageAll:            "ExcessDamageAll",
+	TriggerCaseSolved:                 "CaseSolved",
 	TriggerDamagePreventedOnce:        "DamagePreventedOnce",
 	TriggerDiscardedAll:               "DiscardedAll",
 	TriggerDiscover:                   "Discover",

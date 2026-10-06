@@ -927,6 +927,15 @@ type Object struct {
 	// effPutCounter emits for a `Monstrosity$` PutCounter line) may set it.
 	Monstrous bool
 
+	// Solved is a Case's solved designation (CR 719.3b, the MKM Case
+	// cycle's "To solve -- <condition>" end-step trigger). Once solved, a
+	// Case stays solved: only events.AlterAttribute's "Solved" grant sets
+	// it, nothing un-sets it except the Move fold when the permanent leaves
+	// the battlefield (a later entry is a new object). It is not copiable
+	// and survives a control change; a plain value copy in CloneDeep
+	// carries it.
+	Solved bool
+
 	// Renowned is CR 702.112b's renowned designation: it lasts while this
 	// permanent remains on the battlefield, regardless of controller changes.
 	// Leaving the battlefield clears it; a later entry is a new permanent.
