@@ -41,11 +41,12 @@ func TestItemForLevelAMatchesGenerate(t *testing.T) {
 	}
 }
 
-// TestItemForLevelBKeyIsStubSkip: a real card's requirement key reaches
-// GenerateB, which is L2's stub, so it returns the stub's skip. The card is
-// asserted to carry the requirement first -- a card with none would make the
-// key lookup fail for the wrong reason.
-func TestItemForLevelBKeyIsStubSkip(t *testing.T) {
+// TestItemForLevelBKeyReachesGenerateB: a real card's requirement key
+// resolves through levelb.Requirements and returns exactly what GenerateB
+// makes for it -- a served scenario once its template lands, a skip
+// otherwise. The card is asserted to carry the requirement first, so a card
+// with none would not make the key lookup fail for the wrong reason.
+func TestItemForLevelBKeyReachesGenerateB(t *testing.T) {
 	reg := corpusReg(t)
 	const card = "Prodigal Sorcerer"
 	c, ok := reg.Lookup(card)
@@ -61,11 +62,21 @@ func TestItemForLevelBKeyIsStubSkip(t *testing.T) {
 		t.Fatalf("%s first requirement is %s, want activate#0.0", card, key)
 	}
 	got, skip := templates.ItemFor(reg, card, key)
-	if skip == nil {
-		t.Fatalf("%s returned %s; L2's GenerateB stub must skip every requirement", key, got.ID)
+	want, wantSkip := templates.GenerateB(reg, card, reqs[0])
+	if (skip == nil) != (wantSkip == nil) {
+		t.Fatalf("ItemFor and GenerateB disagree on serving %s: skip=%v wantSkip=%v", key, skip, wantSkip)
 	}
-	if !strings.Contains(skip.Reason, "level B:") {
-		t.Errorf("skip reason %q does not name the level-B stub", skip.Reason)
+	if skip != nil {
+		if skip.Reason != wantSkip.Reason {
+			t.Errorf("ItemFor skip %q != GenerateB skip %q", skip.Reason, wantSkip.Reason)
+		}
+		if strings.Contains(skip.Reason, "no template for activate") {
+			t.Errorf("activate template did not land: %q", skip.Reason)
+		}
+		return
+	}
+	if got.ID != want.ID || got.Template != want.Template {
+		t.Errorf("ItemFor = %s/%s, GenerateB = %s/%s", got.ID, got.Template, want.ID, want.Template)
 	}
 }
 
