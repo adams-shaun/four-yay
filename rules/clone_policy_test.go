@@ -361,90 +361,152 @@ func (k *clonePolicyChecker) checkField(path, rel string, f clonePolicyField, ov
 // DeepEqual it treats a nil and an empty slice or map as equal (a copy
 // written as append(T(nil), src...) turns an empty source into nil) and
 // compares functions by nil-ness only.
+//
+// The path is rendered only when a difference is found: the clone-fidelity
+// fuzz compares whole engines at every intent, and building the path string
+// at every step of an equal walk was most of that test's allocation
+// (3.8 GB of 6.6 GB in TestCloneFidelityShort, 2026-10-05).
 func cloneFirstDiff(a, b reflect.Value, path string, seen map[[2]uintptr]bool) string {
+	w := cloneDiffWalk{root: path, seen: seen}
+	return w.diff(a, b)
+}
+
+// cloneDiffSeg is one step of a cloneFirstDiff path: a struct field, a
+// slice/array index, a map key or a pointer dereference.
+type cloneDiffSeg struct {
+	kind  byte // '.' field (of typ, by index), '[' index, 'k' map key, '*' deref
+	typ   reflect.Type
+	index int
+	key   reflect.Value
+}
+
+type cloneDiffWalk struct {
+	root string
+	segs []cloneDiffSeg
+	seen map[[2]uintptr]bool
+}
+
+// path renders the current path exactly as the eager concatenation did.
+func (w *cloneDiffWalk) path() string {
+	s := w.root
+	for _, g := range w.segs {
+		switch g.kind {
+		case '.':
+			// The name is read here, not per step: Type.Field allocates.
+			s = s + "." + g.typ.Field(g.index).Name
+		case '[':
+			s = fmt.Sprintf("%s[%d]", s, g.index)
+		case 'k':
+			s = fmt.Sprintf("%s[%v]", s, g.key)
+		case '*':
+			s = "(*" + s + ")"
+		}
+	}
+	return s
+}
+
+func (w *cloneDiffWalk) push(g cloneDiffSeg) { w.segs = append(w.segs, g) }
+func (w *cloneDiffWalk) pop()                { w.segs = w.segs[:len(w.segs)-1] }
+
+func (w *cloneDiffWalk) diff(a, b reflect.Value) string {
 	if a.Kind() != b.Kind() {
-		return path + ": kind differs"
+		return w.path() + ": kind differs"
 	}
 	switch a.Kind() {
 	case reflect.Bool:
 		if a.Bool() != b.Bool() {
-			return fmt.Sprintf("%s: %v != %v", path, a.Bool(), b.Bool())
+			return fmt.Sprintf("%s: %v != %v", w.path(), a.Bool(), b.Bool())
 		}
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		if a.Int() != b.Int() {
-			return fmt.Sprintf("%s: %d != %d", path, a.Int(), b.Int())
+			return fmt.Sprintf("%s: %d != %d", w.path(), a.Int(), b.Int())
 		}
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
 		if a.Uint() != b.Uint() {
-			return fmt.Sprintf("%s: %d != %d", path, a.Uint(), b.Uint())
+			return fmt.Sprintf("%s: %d != %d", w.path(), a.Uint(), b.Uint())
 		}
 	case reflect.Float32, reflect.Float64:
 		if a.Float() != b.Float() {
-			return fmt.Sprintf("%s: %v != %v", path, a.Float(), b.Float())
+			return fmt.Sprintf("%s: %v != %v", w.path(), a.Float(), b.Float())
 		}
 	case reflect.String:
 		if a.String() != b.String() {
-			return fmt.Sprintf("%s: %q != %q", path, a.String(), b.String())
+			return fmt.Sprintf("%s: %q != %q", w.path(), a.String(), b.String())
 		}
 	case reflect.Func, reflect.Chan, reflect.UnsafePointer:
 		if a.IsNil() != b.IsNil() {
-			return path + ": nil-ness differs"
+			return w.path() + ": nil-ness differs"
 		}
 	case reflect.Interface:
 		if a.IsNil() || b.IsNil() {
 			if a.IsNil() != b.IsNil() {
-				return path + ": nil-ness differs"
+				return w.path() + ": nil-ness differs"
 			}
 			return ""
 		}
-		return cloneFirstDiff(a.Elem(), b.Elem(), path, seen)
+		return w.diff(a.Elem(), b.Elem())
 	case reflect.Pointer:
 		if a.IsNil() || b.IsNil() {
 			if a.IsNil() != b.IsNil() {
-				return fmt.Sprintf("%s: nil-ness differs (original nil %v, clone nil %v)", path, a.IsNil(), b.IsNil())
+				return fmt.Sprintf("%s: nil-ness differs (original nil %v, clone nil %v)", w.path(), a.IsNil(), b.IsNil())
 			}
 			return ""
 		}
 		key := [2]uintptr{a.Pointer(), b.Pointer()}
-		if a.Pointer() == b.Pointer() || seen[key] {
+		if a.Pointer() == b.Pointer() || w.seen[key] {
 			return ""
 		}
-		seen[key] = true
-		return cloneFirstDiff(a.Elem(), b.Elem(), "(*"+path+")", seen)
+		w.seen[key] = true
+		w.push(cloneDiffSeg{kind: '*'})
+		d := w.diff(a.Elem(), b.Elem())
+		w.pop()
+		return d
 	case reflect.Slice:
 		if a.Len() != b.Len() {
-			return fmt.Sprintf("%s: len %d != %d", path, a.Len(), b.Len())
+			return fmt.Sprintf("%s: len %d != %d", w.path(), a.Len(), b.Len())
 		}
-		for i := 0; i < a.Len(); i++ {
-			if d := cloneFirstDiff(a.Index(i), b.Index(i), fmt.Sprintf("%s[%d]", path, i), seen); d != "" {
-				return d
-			}
-		}
+		return w.elems(a, b)
 	case reflect.Array:
-		for i := 0; i < a.Len(); i++ {
-			if d := cloneFirstDiff(a.Index(i), b.Index(i), fmt.Sprintf("%s[%d]", path, i), seen); d != "" {
-				return d
-			}
-		}
+		return w.elems(a, b)
 	case reflect.Map:
 		if a.Len() != b.Len() {
-			return fmt.Sprintf("%s: len %d != %d", path, a.Len(), b.Len())
+			return fmt.Sprintf("%s: len %d != %d", w.path(), a.Len(), b.Len())
 		}
 		it := a.MapRange()
 		for it.Next() {
 			bv := b.MapIndex(it.Key())
 			if !bv.IsValid() {
-				return fmt.Sprintf("%s: key %v missing on the clone", path, it.Key())
+				return fmt.Sprintf("%s: key %v missing on the clone", w.path(), it.Key())
 			}
-			if d := cloneFirstDiff(it.Value(), bv, fmt.Sprintf("%s[%v]", path, it.Key()), seen); d != "" {
+			w.push(cloneDiffSeg{kind: 'k', key: it.Key()})
+			d := w.diff(it.Value(), bv)
+			w.pop()
+			if d != "" {
 				return d
 			}
 		}
 	case reflect.Struct:
+		t := a.Type()
 		for i := 0; i < a.NumField(); i++ {
-			if d := cloneFirstDiff(a.Field(i), b.Field(i), path+"."+a.Type().Field(i).Name, seen); d != "" {
+			w.push(cloneDiffSeg{kind: '.', typ: t, index: i})
+			d := w.diff(a.Field(i), b.Field(i))
+			w.pop()
+			if d != "" {
 				return d
 			}
+		}
+	}
+	return ""
+}
+
+// elems compares a slice's or array's elements pairwise.
+func (w *cloneDiffWalk) elems(a, b reflect.Value) string {
+	for i := 0; i < a.Len(); i++ {
+		w.push(cloneDiffSeg{kind: '[', index: i})
+		d := w.diff(a.Index(i), b.Index(i))
+		w.pop()
+		if d != "" {
+			return d
 		}
 	}
 	return ""
