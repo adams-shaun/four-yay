@@ -57,14 +57,11 @@ var wantActivateCensus = map[string]map[string]int{
 		"skip:activate xmage text ambiguous":      2,
 	},
 	"FRA": {
-		"served:activate.battlefield":           50,
-		"served:activate.mana":                  24,
-		"skip:activate cost gap: Discard<...>":  4,
-		"skip:activate cost gap: Exile<...>":    1,
-		"skip:activate cost gap: Sac<...>":      4,
-		"skip:activate cost gap: tapXType<...>": 1,
-		"skip:activate no fixture":              7,
-		"skip:activate xmage text ambiguous":    10,
+		"served:activate.battlefield":        59,
+		"served:activate.mana":               24,
+		"skip:activate cost gap: Sac<...>":   1,
+		"skip:activate no fixture":           7,
+		"skip:activate xmage text ambiguous": 10,
 	},
 }
 
