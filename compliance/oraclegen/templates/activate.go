@@ -123,62 +123,6 @@ func activateStepIndex(steps []oraclegen.Step) int {
 	return 0
 }
 
-// activationCost classifies one activated ability's Cost$ under the v1 token
-// whitelist. pool is the mana part's pool letters (PoolFor), or "" for a
-// cost with no mana. gap is the offending token's head (with an ellipsis for
-// its bracket payload) when the cost carries a token v1 does not pay, so a
-// caller can Skip naming it.
-func activationCost(cost string) (pool, gap string) {
-	var mana []string
-	for _, tok := range costTokens(cost) {
-		head := tok
-		if i := strings.IndexByte(tok, '<'); i >= 0 {
-			head = tok[:i]
-		}
-		switch head {
-		case "T", "Q":
-			continue
-		case "PayLife":
-			if isNumericBracket(tok) {
-				continue
-			}
-		case "Sac":
-			if sacSelf(tok) || sacOtherFixtureSupported(tok) {
-				continue
-			}
-		case "Discard":
-			if discardFixtureSupported(tok) {
-				continue
-			}
-		case "Exile":
-			if selfZoneCost(tok) {
-				continue
-			}
-		case "tapXType":
-			if tapXTypeFixtureSupported(tok) {
-				continue
-			}
-		case "AddCounter", "SubCounter":
-			if loyaltyCounter(tok) {
-				continue
-			}
-		}
-		if _, why := oraclegen.PoolFor(tok); why == "" {
-			mana = append(mana, tok)
-			continue
-		}
-		return "", costHead(tok)
-	}
-	if len(mana) == 0 {
-		return "", ""
-	}
-	p, why := oraclegen.PoolFor(strings.Join(mana, " "))
-	if why != "" {
-		return "", costHead(strings.Join(mana, " "))
-	}
-	return p, ""
-}
-
 // costTokens splits a Forge cost string on whitespace, keeping a token's
 // `<...>` payload together: Sac<1/CARDNAME/this creature> and
 // tapXType<Any/Creature.Other+withTotalPowerGE1> carry spaces a naive
@@ -272,19 +216,6 @@ func selfZoneCost(tok string) bool {
 	return len(parts) >= 2 && parts[0] == "1" && strings.EqualFold(parts[1], "CARDNAME")
 }
 
-func tapXTypeFixtureSupported(tok string) bool {
-	payload, ok := bracketPayload(tok)
-	if !ok {
-		return false
-	}
-	parts := strings.Split(payload, "/")
-	if len(parts) != 2 || strings.ToLower(parts[1]) != "artifact" {
-		return false
-	}
-	n, err := strconv.Atoi(parts[0])
-	return err == nil && n == 2
-}
-
 func bracketPayload(tok string) (string, bool) {
 	i := strings.IndexByte(tok, '<')
 	if i < 0 || !strings.HasSuffix(tok, ">") {
@@ -324,10 +255,6 @@ func addActivationCostAnswers(answers [][]oraclegen.XAnswer, step int, cost stri
 					picks = []string{"Forest"}
 				}
 			}
-		case "tapXType":
-			if tapXTypeFixtureSupported(tok) {
-				picks = []string{"Ornithopter", "Sol Ring"}
-			}
 		}
 		for _, pick := range picks {
 			present := false
@@ -342,6 +269,7 @@ func addActivationCostAnswers(answers [][]oraclegen.XAnswer, step int, cost stri
 			}
 		}
 	}
+	addTapXTypeAnswers(answers, step, cost)
 }
 
 // addActivationCostFixtures supplies the explicit cards needed by supported
@@ -373,13 +301,9 @@ func addActivationCostFixtures(p0 *oraclegen.Seat, cost string) {
 					p0.Battlefield = appendFixtureUnique(p0.Battlefield, "Forest")
 				}
 			}
-		case "tapXType":
-			if tapXTypeFixtureSupported(tok) {
-				p0.Battlefield = appendFixtureUnique(p0.Battlefield, "Ornithopter")
-				p0.Battlefield = appendFixtureUnique(p0.Battlefield, "Sol Ring")
-			}
 		}
 	}
+	addTapXTypeFixtures(p0, cost)
 }
 
 // loyaltyCounter reports whether tok is an AddCounter<N/LOYALTY> or
