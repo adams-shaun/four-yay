@@ -51,11 +51,23 @@ func conspireEngine(t *testing.T, hero string) (*Engine, Config, *cards.Registry
 	for i := range opp {
 		opp[i] = mountain
 	}
+	if hero == "Go Nuts!" {
+		opp[0] = bear // Its Teamwork fight mode requires an opponent creature.
+	}
 	cfg := seatZeroStart(Config{Seed: 44207, Names: []string{"consp", "opp"},
 		Decks: [][]*cards.Card{deck, opp}, Tokens: reg.Tokens})
 	e := New(cfg)
 	e.Advance()
 	toMain1(t, e)
+	if hero == "Go Nuts!" {
+		// Teamwork requires both Charm modes at announcement. DBFight's
+		// opponent-controlled creature target must exist even if the cast
+		// will later decline the optional tap payment.
+		id := moveSeededCard(t, e, 1, bear, state.ZBattlefield)
+		if o := e.G.Obj(id); o == nil || o.Zone != state.ZBattlefield || o.Controller != 1 {
+			t.Fatalf("precondition: Go Nuts! fight mode needs an opponent-controlled battlefield creature: %+v", o)
+		}
+	}
 	return e, cfg, reg
 }
 
