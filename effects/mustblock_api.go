@@ -47,7 +47,11 @@ func effMustBlock(h Host, c *Ctx, sa *cards.SA) {
 		return
 	}
 	dur := sa.ParamStr(cards.PKDuration)
-	blockAll := isTrue(sa.ParamStr(cards.PKBlockAllDefined))
+	// BlockAllDefined names all attackers in THIS resolution. A single
+	// Fighter Class trigger names only one attacker: two independent triggers
+	// cannot combine to grant a blocker permission to block both (CR 509.1a).
+	// Blaze of Glory defines the entire attacking set in one resolution.
+	blockAll := isTrue(sa.ParamStr(cards.PKBlockAllDefined)) && len(attackerIDs) > 1
 	for _, target := range Defined(h, c, sa) {
 		if target.IsPlayer {
 			continue

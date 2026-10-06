@@ -10,9 +10,9 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
-// A selected optional Fighter Class target is a blocker, not the Class
-// enchantment. Two attacking creatures each trigger the printed body, so the
-// chosen blocker has two BlockAllDefined pair duties in one declaration.
+// Two separate Fighter Class triggers may each require the same creature to
+// block, but neither grants permission to block more than one attacker.
+// The maximum satisfiable duty count is one (CR 509.1a).
 func TestMustBlockCorpusFighterClassSelectedTargetDeclaration(t *testing.T) {
 	e := threeSeatEngine(t)
 	class := onBoardCard(t, e, 1, mshCorpusCard(t, "Fighter Class"))
@@ -44,26 +44,42 @@ func TestMustBlockCorpusFighterClassSelectedTargetDeclaration(t *testing.T) {
 	first, second := findBlockOption(d, blocker, a), findBlockOption(d, blocker, b)
 	other := findBlockOption(d, bystander, a)
 	if first == nil || second == nil || other == nil || !first.Required || !second.Required ||
-		!first.BlockMust || !second.BlockMust || !first.BlockMustAll || !second.BlockMustAll ||
-		other.BlockMust || other.Required || d.GroupCapFor(first.Group) != 2 {
+		!first.BlockMust || !second.BlockMust || first.BlockMustAll || second.BlockMustAll ||
+		other.BlockMust || other.Required || d.GroupCapFor(first.Group) != 1 {
 		t.Fatalf("Fighter Class options/cap incorrect: %+v", d.Options)
 	}
-	both := decision.Intent{Player: d.Player, Seq: d.Seq, Choices: []int{first.Index, second.Index}}
-	if err := d.Validate(both); err != nil {
-		t.Fatalf("decision rejected both selected pairs: %v", err)
-	}
-	if err := e.validateBlockers(d, both); err != nil {
-		t.Fatalf("engine rejected both selected pairs: %v", err)
-	}
 	team := d.BlockRequiredTeam()
-	if len(team) != 2 || (team[0] != first.Index && team[1] != first.Index) || (team[0] != second.Index && team[1] != second.Index) {
-		t.Fatalf("decision required team = %v, want both chosen pairs", team)
+	if len(team) != 1 || (team[0] != first.Index && team[0] != second.Index) || d.RequiredQuota() != 1 {
+		t.Fatalf("decision required team = %v quota=%d, want one pair", team, d.RequiredQuota())
 	}
-	for _, choices := range [][]int{{}, {first.Index}, {other.Index, second.Index}} {
+	for _, chosen := range []int{first.Index, second.Index} {
+		in := decision.Intent{Player: d.Player, Seq: d.Seq, Choices: []int{chosen}}
+		if err := d.Validate(in); err != nil {
+			t.Fatalf("decision rejected one selected pair: %v", err)
+		}
+		if err := e.validateBlockers(d, in); err != nil {
+			t.Fatalf("engine rejected one selected pair: %v", err)
+		}
+	}
+	both := decision.Intent{Player: d.Player, Seq: d.Seq, Choices: []int{first.Index, second.Index}}
+	if err := d.Validate(both); err == nil {
+		t.Fatal("decision accepted double block without multi-block permission")
+	}
+	if err := e.validateBlockers(d, both); err == nil {
+		t.Fatal("engine accepted double block without multi-block permission")
+	}
+	for _, choices := range [][]int{{}, {other.Index}} {
 		in := decision.Intent{Player: d.Player, Seq: d.Seq, Choices: choices}
 		if err := e.validateBlockers(d, in); err == nil {
-			t.Fatalf("engine accepted declaration omitting selected pair: %v", choices)
+			t.Fatalf("engine accepted declaration omitting selected blocker: %v", choices)
 		}
+	}
+	bot := newTestBot(7).answer(e, d)
+	if err := d.Validate(bot); err != nil {
+		t.Fatalf("bot answer rejected by decision: %v", err)
+	}
+	if err := e.validateBlockers(d, bot); err != nil {
+		t.Fatalf("bot answer rejected by engine: %v", err)
 	}
 }
 

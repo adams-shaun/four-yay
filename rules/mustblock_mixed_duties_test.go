@@ -10,8 +10,8 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
-// Separate ordinary and BlockAllDefined duties on one blocker do not merge
-// into a blanket permission to block every attacker.
+// Independent one-attacker BlockAllDefined duties and an ordinary duty
+// cannot combine into a multi-block permission for the same blocker.
 func TestMustBlockMixedDutiesKeepPairPermission(t *testing.T) {
 	e := threeSeatEngine(t)
 	src := onBoard(t, e, 1, "Name:Duty source\nTypes:Creature\nPT:2/2\nSVar:All:DB$ MustBlock | ValidTgts$ Creature | DefinedAttacker$ TriggeredAttacker | BlockAllDefined$ True\nSVar:Ordinary:DB$ MustBlock | ValidTgts$ Creature | DefinedAttacker$ TriggeredAttacker\nOracle:x\n")
@@ -40,25 +40,23 @@ func TestMustBlockMixedDutiesKeepPairPermission(t *testing.T) {
 			t.Fatalf("precondition: no duty for attacker %d", attacker)
 		}
 	}
-	if !combat.MustBlockAllPair(b, blocker, a) || combat.MustBlockAllPair(b, blocker, ordinary) || !combat.MustBlockAllPair(b, blocker, c) {
-		t.Fatal("BlockAll permission did not distinguish the three active duties")
+	for _, attacker := range []state.ObjID{a, ordinary, c} {
+		if combat.MustBlockAllPair(b, blocker, attacker) {
+			t.Fatalf("independent single-attacker duty granted multi-block permission for %d", attacker)
+		}
 	}
 	d := askBlockersFresh(t, e)
 	if d == nil || d.Kind != decision.KBlockers {
 		t.Fatalf("precondition: missing blockers decision: %#v", d)
 	}
 	allA, ord, allC := findBlockOption(d, blocker, a), findBlockOption(d, blocker, ordinary), findBlockOption(d, blocker, c)
-	if allA == nil || ord == nil || allC == nil || !allA.BlockMustAll || ord.BlockMustAll || !allC.BlockMustAll || d.GroupCapFor(allA.Group) != 2 {
+	if allA == nil || ord == nil || allC == nil || allA.BlockMustAll || ord.BlockMustAll || allC.BlockMustAll || d.GroupCapFor(allA.Group) != 1 {
 		t.Fatalf("pair flags or cap wrong: %+v", d.Options)
 	}
-	bothAll := decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{allA.Index, allC.Index}}
-	if err := d.Validate(bothAll); err != nil {
-		t.Fatalf("decision rejected both defined pairs: %v", err)
+	if d.RequiredQuota() != 1 {
+		t.Fatalf("satisfiable duty quota = %d, want 1", d.RequiredQuota())
 	}
-	if err := e.validateBlockers(d, bothAll); err != nil {
-		t.Fatalf("engine rejected both defined pairs: %v", err)
-	}
-	for _, order := range [][]int{{ord.Index, allA.Index}, {allA.Index, ord.Index}} {
+	for _, order := range [][]int{{allA.Index, allC.Index}, {ord.Index, allA.Index}, {allA.Index, ord.Index}} {
 		in := decision.Intent{Seq: d.Seq, Player: d.Player, Choices: order}
 		if err := d.Validate(in); err == nil {
 			t.Fatalf("decision accepted mixed pairs %v", order)
