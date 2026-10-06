@@ -47,16 +47,18 @@ type prevAsk struct {
 type sigStat struct{ n, same int }
 
 type walkStats struct {
-	asks, trans, same          int
-	quiet, quietSame           int
-	timing, timingSame         int
-	timingSorc, timingSorcSame int
-	timingPool, timingPoolSame int
-	onlyPassOffered            int
-	opts, hand, bf             int
-	sigs                       map[string]*sigStat
-	kindIn, kindInSame         [256]int
-	prev                       [8]prevAsk
+	asks, trans, same                    int
+	quiet, quietSame                     int
+	timing, timingSame                   int
+	timingSorc, timingSorcSame           int
+	timingPool, timingPoolSame           int
+	s5Timing, s5TimingSorc, s5TimingPool int
+	s5TimingPoolSame                     int
+	onlyPassOffered                      int
+	opts, hand, bf                       int
+	sigs                                 map[string]*sigStat
+	kindIn, kindInSame                   [256]int
+	prev                                 [8]prevAsk
 }
 
 var wm = walkStats{sigs: map[string]*sigStat{}}
@@ -74,6 +76,13 @@ var quietKinds = [256]bool{events.DecisionAsk: true, events.DecisionMade: true, 
 var timingKinds = [256]bool{
 	events.DecisionAsk: true, events.DecisionMade: true, events.Priority: true,
 	events.StepChange: true, events.ManaClear: true, events.Note: true,
+}
+
+// s5TimingKinds is the exact event class admitted by the S5 start gate in §6.
+// Keep it separate from timingKinds, the broader §1.5 measurement.
+var s5TimingKinds = [256]bool{
+	events.DecisionAsk: true, events.DecisionMade: true, events.Priority: true,
+	events.StepChange: true,
 }
 
 func (m *walkStats) observe(e *rules.Engine, d *decision.Decision) {
@@ -105,7 +114,7 @@ func (m *walkStats) observe(e *rules.Engine, d *decision.Decision) {
 		}
 		var ks []events.Kind
 		var seen [256]bool
-		allQuiet, allTiming := true, true
+		allQuiet, allTiming, allS5Timing := true, true, true
 		for _, ev := range e.L.Events[pv.ev:cur.ev] {
 			k := ev.Kind
 			if !seen[k] {
@@ -118,6 +127,9 @@ func (m *walkStats) observe(e *rules.Engine, d *decision.Decision) {
 			if !timingKinds[k] {
 				allTiming = false
 			}
+			if !s5TimingKinds[k] {
+				allS5Timing = false
+			}
 		}
 		for _, k := range ks {
 			m.kindIn[k]++
@@ -129,6 +141,18 @@ func (m *walkStats) observe(e *rules.Engine, d *decision.Decision) {
 			m.quiet++
 			if same {
 				m.quietSame++
+			}
+		}
+		if allS5Timing {
+			m.s5Timing++
+			if pv.sorcery == cur.sorcery {
+				m.s5TimingSorc++
+				if pv.pools == cur.pools {
+					m.s5TimingPool++
+					if same {
+						m.s5TimingPoolSame++
+					}
+				}
 			}
 		}
 		if allTiming {
@@ -189,6 +213,7 @@ func (m *walkStats) report() {
 	fmt.Fprintf(w, "walkstats:   only quiet+{StepChange,ManaClear,Note}: %d (%.1f%%), identical %d (%.1f%%)\n", m.timing, pct(m.timing, m.trans), m.timingSame, pct(m.timingSame, m.timing))
 	fmt.Fprintf(w, "walkstats:     ... and same sorcery-speed bit: %d (%.1f%%), identical %d (%.1f%%)\n", m.timingSorc, pct(m.timingSorc, m.trans), m.timingSorcSame, pct(m.timingSorcSame, m.timingSorc))
 	fmt.Fprintf(w, "walkstats:     ... and all pools equal: %d (%.1f%%), identical %d (%.1f%%)\n", m.timingPool, pct(m.timingPool, m.trans), m.timingPoolSame, pct(m.timingPoolSame, m.timingPool))
+	fmt.Fprintf(w, "walkstats: S5 exact {Priority,DecisionAsk,DecisionMade,StepChange} only: %d; same sorcery bit %d; all pools equal %d (%.1f%% of priority asks; S5 gate), identical %d (%.1f%%)\n", m.s5Timing, m.s5TimingSorc, m.s5TimingPool, pct(m.s5TimingPool, m.asks), m.s5TimingPoolSame, pct(m.s5TimingPoolSame, m.s5TimingPool))
 	fmt.Fprintf(w, "walkstats: per-kind presence (transitions containing kind: n, identical%%):\n")
 	for k := 0; k < 256; k++ {
 		if m.kindIn[k] > 0 {
