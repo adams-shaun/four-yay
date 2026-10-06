@@ -1,0 +1,2 @@
+{"shape":{"template":"static","op":"cast","field":"p0.pool","diff":"gorge= xmage=CCCC"},"key":"static | cast | p0.pool | gorge= xmage=CCCC","cards":1}
+{"card":"Ruinous Waterbending","template":"static#0.0","status":"diverge","api":"PumpAll+Effect","sets":["TLA"],"detail":"step 0 (cast) p0.pool: gorge \"\", xmage \"CCCC\""}
