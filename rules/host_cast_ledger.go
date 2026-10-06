@@ -436,6 +436,28 @@ func (e *Engine) SpellsCastThisTurnBy(p state.PlayerID) int {
 	return n
 }
 
+// castsThisTurnMatchingBy counts the spells p put on the stack since the last
+// TurnChange whose object satisfies match, skipping exclude (the in-flight
+// candidate, whose own PutOnStack is already logged at the CR 601.2e
+// recheck). A free function over the log so the per-caster limit rule
+// (castLimitBinds) needs no Engine receiver.
+func castsThisTurnMatchingBy(log []events.Event, p state.PlayerID, exclude state.ObjID, match func(state.ObjID) bool) int {
+	n := 0
+	for i := len(log) - 1; i >= 0; i-- {
+		ev := log[i]
+		if ev.Kind == events.TurnChange {
+			break
+		}
+		if ev.Kind != events.PutOnStack || ev.Player != p || (exclude != 0 && ev.Obj == exclude) {
+			continue
+		}
+		if match(ev.Obj) {
+			n++
+		}
+	}
+	return n
+}
+
 // TurnsTaken satisfies effects.Host's TurnsTaken for Count$YourTurns (Serra
 // Avenger's "your first, second, or third turns of the game"): the number of
 // turns that have BEGUN with p as the active player, current turn included.
