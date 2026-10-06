@@ -1269,6 +1269,45 @@ func (e *Engine) triggerPaidX(stack state.ObjID, o *state.Object) int32 {
 	return tc.TriggerPaidX
 }
 
+// printedTriggerFace finds o's face that owns the trigger whose compiled
+// effect is sa -- the source's active face first, then every other printed
+// face of the card -- and the line's index on that face. A trigger can be
+// pushed from a face o no longer shows: a transformed double-faced card that
+// left the battlefield is front face up (CR 712.8a), but its "when this dies"
+// line is the back face's. The compiled *cards.SA pointer identifies the line
+// on whichever face owns it, so this one search is the only home for the
+// ownership rule: event encoding (triggerPushAmount), resolution lookup
+// (triggerOf, findTriggerForAbilityFace) and the oracle snapshot's trigger
+// slot all read it from here rather than searching the live face themselves.
+// A token or copy has no *cards.Card and answers from its live face alone.
+func printedTriggerFace(o *state.Object, sa *cards.SA) (*cards.Face, int, bool) {
+	if o == nil || sa == nil {
+		return nil, 0, false
+	}
+	live := o.Face()
+	if live != nil {
+		for i := range live.Triggers {
+			if live.Triggers[i].Effect == sa {
+				return live, i, true
+			}
+		}
+	}
+	if o.Card == nil {
+		return nil, 0, false
+	}
+	for _, cf := range o.Card.Faces {
+		if cf == nil || cf == live {
+			continue
+		}
+		for i := range cf.Triggers {
+			if cf.Triggers[i].Effect == sa {
+				return cf, i, true
+			}
+		}
+	}
+	return nil, 0, false
+}
+
 func (e *Engine) findTriggerForAbility(source state.ObjID, sa *cards.SA) (cards.Trigger, bool) {
 	t, _, ok := e.findTriggerForAbilityFace(source, sa)
 	return t, ok
@@ -1288,28 +1327,8 @@ func (e *Engine) findTriggerForAbilityFace(source state.ObjID, sa *cards.SA) (ca
 	if o == nil {
 		return cards.Trigger{}, nil, false
 	}
-	f := o.Face()
-	if f == nil {
-		return cards.Trigger{}, nil, false
-	}
-	for _, t := range f.Triggers {
-		if t.Effect == sa {
-			return t, f, true
-		}
-	}
-	// A trigger pushed from a face the source no longer shows (a transformed
-	// double-faced card that left the battlefield is front face up, CR 712.8a).
-	if o.Card != nil {
-		for _, cf := range o.Card.Faces {
-			if cf == nil || cf == f {
-				continue
-			}
-			for _, t := range cf.Triggers {
-				if t.Effect == sa {
-					return t, cf, true
-				}
-			}
-		}
+	if f, idx, ok := printedTriggerFace(o, sa); ok {
+		return f.Triggers[idx], f, true
 	}
 	for i := range o.MergedCards {
 		mf := o.MergedFaceAt(i)
