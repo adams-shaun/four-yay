@@ -14,7 +14,7 @@ import (
 func offeredKeys(offers []rules.OracleSnapOffered) string {
 	entries := append([]rules.OracleSnapOffered(nil), offers...)
 	for i := range entries {
-		entries[i].Label = offeredLabel(entries[i].Label)
+		entries[i].Label = offeredLabel(entries[i].Source, entries[i].Label)
 	}
 	sort.Slice(entries, func(i, j int) bool {
 		a, b := entries[i], entries[j]
@@ -39,10 +39,11 @@ func offeredKeys(offers []rules.OracleSnapOffered) string {
 	return strings.Join(parts, "\n")
 }
 
-func offeredLabel(label string) string {
-	// XMage includes the activation cost before the rule text. Gorge's named
-	// mana reader emits the effect alone ("Add R"). Costs are not identity.
-	if before, after, ok := strings.Cut(label, ":"); ok && strings.Contains(before, "{") {
+func offeredLabel(source, label string) string {
+	// XMage includes the activation cost before the rule text; gorge uses
+	// "<source name>: <description>" for non-mana abilities, and the effect
+	// alone ("Add R") for mana. Neither display prefix is ability identity.
+	if before, after, ok := strings.Cut(label, ":"); ok && (strings.Contains(before, "{") || strings.EqualFold(strings.TrimSpace(before), RefName(source))) {
 		label = after
 	}
 	label = strings.ToLower(strings.TrimSpace(label))
@@ -110,6 +111,6 @@ func offeredEntryMatches(a, b string) bool {
 	if len(x) != 3 || len(y) != 3 || x[0] != y[0] || x[1] != y[1] {
 		return false
 	}
-	xl, yl := offeredLabel(x[2]), offeredLabel(y[2])
+	xl, yl := offeredLabel(x[0], x[2]), offeredLabel(y[0], y[2])
 	return strings.HasPrefix(xl, yl) || strings.HasPrefix(yl, xl)
 }

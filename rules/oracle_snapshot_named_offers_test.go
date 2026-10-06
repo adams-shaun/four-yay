@@ -77,7 +77,7 @@ func TestOracleSnapshotOffersClosedVocabulary(t *testing.T) {
 	for _, tc := range []struct{ kind, want string }{
 		{"cast", "cast"}, {"play_land", "play"}, {"play", "play"},
 		{"ability", "activate"}, {"granted", "activate"},
-		{"station", "activate"}, {"unlock", "activate"}, {"turn_face_up", "activate"},
+		{"station", "activate"}, {"unlock", "activate"}, {"turn_face_up", "activate"}, {"specialize", "activate"},
 		{"pass", ""}, {"concede", ""},
 	} {
 		t.Run(tc.kind, func(t *testing.T) {

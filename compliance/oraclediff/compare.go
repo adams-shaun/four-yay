@@ -114,9 +114,9 @@ func CompareOpts(g rules.OracleResult, gerr error, x XResult, compare []string, 
 type field struct{ name, value string }
 
 // fields renders a snapshot as the ordered, normalized field list the
-// comparator compares; xmage selects XMage's step vocabulary. Two
-// snapshots agree exactly when their field lists are equal, so the list
-// doubles as the frozen expectation (Canonical).
+// comparator compares; xmage selects XMage's step vocabulary. The list
+// doubles as the frozen expectation (Canonical); offered labels additionally
+// admit normalized advisory prefixes through fieldEqual.
 func fields(s rules.OracleSnapshot, xmage bool, compare []string) []field {
 	step := s.Step
 	if xmage {
@@ -185,8 +185,9 @@ func compareSnap(g, x rules.OracleSnapshot, compare []string, ignore []string) (
 }
 
 // Canonical is gorge's side of a scenario in the comparator's normalized
-// form: equal to XMage's exactly when the two agree. A verdict row freezes
-// its hash, so the CI gate can re-check gorge without Java.
+// form. Disambiguating offered labels retain their full normalized text;
+// Compare and Meets also accept advisory prefixes of that text. A verdict row
+// freezes its hash, so the CI gate can re-check gorge without Java.
 func Canonical(snaps []rules.OracleSnapshot, ignore ...string) string {
 	return CanonicalOpts(snaps, nil, ignore...)
 }

@@ -21,6 +21,7 @@ func TestCompareFreezeMeetsOfferedAdvisoryLabels(t *testing.T) {
 		{"display prefix", []rules.OracleSnapOffered{offer("p0:Bolt", "cast", "Cast Lightning Bolt")}, []rules.OracleSnapOffered{offer("p0:Bolt", "cast", "Lightning Bolt")}, true, true},
 		{"singleton advisory", []rules.OracleSnapOffered{offer("p0:A", "activate", "Activate A")}, []rules.OracleSnapOffered{offer("p0:A", "activate", "Sacrifice A: Deal 1 damage")}, true, true},
 		{"multiple named costs and ordering", gMana, []rules.OracleSnapOffered{offer("p0:Verge", "activate", "{T}: Add {R}"), offer("p0:Verge", "activate", "{T}: Add {B}")}, true, true},
+		{"multiple non-mana source prefixes", []rules.OracleSnapOffered{offer("p0:A", "activate", "A: Draw a card."), offer("p0:A", "activate", "A: Gain 1 life.")}, []rules.OracleSnapOffered{offer("p0:A", "activate", "{T}: Draw a card."), offer("p0:A", "activate", "{2}: Gain 1 life.")}, true, true},
 		{"normalized rule prefix", gMana, []rules.OracleSnapOffered{offer("p0:Verge", "activate", "{T}: Add {R}. Activate only if you control a Swamp."), offer("p0:Verge", "activate", "{T}: Add {B}.")}, true, false},
 		{"ambiguous prefix needs one-to-one matching", []rules.OracleSnapOffered{offer("p0:A", "activate", "Add"), offer("p0:A", "activate", "Add B")}, gManaForSource("p0:A"), true, false},
 		{"missing source", gMana, []rules.OracleSnapOffered{offer("p1:Verge", "activate", "Add B"), offer("p0:Verge", "activate", "Add R")}, false, false},

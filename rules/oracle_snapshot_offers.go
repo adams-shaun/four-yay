@@ -12,21 +12,26 @@ func oracleSnapshotOffers(r *oracleRun, d *decision.Decision) []OracleSnapOffere
 			continue
 		}
 		source := r.objRef(r.e.G.Obj(o.Obj))
-		if o.Kind == "activate" {
+		if oracleOpCodes.Code(o.Kind) == oracleOpActivate {
 			for _, label := range r.manaAbilityLabels(d.Player, o.Obj) {
 				out = append(out, OracleSnapOffered{Source: source, Kind: "activate", Label: label})
 			}
 			continue
 		}
 		kind := o.Kind
-		switch {
-		case oracleActivateKind(kind), kind == "granted":
-			kind = "activate"
-		case kind == "play_land":
-			kind = "play"
-		case kind == "cast", kind == "play":
+		switch oracleOpCodes.Code(kind) {
+		case oracleOpCast, oracleOpPlay:
 		default:
-			continue
+			// The priority walk's existing real-play classification includes
+			// printed, granted and keyword/special actions. Don't grow a
+			// parallel list here when another activation kind is added.
+			if !potentialPlayKind(kind) {
+				continue
+			}
+			kind = "activate"
+			if o.Kind == "play_land" {
+				kind = "play"
+			}
 		}
 		out = append(out, OracleSnapOffered{Source: source, Kind: kind, Label: o.Label})
 	}
