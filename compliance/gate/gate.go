@@ -220,6 +220,15 @@ func loadSet(reg *cards.Registry, root, set string) (*setScan, []Problem, error)
 	}, lead, nil
 }
 
+// rowCountsAtLevel reports whether a verdict row belongs to the claim level.
+// The cast-resolve row is the sole level-A row; template-key rows are level B.
+func rowCountsAtLevel(r compliance.VerdictRow, level string) bool {
+	if level == "A" {
+		return r.Template == "cast-resolve"
+	}
+	return true
+}
+
 // rowOK applies the level-A verdict-row checks to one generated scenario
 // (the block at gate.go's old lines 214-242), reporting any problem through
 // bad and returning false. Level A and level B share it so their wording
@@ -298,7 +307,9 @@ func checkA(reg *cards.Registry, root, set string) ([]Problem, *setScan, map[str
 				bad(name, "gorge_wrong verdict (%s): %s", r.Template, r.Ruling)
 				wrong = true
 			case compliance.StatusXMageLacks:
-				lacks = true
+				if rowCountsAtLevel(r, "A") {
+					lacks = true
+				}
 			}
 		}
 		if wrong {

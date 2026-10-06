@@ -314,6 +314,7 @@ func genManifest(reg *cards.Registry, m compliance.Manifest, out, level string) 
 				skipped++
 				continue
 			}
+			stampXMageNames(reg, &bit)
 			bb, _ := json.Marshal(bit)
 			fmt.Fprintln(ow, string(bb))
 			n++
@@ -704,6 +705,90 @@ func runShow(dir, scen, card string) error {
 		}
 		return nil
 	})
+}
+
+// stampXMageNames applies manifest spellings to a level-B item's subject and
+// every named fixture card. Level-A bytes remain unchanged; this is called
+// only for additional level-B rows.
+func stampXMageNames(reg *cards.Registry, it *oraclegen.Item) {
+	spell := func(name string) string {
+		if xm, ok := xmageSpelling(reg, name); ok {
+			return xm
+		}
+		return name
+	}
+	if xm := spell(it.Card); xm != it.Card {
+		it.XMageName = xm
+	}
+	for seatID, seat := range it.Setup {
+		for i := range seat.Battlefield {
+			seat.Battlefield[i] = spell(seat.Battlefield[i])
+		}
+		for i := range seat.Tapped {
+			seat.Tapped[i] = spell(seat.Tapped[i])
+		}
+		for i := range seat.BackFace {
+			seat.BackFace[i] = spell(seat.BackFace[i])
+		}
+		for i := range seat.Hand {
+			seat.Hand[i] = spell(seat.Hand[i])
+		}
+		for i := range seat.Graveyard {
+			seat.Graveyard[i] = spell(seat.Graveyard[i])
+		}
+		for i := range seat.Exile {
+			seat.Exile[i] = spell(seat.Exile[i])
+		}
+		for i := range seat.Library {
+			seat.Library[i] = spell(seat.Library[i])
+		}
+		for i := range seat.LibraryTop {
+			seat.LibraryTop[i] = spell(seat.LibraryTop[i])
+		}
+		if len(seat.Counters) > 0 {
+			counters := make(map[string]map[string]int, len(seat.Counters))
+			for card, kinds := range seat.Counters {
+				counters[spell(card)] = kinds
+			}
+			seat.Counters = counters
+		}
+		it.Setup[seatID] = seat
+	}
+	for i := range it.Steps {
+		s := &it.Steps[i]
+		s.Card = spell(s.Card)
+		for j := range s.Targets {
+			s.Targets[j] = spell(s.Targets[j])
+		}
+		for j := range s.Attackers {
+			s.Attackers[j] = spell(s.Attackers[j])
+		}
+		s.Defender = spell(s.Defender)
+		for j := range s.Blocks {
+			s.Blocks[j][0] = spell(s.Blocks[j][0])
+			s.Blocks[j][1] = spell(s.Blocks[j][1])
+		}
+		for j := range s.Answers {
+			for k := range s.Answers[j].Pick {
+				s.Answers[j].Pick[k] = spell(s.Answers[j].Pick[k])
+			}
+		}
+		for j := range s.Expect {
+			e := &s.Expect[j]
+			if e.Offered != nil {
+				e.Offered.Card = spell(e.Offered.Card)
+			}
+			if e.CanBlock != nil {
+				e.CanBlock.Blocker = spell(e.CanBlock.Blocker)
+				e.CanBlock.Attacker = spell(e.CanBlock.Attacker)
+			}
+		}
+	}
+	for i := range it.XAnswers {
+		for j := range it.XAnswers[i] {
+			it.XAnswers[i][j].Value = spell(it.XAnswers[i][j].Value)
+		}
+	}
 }
 
 // xmageSpelling returns XMage's own spelling of the printed card that card
