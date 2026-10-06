@@ -1,2 +1,0 @@
-{"shape":{"template":"cast-resolve","op":"resolve","field":"permanents","diff":"$CARD types gorge+[soldier] xmage+[bard]"},"key":"cast-resolve | resolve | permanents | $CARD types gorge+[soldier] xmage+[bard]","cards":1}
-{"card":"Voice of Victory","template":"cast-resolve","status":"diverge","api":"Attacks:Token","sets":["TDM"],"detail":"step 1 (resolve) permanents: gorge \"c0 o0 Voice of Victory [creature human soldier] {W} 1/3\", xmage \"c0 o0 Voice of Victory [bard creature human] {W} 1/3\""}

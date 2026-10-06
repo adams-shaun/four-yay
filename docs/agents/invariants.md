@@ -134,7 +134,10 @@ gorge is Apache-2.0. Forge card scripts and token scripts are GPL-3.0 and are
 pasted script lines in docs or tests.
 
 - `forgec fetch` pulls the scripts into the gitignored `.cards/`, pinned by
-  `FORGE_REF`.
+  `FORGE_REF`, from `FORGE_REPO`: gorge's fork, github.com/adams-shaun/forge.
+  A script that disagrees with the printed card is fixed there (branch
+  `gorge`, one commit per card) and offered upstream as an issue plus a PR,
+  never patched inside gorge.
 - Feedback fixtures strip token text into the gitignored
   `cmd/repro/testdata/.tokens/`.
 

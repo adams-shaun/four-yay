@@ -16,7 +16,12 @@ import (
 )
 
 const (
-	forgeRepo    = "https://github.com/Card-Forge/forge.git"
+	// ForgeRepo is gorge's fork of Card-Forge/forge. Its `gorge` branch is
+	// upstream plus script corrections that disagree with the printed card,
+	// each also offered upstream (Card-Forge/forge#12153); FORGE_REF pins a
+	// commit on it.
+	ForgeRepo    = "https://github.com/adams-shaun/forge.git"
+	UpstreamRepo = "https://github.com/Card-Forge/forge.git"
 	forgeLicense = "GPL-3.0"
 )
 
@@ -64,11 +69,17 @@ func CorpusDir(dir string) string { return filepath.Join(dir, "cardsfolder") }
 
 func lockPath(dir string) string { return filepath.Join(dir, "cards.lock") }
 
-// Fetch sparse-clones the Forge card corpus and token scripts at ref into
-// dir. The scripts are GPL-3.0 and must never be committed or shipped; dir
-// is gitignored.
+// Fetch sparse-clones the Forge card corpus and token scripts at ref from
+// ForgeRepo into dir. The scripts are GPL-3.0 and must never be committed or
+// shipped; dir is gitignored.
 func Fetch(dir, ref string) (*Lock, error) {
-	return fetchRepo(forgeRepo, dir, ref)
+	return fetchRepo(ForgeRepo, dir, ref)
+}
+
+// FetchFrom is Fetch from another Forge repository (UpstreamRepo, or a
+// local mirror).
+func FetchFrom(repo, dir, ref string) (*Lock, error) {
+	return fetchRepo(repo, dir, ref)
 }
 
 // fetchRepo is the internal implementation of Fetch that accepts a repo URL,

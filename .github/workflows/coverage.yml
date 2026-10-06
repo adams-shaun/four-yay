@@ -38,7 +38,7 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      # ~25 MB sparse checkout of Card-Forge/forge at the Makefile's FORGE_REF.
+      # ~25 MB sparse checkout of FORGE_REPO (gorge's fork of Card-Forge/forge) at the Makefile's FORGE_REF.
       - name: Fetch the Forge corpus
         run: make fetch-cards
 
