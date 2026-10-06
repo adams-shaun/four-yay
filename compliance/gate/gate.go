@@ -158,7 +158,14 @@ func Check(reg *cards.Registry, root, set, level string) ([]Problem, error) {
 		unfinished[compliance.FoldName(u)] = true
 	}
 	names := make([]string, 0, len(m.Cards))
+	// xmageSpelling maps a folded name to XMage's own spelling, which the
+	// pass (oraclediff gen) stamps on the scenario as XMageName whenever it
+	// differs from the corpus face name. The gate must build the very same
+	// Item, or ItemSHA never matches the pass's row (Dáin, Bespoke Bō,
+	// "With Great Power . . .").
+	xmageSpelling := map[string]string{}
 	for _, mc := range m.Cards {
+		xmageSpelling[compliance.FoldName(mc.Name)] = mc.Name
 		if unfinished[compliance.FoldName(mc.Name)] {
 			continue
 		}
@@ -189,7 +196,17 @@ func Check(reg *cards.Registry, root, set, level string) ([]Problem, error) {
 			bad(name, "unsupported %v", u)
 			continue
 		}
+		// The pass names a scenario by the card's first face (a split or
+		// Room half, "Cease" for "Cease // Desist"), and its verdict rows
+		// carry that name; generate and look up the same way.
+		face := name
+		if c != nil && len(c.Faces) > 0 && c.Faces[0].Name != "" {
+			face = c.Faces[0].Name
+		}
 		rows := verdicts[name]
+		if len(rows) == 0 && face != name {
+			rows = verdicts[face]
+		}
 		wrong := false
 		lacks := false
 		for _, r := range rows {
@@ -204,14 +221,19 @@ func Check(reg *cards.Registry, root, set, level string) ([]Problem, error) {
 		if wrong {
 			continue
 		}
-		if hand[name] {
+		if hand[name] || hand[face] {
 			continue
 		}
 		if !inXMage[compliance.FoldName(printed)] || lacks {
 			bad(name, "XMage does not implement it; needs a hand-authored oracle scenario")
 			continue
 		}
-		it, skip := templates.Generate(reg, name)
+		it, skip := templates.Generate(reg, face)
+		if skip == nil {
+			if xm, ok := xmageSpelling[compliance.FoldName(printed)]; ok && xm != face {
+				it.XMageName = xm
+			}
+		}
 		if skip != nil {
 			bad(name, "no generated scenario (%s) and no hand oracle scenario", skip.Reason)
 			continue
