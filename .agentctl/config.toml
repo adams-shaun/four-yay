@@ -76,7 +76,9 @@ tasks = ["review", "triage"]
 [[tiers]]
 name = "sol"
 provider = "openai-codex"
-model = "gpt-6-sol"
+# 2026-10-05: gpt-6.1-sol (DevDay 2026-09-29) replaces gpt-6-sol: higher
+# agentic-coding scores at ~1/4 the cost per task; smoke-tested via pi.
+model = "gpt-6.1-sol"
 thinking = "high"
 paid = true
 cap = 0
