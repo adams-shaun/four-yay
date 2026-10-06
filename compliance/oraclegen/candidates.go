@@ -637,7 +637,11 @@ func registrySubtype(reg *cards.Registry, subtype string) (string, bool) {
 // Trystan's Command copied the first Elf in corpus order, Aberrant Mind
 // Sorcerer, whose copy rolls a d20 (XMage's roll is random, gorge's seeded),
 // so its verdict agreed by chance. A quiet fixture keeps the row about the
-// card under test. Nil registry or no quiet card: not found, and the caller
+// card under test. A legendary fixture is skipped for the same reason: a
+// copy of it puts two of one name under the legend rule, and the scripted
+// keep answer names a card both objects share, so XMage keeps either the
+// original or the token at random (Sygg's Command's Ambassador Laquatus,
+// 2 of 4 replays). Nil registry or no quiet card: not found, and the caller
 // falls back to registrySubtype.
 func registryQuietSubtype(reg *cards.Registry, subtype string) (string, bool) {
 	if reg == nil || strings.EqualFold(subtype, "mount") {
@@ -650,7 +654,7 @@ func registryQuietSubtype(reg *cards.Registry, subtype string) (string, bool) {
 		}
 		f := c.Faces[0]
 		if !faceHasSubtype(f, subtype) || !faceHasSubtype(f, "Creature") ||
-			len(f.Triggers) != 0 || len(f.Statics) != 0 {
+			faceHasSubtype(f, "Legendary") || len(f.Triggers) != 0 || len(f.Statics) != 0 {
 			continue
 		}
 		return f.Name, true

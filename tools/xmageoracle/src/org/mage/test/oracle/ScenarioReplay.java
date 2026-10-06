@@ -12,6 +12,9 @@ import mage.abilities.Ability;
 import mage.abilities.common.SimpleStaticAbility;
 import mage.abilities.mana.ActivatedManaAbilityImpl;
 import mage.abilities.costs.AlternativeSourceCosts;
+import mage.abilities.costs.OptionalAdditionalSourceCosts;
+import mage.abilities.costs.OrCost;
+import mage.abilities.keyword.LeylineAbility;
 import mage.cards.repository.CardInfo;
 import mage.cards.repository.CardRepository;
 import mage.abilities.effects.common.EndTurnEffect;
@@ -89,18 +92,75 @@ public class ScenarioReplay extends CardTestPlayerBase {
     // game never runs and every scenario ends with no snapshots.
     @Override
     protected TestPlayer createPlayer(String name, mage.constants.RangeOfInfluence rangeOfInfluence) {
-        return new ScriptedChoicePlayer(new org.mage.test.player.TestComputerPlayer(name, rangeOfInfluence));
+        return new ScriptedChoicePlayer(new org.mage.test.player.TestComputerPlayer(name, rangeOfInfluence), this);
     }
+
+    // The gorge-side "choose" picks of the cast step being queued (its
+    // recorded answers), so an either-or cost ask XMage poses can be answered
+    // the way gorge answered it. Empty when the step recorded none.
+    private List<String> castCostPicks = new ArrayList<>();
 
     /** TestPlayer normally delegates these library decisions directly to its AI,
      * bypassing the scripted target/choice queues. Route them through this player. */
     private static final class ScriptedChoicePlayer extends TestPlayer {
-        ScriptedChoicePlayer(org.mage.test.player.TestComputerPlayer computerPlayer) {
+        // The replay that built this player: it holds the cast step's recorded
+        // cost picks. Carried through copy(), as XMage copies players freely.
+        private final ScenarioReplay owner;
+
+        ScriptedChoicePlayer(org.mage.test.player.TestComputerPlayer computerPlayer, ScenarioReplay owner) {
             super(computerPlayer);
+            this.owner = owner;
         }
 
         ScriptedChoicePlayer(final ScriptedChoicePlayer player) {
             super(player);
+            this.owner = player.owner;
+        }
+
+        /** Whether the current ask is posed from inside the named method of a
+         * class of the given type (a keyword's cast-time cost hook). */
+        private static boolean askedBy(Class<?> type, String method) {
+            return StackWalker.getInstance(StackWalker.Option.RETAIN_CLASS_REFERENCE).walk(frames ->
+                    frames.anyMatch(f -> f.getMethodName().equals(method) && type.isAssignableFrom(f.getDeclaringClass())));
+        }
+
+        private boolean scriptedYesNoNext() {
+            return !getChoices().isEmpty() && (getChoices().get(0).equals("Yes") || getChoices().get(0).equals("No"));
+        }
+
+        /**
+         * The yes/no asks a plain cast step implies. gorge's cast-resolve
+         * scenario casts for the mana cost only, so each of these is answered
+         * as gorge played it, keyed on the ask's type, not the card:
+         * the opening-hand Leyline ask (LeylineAbility) is No; every optional
+         * additional cost (kicker, offspring, waterbend: the
+         * OptionalAdditionalSourceCosts hook; XMage's mana costs always report
+         * canPay, so it asks even when the pool is short) is No, consuming the
+         * generator's own leading "No" when it scripted one; an either-or
+         * additional cost (OrCost) takes the cost gorge recorded for the step.
+         * Every other ask stays with the scripted queue.
+         */
+        @Override
+        public boolean chooseUse(Outcome outcome, String message, String secondMessage, String trueText, String falseText, Ability source, Game game) {
+            if (source instanceof LeylineAbility) {
+                return false;
+            }
+            if (askedBy(OptionalAdditionalSourceCosts.class, "addOptionalAdditionalCosts")) {
+                if (!getChoices().isEmpty() && getChoices().get(0).equals("No")) {
+                    return super.chooseUse(outcome, message, secondMessage, trueText, falseText, source, game);
+                }
+                return false;
+            }
+            if (askedBy(OrCost.class, "pay") && !scriptedYesNoNext()) {
+                // The generator scripts the boolean itself when two costs were
+                // payable for gorge; with one payable it scripts none, but
+                // XMage still asks, so answer the cost gorge recorded.
+                Boolean first = owner.recordedCostIsFirst(trueText, falseText);
+                if (first != null) {
+                    return first;
+                }
+            }
+            return super.chooseUse(outcome, message, secondMessage, trueText, falseText, source, game);
         }
 
         @Override
@@ -768,6 +828,29 @@ public class ScenarioReplay extends CardTestPlayerBase {
         return ts.size() == 1 && n >= ts.get(0).getMaxNumberOfTargets();
     }
 
+    /** Normalises a cost label so gorge's pick ("Sacrifice artifact or
+     * creature", "Pay 4") and XMage's button text ("Sacrifice an artifact or
+     * creature", "{4}") compare equal. */
+    private static String costKey(String label) {
+        return label.toLowerCase().replaceAll("[{}]", "").replaceFirst("^pay ", "")
+                .replaceAll("\\b(a|an|the)\\b", "").replaceAll("\\s+", " ").trim();
+    }
+
+    /** Which side of XMage's OrCost ask (true text = first cost) the cast
+     * step's recorded gorge pick names; null when none of them matches. */
+    private Boolean recordedCostIsFirst(String trueText, String falseText) {
+        for (String pick : castCostPicks) {
+            String key = costKey(pick);
+            if (falseText != null && key.equals(costKey(falseText))) {
+                return false;
+            }
+            if (trueText != null && key.equals(costKey(trueText))) {
+                return true;
+            }
+        }
+        return null;
+    }
+
     /** Whether the card carries the Gift keyword (CR 702.174). */
     private static boolean hasGift(String name) {
         CardInfo info = CardRepository.instance.findCard(name);
@@ -1020,6 +1103,15 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 }
                 if (!sc0.has("xmage_answers")) {
                     answers(st, p);
+                }
+                castCostPicks = new ArrayList<>();
+                if (st.has("answers")) {
+                    for (JsonElement e : st.getAsJsonArray("answers")) {
+                        JsonObject a = e.getAsJsonObject();
+                        if (str(a, "kind").equals("choose")) {
+                            castCostPicks.addAll(names(a, "pick"));
+                        }
+                    }
                 }
                 // The cast command names the SpellAbility, not the card
                 // object: a split/Room half is cast by its half name while
