@@ -1,79 +1,114 @@
 package templates
 
 import (
+	"strings"
 	"testing"
 
+	"github.com/adams-shaun/gorge/compliance/levelb"
 	"github.com/adams-shaun/gorge/compliance/oraclegen"
 	"github.com/adams-shaun/gorge/rules"
 )
 
-// TestTriggerSubCounterCostPays pins that the level-B trigger template pays a
-// triggered "remove a counter from this" cost (Cost$ SubCounter /
-// RemoveAnyCounter on the source) instead of declining it. The pay option is
-// index 0 of the trigger-cost ask, so the generic mayYes answer picks it; the
-// assertion is on the paid post-state (counters left, cards drawn), not on a
-// label.
+// Level B D8: a triggered "remove a counter from this creature" cost
+// (Cost$ SubCounter<1/P1P1>, Cost$ RemoveAnyCounter<1/Any/CARDNAME>) is offered
+// as a pay option at index 0 of the trigger-cost ask, so the generic mayYes
+// answer in the trigger template pays it. The assertions read the counters and
+// the hand, not the answer label, so a regression to the decline is caught by
+// the board.
+
+func levelBItem(t *testing.T, name, key string) oraclegen.Item {
+	t.Helper()
+	reg := loadGenRegistry(t)
+	c, ok := reg.Lookup(name)
+	if !ok {
+		t.Fatalf("%s not in the corpus", name)
+	}
+	for _, r := range levelb.Requirements(c) {
+		if r.Key != key {
+			continue
+		}
+		it, skip := GenerateB(reg, name, r)
+		if skip != nil {
+			t.Fatalf("%s %s: %s", name, key, skip.Reason)
+		}
+		return it
+	}
+	t.Fatalf("precondition: %s carries no requirement %s", name, key)
+	return oraclegen.Item{}
+}
+
+func snapPerm(snap rules.OracleSnapshot, name string) (rules.OracleSnapPerm, bool) {
+	for _, p := range snap.Permanents {
+		if p.Name == name && p.Controller == 0 {
+			return p, true
+		}
+	}
+	return rules.OracleSnapPerm{}, false
+}
+
 func TestTriggerSubCounterCostPays(t *testing.T) {
 	reg := loadGenRegistry(t)
 	for _, tc := range []struct {
-		name, key string
-		kind      string // counter the cost removes
-		wantLeft  int32  // counters left once the cost was paid
-		wantDraw  bool   // the paid branch draws a card
+		name, key, counter string
+		before, after      int32
+		draws              bool
 	}{
-		{"Guiding Hydra", "trigger#0.0", "P1P1", 1, false},
-		{"Ingenious Prodigy", "trigger#0.0", "P1P1", 1, true},
-		{"Slumbering Walker", "trigger#0.0", "M1M1", 1, false},
-		{"Leatherhead, Swamp Stalker", "trigger#0.0", "HEXPROOF", 0, false},
-		{"Leatherhead, Swamp Stalker", "combat#0.attack", "HEXPROOF", 0, false},
+		{"Guiding Hydra", "trigger#0.0", "P1P1", 2, 1, false},
+		{"Ingenious Prodigy", "trigger#0.0", "P1P1", 2, 1, true},
+		{"Slumbering Walker", "trigger#0.0", "M1M1", 2, 1, false},
+		{"Leatherhead, Swamp Stalker", "trigger#0.0", "HEXPROOF", 1, 0, false},
+		{"Leatherhead, Swamp Stalker", "combat#0.attack", "HEXPROOF", 1, 0, false},
 	} {
 		t.Run(tc.name+"/"+tc.key, func(t *testing.T) {
-			it, skip := GenerateB(reg, tc.name, requirementByKey(t, reg, tc.name, tc.key))
-			if skip != nil {
-				t.Fatalf("%s %s: %s", tc.name, tc.key, skip.Reason)
+			it := levelBItem(t, tc.name, tc.key)
+			if res, ok := oraclegen.PlaysThrough(reg, it.Scenario); !ok || len(res.Fails) != 0 {
+				t.Fatalf("does not play through gorge: ok=%v fails=%v", ok, res.Fails)
 			}
-			res, ok := oraclegen.PlaysThrough(reg, it.Scenario)
-			if !ok || len(res.Fails) != 0 || len(res.Snapshots) < 2 {
-				t.Fatalf("does not play through gorge: ok=%v fails=%v snaps=%d", ok, res.Fails, len(res.Snapshots))
-			}
-			// Precondition: the source reaches p0's battlefield holding more
-			// of the counter than the paid state leaves, and its hand at that
-			// point is the baseline the draw is measured against.
-			var most int32
-			onBF := false
-			var handBefore []string
-			for _, s := range res.Snapshots {
-				if p := sourcePerm(s, tc.name); p != nil {
-					if !onBF {
-						handBefore = s.Players[0].Hand
+
+			// The first step that answers the ask is where the cost is
+			// decided; everything before it only builds the board.
+			ask := -1
+			for i, st := range it.Scenario.Steps {
+				for _, a := range st.Answers {
+					for _, p := range a.Pick {
+						if strings.HasPrefix(p, "Remove 1 ") {
+							ask = i
+						}
 					}
-					onBF = true
-					most = max(most, p.Counters[tc.kind])
+				}
+				if ask >= 0 {
+					break
 				}
 			}
-			if !onBF || most < 1 || most <= tc.wantLeft {
-				t.Fatalf("precondition: %s on p0's battlefield=%v with at most %d %s, want >= 1 and more than the %d left after paying", tc.name, onBF, most, tc.kind, tc.wantLeft)
+			if ask < 0 {
+				t.Fatalf("the scenario never answers the trigger cost with a pay pick: %+v", it.Scenario.Steps)
 			}
-			last := res.Snapshots[len(res.Snapshots)-1]
-			p := sourcePerm(last, tc.name)
-			if p == nil {
-				t.Fatalf("%s is not on p0's battlefield after the scenario", tc.name)
+
+			pre := runSteps(t, reg, it.Scenario, it.Scenario.Steps[:ask])
+			preSnap := pre.Snapshots[len(pre.Snapshots)-1]
+			preSrc, ok := snapPerm(preSnap, tc.name)
+			if !ok {
+				t.Fatalf("precondition: %s is not on p0's battlefield before the ask", tc.name)
 			}
-			if got := p.Counters[tc.kind]; got != tc.wantLeft {
-				t.Errorf("%s %s after resolve = %d, want %d (cost paid); counters=%v", tc.name, tc.kind, got, tc.wantLeft, p.Counters)
+			if got := preSrc.Counters[tc.counter]; got != tc.before || got < 1 {
+				t.Fatalf("precondition: %s holds %s=%d before the ask, want %d (>=1)", tc.name, tc.counter, got, tc.before)
 			}
-			if tc.wantDraw && len(last.Players[0].Hand) <= len(handBefore) {
-				t.Errorf("hand %v -> %v, want the paid branch to draw", handBefore, last.Players[0].Hand)
+			preHand := len(preSnap.Players[0].Hand)
+
+			res := runSteps(t, reg, it.Scenario, it.Scenario.Steps)
+			post := res.Snapshots[len(res.Snapshots)-1]
+			src, ok := snapPerm(post, tc.name)
+			if !ok {
+				t.Fatalf("%s left the battlefield", tc.name)
+			}
+			if got := src.Counters[tc.counter]; got != tc.after {
+				t.Fatalf("%s %s=%d after resolve, want %d (cost not paid)", tc.name, tc.counter, got, tc.after)
+			}
+			if tc.draws {
+				if got := len(post.Players[0].Hand); got != preHand+1 {
+					t.Fatalf("%s hand %d -> %d, want one card drawn", tc.name, preHand, got)
+				}
 			}
 		})
 	}
-}
-
-func sourcePerm(s rules.OracleSnapshot, name string) *rules.OracleSnapPerm {
-	for i := range s.Permanents {
-		if s.Permanents[i].Name == name && s.Permanents[i].Controller == 0 {
-			return &s.Permanents[i]
-		}
-	}
-	return nil
 }
