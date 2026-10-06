@@ -1,2 +1,2 @@
 {"shape":{"template":"activate","op":"resolve","field":"p0.library_top","diff":"gorge+[] xmage+[]"},"key":"activate | resolve | p0.library_top | gorge+[] xmage+[]","cards":1}
-{"card":"Bedhead Beastie","template":"activate#0.0","status":"diverge","api":"-","sets":["DSK"],"detail":"step 1 (resolve) p0.library_top: gorge \"[Wastes, Jace Beleren, Wastes, Wastes, Forest]\", xmage \"[Wastes, Forest, Wastes, Jace Beleren, Wastes]\""}
+{"card":"Balamb T-Rexaur","template":"activate#0.0","status":"diverge","api":"ChangesZone:GainLife","sets":["FIN"],"detail":"step 1 (resolve) p0.library_top: gorge \"[Wastes, Wastes, Jace Beleren, Glorious Anthem, Wastes]\", xmage \"[Jace Beleren, Wastes, Wastes, Wastes, Glorious Anthem]\""}
