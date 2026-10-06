@@ -24,7 +24,14 @@ func activationCost(cost string) (pool, gap string) {
 // named cost gap.
 func activationCostIn(cost, zone string) (pool, gap string) {
 	var mana []string
+	x := activationX(cost)
 	for _, tok := range costTokens(cost) {
+		if m, ok := keywordCostMana(tok, x); ok {
+			if m != "" {
+				mana = append(mana, m)
+			}
+			continue
+		}
 		head := tok
 		if i := strings.IndexByte(tok, '<'); i >= 0 {
 			head = tok[:i]
@@ -58,7 +65,7 @@ func activationCostIn(cost, zone string) (pool, gap string) {
 				continue
 			}
 		case "ExileCtrlOrGrave":
-			if craftCostFixtures(tok) != nil {
+			if craftCostFixturesX(tok, x) != nil {
 				continue
 			}
 		case "CollectEvidence":
@@ -99,7 +106,7 @@ func activationCostIn(cost, zone string) (pool, gap string) {
 	if len(mana) == 0 {
 		return "", ""
 	}
-	p, why := oraclegen.PoolFor(strings.Join(mana, " "))
+	p, why := oraclegen.PoolFor(strings.Join(substituteX(mana, x), " "))
 	if why != "" {
 		return "", costHead(strings.Join(mana, " "))
 	}
@@ -130,7 +137,11 @@ func discardCostFixtures(tok string) []string {
 	return []string{"Wastes"}
 }
 
-func filterCostFixtures(tok string) []string {
+func filterCostFixtures(tok string) []string { return filterCostFixturesX(tok, 0) }
+
+// filterCostFixturesX is filterCostFixtures with the announced X: an
+// `<X/filter>` count (Craft's XMin<N> ExileCtrlOrGrave<X/...>) reads x.
+func filterCostFixturesX(tok string, x int) []string {
 	payload, ok := bracketPayload(tok)
 	if !ok {
 		return nil
@@ -140,6 +151,9 @@ func filterCostFixtures(tok string) []string {
 		return nil
 	}
 	n, err := strconv.Atoi(parts[0])
+	if parts[0] == "X" {
+		n, err = x, nil
+	}
 	if err != nil || n < 1 {
 		return nil
 	}
@@ -148,6 +162,10 @@ func filterCostFixtures(tok string) []string {
 	for _, clause := range strings.Split(filter, "|") {
 		clause = strings.TrimSpace(clause)
 		switch {
+		case strings.HasPrefix(clause, "permanent.other"):
+			candidates = append(candidates, permanentCostFixtures(clause)...)
+		case strings.HasPrefix(clause, "dinosaur"):
+			candidates = append(candidates, "Colossal Dreadmaw")
 		case strings.Contains(clause, "card"):
 			candidates = append(candidates, "Colossal Dreadmaw", "Sol Ring", "Grizzly Bears", "Wastes")
 		case strings.Contains(clause, "artifact"):
@@ -177,8 +195,10 @@ func filterCostFixtures(tok string) []string {
 	return candidates[:n]
 }
 
-func craftCostFixtures(tok string) []string {
-	return filterCostFixtures(tok)
+func craftCostFixtures(tok string) []string { return craftCostFixturesX(tok, 0) }
+
+func craftCostFixturesX(tok string, x int) []string {
+	return filterCostFixturesX(tok, x)
 }
 
 func graveyardCostFixtures(tok string) []string {
@@ -197,7 +217,11 @@ func exileCreatureCostFixtures(tok string) []string {
 	return filterCostFixtures(tok)
 }
 
-func activationCostFixtures(tok string) []string {
+func activationCostFixtures(tok string) []string { return activationCostFixturesX(tok, 0) }
+
+// activationCostFixturesX is activationCostFixtures with the cost's announced
+// X (activationX), which an `<X/filter>` exile count reads.
+func activationCostFixturesX(tok string, x int) []string {
 	head := tok
 	if i := strings.IndexByte(tok, '<'); i >= 0 {
 		head = tok[:i]
@@ -206,7 +230,7 @@ func activationCostFixtures(tok string) []string {
 	case "Discard":
 		return discardCostFixtures(tok)
 	case "ExileCtrlOrGrave":
-		return craftCostFixtures(tok)
+		return craftCostFixturesX(tok, x)
 	case "ExileFromGrave":
 		if graveyardCreatureCost(tok) {
 			return []string{"Grizzly Bears"}

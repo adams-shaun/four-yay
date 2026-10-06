@@ -10,9 +10,10 @@
 // filtered other permanent), Exile<1/CARDNAME>, and in the matching zone
 // Discard / ExileFromHand / ExileFromGrave of the source itself (plus one
 // other graveyard creature card), supported tapXType fixture
-// shapes, a source loyalty AddCounter/SubCounter, and a SubCounter/
-// RemoveAnyCounter that takes literal counters off the source itself (the
-// setup places them). Anything else is a cost gap. The XMage
+// shapes, source loyalty AddCounter/SubCounter, and literal source-counter
+// removal (SubCounter/RemoveAnyCounter, seeded by setup). Also supported are
+// activate_keyword_costs.go's Waterbend, XMin, PayLife<X>, Blight, Forage,
+// Exert and non-loyalty AddCounter. Anything else is a cost gap. The XMage
 // rule-text prefix rides the Item's XAbility slice (parallel to Steps), so
 // the runner -- which decodes steps strictly -- never sees it.
 package templates
@@ -84,6 +85,12 @@ func activateAbility(reg *cards.Registry, f *cards.Face, name string, req levelb
 	}
 	it, ok := activateWith(reg, f, name, req, idx, prefix, pool, sa.ParamStr(cards.PKCost), zone, slots)
 	if !ok {
+		if oraclegen.HasType(f, "Aura") {
+			// An Aura's ability is offered only while it is attached; this
+			// template has no attach prelude, so name that cause.
+			return oraclegen.Item{}, &oraclegen.Skip{Card: name,
+				Reason: fmt.Sprintf("activate no fixture gorge can activate (Aura needs an attach prelude; targets %v)", filterStrings(slots))}
+		}
 		return oraclegen.Item{}, &oraclegen.Skip{Card: name,
 			Reason: fmt.Sprintf("activate no fixture gorge can activate (targets %v)", filterStrings(slots))}
 	}
@@ -116,6 +123,7 @@ func activateWith(reg *cards.Registry, f *cards.Face, name string, req levelb.Re
 			Steps: []oraclegen.Step{{
 				Op: "activate", Seat: 0, Card: "p0:" + name,
 				Mana: mana, Targets: fx.Targets(), AbilityIndex: &abilityIndex,
+				Answers: activationXAnswers(cost),
 			}},
 		}
 		oraclegen.Baseline(sc.Setup, f)
@@ -344,7 +352,7 @@ func addActivationCostAnswers(answers [][]oraclegen.XAnswer, step int, cost stri
 				}
 			}
 		case "ExileFromGrave", "ExileCtrlOrGrave", "CollectEvidence", "Exile":
-			picks = activationCostFixtures(tok)
+			picks = activationCostFixturesX(tok, activationX(cost))
 		case "Sac":
 			// The engine's observed pick is authoritative. A broad filter can
 			// include the ability's source, so a catalogue fixture is not
@@ -415,11 +423,11 @@ func addActivationCostFixtures(p0 *oraclegen.Seat, cost string) {
 				}
 			}
 		case "ExileFromGrave", "ExileCtrlOrGrave", "CollectEvidence":
-			for _, name := range activationCostFixtures(tok) {
+			for _, name := range activationCostFixturesX(tok, activationX(cost)) {
 				p0.Graveyard = appendFixtureUnique(p0.Graveyard, name)
 			}
 		case "Exile":
-			for _, name := range activationCostFixtures(tok) {
+			for _, name := range activationCostFixturesX(tok, activationX(cost)) {
 				p0.Battlefield = appendFixtureUnique(p0.Battlefield, name)
 			}
 		case "Sac":
@@ -431,6 +439,7 @@ func addActivationCostFixtures(p0 *oraclegen.Seat, cost string) {
 		}
 	}
 	addTapXTypeFixtures(p0, cost)
+	keywordCostFixtures(p0, cost)
 }
 
 // loyaltyCounter reports whether tok is an AddCounter<N/LOYALTY> or
