@@ -29,6 +29,9 @@ func (fx *Fixture) P0() *Seat        { return &fx.p0 }
 func (fx *Fixture) P1() *Seat        { return &fx.p1 }
 func (fx Fixture) Targets() []string { return fx.targets }
 
+// Omitted lists the indices of the optional slots the fixture left empty.
+func (fx Fixture) Omitted() []int { return fx.omitted }
+
 // Attacker is the p0 creature the fixture must declare attacking so a target
 // filter naming an attacking or blocking creature has a legal target. Empty
 // means no attack step is needed.
@@ -128,6 +131,13 @@ func ChooseTargets(sc Scenario, ds []rules.OracleDecision) (Scenario, map[int]bo
 // scripted a second time.
 func XAnswersForScenario(res rules.OracleResult, sc Scenario, modes map[string]int, castSteps map[int]bool) [][]XAnswer {
 	return xanswersForScenario(res, sc, modes, castSteps)
+}
+
+// TargetSkipsFor derives the XMage explicit-skip plan for a cast whose
+// fixture omitted optional slots (nil unless the supported shape holds; see
+// targetSkips). slots must be the full slot list the fixture was built from.
+func TargetSkipsFor(slots []Slot, fx Fixture, sc Scenario, ds []rules.OracleDecision, castSteps map[int]bool) [][]XTargetSkip {
+	return targetSkips(slots, fx.omitted, sc, ds, castSteps)
 }
 
 // MayYes re-scripts every declined optional pick to take the first option.
