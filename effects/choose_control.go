@@ -487,6 +487,17 @@ func ChoiceAnswerTargets(chosen []decision.Option) []state.Target {
 // choice, so the chosen-card binding remains available to the next ability.
 func chooseCardRecord(h Host, c *Ctx, sa *cards.SA, picked []state.Target) {
 	choiceRecord(h, c, sa, picked, false)
+	if ChooseCardOf(sa).ImprintChosen && c.Source != 0 {
+		ids := make([]state.ObjID, 0, len(picked))
+		for _, target := range picked {
+			if !target.IsPlayer && target.Obj != 0 {
+				ids = append(ids, target.Obj)
+			}
+		}
+		if len(ids) > 0 {
+			h.Emit(events.Event{Kind: events.Imprint, Obj: c.Source, IDs: ids, Text: "seek-found"})
+		}
+	}
 	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKForgetChosen)), "True") {
 		for _, t := range picked {
 			if !t.IsPlayer {

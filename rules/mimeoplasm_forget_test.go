@@ -180,6 +180,19 @@ func rememberedPair(o *state.Object) []state.ObjID {
 // ForgetOtherRemembered$ reads landed, the card must census with ZERO
 // unread-param labels, and the derived read sets must still attribute both
 // keys (otherwise this pin could no longer fail).
+func TestChooseCardImprintChosenParamRead(t *testing.T) {
+	t.Parallel()
+	_, d := measureParamCensus(t, nil)
+	if !d.api["ChooseCard"]["ImprintChosen"] {
+		t.Fatal("api:ChooseCard no longer derives the ImprintChosen read")
+	}
+	for _, api := range []string{"ChoosePlayer", "ChooseSource", "GainControl"} {
+		if d.api[api]["ImprintChosen"] {
+			t.Fatalf("ImprintChosen read attributed to unrelated api:%s", api)
+		}
+	}
+}
+
 func TestMimeoplasmForgetParamsAreRead(t *testing.T) {
 	t.Parallel()
 	_, d := measureParamCensus(t, nil)

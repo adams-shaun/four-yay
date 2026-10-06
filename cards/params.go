@@ -771,6 +771,9 @@ const (
 	PKTriggeredOwnAbility
 	PKValidDestination
 	PKValidSpellAbility
+	// ChooseCard's ImprintChosen$ rider records selected card IDs on the
+	// source's non-exile imprint association.
+	PKImprintChosen
 	paramKeyCount
 )
 
@@ -1144,6 +1147,7 @@ var paramKeyNames = [paramKeyCount]string{
 	PKHiddenKeywords:                   "HiddenKeywords",
 	PKIgnoreFreeze:                     "IgnoreFreeze",
 	PKImprintFound:                     "ImprintFound",
+	PKImprintChosen:                    "ImprintChosen",
 	PKInvalidTypes:                     "InvalidTypes",
 	PKKeywords:                         "Keywords",
 	PKLeftRightPile:                    "LeftRightPile",
