@@ -132,9 +132,9 @@ func triggerShownOnStack(t *testing.T, reg *cards.Registry, sc oraclegen.Scenari
 	return false
 }
 
-// TestTriggerSkipsWhatCannotFire: a phase trigger and a trigger the recipe's
-// probe cannot cause skip, and a non-creature has no dies recipe. Each skip
-// is named, so the template (not a missing registration) produced it.
+// TestTriggerSkipsWhatCannotFire: a trigger the recipe's probe cannot cause
+// skips, and a non-creature has no dies recipe. Each skip is named, so the
+// template (not a missing registration) produced it.
 func TestTriggerSkipsWhatCannotFire(t *testing.T) {
 	reg := loadGenRegistry(t)
 	sawFireSkip := false
@@ -152,7 +152,7 @@ func TestTriggerSkipsWhatCannotFire(t *testing.T) {
 	if !sawFireSkip {
 		t.Fatal("no trigger.drawn requirement skipped as did-not-fire; the fire check is not running")
 	}
-	for _, sub := range []string{"trigger.phase", "trigger.gap:Foo"} {
+	for _, sub := range []string{"trigger.gap:Foo"} {
 		if triggerSubs(sub) {
 			t.Fatalf("%s must not be served", sub)
 		}

@@ -211,9 +211,9 @@ func classifyTrigger(f *cards.Face, t *cards.Trigger) (sub, gap string, covered 
 		return gapMode()
 
 	case cards.TriggerPhase:
-		// The phase recipe scripts only p0's phases, so a ValidPlayer$
-		// naming another player is a gap.
-		if vp := t.ParamStr(cards.PKValidPlayer); vp != "" && !strings.EqualFold(vp, "You") {
+		// Phase recipes cover p0's own steps and the first opponent step for
+		// player-wide triggers. Other explicit player filters remain gaps.
+		if vp := t.ParamStr(cards.PKValidPlayer); vp != "" && !strings.EqualFold(vp, "You") && !strings.EqualFold(vp, "Player") {
 			return gapMode()
 		}
 		switch t.ParamStr(cards.PKPhase) {
