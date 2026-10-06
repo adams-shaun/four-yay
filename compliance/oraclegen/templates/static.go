@@ -31,7 +31,7 @@ var StaticObserved = Template{ID: "static", Version: 1}
 func staticSubs(sub string) bool {
 	switch sub {
 	case "static.disable-triggers", "static.combat-damage-toughness", "static.can-attack-defender", "static.can-attack-defender-svar", "static.cant-block-by", "static.cant-be-cast-threshold", "static.cant-be-cast-combat", "static.cant-be-activated-combat", "static.cant-block-self", "static.cant-block-by-self", "static.min-blockers",
-		"static.cant-be-cast-opponent-turn", "static.cant-be-cast-first-turns", "static.cant-be-cast-limit", "static.cant-be-activated-opponent-turn", "static.cant-be-activated-all", "static.cant-be-activated-enchanted":
+		"static.cant-be-cast-opponent-turn", "static.cant-be-cast-first-turns", "static.cant-be-cast-limit", "static.cant-be-activated-opponent-turn", "static.cant-be-activated-all", "static.cant-be-activated-enchanted", "static.panharmonicon":
 		return true
 	}
 	return false
@@ -86,6 +86,8 @@ func staticRequirement(reg *cards.Registry, f *cards.Face, name string, req leve
 		return cantBeActivatedAllItem(reg, f, name, req)
 	case "static.cant-be-activated-enchanted":
 		return cantBeActivatedEnchantedItem(reg, f, name, req)
+	case "static.panharmonicon":
+		return panharmoniconItem(reg, f, name, req)
 	}
 	return skip("no observation for " + req.Sub)
 }

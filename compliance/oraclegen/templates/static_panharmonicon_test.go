@@ -1,0 +1,97 @@
+package templates
+
+import (
+	"strings"
+	"testing"
+
+	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/compliance/levelb"
+)
+
+// panharmoniconReq finds name's Panharmonicon requirement.
+func panharmoniconReq(t *testing.T, reg *cards.Registry, name string) levelb.Requirement {
+	t.Helper()
+	c, ok := reg.Lookup(name)
+	if !ok {
+		t.Fatalf("%s not in the corpus", name)
+	}
+	for _, r := range levelb.Requirements(c) {
+		if r.Sub == "static.panharmonicon" {
+			return r
+		}
+	}
+	t.Fatalf("precondition: %s has no static.panharmonicon requirement", name)
+	return levelb.Requirement{}
+}
+
+// TestStaticPanharmoniconServed: each card is served with exactly two ability
+// entries from the listener when the card is on the battlefield and one when
+// it is not. The control count is asserted so a probe whose trigger is never
+// doubled (or that fires twice anyway) cannot pass.
+func TestStaticPanharmoniconServed(t *testing.T) {
+	reg := loadGenRegistry(t)
+	cases := []struct {
+		card     string
+		listener string // "" = any probe
+	}{
+		{"Starfield Vocalist", "Soul Warden"},
+		{"Virtue of Knowledge", ""},
+		{"Traveling Chocobo", "Steppe Lynx"},
+		{"Delney, Streetwise Lookout", ""},
+		{"Katara, the Fearless", ""},
+		{"Twinflame Travelers", ""},
+		{"Annie Joins Up", ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.card, func(t *testing.T) {
+			req := panharmoniconReq(t, reg, tc.card)
+			it, skip := GenerateB(reg, tc.card, req)
+			if skip != nil {
+				t.Fatalf("skipped: %s", skip.Reason)
+			}
+			with := runItemScenario(t, reg, it, true)
+			without := runItemScenario(t, reg, it, false)
+			last := with.Snapshots[len(with.Snapshots)-1]
+			if len(last.Stack) == 0 {
+				t.Fatalf("observation stack is empty")
+			}
+			ref := last.Stack[0].Source
+			n, others := listenerAbilities(last, ref)
+			if n != 2 || others != 0 {
+				t.Errorf("with %s: %d ability entries from %s (+%d others), want 2", tc.card, n, ref, others)
+			}
+			n, others = listenerAbilities(without.Snapshots[len(without.Snapshots)-1], ref)
+			if n != 1 || others != 0 {
+				t.Errorf("without %s: %d ability entries from %s (+%d others), want 1", tc.card, n, ref, others)
+			}
+			if tc.listener != "" && ref != "p0:"+tc.listener {
+				t.Errorf("listener %s, want %s", ref, tc.listener)
+			}
+			if strings.TrimPrefix(ref, "p0:") == tc.card {
+				t.Errorf("the listener is the card under test")
+			}
+		})
+	}
+}
+
+// TestStaticPanharmoniconNamedSkips: the shapes no recipe reaches carry a named
+// skip, never the generic gap.
+func TestStaticPanharmoniconNamedSkips(t *testing.T) {
+	reg := loadGenRegistry(t)
+	cases := []struct{ card, want string }{
+		{"Roaming Throne", "as-enters creature-type choice"},
+		{"Cloud, Midgar Mercenary", "equipped-self filter"},
+		{"Splinter, Radical Rat", "no creature probe with a simple enters trigger"},
+	}
+	for _, tc := range cases {
+		req := panharmoniconReq(t, reg, tc.card)
+		_, skip := GenerateB(reg, tc.card, req)
+		if skip == nil {
+			t.Errorf("%s: served, want a named skip", tc.card)
+			continue
+		}
+		if !strings.HasPrefix(skip.Reason, "static Panharmonicon ") || !strings.Contains(skip.Reason, tc.want) {
+			t.Errorf("%s: skip %q, want static Panharmonicon ... %q", tc.card, skip.Reason, tc.want)
+		}
+	}
+}

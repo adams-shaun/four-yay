@@ -53,6 +53,7 @@ var combatKeywords = []string{
 var servableStaticModes = []struct{ mode, sub string }{
 	{"DisableTriggers", "static.disable-triggers"},
 	{"CombatDamageToughness", "static.combat-damage-toughness"},
+	{"Panharmonicon", "static.panharmonicon"},
 }
 
 // combatStaticModes are the combat-legality statics whose presence on a face
