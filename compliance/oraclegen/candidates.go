@@ -767,8 +767,8 @@ func zoneCandidates(reg *cards.Registry, filter, zone string) []cand {
 		}
 		return out
 	}
-	// A subtype qualifier (Villain, Hero, ...): pick a real card. A subtype
-	// the registry does not serve (Mount, below) keeps the legacy list.
+	// A subtype qualifier (Villain, Hero, Mount, ...): pick a real card of
+	// that subtype from the registry.
 	if base := firstFilterBase(filter); base != "" && !isCardTypeBase(base) {
 		if name, ok := registrySubtype(reg, base); ok {
 			var out []cand
