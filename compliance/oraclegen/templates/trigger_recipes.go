@@ -24,11 +24,12 @@ type triggerCause struct {
 	// prelude activate step (a Class level-up), "" on every other prelude
 	// step. A ClassBand$ trigger prepends the level-up prelude, so its
 	// activate steps need selectors exactly as the cause's do.
-	preludeXAbility []string
-	castSelfX       bool     // the card is cast from hand with X first (an X creature that setup would leave 0/0)
+	preludeXAbility []string // XMage rule-text prefix per prelude step; nil when no prelude activates
+	castSelfX       bool     // the card is cast from hand first (an X creature that setup would leave 0/0, or a p0 upkeep/draw trigger whose fixture turn 1 would otherwise spend)
 	opponentHand    []string // probes held by p1 for opponent-cast causes
 	// opponentBattlefield are p1 permanents (a blocker, an attacker, a tap
-	// target) the cause needs on the other side of the table.
+	// target, an opponent-comparison gate) the cause needs on the other side
+	// of the table.
 	opponentBattlefield []string
 	activateCost        string // Forge cost of the activate step in steps (Crew/Saddle tap choice); "" when none
 }
@@ -171,14 +172,21 @@ func baseTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards
 		base := triggerCause{steps: steps}
 		out = append(out, base)
 		for _, condition := range conditionPreludes(reg, t.Params, f.SVars) {
-			candidate := base
-			candidate.hand = append(append([]string(nil), base.hand...), condition.hand...)
-			candidate.battlefield = append(append([]string(nil), base.battlefield...), condition.battlefield...)
-			candidate.tapped = append([]string(nil), condition.tapped...)
-			candidate.graveyard = append([]string(nil), condition.graveyard...)
-			candidate.counters = condition.counters
-			candidate.prelude = append([]oraclegen.Step(nil), condition.steps...)
-			out = append(out, candidate)
+			out = append(out, applyPrelude(base, condition))
+		}
+		fixtures := triggerConditionFixtures(reg, f, t)
+		for _, condition := range fixtures {
+			out = append(out, applyPrelude(base, condition))
+		}
+		if active == "p0" && step != "main1" {
+			// Setup passes turn 1's upkeep and draw with the fixture in
+			// place, so a source that acts on it (transforms, makes a token)
+			// has already done so by turn 3: cast the source on turn 1 instead.
+			for _, condition := range fixtures {
+				cast := applyPrelude(base, condition)
+				cast.castSelfX = true
+				out = append(out, cast)
+			}
 		}
 	default:
 		if causes, why, ok := eventTriggerRecipe(reg, f, name, t, sub); ok {

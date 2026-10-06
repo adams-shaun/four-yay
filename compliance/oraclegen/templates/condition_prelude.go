@@ -6,6 +6,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/compliance/oraclegen"
+	"github.com/adams-shaun/gorge/effects"
 )
 
 // conditionPrelude is one deliberately cheap way to make a conditional
@@ -18,6 +19,10 @@ type conditionPrelude struct {
 	graveyard   []string
 	counters    map[string]map[string]int
 	steps       []oraclegen.Step
+	// opponent* are p1's setup, which only a trigger gate that compares the
+	// opponent's hand or lands with p0's offers.
+	opponentHand        []string
+	opponentBattlefield []string
 	// xability is parallel to steps: the XMage rule-text prefix of a prelude
 	// activate step (a Class level-up), "" on every other prelude step. It
 	// lets the activate and trigger templates label the prelude's activations
@@ -236,9 +241,25 @@ func conditionPreludes(reg *cards.Registry, params, svars map[string]string) []c
 // it true. This keeps an unavailable setup condition distinct from a trigger
 // that had no recognized condition at all.
 func triggerConditionSkip(t *cards.Trigger, svars map[string]string) string {
+	for _, spec := range []string{t.ParamStr(cards.PKIsPresent), t.ParamStr(cards.PKIsPresent2)} {
+		if unknown := effects.UnknownPredicates(spec); len(unknown) > 0 {
+			return "condition: engine predicate unread (" + strings.Join(unknown, ",") + ")"
+		}
+	}
+	if solvedCaseCondition(t) {
+		return "condition: needs a solved Case"
+	}
 	check := t.ParamStr(cards.PKCheckSVar)
 	if check != "" {
 		body, hasBody := svars[check]
+		if !hasBody {
+			body = check
+		}
+		if strings.Contains(strings.ToLower(body), "validself") {
+			if unknown := effects.UnknownPredicates(body); len(unknown) > 0 {
+				return "condition: engine predicate unread (" + strings.Join(unknown, ",") + ")"
+			}
+		}
 		label := check
 		if hasBody {
 			head := strings.Fields(body)
@@ -275,7 +296,7 @@ func triggerConditionSkip(t *cards.Trigger, svars map[string]string) string {
 		present = t.ParamStr(cards.PKIsPresent2)
 	}
 	if present != "" {
-		if strings.Contains(strings.ToLower(present), "card.self") {
+		if strings.Contains(strings.ToLower(present), "card.self") || strings.EqualFold(t.ParamStr(cards.PKPresentDefined), "Self") {
 			return "condition: self state"
 		}
 		return "condition: board presence"

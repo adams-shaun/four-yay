@@ -118,7 +118,7 @@ func TestTriggerConditionSkipsAreNamed(t *testing.T) {
 		{"Living History", "trigger#0.1", "trigger condition: turn history (Count$LeftGraveyardThisTurn)"},
 		{"Fearless Swashbuckler", "trigger#0.0", "trigger condition: SVar gate (SVar$Y/Plus)"},
 		{"Clandestine Meddler", "trigger#0.1", "trigger condition: attacker property"},
-		{"Tolsimir, Midnight's Light", "trigger#0.1", "trigger condition: self state"},
+		{"Tolsimir, Midnight's Light", "trigger#0.1", "trigger condition: engine predicate unread (attackedThisCombat)"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			c, ok := reg.Lookup(tc.name)
