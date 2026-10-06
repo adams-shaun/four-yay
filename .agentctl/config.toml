@@ -468,10 +468,10 @@ push = false
 # a redeploy kills every in-flight vs-bot game (SIGTERM aborts live matches
 # and the persistence dir is wiped). Deploy by hand: `make deploy-demo`.
 deploy_cmd = []
-# make ledger is regenerable, so it waits at most 300 s for the heavy lock
-# (scripts/heavy_lock.sh) and is SKIPPED (-s: logged, exit 0) rather than
-# stalling the merge path behind a multi-hour lease or a full suite.
-post_merge = [["scripts/heavy_lock.sh", "run", "-w", "300", "-s", "--", "make", "ledger"]]
+# make ledger serialises on its OWN lock (.ds4/ledger.lock, scripts/ledger-lane.sh),
+# never the shared heavy lock (operator, 2026-10-06): behind benches and full
+# suites it stalled every merge. It waits at most 300 s; a failure only logs.
+post_merge = [["env", "LEDGER_LANE_WAIT=300", "make", "ledger"]]
 carry_trailers = []
 
 # config.py:35, 138-163.
