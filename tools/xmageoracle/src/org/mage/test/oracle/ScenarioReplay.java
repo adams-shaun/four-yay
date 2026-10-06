@@ -1705,13 +1705,22 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     } else if (isSeatRef(v)) {
                         setChoice(p, seat(seatOf(v)).getName());
                     } else {
-                        setChoice(p, v.equals("[choice_skip]") ? TestPlayer.CHOICE_SKIP : v);
+                        queueChoice(p, v);
                     }
                     break;
                 default:
                     throw new IllegalArgumentException("xmage answer kind " + kind);
             }
         }
+    }
+
+    /** Queue one label answer on the player's choice queue (FIFO). A mana
+     * ability that adds a colour of the controller's choice, and a permanent's
+     * "as it enters, choose a color", both pose XMage's ChoiceColor dialog,
+     * which TestPlayer answers from this queue by colour name ("White"); with
+     * the queue empty it picks a colour at random. */
+    static void queueChoice(TestPlayer p, String v) {
+        p.addChoice(v.equals("[choice_skip]") ? TestPlayer.CHOICE_SKIP : v);
     }
 
     private void answers(JsonObject st, TestPlayer p) {
