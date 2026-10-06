@@ -626,7 +626,7 @@ func repeatGateHolds(h Host, c *Ctx, check, cmp string) (holds, evaluated bool) 
 	// first iteration. The suffix is judged by the evaluator's own op
 	// grammar instead.
 	pred, op, hasOp := strings.Cut(body, "/")
-	if hasOp && !modelledGateOp(h, c, op) {
+	if hasOp && !modelledGateOp(h, c, op, 0) {
 		return false, false
 	}
 	if len(UnknownPredicates(pred)) > 0 {
