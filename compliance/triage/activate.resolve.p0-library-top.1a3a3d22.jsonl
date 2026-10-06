@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"resolve","field":"p0.library_top","diff":"gorge+[$CARD] xmage+[$LIB]"},"key":"activate | resolve | p0.library_top | gorge+[$CARD] xmage+[$LIB]","cards":1}
-{"card":"Floodpits Drowner","template":"activate#0.0","status":"diverge","api":"ChangesZone:Tap","sets":["DSK"],"detail":"step 1 (resolve) p0.library_top: gorge \"[Wastes, Wastes, Wastes, Floodpits Drowner, Wastes]\", xmage \"[Wastes, Wastes, Wastes, Wastes, Wastes]\""}

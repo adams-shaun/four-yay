@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"resolve","field":"p0.library_top","diff":"gorge+[$LIB, Forest, Jace Beleren] xmage+[Glorious Anthem, Grizzly Bears, Shock]"},"key":"activate | resolve | p0.library_top | gorge+[$LIB, Forest, Jace Beleren] xmage+[Glorious Anthem, Grizzly Bears, Shock]","cards":1}
-{"card":"Rabaroo Troop","template":"activate#0.0","status":"diverge","api":"ChangesZone:Pump","sets":["TLA"],"detail":"step 1 (resolve) p0.library_top: gorge \"[Wastes, Wastes, Jace Beleren, Forest, Wastes]\", xmage \"[Shock, Wastes, Wastes, Glorious Anthem, Grizzly Bears]\""}
