@@ -432,6 +432,7 @@ func activationSVarPrelude(reg *cards.Registry, f *cards.Face, check, compare st
 		}
 		out = append(out, c)
 	}
+	out = append(out, historyPreludes(reg, f.Name, body, n)...)
 	if lifeLossBody(body) {
 		if step, ok := castProbe(reg, "Shock", "p1"); ok {
 			out = append(out, conditionPrelude{hand: []string{"Shock"}, steps: []oraclegen.Step{step, {Op: "resolve"}}})

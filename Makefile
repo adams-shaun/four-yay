@@ -46,16 +46,17 @@ CARDS_DIR  ?= .cards
 FORGE_REPO ?= https://github.com/adams-shaun/forge.git
 # Pinned to the lock's commit for M2r; a corpus bump is a deliberate,
 # ledgered change, not a side effect of Forge's master moving.
-# ab2a79bd8 = fb4d80911 (Card-Forge master 2026-10-02) + Card-Forge/forge#12153
-# (Bard's Company P/T, Voice of Victory type, Yip Yip! target).
-FORGE_REF  ?= ab2a79bd87b87df17c32a4eef77c4a6f3fdc998e
+# 25a608a4f = fb4d80911 (Card-Forge master 2026-10-02) + Card-Forge/forge#12153
+# (Bard's Company P/T, Voice of Victory type, Yip Yip! target) + #12160
+# (Demonic Pact's discard mode targets an opponent).
+FORGE_REF  ?= 25a608a4fc5fe837314a263e4ac6600a01d7c348
 # The XMage commit the compliance oracle (manifests, out-of-tree driver)
 # is pinned to. XMage is MIT; nothing from it is a build dependency.
 # docs/superpowers/specs/2026-10-02-xmage-compliance-oracle-design.md
 XMAGE_REF  ?= 6b602a1c85e8ed738a4b40b1ef44c54845b57f68
 XMAGE_ORACLE_DIR ?= /mnt/sata/gorge-training/xmageoracle
 # Forge oracle driver commit (fork, branch oracle-harness): a descendant of FORGE_REF with identical script trees.
-FORGE_ORACLE_REF ?= d23c840392784dde3fdd8a8241a4044a379b5ec2
+FORGE_ORACLE_REF ?= 1581615d4373e849ce0add8145bf3f42149d865d
 FORGE_ORACLE_DIR ?= /mnt/sata/gorge-training/forgeoracle
 
 .PHONY: help
