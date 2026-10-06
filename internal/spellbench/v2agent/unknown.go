@@ -1,65 +1,115 @@
 package v2agent
 
 import (
-	"encoding/json"
-	"reflect"
+	"fmt"
 	"sort"
-	"strings"
 )
 
 // UnknownFields lists, as JSON paths, every object key in raw that the Go
-// type of target (a struct, or a pointer to one) does not model. Keys under
-// json.RawMessage fields and maps (seat_decision.extensions, counters) are
-// not inspected. Mistyped values are not reported here; the lenient decode
-// reports them.
+// type of target does not model. Keys under json.RawMessage fields and maps
+// (seat_decision.extensions, counters) are not inspected. Mistyped values
+// are not reported here; the lenient decode reports them.
+//
+// The type's shape comes from a generated schema table (unknown_gen.go),
+// not reflection, so target must be one of the request types the schema
+// was generated for (unknownRoot); any other is a programming error and
+// panics. TestUnknownSchemaIsCurrent regenerates the table from the Go
+// types and fails when it is stale, and TestUnknownFieldsIsReflective holds
+// the result to the reflective walk on the recorded transcripts.
 func UnknownFields(raw []byte, target any) []string {
+	root := unknownRoot(target)
 	v, err := decodeAny(raw)
 	if err != nil {
 		return nil
 	}
 	var out []string
-	walkUnknown(v, reflect.TypeOf(target), "$", &out)
+	walkUnknown(v, root, "$", &out)
 	return out
 }
 
-var rawMessageType = reflect.TypeOf(json.RawMessage(nil))
+// unknownRoot is the schema node of target's type.
+func unknownRoot(target any) int32 {
+	switch target.(type) {
+	case *GameStart:
+		return unknownRootGameStart
+	case *gameStartRequest:
+		return unknownRootGameStartRequest
+	case *Semantic:
+		return unknownRootSemantic
+	case *SeatDecision:
+		return unknownRootSeatDecision
+	}
+	panic(fmt.Sprintf("v2agent: UnknownFields has no schema for %T", target))
+}
 
-func walkUnknown(v any, t reflect.Type, path string, out *[]string) {
-	for t != nil && t.Kind() == reflect.Pointer {
-		t = t.Elem()
+// gameStartRequest is the game_start line as the strict check reads it:
+// the envelope fields beside GameStart's own.
+type gameStartRequest struct {
+	envelope
+	GameStart
+}
+
+// unknownNode is one Go type's JSON shape: an opaque value (a scalar, an
+// interface, a json.RawMessage) whose contents are not inspected, an object
+// with known keys, or a list or map of elem.
+type unknownNode struct {
+	kind   unknownKind
+	elem   int32          // list, map: the element's node
+	fields []unknownField // object: sorted by name
+}
+
+type unknownKind uint8
+
+const (
+	unknownOpaque unknownKind = iota
+	unknownObject
+	unknownList
+	unknownMap
+)
+
+type unknownField struct {
+	name string
+	node int32
+}
+
+func (n *unknownNode) field(name string) (int32, bool) {
+	i := sort.Search(len(n.fields), func(i int) bool { return n.fields[i].name >= name })
+	if i < len(n.fields) && n.fields[i].name == name {
+		return n.fields[i].node, true
 	}
-	if t == nil || t == rawMessageType {
-		return
-	}
-	switch t.Kind() {
-	case reflect.Struct:
+	return 0, false
+}
+
+func walkUnknown(v any, node int32, path string, out *[]string) {
+	n := &unknownNodes[node]
+	switch n.kind {
+	case unknownObject:
 		obj, ok := v.(map[string]any)
 		if !ok {
 			return
 		}
-		fields := jsonFields(t)
 		keys := make([]string, 0, len(obj))
 		for k := range obj {
 			keys = append(keys, k)
 		}
 		sort.Strings(keys)
 		for _, k := range keys {
-			ft, known := fields[k]
+			ft, known := n.field(k)
 			if !known {
 				*out = append(*out, path+"."+k)
 				continue
 			}
 			walkUnknown(obj[k], ft, path+"."+k, out)
 		}
-	case reflect.Slice, reflect.Array:
+	case unknownList:
 		arr, ok := v.([]any)
 		if !ok {
 			return
 		}
 		for i, e := range arr {
-			walkUnknown(e, t.Elem(), path+"["+itoa(i)+"]", out)
+			walkUnknown(e, n.elem, path+"["+itoa(i)+"]", out)
 		}
-	case reflect.Map:
+	case unknownMap:
 		obj, ok := v.(map[string]any)
 		if !ok {
 			return
@@ -70,45 +120,9 @@ func walkUnknown(v any, t reflect.Type, path string, out *[]string) {
 		}
 		sort.Strings(keys)
 		for _, k := range keys {
-			walkUnknown(obj[k], t.Elem(), path+"."+k, out)
+			walkUnknown(obj[k], n.elem, path+"."+k, out)
 		}
 	}
-}
-
-// jsonFields maps a struct's JSON keys to field types, flattening embedded
-// structs the way encoding/json does.
-func jsonFields(t reflect.Type) map[string]reflect.Type {
-	fields := map[string]reflect.Type{}
-	for i := 0; i < t.NumField(); i++ {
-		f := t.Field(i)
-		tag := f.Tag.Get("json")
-		name, _, _ := strings.Cut(tag, ",")
-		if name == "-" {
-			continue
-		}
-		if f.Anonymous && name == "" {
-			et := f.Type
-			if et.Kind() == reflect.Pointer {
-				et = et.Elem()
-			}
-			if et.Kind() == reflect.Struct {
-				for k, v := range jsonFields(et) {
-					if _, dup := fields[k]; !dup {
-						fields[k] = v
-					}
-				}
-				continue
-			}
-		}
-		if !f.IsExported() {
-			continue
-		}
-		if name == "" {
-			name = f.Name
-		}
-		fields[name] = f.Type
-	}
-	return fields
 }
 
 func itoa(i int) string {

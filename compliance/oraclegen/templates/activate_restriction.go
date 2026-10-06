@@ -230,14 +230,17 @@ func fitConditionPrelude(pre staticFixture) bool {
 	return len(pre.exile) == 0 && len(pre.p1Battlefield) == 0 && !pre.place
 }
 
-// creatureForPowerFloor names a creature whose printed power and toughness
-// clear the filter's powerGE<n>/toughnessGE<n> floor, or "" when the filter
-// names none. The fixture tables' creature stand-ins (Llanowar Elves 1/1,
-// Grizzly Bears 2/2) do not.
+// creatureForPowerFloor names a creature whose printed power, toughness and
+// mana value clear the filter's powerGE<n>/toughnessGE<n>/cmcGE<n> floor, or
+// "" when the filter names none. The fixture tables' creature stand-ins
+// (Llanowar Elves 1/1, Grizzly Bears 2/2) do not.
 func creatureForPowerFloor(group string) string {
-	needPower, needToughness := 0, 0
+	needPower, needToughness, needCmc := 0, 0, 0
 	for _, w := range affectedWords(group) {
 		lower := strings.ToLower(w)
+		if rest, ok := strings.CutPrefix(lower, "cmcge"); ok {
+			needCmc = max(needCmc, atoiOr(rest, 0))
+		}
 		if rest, ok := strings.CutPrefix(lower, "powerge"); ok {
 			needPower = max(needPower, atoiOr(rest, 0))
 		}
@@ -245,11 +248,14 @@ func creatureForPowerFloor(group string) string {
 			needToughness = max(needToughness, atoiOr(rest, 0))
 		}
 	}
-	if needPower == 0 && needToughness == 0 {
+	if needPower == 0 && needToughness == 0 && needCmc == 0 {
 		return ""
 	}
-	// Nessian Asp is 4/5 and Gigantosaurus 10/10; the largest clears any
-	// corpus floor this template meets.
+	// Nessian Asp is 4/5 with mana value 5 and Gigantosaurus 10/10 with mana
+	// value 5; the largest clears any corpus floor this template meets.
+	if needCmc > 5 {
+		return ""
+	}
 	if needPower > 4 || needToughness > 5 {
 		return "Gigantosaurus"
 	}
@@ -351,8 +357,11 @@ func activationSubtypePresence(reg *cards.Registry, group, zone string, n int) (
 		}
 		if card == "" {
 			for _, w := range affectedWords(group) {
-				if name, ok := oraclegen.SubtypeCard(reg, w); ok {
-					card = name
+				for _, sub := range outlawBatch(w) {
+					if name, ok := oraclegen.SubtypeCard(reg, sub); ok {
+						card = name
+						break
+					}
 				}
 			}
 		}
@@ -371,6 +380,16 @@ func activationSubtypePresence(reg *cards.Registry, group, zone string, n int) (
 		}
 	}
 	return out, true
+}
+
+// outlawBatch expands Forge's Outlaw batch word into the five creature
+// subtypes it names (effects/filter_word.go outlawSubtypes); any other word is
+// its own subtype.
+func outlawBatch(word string) []string {
+	if strings.EqualFold(word, "Outlaw") {
+		return []string{"Assassin", "Mercenary", "Pirate", "Rogue", "Warlock"}
+	}
+	return []string{word}
 }
 
 // typeFixtureCard names a stand-in for the card types the fixed tables omit
@@ -432,6 +451,7 @@ func activationSVarPrelude(reg *cards.Registry, f *cards.Face, check, compare st
 		}
 		out = append(out, c)
 	}
+	out = append(out, historyPreludes(reg, f.Name, body, n)...)
 	if lifeLossBody(body) {
 		if step, ok := castProbe(reg, "Shock", "p1"); ok {
 			out = append(out, conditionPrelude{hand: []string{"Shock"}, steps: []oraclegen.Step{step, {Op: "resolve"}}})

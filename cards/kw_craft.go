@@ -75,6 +75,10 @@ func keywordParam(line string) string {
 	return ""
 }
 
+// kwCraft installs the CR 702.167a ability. The card returns to the
+// battlefield TRANSFORMED (ChangeZone Transformed$ True, CR 711.10a), so it
+// never enters front face up: a front-face ETB replacement or trigger (Braided
+// Net's net counters, Tithing Blade's sacrifice) must not see the entry.
 func kwCraft(f *Face, _ int, k, _, param string, has func(kind, line string) bool) {
 	if has("A", k) || !CraftShapeSupported(param) {
 		return
@@ -82,16 +86,12 @@ func kwCraft(f *Face, _ int, k, _, param string, has func(kind, line string) boo
 	body := craftMaterialBody(param)
 	cost := body + " Exile<1/CARDNAME>"
 	sa, _ := parseSA("", "AB$ ChangeZone | Cost$ "+cost+
-		" | ActivationZone$ Battlefield | SorcerySpeed$ True | Defined$ Self | Origin$ Exile | Destination$ Battlefield | SubAbility$ __CraftTransform | Keyword$ Craft | SpellDescription$ Craft -- pay "+body+": return this transformed")
+		" | ActivationZone$ Battlefield | SorcerySpeed$ True | Defined$ Self | Origin$ Exile | Destination$ Battlefield | Transformed$ True | Keyword$ Craft | SpellDescription$ Craft -- pay "+body+": return this transformed")
 	if sa == nil {
 		return
 	}
 	sa.Params["KeywordLine"] = k
 	f.Abilities = append(f.Abilities, sa)
-	if f.SVars == nil {
-		f.SVars = make(map[string]string)
-	}
-	f.SVars["__CraftTransform"] = "DB$ SetState | Defined$ Self | Mode$ Transform"
 }
 
 func init() { registerKeyword(kwCraft, "Craft") }

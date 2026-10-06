@@ -29,13 +29,23 @@
 #      XMage snapshot was produced WITH the candidate's driver and must never
 #      be reused for it, or a driver-caused row could never clear.
 #      The branch whose removal clears the row is the CULPRIT: it is re-parked with a History line and the
-#      rest land after a fresh full replay. A row no single branch clears lands
-#      NOTHING and every ticket stays parked with the findings.
+#      rest land after a fresh full replay. A row no single branch clears is
+#      replayed once more on MAIN ALONE (main's generator via regen_row and main's
+#      driver via one_scenario on the probe; with one merged ticket the
+#      without-candidate replay already is main alone and is reused). If it
+#      diverges there with the same detail it is main's drift, not the batch's:
+#        DRIFT-MAIN <row> <detail>
+#      it is not held against any ticket, the batch lands with the refreshed row,
+#      and after the landing it is appended to .ds4/driver-drift.log (keyed by the
+#      replayed main's trees) and ticketed per class as a DRIFT pass does. Any
+#      other row no single branch clears (MAIN-ALONE says why) lands NOTHING and
+#      every ticket stays parked with the findings.
 #
 # DRIFT pass: a change to the scenario generator (compliance/oraclegen,
 # cmd/oraclediff, compliance/manifests) changes what XMage is asked, but is never
 # replayed on its own, so its breakage would surface as unattributable
-# "regressions" in an unrelated driver batch. When NO ticket is parked, the gates
+# "regressions" in an unrelated driver batch (where DRIFT-MAIN above catches it).
+# When NO ticket is parked, the gates
 # hold (no pause, GREEN) and those paths differ between the main sha the last full
 # replay ran on (.ds4/driver-replay-last-main; else the last LANDED sha in the
 # log; else main is recorded and nothing runs) and main, the script replays MAIN
@@ -62,7 +72,8 @@
 #     -p WorkingDirectory=/home/sadams/projects/gorge --setenv=PATH=$PATH --setenv=HOME=$HOME \
 #     bash scripts/driver_replay_batch.sh
 #
-# Log (timestamped; START DRIFT-START DRIFT DRIFT-KNOWN MERGED-INTO-BATCH SKIP-CONFLICT REPLAY FLAKY CULPRIT
+# Log (timestamped; START DRIFT-START DRIFT DRIFT-KNOWN DRIFT-MAIN MAIN-ALONE MERGED-INTO-BATCH SKIP-CONFLICT
+# REPLAY FLAKY CULPRIT
 # LANDED ...): .ds4/driver-replay-batch.log. Flakes: .ds4/driver-flakes.log.
 # Run dirs: $DRB_RUNS/driver-batch-<stamp> (the newest 3 are kept).
 #
@@ -251,6 +262,63 @@ elif cmd == "agrees":
                 st = r.get("status") or (r.get("verdict") or {}).get("status", "")
                 sys.exit(0 if str(st).lower() == "agree" else 1)
     sys.exit(1)
+elif cmd == "samedet":
+    # samedet VERDICTS.jsonl ID DET -> prints that row's "status detail"; exit 0 iff
+    # it is not agree and equals DET ("status detail" as verdict-compare prints it).
+    # The -out file holds oraclediff.Row (a nested verdict, no detail); the
+    # compliance row with the detail is in VERDICTS.jsonl.rows/ when oraclediff
+    # ran with -write. Without it, rebuild the detail as runDiff formats it.
+    def goq(x):
+        esc = {'"': '\\"', "\\": "\\\\", "\a": "\\a", "\b": "\\b", "\f": "\\f",
+               "\n": "\\n", "\r": "\\r", "\t": "\\t", "\v": "\\v"}
+        o = ['"']
+        for ch in str(x):
+            if ch in esc:
+                o.append(esc[ch])
+            elif ch.isprintable():
+                o.append(ch)
+            elif ord(ch) < 0x80:
+                o.append("\\x%02x" % ord(ch))
+            else:
+                o.append("\\u%04x" % ord(ch) if ord(ch) < 0x10000 else "\\U%08x" % ord(ch))
+        return "".join(o) + '"'
+    def first(x):
+        return str(x or "").split("\n")[0]
+    def flat(r):
+        if "status" in r and "verdict" not in r:
+            return str(r.get("status", "")).lower(), str(r.get("detail") or ""), True
+        v = r.get("verdict") or {}
+        st = str(v.get("status", "")).lower()
+        if st == "diverge":
+            det = "%s %s: gorge %s, xmage %s" % (v.get("checkpoint", ""), v.get("field", ""), goq(v.get("gorge", "")), goq(v.get("xmage", "")))
+        elif st == "xmage_lacks":
+            det = "xmage: " + first(v.get("msg"))
+        elif st == "harness":
+            det = str(v.get("engine", "")) + ": " + first(v.get("msg"))
+        else:
+            det = ""
+        return st, det, False
+    def norm(x):
+        return " ".join(str(normalize_ids(x)).split())
+    wst, _, wdet = norm(args[2]).partition(" ")
+    rows = []
+    for f in sorted(glob.glob(args[0] + ".rows/*.jsonl")) + [args[0]]:
+        if os.path.exists(f):
+            rows += [json.loads(l) for l in open(f) if l.strip()]
+    for r in rows:
+        if r.get("id") == args[1]:
+            st, det, exact = flat(r)
+            got = norm(st + " " + det[:160])
+            gdet = got.partition(" ")[2]
+            # A shape ruling can turn a batch row's diverge into gorge_wrong or
+            # xmage_wrong; only the -write row applies rulings, so a rebuilt
+            # diverge matches any of the three on an identical detail.
+            fam = ("diverge", "gorge_wrong", "xmage_wrong")
+            okst = st == wst or (not exact and st == "diverge" and wst in fam)
+            print(got)
+            sys.exit(0 if st != "agree" and okst and gdet == wdet else 1)
+    print("(no verdict row)")
+    sys.exit(1)
 elif cmd == "scenariochanged":
     # scenariochanged WT MAINSHA ID: true iff both verdict rows have different scenario hashes.
     wt, ref, rid = args
@@ -355,7 +423,6 @@ drift_known() {
 }
 
 # ---- per-pass state ----------------------------------------------------------
-LAST_PASS=""        # drift | batch: the previous pass with work, for alternation
 declare -A BR       # ticket id -> branch
 declare -A WT_OF    # ticket id -> worktree dir
 MERGED=()           # ticket ids on the integration branch, merge order
@@ -491,25 +558,41 @@ flaky_check() {
 # so agree again is exactly "no longer regressed"; a snapshot merely equal to
 # main's driver would also pass when the regression is not the driver's at all).
 cleared() {
-  local id=$1 xm=$2 scen=$3 tree=${4:-} v="$xm.verdict.jsonl"
-  rm -f -- "$v"
+  # v is assigned apart: in one `local`, "$xm" would expand the CALLER's xm.
+  local id=$1 xm=$2 scen=$3 tree=${4:-} v
+  v="$xm.verdict.jsonl"
+  rm -rf -- "$v" "$v.rows"
   if [ -n "${DRB_DIFF_CMD:-}" ]; then
     if [ -n "$tree" ]; then (cd "$tree" && $DRB_DIFF_CMD "$scen" "$xm" "$v") >/dev/null 2>&1
     else $DRB_DIFF_CMD "$scen" "$xm" "$v" >/dev/null 2>&1; fi
   elif [ -n "$tree" ]; then
-    (cd "$tree" && capped go run ./cmd/oraclediff diff -cards "$repo/.cards" -scenarios "$scen" -xmage "$xm" -out "$v" -xmage-ref "$(sed -n 's/^XMAGE_REF *?= *//p' "$wt/Makefile")") >/dev/null 2>&1
+    (cd "$tree" && capped go run ./cmd/oraclediff diff -cards "$repo/.cards" -scenarios "$scen" -xmage "$xm" -out "$v" -write "$v.rows" -xmage-ref "$(sed -n 's/^XMAGE_REF *?= *//p' "$wt/Makefile")") >/dev/null 2>&1
   else
-    "$SCEN_ROOT/oraclediff" diff -scenarios "$scen" -xmage "$xm" -out "$v" -xmage-ref "$(sed -n 's/^XMAGE_REF *?= *//p' "$wt/Makefile")" >/dev/null 2>&1
+    "$SCEN_ROOT/oraclediff" diff -scenarios "$scen" -xmage "$xm" -out "$v" -write "$v.rows" -xmage-ref "$(sed -n 's/^XMAGE_REF *?= *//p' "$wt/Makefile")" >/dev/null 2>&1
   fi
   [ -s "$v" ] && py agrees "$v" "$id"
 }
 
+# main_alone <id> <outfile>: replay row <id> on MAIN ALONE -- the probe at the
+# replayed main, its generator (regen_row) and its driver (one_scenario). The
+# oraclediff verdict lands in <outfile>.verdict.jsonl; 1 if it could not run.
+main_alone() {
+  local r=$1 out=$2 src="$2.scen.jsonl"
+  git -C "$probe" switch -q --discard-changes --detach "$M0" || return 1
+  regen_row "$probe" "$r" "$src" || return 1
+  one_scenario "$probe" "$r" "$out" "$src" || return 1
+  cleared "$r" "$out" "$src" "$probe"
+  [ -s "$out.verdict.jsonl" ]
+}
+
 # attribute <stable ids...>: sets CULPRIT[id]=ticket for the newest-first
-# branch whose removal clears the row. Rows it cannot attribute stay unset.
-declare -A CULPRIT
+# branch whose removal clears the row. A row no branch clears that diverges
+# with the same detail on main alone gets MAINDRIFT[id]=1. Others stay unset.
+declare -A CULPRIT MAINDRIFT
 attribute() {
   local -a todo=("$@")
   local cand k r other d
+  local -A alone_v=()
   CULPRIT=()
   [ -d "$probe" ] || git worktree add -q --detach "$probe" "$MAIN" || return 1
   d="$run/attr"; mkdir -p "$d"
@@ -558,8 +641,28 @@ attribute() {
       else
         left+=("$r")
       fi
+      # With one merged ticket, the batch without it IS main alone.
+      [ "${#MERGED[@]}" -eq 1 ] && alone_v[$r]="$xm.verdict.jsonl"
     done
     todo=("${left[@]}")
+  done
+  local got tag v
+  for r in "${todo[@]}"; do
+    v=${alone_v[$r]:-}
+    if [ -z "$v" ] || [ ! -s "$v" ]; then
+      tag=$(echo "$r" | tr -c 'A-Za-z0-9\n' _)
+      v="$d/main-alone-$tag.jsonl"
+      if ! main_alone "$r" "$v"; then
+        say "MAIN-ALONE $r: could not be replayed on main alone; not main drift"
+        continue
+      fi
+      v="$v.verdict.jsonl"
+    fi
+    if got=$(py samedet "$v" "$r" "${DET[$r]}"); then
+      MAINDRIFT[$r]=1
+    else
+      say "MAIN-ALONE $r: main alone says '$got', the batch '${DET[$r]}'; not main drift"
+    fi
   done
 }
 
@@ -671,18 +774,7 @@ land() { # land <regressed count> <flaky count>; returns 0 landed, 1 aborted/hel
 pass() {
   local ids rc n r id status detail i attempt landed=0
   select_parked
-  # Main's own drift is replayed before any ticket batch: a drifted row
-  # regresses in every batch, no branch clears it, and the batch HOLDs every
-  # ticket (df2d53b8, 2026-10-06) while the drift pass that would refresh it
-  # waited for an empty queue.
-  # Alternate while tickets wait: generator commits land faster than a DRIFT
-  # pass runs (14 arrived during one 30-minute pass), so "drift first, always"
-  # starved every parked ticket. After a drift pass the next pass is a ticket
-  # batch.
-  if [ "${#PIDS[@]}" -lt 1 ] || { [ "$LAST_PASS" != drift ] && drift_due; }; then
-    LAST_PASS=drift; drift_pass; return 0
-  fi
-  LAST_PASS=batch
+  [ "${#PIDS[@]}" -ge 1 ] || { drift_pass; return 0; }
   if [ -e "$PAUSE" ]; then say "IDLE pipeline paused (${#PIDS[@]} parked)"; return 0; fi
   if ! main_green; then say "IDLE main is not GREEN in $PMLOG (${#PIDS[@]} parked)"; return 0; fi
   if [ "$INFRA_FAIL_AT" -gt 0 ] && [ $(($(date +%s) - INFRA_FAIL_AT)) -lt "$COOLDOWN" ]; then return 0; fi
@@ -691,6 +783,7 @@ pass() {
   wt=$repo/.worktrees/$bid; probe=$repo/.worktrees/$bid-probe; run=$RUNS/$bid
   M0=$(sha12 "$MAIN")
   DRIVER_SHA=$(driver_sha "$M0")
+  MAINDRIFT=(); MD_ROWS=(); MD_DET=()
   mkdir -p "$run"
   say "START $bid main=$M0 parked: ${PIDS[*]}"
   if ! "${WORKTREE_CMD[@]}" "$bid" "$MAIN" >"$run.worktree.log" 2>&1; then
@@ -758,6 +851,9 @@ pass() {
 
   for ((attempt = 0; attempt <= ${#PIDS[@]}; attempt++)); do
     rm -rf -- "$run/replay$attempt" && mkdir -p "$run/replay$attempt"
+    # MAINDRIFT memoises the proof across attempts; MD_ROWS is THIS attempt's set,
+    # so a row the final landed batch no longer regresses is not recorded.
+    MD_ROWS=(); MD_DET=()
     local rdir=$run/replay$attempt
     (cd "$wt" && GOFLAGS="-p=8 -trimpath" XMAGE_ORACLE_MEM=3G "${LOCKRUN[@]}" "${REPLAY_CMD[@]}" "$rdir" >"$rdir.log" 2>&1)
     rc=$?
@@ -772,24 +868,27 @@ pass() {
     fi
     n=$(head -n1 "$rdir.regressed")
     say "COMPARE regressed=$n ($rdir.compare)"
-    if [ "$n" -eq 0 ]; then
-      land 0 0; rc=$?
-      [ "$rc" -eq 0 ] && landed=1
-      cleanup_pass "$landed"; return 0
-    fi
+    if [ "$n" -eq 0 ]; then land_batch 0 0; return 0; fi
 
     classify "$rdir" 1 || { infra_fail "$CLASSIFY_ERR"; cleanup_pass 0; return 0; }
 
-    if [ "${#STABLE[@]}" -eq 0 ]; then
-      land 0 $((${#FLAKY[@]} + ${#DRIFTED[@]})); rc=$?
-      [ "$rc" -eq 0 ] && landed=1
-      cleanup_pass "$landed"; return 0
-    fi
+    if [ "${#STABLE[@]}" -eq 0 ]; then land_batch "${#MD_ROWS[@]}" $((${#FLAKY[@]} + ${#DRIFTED[@]})); return 0; fi
 
-    attribute "${STABLE[@]}" || { infra_fail "could not set up the attribution worktree"; cleanup_pass 0; return 0; }
+    # A row proven main drift on an earlier attempt of this pass is not re-proved.
+    local -a todo=()
+    for r in "${STABLE[@]}"; do [ -n "${MAINDRIFT[$r]:-}" ] || todo+=("$r"); done
+    CULPRIT=()
+    if [ "${#todo[@]}" -gt 0 ]; then
+      attribute "${todo[@]}" || { infra_fail "could not set up the attribution worktree"; cleanup_pass 0; return 0; }
+    fi
     local unattributed=0 drop=()
     for r in "${STABLE[@]}"; do
-      if [ -n "${CULPRIT[$r]:-}" ]; then
+      if [ -n "${MAINDRIFT[$r]:-}" ]; then
+        if [ -z "${MD_DET[$r]+x}" ]; then
+          say "DRIFT-MAIN $r ${DET[$r]}"
+          MD_ROWS+=("$r"); MD_DET[$r]=${DET[$r]}
+        fi
+      elif [ -n "${CULPRIT[$r]:-}" ]; then
         say "CULPRIT ${CULPRIT[$r]} row $r: ${DET[$r]} (clears when that branch is removed)"
         local mrow
         mrow=$(py mainrow "$wt" "$MAIN" "$r")
@@ -808,6 +907,8 @@ pass() {
       say "HOLD nothing landed; all tickets left parked with the findings ($rdir.compare)"
       cleanup_pass 0; return 0
     fi
+    # Every stable row is main's drift: the batch replay is main's truth for them.
+    if [ "${#drop[@]}" -eq 0 ]; then land_batch "${#MD_ROWS[@]}" $((${#FLAKY[@]} + ${#DRIFTED[@]})); return 0; fi
     local -a rest=()
     for id in "${MERGED[@]}"; do case " ${drop[*]} " in *" $id "*) ;; *) rest+=("$id") ;; esac; done
     if [ "${#rest[@]}" -eq 0 ]; then say "NOTHING left after dropping culprits"; cleanup_pass 0; return 0; fi
@@ -818,21 +919,59 @@ pass() {
   infra_fail "gave up after $attempt replays"; cleanup_pass 0
 }
 
-# drift_due: 0 iff a replayed main is on record and the scenario generator
-# changed on main since it (drift_pass has a replay to run). With no record,
-# drift_pass only initialises it, which an idle loop does.
-drift_due() {
-  local last
+# land_batch <regressed> <flaky>: land the ticket batch, then record the rows
+# proven main drift this pass (DRIFT-MAIN) as a DRIFT pass does; ends the pass.
+MD_ROWS=(); declare -A MD_DET=()
+land_batch() {
+  local last commits rc r
   last=$(last_main)
-  [ -n "$last" ] || return 1
-  ! git diff --quiet "$last" "$MAIN" -- "${GEN_PATHS[@]}"
+  commits=""
+  [ -z "$last" ] || commits=$(git log --format=%h "$last..$M0" -- "${GEN_PATHS[@]}" | tr '\n' ',' | sed 's/,$//')
+  land "$1" "$2"; rc=$?
+  if [ "$rc" -ne 0 ]; then cleanup_pass 0; return 0; fi
+  if [ "${#MD_ROWS[@]}" -gt 0 ]; then
+    for r in "${MD_ROWS[@]}"; do DET[$r]=${MD_DET[$r]}; done
+    record_drift "A main-alone replay of rows the ticket batch ${MERGED[*]} regressed" "$(gen_key "$M0")" "$last" "${commits:-none}" "$SCEN_ROOT" "${MD_ROWS[@]}"
+  fi
+  cleanup_pass 1
 }
 
-# drift_pass: runs before any ticket batch while drift_due. When the scenario generator changed on main
+# record_drift <origin> <key> <last> <commits> <rdir> <rows...>: after a landing,
+# append each drift row to the drift log under <key> and file one agentctl
+# ticket per regressed template class. DET holds each row's detail.
+record_drift() {
+  local origin=$1 key=$2 last=$3 commits=$4 rdir=$5 r id cls
+  shift 5
+  for r in "$@"; do
+    echo "$(date '+%F %T') $key $r | ${DET[$r]}" >>"$DRIFTLOG"
+  done
+  local -a classes=()
+  for r in "$@"; do
+    cls=${r%/*}; cls=${cls##*/}; cls=${cls%%#*}
+    case " ${classes[*]:-} " in *" $cls "*) ;; *) classes+=("$cls") ;; esac
+  done
+  for cls in "${classes[@]}"; do
+    local rows=""
+    for r in "$@"; do
+      id=${r%/*}; id=${id##*/}; id=${id%%#*}
+      [ "$id" = "$cls" ] && rows+="- \`$r\`: ${DET[$r]}"$'\n'
+    done
+    file_ticket "XMage drift: $cls scenarios regressed after a generator change" "$origin (driver_replay_batch, $bid) regressed these \`$cls\` rows against main's recorded verdicts. The XMage driver was not changed; the scenario generator was.
+
+$rows
+Candidate commits (compliance/oraclegen, cmd/oraclediff since the last replayed main ${last:0:12}): $commits
+
+The refreshed verdicts are landed on main; this ticket fixes the generator or the driver so the rows agree again. Log: .ds4/driver-replay-batch.log (DRIFT lines), run $rdir." >/dev/null 2>&1 &&
+      say "DRIFT-TICKET filed for class $cls" ||
+      say "DRIFT-TICKET could not file the ticket for class $cls"
+  done
+}
+
+# drift_pass: no ticket is parked. When the scenario generator changed on main
 # since the last replayed main, replay main itself (see the header), land the
 # refreshed verdicts and file one ticket per regressed template class.
 drift_pass() {
-  local last cur rdir rc n id r commits cls key landed=0
+  local last cur rdir rc n r commits landed=0
   [ -e "$PAUSE" ] && return 0
   main_green || return 0
   if [ "$INFRA_FAIL_AT" -gt 0 ] && [ $(($(date +%s) - INFRA_FAIL_AT)) -lt "$COOLDOWN" ]; then return 0; fi
@@ -883,30 +1022,7 @@ drift_pass() {
   if [ "$rc" -ne 0 ]; then cleanup_pass 0; return 0; fi
   landed=1
   # Recorded only after the landing: a failed landing replays again next loop.
-  key=$(gen_key "$MAIN")
-  for r in "${STABLE[@]}"; do
-    echo "$(date '+%F %T') $key $r | ${DET[$r]}" >>"$DRIFTLOG"
-  done
-  local -a classes=()
-  for r in "${STABLE[@]}"; do
-    cls=${r%/*}; cls=${cls##*/}; cls=${cls%%#*}
-    case " ${classes[*]:-} " in *" $cls "*) ;; *) classes+=("$cls") ;; esac
-  done
-  for cls in "${classes[@]}"; do
-    local rows=""
-    for r in "${STABLE[@]}"; do
-      id=${r%/*}; id=${id##*/}; id=${id%%#*}
-      [ "$id" = "$cls" ] && rows+="- \`$r\`: ${DET[$r]}"$'\n'
-    done
-    file_ticket "XMage drift: $cls scenarios regressed after a generator change" "A DRIFT replay of main (driver_replay_batch, $bid) regressed these \`$cls\` rows against main's recorded verdicts. The XMage driver was not changed; the scenario generator was.
-
-$rows
-Candidate commits (compliance/oraclegen, cmd/oraclediff since the last replayed main ${last:0:12}): $commits
-
-The refreshed verdicts are landed on main; this ticket fixes the generator or the driver so the rows agree again. Log: .ds4/driver-replay-batch.log (DRIFT lines), run $rdir." >/dev/null 2>&1 &&
-      say "DRIFT-TICKET filed for class $cls" ||
-      say "DRIFT-TICKET could not file the ticket for class $cls"
-  done
+  [ "${#STABLE[@]}" -eq 0 ] || record_drift "A DRIFT replay of main" "$(gen_key "$MAIN")" "$last" "$commits" "$rdir" "${STABLE[@]}"
   cleanup_pass "$landed"
 }
 

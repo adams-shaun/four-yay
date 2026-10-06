@@ -120,6 +120,52 @@ func ShufflesSearchedLibrary(sa *cards.SA) bool {
 	return false
 }
 
+// FaceShufflesSearched reports whether anything on a face -- an activated
+// ability, a trigger, a replacement or an SVar body the script links in by
+// name -- can search-and-shuffle or otherwise shuffle a library. A level-B
+// item exercises one requirement, but the scenario runs the whole card: a
+// static or combat item still casts it (an enters-the-battlefield tutor) or
+// deals damage (a combat-damage search), so the exercised ability alone
+// misses the shuffle (Prismatic Undercurrents, Tempest Hawk, Heaped Harvest).
+func FaceShufflesSearched(f *cards.Face) bool {
+	if f == nil {
+		return false
+	}
+	for _, sa := range f.Abilities {
+		if ShufflesSearchedLibrary(sa) {
+			return true
+		}
+	}
+	for i := range f.Triggers {
+		if ShufflesSearchedLibrary(f.Triggers[i].Effect) {
+			return true
+		}
+	}
+	for i := range f.Repls {
+		if ShufflesSearchedLibrary(f.Repls[i].With) {
+			return true
+		}
+	}
+	for _, body := range f.SVars {
+		p := svarParams(body)
+		switch strings.ToLower(p["DB"]) {
+		case "shuffle":
+			return true
+		case "changezone", "changezoneall":
+			for _, o := range strings.Split(p["Origin"], ",") {
+				if strings.EqualFold(strings.TrimSpace(o), "Library") {
+					return true
+				}
+			}
+		case "dig", "diguntil":
+			if strings.EqualFold(p["Shuffle"], "True") {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // NamedLibrary reports whether any seat's setup library holds a card other
 // than the runner's Wastes filler, so a shuffle of it is not order-neutral.
 func NamedLibrary(sc *Scenario) bool {

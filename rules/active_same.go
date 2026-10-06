@@ -2,7 +2,6 @@ package rules
 
 import (
 	"fmt"
-	"reflect"
 	"slices"
 )
 
@@ -83,7 +82,7 @@ func (e *Engine) verifyActiveSame() {
 	for _, p := range src {
 		fresh = append(fresh, *p)
 	}
-	if len(fresh) != len(e.activeBuf) || (len(fresh) > 0 && !reflect.DeepEqual(fresh, e.activeBuf)) {
+	if len(fresh) != len(e.activeBuf) || (len(fresh) > 0 && !continuousEffectsEqual(fresh, e.activeBuf)) {
 		panic(fmt.Sprintf("rules: unchanged-list active() rebuild at log %d disagrees with a full build (%d vs %d effects)", len(e.L.Events), len(e.activeBuf), len(fresh)))
 	}
 }

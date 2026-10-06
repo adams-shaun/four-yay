@@ -31,7 +31,7 @@ func triggerSubs(sub string) bool {
 		"trigger.dies-other", "trigger.zone-change-residue", "trigger.scry", "trigger.surveil", "trigger.noncombat-damage", "trigger.combat-damage-all",
 		"trigger.loyalty-activated", "trigger.discarded", "trigger.attacks-one-target", classLevelGainedSub,
 		"trigger.spell-cast-opponent", "trigger.spell-cast-self-cast", "trigger.commit-crime", "trigger.ability-activated",
-		stateSelfCountersSub:
+		levelb.UnlockDoorSub, levelb.FullyUnlockSub, stateSelfCountersSub:
 		return true
 	}
 	return tapCombatSub(sub)
@@ -67,7 +67,11 @@ func triggerFires(reg *cards.Registry, f *cards.Face, name string, req levelb.Re
 	if req.CoveredByA {
 		return skip("covered by level A")
 	}
-	causes, why := triggerRecipe(reg, f, name, &f.Triggers[idx], req.Sub)
+	causes, why, room := roomTriggerCauses(reg, name, req)
+	if !room {
+		causes, why = triggerRecipe(reg, f, name, &f.Triggers[idx], req.Sub)
+		causes = roomSecondDoorCauses(reg, name, req, causes)
+	}
 	if why != "" {
 		return skip("no recipe: " + why)
 	}
@@ -231,7 +235,7 @@ func triggerWithFixture(reg *cards.Registry, f *cards.Face, name string, req lev
 	// the spell resolves and the trigger it caused is on the stack.
 	passes := []oraclegen.Step{{Op: "pass", Seat: 0}, {Op: "pass", Seat: 1}}
 	for _, steps := range [][]oraclegen.Step{probe, append(append([]oraclegen.Step(nil), probe...), passes...)} {
-		if _, res, ok := oraclegen.Settle(reg, triggerScenario(f, name, c, req, steps, fx)); ok && abilityOnStack(res.Snapshots, name, f.Name, req.Slot) {
+		if _, res, ok := oraclegen.Settle(reg, triggerScenario(f, name, c, req, steps, fx)); ok && abilityOnStack(res.Snapshots, name, f.Name, stackSlot(req)) {
 			fired = true
 			break
 		}
@@ -282,6 +286,17 @@ func triggerWithFixture(reg *cards.Registry, f *cards.Face, name string, req lev
 		}
 	}
 	return it, true, true
+}
+
+// stackSlot is the Trigger index gorge stamps on the stack entry that the
+// requirement's trigger puts there. A door's "when you unlock this door" is
+// queued as a delayed-shape trigger (rules/rooms.go queueUnlockTriggers), which
+// carries no slot, so its entry is told apart by its source alone.
+func stackSlot(req levelb.Requirement) string {
+	if req.Sub == levelb.UnlockDoorSub {
+		return ""
+	}
+	return req.Slot
 }
 
 // triggerFromGraveyard reports whether the trigger indexed by req functions

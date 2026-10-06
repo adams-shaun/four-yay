@@ -2,7 +2,6 @@ package rules
 
 import (
 	"fmt"
-	"reflect"
 	"unsafe"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -167,7 +166,7 @@ func labelIs(l, prefix, name, suffix string) bool {
 
 // walkFaceFactsEqual is reflect.DeepEqual(a, b) for walkFaceFacts, typed:
 // every field but altCosts is compared with ==, and altCosts row by row
-// (DeepEqual on each frozen Cost, through pointers so nothing is boxed). The
+// (Cost.Equal on each frozen Cost, through pointers so nothing is boxed). The
 // pointer-valued fields compare by identity, which is DeepEqual's answer
 // here: each is a list-identity guard or the face itself, and verifyFresh
 // either checked it current (so both sides hold the same address) or copied
@@ -192,7 +191,7 @@ func walkFaceFactsEqual(a, b *walkFaceFacts) bool {
 		return false
 	}
 	for i := range a.altCosts {
-		if a.altCosts[i].ok != b.altCosts[i].ok || !reflect.DeepEqual(&a.altCosts[i].cost, &b.altCosts[i].cost) {
+		if a.altCosts[i].ok != b.altCosts[i].ok || !a.altCosts[i].cost.Equal(&b.altCosts[i].cost) {
 			return false
 		}
 	}

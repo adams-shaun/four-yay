@@ -8,11 +8,10 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
+	"go/types"
 	"os"
 	"path/filepath"
-	"reflect"
 
-	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/internal/tsgen"
 	"github.com/adams-shaun/gorge/protocol"
 )
@@ -22,20 +21,31 @@ const header = "// TypeScript twins of package protocol (github.com/adams-shaun/
 
 // Render is the whole generation, shared by main and the freshness test.
 func Render() (string, error) {
-	roots := []reflect.Type{
-		reflect.TypeOf(protocol.Frame{}), reflect.TypeOf(protocol.Hello{}), reflect.TypeOf(protocol.TableInfo{}),
-		reflect.TypeOf(protocol.Widget{}), reflect.TypeOf(protocol.SeatInfo{}), reflect.TypeOf(protocol.MatchStart{}),
-		reflect.TypeOf(protocol.Snapshot{}), reflect.TypeOf(protocol.Event{}), reflect.TypeOf(protocol.EventBody{}),
-		reflect.TypeOf(protocol.DecisionBody{}), reflect.TypeOf(protocol.MatchEnd{}), reflect.TypeOf(protocol.TableHaltedBody{}),
-		reflect.TypeOf(protocol.Overflow{}), reflect.TypeOf(protocol.ErrorBody{}), reflect.TypeOf(protocol.MatchInfo{}),
-		reflect.TypeOf(protocol.Subscribe{}), reflect.TypeOf(protocol.Unsubscribe{}),
-		reflect.TypeOf(protocol.BotPolicyList{}),
+	const protoPkg, decisionPkg = "github.com/adams-shaun/gorge/protocol", "github.com/adams-shaun/gorge/decision"
+	rootNames := []struct{ pkg, name string }{
+		{protoPkg, "Frame"}, {protoPkg, "Hello"}, {protoPkg, "TableInfo"},
+		{protoPkg, "Widget"}, {protoPkg, "SeatInfo"}, {protoPkg, "MatchStart"},
+		{protoPkg, "Snapshot"}, {protoPkg, "Event"}, {protoPkg, "EventBody"},
+		{protoPkg, "DecisionBody"}, {protoPkg, "MatchEnd"}, {protoPkg, "TableHaltedBody"},
+		{protoPkg, "Overflow"}, {protoPkg, "ErrorBody"}, {protoPkg, "MatchInfo"},
+		{protoPkg, "Subscribe"}, {protoPkg, "Unsubscribe"},
+		{protoPkg, "BotPolicyList"},
 		// decision.Intent is the client's ANSWER — the one wire type a human
 		// needs. Every other decision type reaches the client through View,
 		// but nothing reaches it from the server's offered decisions, so
 		// without this root the wire-drift gate could never see drift on the
 		// request shape (M2e-4, R-E4-3).
-		reflect.TypeOf(decision.Intent{}),
+		{decisionPkg, "Intent"},
+	}
+	// The structs are read from SOURCE (go/types), not by reflection.
+	loader := tsgen.NewLoader()
+	roots := make([]types.Type, 0, len(rootNames))
+	for _, r := range rootNames {
+		t, err := loader.Lookup(r.pkg, r.name)
+		if err != nil {
+			return "", err
+		}
+		roots = append(roots, t)
 	}
 	unions := map[string][]string{
 		"FrameType":  {"hello", "widget", "match_start", "snapshot", "event", "decision", "match_end", "table_halted", "overflow", "error", "rewind"},
