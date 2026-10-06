@@ -16,6 +16,35 @@
 # module suite on main after landings, and a red there is bisected and fixed
 # at once (main red is never pre-existing).
 set -euo pipefail
+
+# Default-build packages in a list of candidate directories, one per line.
+#
+# A directory whose every .go file is build-tagged (cmd/autopayaudit) is not a
+# package in a default build: naming it to `go vet`/`go test` fails the whole
+# run with "build constraints exclude all Go files" (9b9bd27a, 2026-10-06).
+# `go list -e` reports such a package with no .GoFiles/.TestGoFiles/
+# .XTestGoFiles and exits 0 (the -e tolerates the load error), so keep only
+# candidates with at least one default-build file. The class -- not just
+# cmd/autopayaudit -- is covered: any candidate the default build cannot
+# compile is dropped, and scripts/tests/gate_affected_smoke.sh pins that
+# behavior so the filter cannot be dropped by a later edit.
+#
+# Input: candidate package paths on stdin (./dir form). Output: the subset
+# buildable under the default tags, order preserved.
+gate_affected_default_build_pkgs() {
+  local p
+  while IFS= read -r p; do
+    [ -n "$p" ] || continue
+    [ -n "$(go list -e -f '{{if or .GoFiles .TestGoFiles .XTestGoFiles}}y{{end}}' "$p" 2>/dev/null)" ] && echo "$p"
+  done
+  return 0
+}
+
+# Test seam (scripts/tests/gate_affected_smoke.sh): define the helper above and
+# stop, so a smoke test can exercise the default-build filter without running
+# the gate. The real gate never sets this.
+if [ -n "${GATE_AFFECTED_SOURCE_LIB:-}" ]; then return 0 2>/dev/null || exit 0; fi
+
 base=${1:?usage: gate_affected.sh <base>}
 mb=$(git merge-base "$base" HEAD)
 
@@ -29,14 +58,9 @@ pkgs=$(git diff --name-only "$mb" HEAD | while read -r f; do
   d=$(dirname "$f"); d=${d%%/testdata*}
   if [ -d "$d" ] && compgen -G "$d/*.go" >/dev/null; then echo "./$d"; fi
 done | sort -u | /usr/bin/grep -v -x -E '\./rules' || true)
-# A package whose every file is build-tagged (cmd/autopayaudit) has nothing to
-# vet or test in a default build, and naming it fails the whole run with
-# "build constraints exclude all Go files" (9b9bd27a, 2026-10-06). Keep only
-# packages with at least one default-build file.
+# Drop candidates the default build cannot compile (see the helper above).
 if [ -n "$pkgs" ]; then
-  pkgs=$(for p in $pkgs; do
-    [ -n "$(go list -e -f '{{if or .GoFiles .TestGoFiles .XTestGoFiles}}y{{end}}' "$p" 2>/dev/null)" ] && echo "$p"
-  done || true)
+  pkgs=$(printf '%s\n' $pkgs | gate_affected_default_build_pkgs)
 fi
 others=$(printf '%s\n' $pkgs ./internal/codeshape ./view | sort -u)
 # Any change can move compliance verdicts: generator/harness edits did
