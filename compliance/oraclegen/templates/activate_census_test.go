@@ -54,6 +54,11 @@ var activateCensusSets = []string{"BIG", "EOE", "FDN", "FRA"}
 // zone-moving Exile/CollectEvidence costs) are now served from the
 // activation-cost fixture table, so the EOE ExileFromGrave<...> skip
 // becomes a served battlefield requirement (EOE battlefield +1).
+//
+// Re-measured for the keyword-shaped activation-cost ticket
+// (cli-20261006T071710Z-0ab6e98c): a non-loyalty AddCounter<N/KIND> on the
+// source is payable with no prerequisite, so the two FDN Mazemind Tome
+// AddCounter<1/PAGE> skips become served battlefield requirements (FDN +2).
 var wantActivateCensus = map[string]map[string]int{
 	"BIG": {
 		"served:activate.battlefield":             10,
@@ -73,10 +78,9 @@ var wantActivateCensus = map[string]map[string]int{
 		"skip:activate xmage text ambiguous":      6,
 	},
 	"FDN": {
-		"served:activate.battlefield":                          79,
+		"served:activate.battlefield":                          81,
 		"served:activate.graveyard":                            2,
 		"served:activate.mana":                                 52,
-		"skip:activate cost gap: AddCounter<...>":              2,
 		"skip:activate cost gap: SubCounter<...>":              4,
 		"skip:activate cost gap: tapXType<unsupported-filter>": 1,
 		"skip:activate no fixture":                             6,
