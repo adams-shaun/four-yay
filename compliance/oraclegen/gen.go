@@ -798,7 +798,7 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSt
 				// unused (measured on the std pass).
 				continue
 			}
-			as = targetDecisionAnswers(ds, i)
+			as = targetDecisionAnswers(routing, i)
 		case "mode":
 			if (d.Resume == "unless_pay" || d.Resume == "unless_decline") && unlessPolarity(d) == "no" {
 				// An unless-pay (UnlessCost$) is XMage's boolean chooseUse,
@@ -868,6 +868,12 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSt
 			as = append(as, XAnswer{d.Seat, "choice", map[bool]string{true: "yes", false: "no"}[yes]})
 		case "choose_n":
 			if d.Resume == "damage_split" {
+				if routing.ownsSplit(i) {
+					// The shares were emitted at the target ask's own queue
+					// position (before that ask's chain skips); emitting them
+					// here as well would duplicate every "^X=" answer.
+					continue
+				}
 				// Divided damage: the engine's split ask repeats one option index
 				// per damage assigned (Fury, Forked Bolt, Twin Bolt). XMage's
 				// chooseTargetAmount consumes one "<ref>^X=<share>" per chosen
@@ -1151,8 +1157,8 @@ func refSeat(ref string) (int, bool) {
 // "<ref>^X=<share>" form, anything else one answer per pick. Every form is
 // followed by a target skip for each "up to N" chain slot the engine settled
 // without posing it (XMage still asks those).
-func targetDecisionAnswers(ds []rules.OracleDecision, i int) []XAnswer {
-	d := ds[i]
+func targetDecisionAnswers(r *answerRouting, i int) []XAnswer {
+	d := r.ds[i]
 	var as []XAnswer
 	switch {
 	case d.PerPlayer:
@@ -1165,7 +1171,7 @@ func targetDecisionAnswers(ds []rules.OracleDecision, i int) []XAnswer {
 		// A TargetAmount slot (distribute counters, divided damage): XMage's
 		// chooseTargetAmount takes one "<ref>^X=<share>" per target and is
 		// complete once the shares reach the total, so no skip follows.
-		as = dividedTargetAnswers(ds, i)
+		as = dividedTargetAnswers(r, i)
 	default:
 		for _, ref := range d.PickRefs {
 			v := ref
@@ -1188,19 +1194,16 @@ func targetDecisionAnswers(ds []rules.OracleDecision, i int) []XAnswer {
 }
 
 // dividedTargetAnswers answers a divided target ask with each pick's share of
-// the total. A divided-damage ask with several targets is followed by the
-// engine's own damage_split decision, which carries the shares (and is
-// answered by damageSplitAnswers), so the picks alone say nothing. Counters
-// have no such decision: the engine deals them round-robin over the picks.
-func dividedTargetAnswers(ds []rules.OracleDecision, i int) []XAnswer {
-	d := ds[i]
+// the total. A divided target ask with several recipients is paired with the
+// engine's own damage_split decision (that split's recipients are exactly the
+// ask's), whose shares are then emitted here -- at the ask's own queue
+// position, ahead of the chain skips its caller appends. Counters have no such
+// decision: the engine deals them round-robin over the picks.
+func dividedTargetAnswers(r *answerRouting, i int) []XAnswer {
+	d := r.ds[i]
 	n := len(d.PickRefs)
-	if n > 1 {
-		for _, next := range ds[i+1:] {
-			if next.Step == d.Step && next.Seat == d.Seat && next.Resume == "damage_split" {
-				return nil
-			}
-		}
+	if j, ok := r.targetSplit[i]; ok {
+		return damageSplitAnswers(r.ds[j])
 	}
 	as := make([]XAnswer, 0, n)
 	for k, ref := range d.PickRefs {
