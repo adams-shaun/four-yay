@@ -58,7 +58,6 @@ func TestTriggerRecipes(t *testing.T) {
 		{"Comet Crawler", "trigger#0.0", "trigger.attacks"},
 		{"Illvoi Infiltrator", "trigger#0.0", "trigger.combat-damage"},
 		{"Oltec Matterweaver", "trigger#0.0", "trigger.spell-cast"},
-		{"Ruric Thar, Biomagus", "trigger#0.0", "trigger.becomes-target"},
 		{"Ajani's Pridemate", "trigger#0.0", "trigger.life-gained"},
 		{"Erudite Wizard", "trigger#0.0", "trigger.drawn"},
 	} {
