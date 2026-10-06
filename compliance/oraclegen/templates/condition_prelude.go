@@ -299,6 +299,36 @@ func sacrificeConditionPrelude(reg *cards.Registry) (conditionPrelude, bool) {
 	}, true
 }
 
+// scriptPreludeSacrifice carries a prelude step's scripted sacrifice choice to
+// XMage. Gorge's own decision log drops a sole sacrifice candidate as a forced
+// ask, but XMage still poses the TargetControlledPermanent ask for it, so the
+// prelude's explicit pick is exported as the step's choice answer (the shape
+// the activation Sac cost path records). The prelude opens the scenario, so a
+// prelude step index is the scenario step index.
+func scriptPreludeSacrifice(xa [][]oraclegen.XAnswer, prelude []oraclegen.Step, steps int) [][]oraclegen.XAnswer {
+	for i, st := range prelude {
+		if i >= steps {
+			break
+		}
+		for _, a := range st.Answers {
+			if a.Kind != "choose" || len(a.Pick) != 1 {
+				continue
+			}
+			if xa == nil {
+				xa = make([][]oraclegen.XAnswer, steps)
+			}
+			have := false
+			for _, x := range xa[i] {
+				have = have || x.Kind == "choice" && x.Value == a.Pick[0]
+			}
+			if !have {
+				xa[i] = append(xa[i], oraclegen.XAnswer{Seat: st.Seat, Kind: "choice", Value: a.Pick[0]})
+			}
+		}
+	}
+	return xa
+}
+
 func conditionText(params, svars map[string]string) []string {
 	out := make([]string, 0, len(params)+len(svars))
 	keys := make([]string, 0, len(params))

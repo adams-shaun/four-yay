@@ -1060,26 +1060,7 @@ func forcedSingleOption(d rules.OracleDecision) bool {
 	if hasTargetPick(d) {
 		return false
 	}
-	if sacrificePicksOnly(d) {
-		// A sacrifice cost's sole candidate (Village Rites with one creature)
-		// is still a TargetControlledPermanent ask XMage poses, exactly like
-		// the activation Sac cost path exports the observed pick.
-		return false
-	}
 	return d.Options == 1 && d.Min == 1 && d.Max == 1
-}
-
-// sacrificePicksOnly reports whether every pick of d is a sacrifice choice.
-func sacrificePicksOnly(d rules.OracleDecision) bool {
-	if len(d.Picks) == 0 {
-		return false
-	}
-	for k := range d.Picks {
-		if pickKind(d, k) != "sacrifice" {
-			return false
-		}
-	}
-	return true
 }
 
 // forcedChoicePosed reports whether a forced one-option choose_n ask is still
