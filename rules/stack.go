@@ -810,6 +810,17 @@ func (e *Engine) recheckCastSubTargets(id state.ObjID, root *cards.SA, controlle
 	if len(answers) == 0 {
 		return 0, 0
 	}
+	// A link whose pool reads an EARLIER target (Rusting Blast's
+	// Equipment.AttachedTo ParentTarget) is judged against the nearest
+	// earlier targeting link's announced answers, the census binding the
+	// cast-time ask used (subTargetAsk); the root's targets for the first.
+	savedParent, savedBound := e.subOfferParent, e.subOfferBound
+	defer func() { e.subOfferParent, e.subOfferBound = savedParent, savedBound }()
+	var rootTargets []state.Target
+	if o := e.G.Obj(id); o != nil {
+		rootTargets = o.Targets
+	}
+	e.subOfferParent, e.subOfferBound = rootTargets, true
 	for sa := root.Sub; sa != nil; sa = sa.Sub {
 		ts, ok := answers[sa.Line]
 		if !ok {
@@ -817,6 +828,7 @@ func (e *Engine) recheckCastSubTargets(id state.ObjID, root *cards.SA, controlle
 		}
 		chosen += len(ts)
 		kept := e.legalTargets(ts, sa, targetZones(sa), controller, source, id)
+		e.subOfferParent = ts
 		legal += len(kept)
 		if kept == nil {
 			kept = []state.Target{}
@@ -845,6 +857,11 @@ func (e *Engine) legalTargets(targets []state.Target, sa *cards.SA, zones []stat
 	defer e.releaseSpecEnv()
 	sc.ResolutionTargets = targets
 	sc.Resolving = true
+	if e.subOfferBound {
+		// A chain link's Targeted*/ParentTarget referent is its parent's
+		// announced target, not the link's own (CR 601.2c vs 608.2b).
+		sc.ResolutionTargets = e.subOfferParent
+	}
 	// TargetingPlayerControls$ (tpc1): the restriction's answering seat is
 	// resolved through the same derivation the offer census used, with the
 	// answered-ask record taking precedence -- it is keyed by self, the

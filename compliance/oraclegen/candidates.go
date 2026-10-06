@@ -25,6 +25,18 @@ type Slot struct {
 	// pick of a TargetsWithDifferentControllers$ slot (Run Away Together)
 	// needs a different controller than the first.
 	Mirror bool
+	// ParentTarget marks a slot whose legality reads an EARLIER target of the
+	// same chain (TargetsWithDefinedController$ ParentTarget/
+	// ParentTargetedController). Its candidate must sit on the seat the
+	// earlier parent target names, or the cast-time ask (CR 601.2c) offers
+	// nothing and the generated scenario never names the card.
+	ParentTarget bool
+}
+
+// parentTargetSlot reports whether an ability's target restriction reads an
+// earlier target of the same chain.
+func parentTargetSlot(params map[string]string) bool {
+	return strings.Contains(params["TargetsWithDefinedController"], "ParentTarget")
 }
 
 // requiredSlotCount is how many distinct targets one ability demands: its
@@ -68,9 +80,10 @@ func repeatedSlots(f *cards.Face, params map[string]string, v string, combat boo
 		}
 	}
 	diff := paramTrue(params, "TargetsWithDifferentControllers")
+	parent := parentTargetSlot(params)
 	out := make([]Slot, 0, count)
 	for i := 0; i < count; i++ {
-		out = append(out, Slot{Filter: v, Optional: optionalTarget(params), Mirror: diff && i%2 == 1})
+		out = append(out, Slot{Filter: v, Optional: optionalTarget(params), Mirror: diff && i%2 == 1, ParentTarget: parent})
 	}
 	return out
 }
@@ -751,6 +764,14 @@ func fixtures(reg *cards.Registry, slots []Slot) []fixture {
 		var next []fixture
 		for _, fx := range out {
 			for _, c := range cs {
+				if s.ParentTarget {
+					// The legal set is the earlier target's controller's objects:
+					// place the candidate on that seat (the last ref names it), or
+					// the cast-time ask has no candidate to offer (Rite of Renewal).
+					if seat, ok := lastRefSeat(fx.targets); ok {
+						c.seat = seat
+					}
+				}
 				if c.attachTo != "" && len(fx.targets) > 0 {
 					c.attachTo = fx.targets[0]
 				}
@@ -812,6 +833,20 @@ func fixtures(reg *cards.Registry, slots []Slot) []fixture {
 		out = next
 	}
 	return out
+}
+
+// lastRefSeat returns the seat named by the most recent target ref in the
+// fixture's slot list: a bare "p0"/"p1" player ref, or the "pN" prefix of an
+// object ref ("p1:Grizzly Bears#2").
+func lastRefSeat(refs []string) (string, bool) {
+	if len(refs) == 0 {
+		return "", false
+	}
+	ref := refs[len(refs)-1]
+	if len(ref) >= 2 && ref[0] == 'p' && (ref[1] == '0' || ref[1] == '1') {
+		return ref[:2], true
+	}
+	return "", false
 }
 
 // zoneRef names the candidate's target: the seat and card, with a #n suffix

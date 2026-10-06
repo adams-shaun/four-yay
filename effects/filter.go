@@ -265,6 +265,13 @@ var predicates = map[string]predFn{
 	"IsMonstrous": func(_ *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
 		return o.Monstrous
 	},
+	// IsSolved is a Case's solved designation (CR 719.3b): the Case
+	// cycle's `IsPresent$ Card.Self+!IsSolved` solve gate and its
+	// `Card.Self+IsSolved` "Solved --" statics, triggers and replacements.
+	// It reads the event-backed flag the events.AlterAttribute fold sets.
+	"IsSolved": func(_ *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
+		return o.Solved
+	},
 	"IsRenowned": func(_ *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
 		return o.Renowned
 	},

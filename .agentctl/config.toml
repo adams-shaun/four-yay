@@ -328,7 +328,7 @@ env = { GORGE_REWARD_DIR = "/home/sadams/projects/gorge/.ds4/reward" }
 name = "go build"
 cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "-p", "CPUQuota=400%", "go", "build", "./..."]
 timeout = 900
-env = { GOMEMLIMIT = "1GiB", GOMAXPROCS = "4" }
+env = { GOMEMLIMIT = "1GiB", GOMAXPROCS = "4", GOFLAGS = "-p=2 -trimpath" }
 
 [[gates]]
 # 2026-10-05 (operator): per-ticket validation cut to 1-2 min. The old module
@@ -341,7 +341,7 @@ env = { GOMEMLIMIT = "1GiB", GOMAXPROCS = "4" }
 name = "go test (affected)"
 cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=8G", "-p", "CPUQuota=1600%", "bash", "-c", "set -o pipefail; git show {base}:scripts/gate_affected.sh | bash -s {base}"]
 timeout = 600
-env = { GOMEMLIMIT = "4GiB", GOMAXPROCS = "16", GOGC = "200" }
+env = { GOMEMLIMIT = "4GiB", GOMAXPROCS = "16", GOGC = "200", GOFLAGS = "-p=2 -trimpath" }
 
 [[gates]]
 name = "CR conformance"
@@ -349,7 +349,7 @@ cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "-p", "CP
 timeout = 300
 # GOGC=200: same setting as the module gate above, for the same reason -- this
 # runs the same rules test binary, whose GC cost GOGC=200 cuts ~20%.
-env = { GORGE_CR_CONFORMANCE = "1", GOMEMLIMIT = "1GiB", GOGC = "200" }
+env = { GORGE_CR_CONFORMANCE = "1", GOMEMLIMIT = "1GiB", GOGC = "200", GOFLAGS = "-p=2 -trimpath" }
 accept = "orchestrator.hooks:cr_no_fail_lines"
 
 [[gates]]
@@ -357,14 +357,14 @@ name = "TestHeads"
 cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "-p", "CPUQuota=200%", "go", "test", "./rules", "-run", "TestHeads", "-v"]
 timeout = 120
 # GOGC=200: as for the module and CR gates -- same rules test binary.
-env = { GOMEMLIMIT = "1GiB", GOGC = "200" }
+env = { GOMEMLIMIT = "1GiB", GOGC = "200", GOFLAGS = "-p=2 -trimpath" }
 blocking = false          # the TestHeads policy (hooks.testheads_policy) decides
 
 [[gates]]
 name = "make sim"
 cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "-p", "CPUQuota=200%", "make", "sim"]
 timeout = 600
-env = { GOMEMLIMIT = "1GiB" }
+env = { GOMEMLIMIT = "1GiB", GOFLAGS = "-p=2 -trimpath" }
 accept = "orchestrator.hooks:sim_all_replayed"
 
 [[gates]]
@@ -450,3 +450,14 @@ decode = "base64"
 
 [hooks]
 post_gates = "orchestrator.hooks:testheads_policy"
+
+# 2026-10-05 (operator): every seat runs in its own capped systemd scope
+# (agentctl 36c55ec/652bf8a; defaults MemoryMax=4G, CPUQuota=200%,
+# GOMAXPROCS=2, GOMEMLIMIT=1536MiB). The env table replaces the defaults, so
+# it restates them. GOFLAGS adds -trimpath: without it every worktree's
+# absolute path is in every compile's cache key and no seat reuses another's
+# builds (measured: 0 cross-worktree hits; 4/5 with -trimpath).
+[seats.scope]
+memory_max = "4G"
+cpu_quota = "200%"
+env = { GOMAXPROCS = "2", GOMEMLIMIT = "1536MiB", GOFLAGS = "-p=2 -trimpath" }

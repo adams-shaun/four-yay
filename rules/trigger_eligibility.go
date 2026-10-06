@@ -403,6 +403,10 @@ var triggerModeEventRows = [...]struct {
 	// fall to the allTriggerEvents default keeps a BecomeMonstrous-only
 	// face's mask narrow for every other kind.
 	{cards.TriggerBecomeMonstrous, 0},
+	// CaseSolved reads the same AlterAttribute carrier ("Solved" grant),
+	// admitted through the same fail-open path and gated by
+	// trigmatch.caseSolvedMatches.
+	{cards.TriggerCaseSolved, 0},
 	// The Evolved marker's ordinal is past the 64-bit mask's reach, the
 	// GiveGift/Surveil shape: a mask bit is not encodable and allows()
 	// fails open for every kind at or past triggerMaskKindBits, so the
