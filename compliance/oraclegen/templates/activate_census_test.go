@@ -21,12 +21,17 @@ var activateCensusSets = []string{"BIG", "EOE", "FDN", "FRA"}
 // with the no-fixture target list folded away. Measured 2026-10-06 with this
 // ticket's generator. The test fails in both directions: a template or
 // classifier change that changes a count shows up as a diff, and so does a
-// stale pin. activate.zone:* requirements are gaps the level-B classifier
-// owns, so they are not counted here (compliance/levelb/census_test.go pins
-// them).
+// stale pin. activate.zone:<Z> requirements (an activation zone other than
+// hand or graveyard) are gaps the level-B classifier owns, so they are not
+// counted here (compliance/levelb/census_test.go pins them). The hand and
+// graveyard sub-families are served by this template (ticket levelb-fra-
+// activate-zones): FRA's 11 no-fixture skips now include Gideon's Memorial #0.1
+// (an attacking or blocking creature target), Proctor of Potential #0.0 and
+// Grim Repriser #0.0 (an "activate only if ..." condition no setup satisfies).
 var wantActivateCensus = map[string]map[string]int{
 	"BIG": {
 		"served:activate.battlefield":             10,
+		"served:activate.hand":                    2,
 		"served:activate.mana":                    4,
 		"skip:activate cost gap: Sac<...>":        1,
 		"skip:activate cost gap: SubCounter<...>": 1,
@@ -44,6 +49,7 @@ var wantActivateCensus = map[string]map[string]int{
 	},
 	"FDN": {
 		"served:activate.battlefield":                          69,
+		"served:activate.graveyard":                            2,
 		"served:activate.mana":                                 50,
 		"skip:activate cost gap: AddCounter<...>":              2,
 		"skip:activate cost gap: Return<...>":                  1,
@@ -55,8 +61,10 @@ var wantActivateCensus = map[string]map[string]int{
 	},
 	"FRA": {
 		"served:activate.battlefield":        59,
+		"served:activate.graveyard":          7,
+		"served:activate.hand":               8,
 		"served:activate.mana":               24,
-		"skip:activate no fixture":           8,
+		"skip:activate no fixture":           11,
 		"skip:activate xmage text ambiguous": 10,
 	},
 }

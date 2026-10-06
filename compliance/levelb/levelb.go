@@ -126,7 +126,12 @@ func newReq(family string, face int, slot, sub, gap string, covered bool) Requir
 // classifyActivate returns the activated-ability sub-family and its gap.
 func classifyActivate(sa *cards.SA) (sub, gap string) {
 	zone, _ := sa.Param(cards.PKActivationZone)
-	if zone != "" && !strings.EqualFold(zone, "Battlefield") {
+	switch {
+	case strings.EqualFold(zone, "Hand"):
+		return "activate.hand", ""
+	case strings.EqualFold(zone, "Graveyard"):
+		return "activate.graveyard", ""
+	case zone != "" && !strings.EqualFold(zone, "Battlefield"):
 		return "activate.zone:" + zone, "activation zone " + zone
 	}
 	if strings.EqualFold(sa.API, "Mana") {

@@ -89,7 +89,9 @@ verdicts move it.
 |---|---|---|
 | `activate.battlefield` | `ActivationZone$` absent or `Battlefield`, API ≠ `Mana` | activate (§2.1) |
 | `activate.mana` | API `Mana`, battlefield | activate (§2.1) |
-| `activate.zone:<Z>` | `ActivationZone$` Hand/Graveyard/… | gap |
+| `activate.hand` | `ActivationZone$ Hand` (channel-style, cycling): the card starts in p0's hand | activate (§2.1) |
+| `activate.graveyard` | `ActivationZone$ Graveyard`: the card starts in p0's graveyard | activate (§2.1) |
+| `activate.zone:<Z>` | any other `ActivationZone$` | gap |
 | `trigger.<recipe>` | mode in the recipe table (§2.2) | trigger |
 | `trigger.gap:<Mode>` | any other mode or a parameter shape the recipe refuses | gap |
 | `static.continuous` | `Mode == Continuous` | static (§2.3) |
