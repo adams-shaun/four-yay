@@ -92,18 +92,16 @@ func TestConditionPreludePhaseExamples(t *testing.T) {
 				}
 			case "Sawblade Skinripper", "Phoenix Fleet Airship":
 				assertStepCard(t, item.Scenario.Steps, "Village Rites")
-				if tc.name == "Sawblade Skinripper" {
-					matches := 0
-					for _, answers := range item.XAnswers {
-						for _, answer := range answers {
-							if answer.Kind == "choice" && answer.Value == "Grizzly Bears" {
-								matches++
-							}
+				matches := 0
+				for _, answers := range item.XAnswers {
+					for _, answer := range answers {
+						if answer.Kind == "choice" && answer.Value == "Grizzly Bears" {
+							matches++
 						}
 					}
-					if matches != 1 {
-						t.Fatalf("XMage answers name sacrificed Grizzly Bears %d times, want once: %+v", matches, item.XAnswers)
-					}
+				}
+				if matches != 1 {
+					t.Fatalf("XMage answers name sacrificed Grizzly Bears %d times, want once: %+v", matches, item.XAnswers)
 				}
 			}
 

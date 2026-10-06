@@ -37,7 +37,6 @@ var wantTriggerCensus = map[string]map[string]int{
 		"skip:trigger.dies-other: trigger did not fire":               0,
 		"skip:trigger.dies: trigger no recipe: dies needs a creature": 1,
 		"skip:trigger.etb-other: trigger covered by level A":          76,
-		"skip:trigger.phase: trigger condition: turn history (X)":     0,
 		"skip:trigger.phase: trigger did not fire":                    1,
 		"skip:trigger.spell-cast: trigger did not fire":               0,
 	},
