@@ -35,7 +35,21 @@ others=$(printf '%s\n' $pkgs ./internal/codeshape ./view | sort -u)
 # ./rules, so a stale verdict parks the ticket for a host replay instead of
 # turning main red.
 others=$(printf '%s\n' $others ./compliance/gate ./compliance/adopt | sort -u)
-echo "gate_affected: rules + $(echo $others)"
+# Trajectory-pinned packages: tests that replay seeded bot games and pin a
+# finding by (seed, event seq), or replay a committed recorded game event for
+# event. Any engine change that emits, drops or reorders an event renumbers
+# them even when TestHeads is honestly re-pinned; 2eaca9010 (ExcessDamage
+# history events) re-pinned heads 4/6/8 and turned main red in
+# ./internal/paymirror unseen by this gate. They run when the branch moves a
+# chain head or touches engine code (rules/effects/events/state, non-test Go).
+# The cardfuzz half is only its two seed-pinned finding tests.
+traj=0
+if git diff --name-only "$mb" HEAD | /usr/bin/grep -v -E '_test\.go$' | /usr/bin/grep -q -E \
+  '^rules/testdata/heads/|^(rules|effects|events|state)/([^/]+/)*[^/]+\.go$'; then
+  traj=1
+  others=$(printf '%s\n' $others ./internal/paymirror ./cmd/repro | sort -u)
+fi
+echo "gate_affected: rules + $(echo $others)$([ $traj = 1 ] && echo ' + cardfuzz findings')"
 
 go vet $others ./rules
 go test -p=8 -skip "^($global|$kr8|$postmerge)$" ./rules/ & a=$!
@@ -47,6 +61,11 @@ go test -p=8 -skip "^($global)$" $others & d=$!
 # broke them unseen by this gate on 2026-10-05. Both checks are seconds.
 go test -p=8 ./internal/searchprobe/ & e=$!
 go test -p=8 -run '^TestCommittedOvershootCaptureReplaysToTheParkedAsk$' ./host/ & f=$!
+pids="$a $b $c $d $e $f"
+if [ "$traj" = 1 ]; then
+  go test -p=8 -run '^(TestRoundTenFindings|TestForbiddenRitualRepeatYesFinding)$' ./cmd/cardfuzz/ & g=$!
+  pids="$pids $g"
+fi
 rc=0
-for p in "$a" "$b" "$c" "$d" "$e" "$f"; do wait "$p" || rc=1; done
+for p in $pids; do wait "$p" || rc=1; done
 exit $rc
