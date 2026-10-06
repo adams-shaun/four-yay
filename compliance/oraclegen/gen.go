@@ -47,30 +47,32 @@ type Seat struct {
 	// the card enters with. Like Tapped it names every placement of that
 	// card. A planeswalker's loyalty headroom and a "creature with a +1/+1
 	// counter" target fixture ride it.
-	Counters map[string]map[string]int `json:"counters,omitempty"`
+	Counters map[string]map[string]int32 `json:"counters,omitempty"`
+	// Speed is the seat's starting speed, 0..4 (the runner's setup field).
+	Speed int32 `json:"speed,omitempty"`
 }
 
 // WithCounters returns s with n more counters of kind on its card name. The
 // map is copied, so a fixture's seat is never mutated through a shared map.
-func WithCounters(s Seat, name, kind string, n int) Seat {
+func WithCounters(s Seat, name, kind string, n int32) Seat {
 	s.Counters = cloneCounters(s.Counters)
 	if s.Counters == nil {
-		s.Counters = map[string]map[string]int{}
+		s.Counters = map[string]map[string]int32{}
 	}
 	if s.Counters[name] == nil {
-		s.Counters[name] = map[string]int{}
+		s.Counters[name] = map[string]int32{}
 	}
 	s.Counters[name][kind] += n
 	return s
 }
 
-func cloneCounters(m map[string]map[string]int) map[string]map[string]int {
+func cloneCounters(m map[string]map[string]int32) map[string]map[string]int32 {
 	if m == nil {
 		return nil
 	}
-	out := make(map[string]map[string]int, len(m))
+	out := make(map[string]map[string]int32, len(m))
 	for card, kinds := range m {
-		k := make(map[string]int, len(kinds))
+		k := make(map[string]int32, len(kinds))
 		for kind, n := range kinds {
 			k[kind] = n
 		}

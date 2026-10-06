@@ -625,7 +625,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
                         (info, p, g) -> clearSetupEntryHistory(g, seeded));
             }
             runCode("setup", TURN, MAIN, playerA, (info, p, g) -> {
-                addSetupCounters(g);
+                applySetupState(g);
                 registerAliases(g);
                 snaps.add(snapshot(info, g));
             });
@@ -894,6 +894,65 @@ public class ScenarioReplay extends CardTestPlayerBase {
         }
     }
 
+    /** The setup's per-seat "counters" and "speed" (gorge's runner emits the same
+     * CounterChange / SpeedChange events when it places the cards). Runs inside
+     * the "setup" checkpoint, before the first snapshot, because a counter or a
+     * speed needs a live game. "counters" is card name -> counter kind (the
+     * CounterType enum name: CHARGE, P1P1, M1M1, ...) -> amount, applied to every
+     * battlefield placement of the name, like "tapped"; a name or kind XMage does
+     * not know fails the scenario rather than placing nothing. */
+    private void applySetupState(Game g) {
+        JsonObject setup = sc0.has("setup") ? sc0.getAsJsonObject("setup") : new JsonObject();
+        boolean changed = false;
+        for (int i = 0; i < 2; i++) {
+            if (!setup.has("p" + i)) {
+                continue;
+            }
+            JsonObject s = setup.getAsJsonObject("p" + i);
+            TestPlayer pl = seat(i);
+            if (s.has("counters")) {
+                for (Map.Entry<String, JsonElement> byCard : s.getAsJsonObject("counters").entrySet()) {
+                    String name = xmageSpelling(byCard.getKey());
+                    boolean placed = false;
+                    for (Permanent perm : g.getBattlefield().getAllPermanents()) {
+                        // A back-face-staged permanent is still named by its front (setupNames).
+                        if (!pl.getId().equals(perm.getControllerId()) || !setupNames.getOrDefault(perm.getId(), perm.getName()).equals(name)) {
+                            continue;
+                        }
+                        for (Map.Entry<String, JsonElement> byKind : byCard.getValue().getAsJsonObject().entrySet()) {
+                            CounterType kind = xmageCounter(byKind.getKey());
+                            perm.addCounters(kind.createInstance(byKind.getValue().getAsInt()), pl.getId(), null, g);
+                        }
+                        placed = true;
+                        changed = true;
+                    }
+                    if (!placed) {
+                        throw new IllegalArgumentException("counters name " + byCard.getKey() + ", which is not on p" + i + "'s battlefield");
+                    }
+                }
+            }
+            if (s.has("speed") && s.get("speed").getAsInt() > 0) {
+                // CR 702.179: speed starts at 1 and rises one step at a time to 4.
+                pl.initSpeed(g);
+                for (int k = 1; k < s.get("speed").getAsInt(); k++) {
+                    pl.increaseSpeed(g);
+                }
+                changed = true;
+            }
+        }
+        if (changed) {
+            // A counter-gated static -- a Spacecraft's StationLevelAbility, "has
+            // indestructible as long as it has a divinity counter on it" -- is a
+            // ContinuousEffect whose condition reads the source's counters when
+            // XMage last applied effects, which was before these setup adds.
+            // addCounters does not itself recompute, and the snapshot below reads
+            // the stale set, so XMage would show the card still uncounted (no P/T,
+            // no keyword) where gorge shows it live. Apply once with the counters
+            // in place, exactly as the game loop does at the start of a step.
+            g.applyEffects();
+        }
+    }
+
     private int add(JsonObject s, String key, Zone zone, TestPlayer p) {
         List<String> ns = names(s, key);
         // "tapped" names battlefield cards that start tapped (gorge's runner
@@ -944,39 +1003,15 @@ public class ScenarioReplay extends CardTestPlayerBase {
         backFaceNames.put("p" + (p == playerA ? 0 : 1) + ":" + xmageSpelling(name), back.getName());
     }
 
-    /** Puts each seat's setup "counters" (card name -> gorge counter kind ->
-     * n) on every battlefield permanent of that name the seat controls,
-     * added to what it entered with, exactly as gorge's runner does at setup
-     * (a planeswalker's loyalty headroom, a +1/+1-counter target fixture). */
-    private void addSetupCounters(Game g) {
-        JsonObject setup = sc0.has("setup") ? sc0.getAsJsonObject("setup") : new JsonObject();
-        for (int i = 0; i < 2; i++) {
-            JsonObject s = setup.has("p" + i) ? setup.getAsJsonObject("p" + i) : new JsonObject();
-            if (!s.has("counters")) {
-                continue;
-            }
-            TestPlayer pl = seat(i);
-            for (Map.Entry<String, JsonElement> card : s.getAsJsonObject("counters").entrySet()) {
-                String name = xmageSpelling(card.getKey());
-                boolean placed = false;
-                for (Permanent perm : g.getBattlefield().getAllPermanents()) {
-                    if (!pl.getId().equals(perm.getControllerId()) || !setupNames.getOrDefault(perm.getId(), perm.getName()).equals(name)) {
-                        continue;
-                    }
-                    placed = true;
-                    for (Map.Entry<String, JsonElement> c : card.getValue().getAsJsonObject().entrySet()) {
-                        perm.addCounters(xmageCounter(c.getKey()).createInstance(c.getValue().getAsInt()), pl.getId(), null, g);
-                    }
-                }
-                if (!placed) {
-                    throw new IllegalArgumentException("setup counters: p" + i + " controls no " + name);
-                }
-            }
-        }
-    }
-
-    /** Maps a gorge counter kind (P1P1, M1M1, LOYALTY) to XMage's type. */
+    /** Maps a gorge counter kind (P1P1, M1M1, LOYALTY, CHARGE, ...) to XMage's
+     * type: the CounterType enum constant of that name, else the counter whose
+     * display name it spells. */
     private static CounterType xmageCounter(String kind) {
+        try {
+            return CounterType.valueOf(kind);
+        } catch (IllegalArgumentException notAConstant) {
+            // fall through to the display-name lookup
+        }
         String n;
         switch (kind) {
             case "P1P1":

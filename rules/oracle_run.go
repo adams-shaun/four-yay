@@ -97,6 +97,9 @@ type oracleSeat struct {
 	// stands in for an unspecified outside effect, as logged CounterChange
 	// events, so the scenario still replays from its log.
 	Counters map[string]map[string]int32 `json:"counters,omitempty"`
+	// Speed is the seat's starting speed (CR 702.179), 0..4, set with a
+	// SpeedChange event during setup.
+	Speed int32 `json:"speed,omitempty"`
 }
 
 // setupCounters lists the counters a seat's setup puts on a battlefield
@@ -435,6 +438,9 @@ func (r *oracleRun) build(sc oracleScenario) error {
 			}
 			sideboards[p] = append(sideboards[p], c)
 		}
+		if err := validateSetupState(p, s); err != nil {
+			return err
+		}
 	}
 	cfg := Config{Seed: 42, Names: []string{"a", "b"}, Decks: decks, Tokens: r.reg.Tokens, NamedCorpus: r.reg.Cards}
 	for p := range sideboards {
@@ -574,6 +580,7 @@ func (r *oracleRun) build(sc oracleScenario) error {
 				e.emit(events.Event{Kind: events.LifeChange, Player: pid, Amount: d})
 			}
 		}
+		emitSetupSpeed(e.emit, p, e.G.Players[p].Speed, sc.Setup[fmt.Sprintf("p%d", p)])
 	}
 	if sc.xmageFixture {
 		// Generated scenarios start from a position XMage creates with

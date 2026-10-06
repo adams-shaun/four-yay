@@ -17,14 +17,27 @@
 // derives from the filter (a Squirrel for a Squirrel lord, an attack step for
 // "attacking" permanents).
 //
+// A static gated on its own counters (`Card.Self+counters_GE<n>_<KIND>`, the
+// Spacecraft station statics and the "as long as it has a counter" shapes) is
+// served by placing the card on the battlefield holding exactly those counters
+// (counterGatedBase): its effect is live at the first checkpoint, so no cast
+// is needed and the fixture supplies the state the condition reads. A static
+// gated on Condition$ MaxSpeed is placed with p0 at speed 4. A counter- or
+// speed-gated static whose only effect grants an ability, trigger, static or
+// replacement gets the named staticGrantWaits skip rather than the generic
+// observability reason, because the probes cannot observe a granted ability
+// (ticket levelb-static-granted-ability).
+//
 // A candidate is served only when gorge shows an effect: a probe's P/T,
 // evergreen keywords, types or colours differ from its printed ones (Grizzly
 // Bears: 2/2, none), or the card's own differ from its printed ones (a self
 // static whose condition the fixture makes true), or the card shows the P/T of
 // its own characteristic-defining static, or a GainControl$ static leaves a
-// permanent under a controller who is not its owner (static_observe.go). A static that lands on
-// nothing observable stays a skip, so no item asserts a static the engine does
-// not implement.
+// permanent under a controller who is not its owner (static_observe.go). A
+// counter-gated static whose card has become a creature it is not printed as
+// (a Spacecraft's station, a Vehicle's crew condition) is caught the same way,
+// by the card's types moving. A static that lands on nothing observable stays
+// a skip, so no item asserts a static the engine does not implement.
 package templates
 
 import (
@@ -57,11 +70,9 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 	if !ok || len(c.Faces) == 0 {
 		return skip("card not in corpus")
 	}
-	st, affected := cards.Static{}, ""
-	if i, err := strconv.Atoi(req.Slot); err == nil && i >= 0 && i < len(f.Statics) {
-		st = f.Statics[i]
-		affected = st.ParamStr(cards.PKAffected)
-	}
+	st, affected := staticSlotOf(f, req)
+	_, _, gated := staticCounterGate(&st)
+	speedGated := staticGatedOnMaxSpeed(&st)
 	plans := []staticProbePlan{{}}
 	probePlan := staticPlanFor(affected)
 	if !probePlan.empty() {
@@ -138,6 +149,12 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 	if gap := staticOffBattlefieldGrantGap(st); gap != "" {
 		return skip(gap)
 	}
+	// A counter- or speed-gated static that grants only an ability, trigger,
+	// static or replacement is a named wait: the probes compare P/T and
+	// evergreen keywords, which a granted ability never moves.
+	if (gated || speedGated) && staticGrantsAbility(&st) {
+		return skip(staticGrantWaits)
+	}
 	if gap := staticObserveGap(f, st); gap != "" {
 		return skip(gap)
 	}
@@ -155,11 +172,23 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 
 // staticBase builds the unobserved scenario for one probe plan; why is a skip
 // reason when no scenario exists. The zero plan is the original template:
-// Grizzly Bears on both seats.
+// Grizzly Bears on both seats. A static gated on its own counters is placed
+// with the counters its gate names (counterGatedBase) before any cast path,
+// because the condition is a state the fixture must supply; a static gated on
+// Condition$ MaxSpeed gets p0 at speed 4.
 func staticBase(reg *cards.Registry, c *cards.Card, f *cards.Face, name string, req levelb.Requirement, plan staticProbePlan, cond *staticFixture) (oraclegen.Item, string) {
+	st, _ := staticSlotOf(f, req)
 	probes := append([]string{staticProbe}, plan.probes...)
 	var base oraclegen.Item
 	switch {
+	case staticCounterGated(&st) && !staticSelfETB(f):
+		// The card starts on the battlefield holding the counters its gate
+		// names, so the effect is already on at the first checkpoint. A card
+		// with its own ETB trigger cannot use this path: XMage never fires a
+		// setup-placed permanent's ETB (see staticSelfETB), so it stays on
+		// the cast path below.
+		kind, need, _ := staticCounterGate(&st)
+		base = counterGatedBase(f, name, kind, need)
 	case cond != nil && !cond.setupOnly() && (req.Face > 0 || plan.self || oraclegen.HasType(f, "Land")) && !cond.place:
 		return base, "fixture needs steps the scenario has no cast for"
 	case req.Face > 0 || plan.self || (cond != nil && cond.place):
@@ -204,11 +233,32 @@ func staticBase(reg *cards.Registry, c *cards.Card, f *cards.Face, name string, 
 		}
 		base = it
 	}
+	if staticGatedOnMaxSpeed(&st) {
+		withMaxSpeed(base.Setup)
+	}
 	if plan.attack {
 		attackers := staticAttackers(reg, name, probes, plan.self)
 		base.Steps = append(base.Steps, oraclegen.Step{Op: "attack", Seat: 0, Defender: "p1", Attackers: attackers})
 	}
 	return base, ""
+}
+
+// staticSlotOf returns the static a requirement's slot indexes (the zero
+// Static and "" when the slot is not a static) and its Affected$ filter.
+func staticSlotOf(f *cards.Face, req levelb.Requirement) (cards.Static, string) {
+	i, err := strconv.Atoi(req.Slot)
+	if err != nil || i < 0 || i >= len(f.Statics) {
+		return cards.Static{}, ""
+	}
+	st := f.Statics[i]
+	return st, st.ParamStr(cards.PKAffected)
+}
+
+// staticCounterGated reports whether st applies only while its own source
+// holds counters (the staticCounterGate shape).
+func staticCounterGated(st *cards.Static) bool {
+	_, _, ok := staticCounterGate(st)
+	return ok
 }
 
 // staticAttackers is the p0 creatures an attack step sends: every creature
@@ -258,7 +308,10 @@ func staticBackFaceScenario(f *cards.Face, name string, req levelb.Requirement, 
 // the P/T of its own characteristic-defining static; or any permanent whose
 // controller is not its owner under a GainControl$ static. The card is
 // matched by its active face's printed name (f.Name), so a face-after-0 static
-// whose permanent reports the back-face name is still recognised.
+// whose permanent reports the back-face name is still recognised. A
+// counter-gated card that became a creature it is not printed as (a
+// Spacecraft's station, a Vehicle's crew condition) shows up in its types, the
+// same staticCharsMoved comparison every other card uses.
 func staticObserved(s rules.OracleSnapshot, f *cards.Face, name string, st cards.Static, probes map[string]staticProbeSpec) bool {
 	printedKW := oraclediff.EvergreenKeywords(f.Keywords)
 	printedChars := printedStaticChars(f)
@@ -285,6 +338,29 @@ func staticObserved(s rules.OracleSnapshot, f *cards.Face, name string, st cards
 			}
 		}
 		if p.Controller != p.Owner && st.HasParam(cards.PKGainControl) {
+			return true
+		}
+	}
+	return false
+}
+
+// counterGatedBase is the scenario for a static gated on its own counters:
+// the card and the probe on p0's battlefield, the card holding need counters
+// of kind, and no steps -- the first checkpoint already shows the effect.
+func counterGatedBase(f *cards.Face, name, kind string, need int32) oraclegen.Item {
+	p0 := oraclegen.Seat{Battlefield: []string{name, staticProbe}}
+	p0 = withSetupCounters(p0, name, kind, need)
+	sc := oraclegen.Scenario{
+		Setup: map[string]oraclegen.Seat{"p0": p0, "p1": {}},
+		Steps: []oraclegen.Step{},
+	}
+	oraclegen.Baseline(sc.Setup, f)
+	return oraclegen.Item{Scenario: sc}
+}
+
+func hasString(xs []string, want string) bool {
+	for _, x := range xs {
+		if x == want {
 			return true
 		}
 	}
