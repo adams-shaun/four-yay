@@ -29,33 +29,26 @@ func finishTeamworkAnnouncement(t *testing.T, e *Engine) {
 			return
 		}
 		if len(d.Options) > 0 && (d.Kind == decision.KTarget || d.Kind == decision.KModes || d.Kind == decision.KChoose) {
-			choices := []int{d.Options[0].Index}
-			if d.Kind == decision.KModes {
-				if len(d.Options) < d.Min {
-					t.Fatalf("precondition: not enough legal modes for cast: %+v", d)
-				}
-				for _, opt := range d.Options[1:d.Min] {
-					choices = append(choices, opt.Index)
-				}
+			need := d.Min
+			if need < 1 {
+				need = 1
 			}
-			if d.Kind == decision.KTarget && d.ResumeKind == "charm_targets" {
-				for _, opt := range d.Options[1:] {
-					if len(choices) >= d.Min {
-						break
-					}
-					seen := false
-					for _, chosen := range choices {
-						if d.Options[chosen].Group == opt.Group {
-							seen = true
-						}
-					}
-					if !seen {
-						choices = append(choices, opt.Index)
-					}
+			choices := make([]int, 0, need)
+			groups := map[string]bool{}
+			for _, option := range d.Options {
+				if option.Group != "" && groups[option.Group] {
+					continue
+				}
+				choices = append(choices, option.Index)
+				if option.Group != "" {
+					groups[option.Group] = true
+				}
+				if len(choices) == need {
+					break
 				}
 			}
 			if len(choices) < d.Min {
-				t.Fatalf("precondition: not enough distinct Charm target groups: %+v", d)
+				t.Fatalf("precondition: not enough distinct options for decision: %+v", d)
 			}
 			submitChoices(t, e, choices...)
 			continue
@@ -102,7 +95,7 @@ func teamworkOption(t *testing.T, d *decision.Decision, id state.ObjID) int {
 // This cast pays with both two-power creatures, leaving a third untapped.
 func TestTeamworkCastCostAndPaidProvenance(t *testing.T) {
 	t.Parallel()
-	e, cfg, reg := conspireEngine(t, "Go Nuts!")
+	e, cfg, reg := conspireEngine(t, "Go Nuts!", "Grizzly Bears")
 	a := seedBattlefield(t, e, reg, "Goblin Piker")
 	b := seedBattlefield(t, e, reg, "Grizzly Bears")
 	spare := seedBattlefield(t, e, reg, "Grizzly Bears")

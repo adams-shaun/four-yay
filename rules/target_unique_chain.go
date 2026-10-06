@@ -162,18 +162,33 @@ func castSubAskLinks(e *Engine, pc *pendingCast, root *cards.SA) []*cards.SA {
 	if pc.mode == "fuse" || altCastIs(pc.mode, altOverload) {
 		return nil
 	}
-	// A Charm is only the mode-election root. For a single selected mode,
-	// announce that mode's SubAbility$ chain here; keep the general Charm-root
-	// exclusion in collectSubTargetPreAsks for multi-mode and non-cast callers.
-	if root != nil && effects.CharmOf(root).HasChoices {
-		if o := e.G.Obj(pc.card); o != nil && o.Face() != nil && len(o.ChosenModes) == 1 {
-			root = cards.ResolveSVar(o.Face().SVars, o.ChosenModes[0])
+	// For a Charm cast, announce every selected mode's SubAbility$ chain;
+	// the Charm itself is only the mode-election root. This handles a single
+	// selected mode as well as multi-mode casts while leaving non-cast Charm
+	// callers on their existing resolution-time path.
+	var roots []*cards.SA
+	var charm *cards.SA
+	if !pc.isAbility() {
+		if o := e.G.Obj(pc.card); o != nil && o.Face() != nil {
+			charm = o.Face().SpellAbility()
+			if effects.CharmOf(charm).HasChoices && len(o.ChosenModes) > 0 {
+				for _, name := range o.ChosenModes {
+					if mode := cards.ResolveSVar(o.Face().SVars, name); mode != nil {
+						roots = append(roots, mode)
+					}
+				}
+			}
 		}
 	}
+	if !effects.CharmOf(charm).HasChoices && root != nil {
+		roots = append(roots, root)
+	}
 	var out []*cards.SA
-	for _, sub := range e.collectSubTargetPreAsks(root, pc.card) {
-		if e.castSubPreAskable(pc, sub) {
-			out = append(out, sub)
+	for _, mode := range roots {
+		for _, sub := range e.collectSubTargetPreAsks(mode, pc.card) {
+			if e.castSubPreAskable(pc, sub) {
+				out = append(out, sub)
+			}
 		}
 	}
 	return out
