@@ -566,6 +566,28 @@ const (
 	ModeChoiceCounterPrefix = "mode-"
 )
 
+// DamageDealtRecord is one positive damage assignment recorded for its source.
+type DamageDealtRecord struct {
+	// SourceControl is the controller of the damage source when this hit
+	// landed; a later ControlChange cannot reattribute the damage.
+	SourceControl PlayerID
+	// SourceColors are the source's WUBRG colours when the hit landed
+	// (HasSourceColors false for a log recorded before they were kept: the
+	// count then reads the source's current colours).
+	SourceColors    string
+	HasSourceColors bool
+	// Old provenance logs omit these fields; absent values use live characteristics.
+	SourceZone       Zone
+	HasSourceZone    bool
+	SourceTypes      []string
+	Recipient        ObjID
+	RecipientZone    Zone
+	RecipientControl PlayerID
+	RecipientTypes   []string
+	Amount           int32
+	Combat           bool
+}
+
 // Object is any game object: a card in a zone, a permanent, or a spell on the
 // stack. One struct keeps identity stable across zone changes.
 type Object struct {
@@ -667,6 +689,7 @@ type Object struct {
 	// during the current turn, before damage is marked/cleared. Used by Forge's
 	// Count$TotalDamageReceivedThisTurn trigger conditions.
 	DamageReceivedThisTurn int32
+	DamageDealtThisTurn    []DamageDealtRecord
 	// DamageTakenByGame lists, in append order, every damage SOURCE that has
 	// dealt this object damage this game (game-long; never cleared at
 	// TurnChange). Appended by events.Apply's DamageProvenance case with a
@@ -1389,6 +1412,15 @@ type Object struct {
 	// Reset whenever the object leaves the battlefield (events.Move).
 	Paired ObjID
 
+	// MeldedWith marks a MELDED permanent (CR 712.4, 701.42): this object is
+	// the meld card whose Card carries the meld-result face (FaceIdx names
+	// it while melded), and MeldedWith is its partner card's object, parked
+	// in ZCeased for as long as the melded permanent exists. Only events.Apply
+	// writes it (the Meld fold sets it; events.Move clears it and moves the
+	// partner when the melded permanent leaves the battlefield). 0 means not
+	// melded. See state/meld.go.
+	MeldedWith ObjID
+
 	IsMyriad bool
 
 	// CopyMayChooseTarget is CR 707.10c's new-target permission for ONE copy
@@ -1475,7 +1507,7 @@ type Object struct {
 	// page-aligned Objs arena every object's hot head (the fields declared
 	// first) starts on a line of its own. Purely layout: it is never read or
 	// written. A field added above must re-pad it (TestObjectCacheLinePadded).
-	_ [47]byte
+	_ [19]byte
 }
 
 // DoorUnlocked reports the designation of a printed Room face. The cast
@@ -2042,6 +2074,10 @@ func (o *Object) cloneDeepIntoArena(c *Object, a *cloneArena) {
 	c.Imprinted = carveClone(&a.ids, o.Imprinted)
 	c.DamageTakenByGame = carveClone(&a.ids, o.DamageTakenByGame)
 	c.DamageTakenThisTurnBy = carveClone(&a.ids, o.DamageTakenThisTurnBy)
+	c.DamageDealtThisTurn = append([]DamageDealtRecord(nil), o.DamageDealtThisTurn...)
+	for i := range c.DamageDealtThisTurn {
+		c.DamageDealtThisTurn[i].RecipientTypes = append([]string(nil), o.DamageDealtThisTurn[i].RecipientTypes...)
+	}
 	c.ImprintTokens = carveClone(&a.ids, o.ImprintTokens)
 	c.EncodedCards = carveClone(&a.ids, o.EncodedCards)
 	c.SeekFound = carveClone(&a.ids, o.SeekFound)

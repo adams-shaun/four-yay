@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -15,6 +16,10 @@ func init() { Register("MustBlock", effMustBlock) }
 func effMustBlock(h Host, c *Ctx, sa *cards.SA) {
 	if !cards.MustBlockNamedTargetShape(sa) {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "MustBlock selector shape unimplemented"})
+		return
+	}
+	if strings.Compare(strings.TrimSpace(sa.ParamStr(cards.PKChoices)), "Creature.untapped+DefenderCtrl") == 0 {
+		effMustBlockChoicePool(h, c, sa)
 		return
 	}
 	spec := strings.TrimSpace(sa.ParamStr(cards.PKDefinedAttacker))
@@ -69,4 +74,50 @@ func effMustBlock(h Host, c *Ctx, sa *cards.SA) {
 			})
 		}
 	}
+}
+
+// effMustBlockChoicePool implements Crashing Boars' exact choice-pool shape.
+// Candidate iteration follows Game.Objs order, and the no-ask stand-in is the
+// first eligible creature in that same deterministic order.
+func effMustBlockChoicePool(h Host, c *Ctx, sa *cards.SA) {
+	g := h.Game()
+	attacker := g.Obj(c.Source)
+	if attacker == nil || attacker.Zone != state.ZBattlefield {
+		return
+	}
+	chooser := c.DefendingPlayer
+	if !chooser.IsPlayer || int(chooser.Player) >= len(g.Players) {
+		return
+	}
+	var opts []decision.Option
+	for i := range g.Objs {
+		o := &g.Objs[i]
+		if o.Zone != state.ZBattlefield || o.Tapped || !MatchesObjectCtx(g, "Creature.untapped+DefenderCtrl", o, c.SpecContext(chooser.Player)) {
+			continue
+		}
+		label := "Creature"
+		if f := o.Face(); f != nil && f.Name != "" {
+			label = f.Name
+		}
+		opts = append(opts, decision.Option{Index: len(opts), Kind: "object", Label: label, Obj: o.ID})
+	}
+	if len(opts) == 0 {
+		return
+	}
+	d := &decision.Decision{Player: chooser.Player, Kind: decision.KChoose, Min: 1, Max: 1,
+		ResumeKind: "mustblock", ResumeSA: sa, Prompt: "Choose a creature to block", Source: c.Source, Options: opts}
+	ans, served := AskTape(h, d)
+	picked := opts[0].Obj
+	if served && len(ans) > 0 {
+		picked = ans[0].Obj
+	}
+	if picked == 0 {
+		return
+	}
+	dur := sa.ParamStr(cards.PKDuration)
+	h.AddContinuous(state.ContinuousEffect{
+		Source: c.Source, Controller: c.Controller, UntilEOT: effectUntilEOT(h, c.Source, dur), Duration: dur,
+		Restriction: "MustBlock", RestrictParams: map[string]string{"ValidCreature": "Card.IsRemembered"},
+		Remembered: []state.ObjID{picked}, MustBlockAttacker: c.Source,
+	})
 }

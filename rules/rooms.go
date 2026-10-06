@@ -25,21 +25,21 @@ import (
 // CR-613 characteristic combination of both doors, but no supported Room half
 // carries P/T.
 
-// roomLockedFace returns the other, still locked face of a room permanent,
-// or nil when the object is not a two-door room or is already unlocked.
+// roomLockedFaceIndex reports whether fi is a locked face of a two-door Room.
+func roomLockedFaceIndex(o *state.Object, fi int) bool {
+	return o != nil && o.Card != nil && len(o.Card.Faces) == 2 &&
+		int(o.FaceIdx) < len(o.Card.Faces) && fi >= 0 && fi < len(o.Card.Faces) &&
+		isRoomFace(o.Card.Faces[o.FaceIdx]) && isRoomFace(o.Card.Faces[1-int(o.FaceIdx)]) &&
+		!o.DoorUnlocked(fi)
+}
+
+// roomLockedFace returns the first locked face in alternate-then-cast order.
 func roomLockedFace(o *state.Object) *cards.Face {
 	if o == nil || o.Card == nil || len(o.Card.Faces) != 2 || int(o.FaceIdx) >= len(o.Card.Faces) {
 		return nil
 	}
-	if !isRoomFace(o.Card.Faces[o.FaceIdx]) || !isRoomFace(o.Card.Faces[1-int(o.FaceIdx)]) {
-		return nil
-	}
-	// Prefer the alternate face when both doors are locked (the valid
-	// non-cast-entry state). This preserves the ordinary Room unlock offer;
-	// a cast Room has only that alternate locked, while an explicitly locked
-	// cast door is found when its alternate is already unlocked.
 	for _, fi := range []int{1 - int(o.FaceIdx), int(o.FaceIdx)} {
-		if !o.DoorUnlocked(fi) {
+		if roomLockedFaceIndex(o, fi) {
 			return o.Card.Faces[fi]
 		}
 	}
@@ -164,8 +164,15 @@ func (e *Engine) unlockMods(p state.PlayerID, id state.ObjID) (costMods, bool) {
 	return mods, true
 }
 
-// unlockRoomCost returns the locked half's mana cost, parsed, for the offer
-// and payment gate.
+// unlockRoomFaceCost returns the selected locked Room face's mana cost.
+func (e *Engine) unlockRoomFaceCost(o *state.Object, fi int) (Cost, bool) {
+	if !roomLockedFaceIndex(o, fi) {
+		return Cost{}, false
+	}
+	return e.faceCost(o.Card.Faces[fi]), true
+}
+
+// unlockRoomCost returns the first locked face's cost for legacy callers.
 func (e *Engine) unlockRoomCost(o *state.Object) (Cost, bool) {
 	f := roomLockedFace(o)
 	if f == nil {

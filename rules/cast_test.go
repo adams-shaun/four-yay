@@ -199,6 +199,10 @@ func hasNote(e *Engine, substr string) bool {
 // live game — the same fidelity check trigger_test.go's replayFromLog gives.
 func replayCheck(t *testing.T, e *Engine, cfg Config) {
 	t.Helper()
+	// Fixture helpers may register token definitions on the running engine
+	// after New. Replay needs those definitions too, now that New owns a
+	// separate map rather than aliasing the caller's Config map.
+	cfg.Tokens = e.G.Tokens
 	if diff := diffGames(e.G, replayFromLog(t, cfg, e.L.Events)); diff != "" {
 		t.Fatalf("log-only replay differs:\n%s", diff)
 	}

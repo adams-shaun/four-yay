@@ -1,2 +1,3 @@
-{"shape":{"template":"cast-resolve","op":"harness","field":"xmage","diff":"AssertionError: Ability has no targets. Cast $CARD"},"key":"cast-resolve | harness | xmage | AssertionError: Ability has no targets. Cast $CARD","cards":1}
+{"shape":{"template":"cast-resolve","op":"harness","field":"xmage","diff":"AssertionError: Ability has no targets. Cast $CARD"},"key":"cast-resolve | harness | xmage | AssertionError: Ability has no targets. Cast $CARD","cards":2}
+{"card":"Cosmium Confluence","template":"cast-resolve","status":"harness","api":"Charm","sets":["LCI"],"detail":"xmage: AssertionError: Ability has no targets. Cast Cosmium Confluence"}
 {"card":"The Eagles Are Coming!","template":"cast-resolve","status":"harness","api":"ChangeZone+Effect+Cleanup","sets":["HOB"],"detail":"xmage: AssertionError: Ability has no targets. Cast The Eagles Are Coming!"}

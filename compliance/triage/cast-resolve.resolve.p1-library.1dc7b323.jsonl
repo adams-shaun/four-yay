@@ -1,2 +1,0 @@
-{"shape":{"template":"cast-resolve","op":"resolve","field":"p1.library","diff":"placement"},"key":"cast-resolve | resolve | p1.library | placement","cards":1}
-{"card":"Singularity Rupture","template":"cast-resolve","status":"diverge","api":"DestroyAll+Pump+RepeatEach","sets":["EOE"],"detail":"step 1 (resolve) p1.graveyard: gorge \"[Grizzly Bears]\", xmage \"[Grizzly Bears, Wastes, Wastes, Wastes, Wastes, Wastes, Wastes, Wastes, Wastes, Wastes, Wastes, Wastes, Wastes, Wastes, Wastes, Wastes, Wastes, Wastes, Wastes, Wastes]\""}

@@ -71,6 +71,9 @@ func compileTypedHalves(f *SAFacts, sa *cards.SA) {
 	if isDigSA(sa) {
 		f.Dig = compileDig(sa)
 	}
+	if cards.APICodeForName(sa.API) == cards.APIDigMultiple {
+		f.DigMultiple = compileDigMultiple(sa)
+	}
 	if isDigUntilSA(sa) {
 		f.DigUntil = compileDigUntil(sa, f.Defined)
 	}
@@ -82,6 +85,9 @@ func compileTypedHalves(f *SAFacts, sa *cards.SA) {
 	}
 	if isVoteSA(sa) {
 		f.Vote = compileVote(sa)
+	}
+	if sa.APIKind() == cards.APIMeld {
+		f.Meld = compileMeld(sa)
 	}
 	if isRepeatEachSA(sa) {
 		f.RepeatEach = compileRepeatEach(sa, f.Defined)

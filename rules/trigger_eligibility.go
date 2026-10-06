@@ -472,6 +472,7 @@ var triggerModeEventRows = [...]struct {
 	{cards.TriggerDamageDealtOnce, 1 << events.Damage},
 	{cards.TriggerDamageDoneOnce, 1 << events.Damage},
 	{cards.TriggerDamageAll, 1 << events.Damage},
+	{cards.TriggerExcessDamageAll, 1 << events.Damage},
 	// The mode fires on the STORED prevention Note (rules/replacement.go's
 	// full-prevention arm and its ReplaceDamage/protection siblings), not
 	// on the Damage event the prevention replaces -- a prevented hit is a
@@ -496,6 +497,8 @@ var triggerModeEventRows = [...]struct {
 	{cards.TriggerRolledDie, 1 << events.Note},
 	{cards.TriggerRolledDieOnce, 1 << events.Note},
 	{cards.TriggerCounterAdded, 1 << events.CounterChange},
+	{cards.TriggerCounterAddedAll, 1 << events.CounterChange},
+	{cards.TriggerCounterTypeAddedAll, 1 << events.CounterChange},
 	{cards.TriggerCounterAddedOnce, 1 << events.CounterChange},
 	{cards.TriggerCounterRemoved, 1 << events.CounterChange},
 	{cards.TriggerCounterRemovedOnce, 1 << events.CounterChange},

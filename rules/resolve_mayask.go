@@ -42,12 +42,15 @@ const (
 	mayAskKnown     uint32 = 1
 	mayAskText      uint32 = 2
 	mayAskGateShift        = 2
-	// mayAskCondShift places the chain's conditional reasons
-	// (cards.MayAskCond*), which the stack object's targets settle, above
-	// the gates.
-	mayAskCondShift = 28
+	// Keep the conditional reasons above every replacement-event gate bit:
+	// adding a new ReplEvent must not masquerade as a target-entry reason.
+	mayAskCondShift = mayAskGateShift + cards.ReplEventCount
 	mayAskGateMask  = uint32(1)<<cards.ReplEventCount - 1
 )
+
+// The highest conditional reason must still fit the uint32 cache state: a
+// constant overflow here is a compile error, not a silent alias.
+const _ uint32 = cards.MayAskCondParentSub << mayAskCondShift
 
 // tapeMayAsk reports whether resolving the top of the stack may pose a
 // decision, judged from text and the stack object. true is always safe.
@@ -56,13 +59,12 @@ func tapeMayAsk(e *Engine) bool {
 }
 
 // tapeBoardCompetes is the board gate every otherwise ask-free resolution
-// meets: counters-put replacements competing for one event (CR 616.1's order
-// choice: a permanent entering with counters under Doubling Season and
-// Hardened Scales) and any replacement that elects or whose body asks. Each
-// test prunes on the replacement arena's event mask, so it costs a load when
-// no such line is in play.
+// meets: counters-put or PayLife cost replacements competing for one event
+// (CR 616.1's order choice), and any replacement that elects or whose body
+// asks. Each test prunes on the replacement arena's event mask, so it costs a
+// load when no such line is in play.
 func tapeBoardCompetes(e *Engine) bool {
-	return tapeReplMayAsk(e, "AddCounter") || tapeAnyReplBodyMayAsk(e)
+	return tapeReplMayAsk(e, "AddCounter") || tapeReplMayAsk(e, "PayLife") || tapeAnyReplBodyMayAsk(e)
 }
 
 func tapeTextMayAsk(e *Engine) bool {

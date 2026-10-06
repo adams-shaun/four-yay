@@ -55,6 +55,7 @@ type ChangeZoneAllParams struct {
 	// ChangeType$ ("Card" when absent) and ChangeNum$; ChangeNumCapped is a
 	// ChangeNum$ that names a cap (present, non-empty, not "All").
 	ChangeType      string
+	TypeLimit       ParamText
 	ChangeNum       ParamText
 	ChangeNumCapped bool
 
@@ -127,7 +128,7 @@ var changeZoneAllKnownKeys = [...]string{
 	"TargetsWithEqualToughness", "TargetsWithSameCardType",
 	"TargetsWithSameController", "TargetsWithSameCreatureType",
 	"TargetsWithSharedCardType", "TargetsWithSharedTypes", "TgtPrompt", "TgtZone",
-	"TokenScript", "Transformed", "TriggerDescription", "Type",
+	"TokenScript", "Transformed", "TriggerDescription", "Type", "TypeLimit",
 	"Ultimate", "Unearth", "UnlessAI", "UnlessCost", "UnlessPayer",
 	"UnlessResolveSubs", "UnlessSwitched", "UseAllOriginZones", "ValidCard",
 	"ValidCards", "ValidCardsDesc", "ValidChoices", "ValidCounterType",
@@ -170,6 +171,10 @@ var czaFront [1 << 10]atomic.Pointer[ChangeZoneAllParams]
 
 // compileChangeZoneAll is the one reader of a ChangeZoneAll ability's
 // parameters.
+func compileChangeZoneRandomOrder(sa *cards.SA) bool {
+	return isTrue(sa.ParamStr(cards.PKRandomOrder))
+}
+
 func compileChangeZoneAll(sa *cards.SA, tp *TargetParams, dp *DefinedParams) *ChangeZoneAllParams {
 	p := &ChangeZoneAllParams{src: sa.Params, n: len(sa.Params)}
 
@@ -191,6 +196,8 @@ func compileChangeZoneAll(sa *cards.SA, tp *TargetParams, dp *DefinedParams) *Ch
 	cn, cnOK := sa.Param(cards.PKChangeNum)
 	p.ChangeNum = paramText(cn, cnOK)
 	p.ChangeNumCapped = p.ChangeNum.Text != "" && !strings.EqualFold(p.ChangeNum.Text, "All")
+	typeLimit, typeLimitOK := sa.Param(cards.PKTypeLimit)
+	p.TypeLimit = paramText(typeLimit, typeLimitOK)
 
 	p.UseAllOriginZones = isTrue(sa.ParamStr(cards.PKUseAllOriginZones))
 	p.ValidTgtsText, p.Targeting = tp.ValidTgts, tp.Has(TgtValidPresent)
@@ -199,7 +206,7 @@ func compileChangeZoneAll(sa *cards.SA, tp *TargetParams, dp *DefinedParams) *Ch
 	p.LibraryPosition = strings.TrimSpace(sa.ParamStr(cards.PKLibraryPosition))
 	p.ShuffleTrue = strings.EqualFold(sa.ParamStr(cards.PKShuffle), "True")
 
-	p.RandomOrder = isTrue(sa.ParamStr(cards.PKRandomOrder))
+	p.RandomOrder = compileChangeZoneRandomOrder(sa)
 	p.RememberLKI = isTrue(sa.ParamStr(cards.PKRememberLKI))
 	p.RememberChanged = isTrue(sa.ParamStr(cards.PKRememberChanged))
 	p.Tapped = isTrue(sa.ParamStr(cards.PKTapped))

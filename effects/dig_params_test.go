@@ -60,11 +60,18 @@ func TestCompileDig(t *testing.T) {
 // TestDigOfIsAllocationFree: a configured record or a front-cache hit
 // allocates nothing.
 func TestDigOfIsAllocationFree(t *testing.T) {
-	bound := &cards.SA{API: "Dig", Params: map[string]string{"DigNum": "3", "ChangeNum": "1"}}
+	bound := slottedSA(t, "Dig", map[string]string{"DigNum": "3", "ChangeNum": "1"})
 	f := NewSAFacts(bound)
 	f.Publish()
+	if LoadSAFacts(bound) != f {
+		t.Fatal("precondition: the configured record is not published on bound's facts slot")
+	}
+
 	cached := &cards.SA{API: "Dig", Params: map[string]string{"DigNum": "2"}}
-	DigOf(cached)
+	cachedParams := DigOf(cached)
+	if cachedParams == nil || DigOf(cached) != cachedParams {
+		t.Fatal("could not prime and verify Dig front-cache hit")
+	}
 	if n := allocsPerRun(100, func() {
 		_ = DigOf(bound)
 		_ = DigOf(cached)

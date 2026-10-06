@@ -20,6 +20,7 @@ var attackingTargetCards = []string{
 	"Cosmium Blast",        // LCI
 	"Sudden Strike",        // SPM
 	"Osseous Exhale",       // TDM
+	"Joust Through",        // TDM
 	"Razor Rings",          // TLA
 	"Sonar Strike",         // BLB
 	"Dreadmaw's Ire",       // LCI

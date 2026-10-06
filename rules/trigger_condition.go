@@ -256,6 +256,17 @@ func (e *Engine) triggerConditionHoldsWithSVars(t cards.Trigger, source state.Ob
 			return false
 		}
 	}
+	if v, ok := t.Param(cards.PKAdamant); ok {
+		// Adamant$ on a trigger is an intervening-if (CR 603.4): reuse
+		// the Count$Adamant evaluator so trigger conditions and keyword
+		// counts read the same pay-time per-colour mana provenance. Any
+		// unreadable spelling fails closed.
+		ctx := effects.NewCtxPtr(source, you, effects.CtxInit{})
+		holds, evaluated := effects.AdamantHolds(e, ctx, e.G, 3, strings.TrimSpace(v))
+		if !evaluated || !holds {
+			return false
+		}
+	}
 	if v, ok := t.Param(cards.PKThreshold); ok {
 		// Threshold$ True (the CR 207.2c ability word, "seven or more cards
 		// in your graveyard"): the trigger-side gate, read through the SAME

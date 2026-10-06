@@ -35,34 +35,50 @@ func xAnswers(f *cards.Face) []oraclegen.Answer {
 }
 
 func castResolve(reg *cards.Registry, f *cards.Face, name, mana string) (oraclegen.Item, *oraclegen.Skip) {
-	// A charm is generated mode by mode: the first mode some fixture can
-	// cast, with the mode scripted so both engines take it.
+	// Charm plans enumerate legal mode combinations in Choices$ order. Each
+	// plan carries all selected chains and one answer containing every pick.
 	type plan struct {
 		slots   []oraclegen.Slot
 		answers []oraclegen.Answer
 	}
 	xAns := xAnswers(f)
 	plans := []plan{{slots: oraclegen.SlotSpecs(f), answers: xAns}}
-	if modes := oraclegen.CharmModes(f); len(modes) > 0 {
+	if combos := oraclegen.CharmCombinations(f); len(combos) > 0 {
 		plans = nil
-		for _, m := range modes {
-			if attachesOnReturn(f, m.SVar()) {
-				// XMage asks which creature the returned Aura/Equipment
-				// attaches to, an ask the scenario cannot script yet (One
-				// Last Job's third mode); another mode stands in.
-				continue
+		for _, combo := range combos {
+			labels := make([]string, 0, len(combo.Modes))
+			usable := true
+			for _, mode := range combo.Modes {
+				if attachesOnReturn(f, mode.SVar()) {
+					// XMage asks which creature the returned Aura/Equipment
+					// attaches to, an ask the scenario cannot script yet.
+					usable = false
+					break
+				}
+				labels = append(labels, mode.Label())
 			}
-			plans = append(plans, plan{slots: oraclegen.ChainSlotSpecs(f, m.SVar()), answers: append([]oraclegen.Answer{{Kind: "modes", Pick: []string{m.Label()}}}, xAns...)})
+			if usable {
+				answers := append([]oraclegen.Answer{{Kind: "modes", Pick: labels}}, xAns...)
+				plans = append(plans, plan{slots: combo.Slots, answers: answers})
+			}
 		}
 	}
-	for _, m := range []string{mana, mana + "C", mana + "CC", mana + "CCC"} {
+	manas := []string{mana, mana + "C", mana + "CC", mana + "CCC"}
+	if hasWaterbendCost(f) {
+		manas = append(manas, mana+"CCCC", mana+"CCCCC")
+	}
+	for _, m := range manas {
 		for _, pl := range plans {
 			if it, ok := castWith(reg, f, name, m, pl.slots, pl.answers); ok {
 				return it, nil
 			}
 		}
 	}
-	return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: fmt.Sprintf("no fixture gorge can cast (targets %v)", filterStrings(plans[0].slots))}
+	var targets []string
+	if len(plans) > 0 {
+		targets = filterStrings(plans[0].slots)
+	}
+	return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: fmt.Sprintf("no fixture gorge can cast (targets %v)", targets)}
 }
 
 func filterStrings(slots []oraclegen.Slot) []string {
@@ -91,6 +107,20 @@ func castWith(reg *cards.Registry, f *cards.Face, name, mana string, slots []ora
 		// stack by then, so the discard needs a second card.
 		func(fx *oraclegen.Fixture) { fx.P0().Hand = append(fx.P0().Hand, "Forest") },
 	}
+	if beholdType := requiredBeholdType(f); beholdType != "" {
+		if candidate := beholdFixture[beholdType]; candidate != "" {
+			extras = append(extras, func(fx *oraclegen.Fixture) {
+				fx.P0().Hand = appendFixtureUnique(fx.P0().Hand, candidate)
+			})
+		}
+	}
+	if tapCount := requiredTapCount(f); tapCount > 0 {
+		extras = append(extras, func(fx *oraclegen.Fixture) {
+			for _, permanent := range []string{"Llanowar Elves", "Forest", "Ornithopter", "Wastes"}[:tapCount] {
+				fx.P0().Battlefield = appendFixtureUnique(fx.P0().Battlefield, permanent)
+			}
+		})
+	}
 	// Collect evidence X pays the total mana value of the selected targets.
 	// Supply enough graveyard mana value for a four-slot cast rather than
 	// treating a reversed payment as an empty-stack success.
@@ -117,7 +147,7 @@ func castWith(reg *cards.Registry, f *cards.Face, name, mana string, slots []ora
 		for _, extra := range extras {
 			for _, fx := range oraclegen.Fixtures(reg, plain) {
 				extra(&fx)
-				sc := buildStackScenario(f, name, mana, pre, fx, slots, stackIdx, answers)
+				sc := buildStackScenario(f, name, physicalName(reg, name), mana, pre, fx, slots, stackIdx, answers)
 				if n, res, ok := oraclegen.Settle(reg, sc); ok {
 					for i := 0; i < n; i++ {
 						sc.Steps = append(sc.Steps, oraclegen.Step{Op: "resolve"})
@@ -155,17 +185,76 @@ func castWith(reg *cards.Registry, f *cards.Face, name, mana string, slots []ora
 	return oraclegen.Item{}, false
 }
 
+// These fixture cards provide the creature type required by the named
+// BeholdExile costs. Keep this data explicit so the fixture is type-correct.
+var beholdFixture = map[string]string{
+	"Kithkin":   "Kithkin Greatheart",
+	"Elemental": "Mulldrifter",
+	"Goblin":    "Goblin Guide",
+	"Merfolk":   "Vodalian Merchant",
+}
+
+func requiredBeholdType(f *cards.Face) string {
+	for _, st := range f.Statics {
+		cost := st.Params["Cost"]
+		if i := strings.Index(cost, "BeholdExile<1/"); i >= 0 {
+			tail := cost[i+len("BeholdExile<1/"):]
+			if j := strings.IndexByte(tail, '>'); j >= 0 {
+				return tail[:j]
+			}
+		}
+	}
+	return ""
+}
+
+func requiredTapCount(f *cards.Face) int {
+	for _, sa := range f.Abilities {
+		if sa.Kind != "SP" {
+			continue
+		}
+		cost := sa.Params["Cost"]
+		if i := strings.Index(cost, "tapXType<"); i >= 0 {
+			tail := cost[i+len("tapXType<"):]
+			if j := strings.IndexByte(tail, '/'); j >= 0 {
+				var n int
+				fmt.Sscanf(tail[:j], "%d", &n)
+				return n
+			}
+		}
+	}
+	return 0
+}
+
+func hasWaterbendCost(f *cards.Face) bool {
+	for _, st := range f.Statics {
+		if strings.Contains(st.Params["Cost"], "Waterbend<5>") {
+			return true
+		}
+	}
+	return false
+}
+
+func appendFixtureUnique(xs []string, name string) []string {
+	for _, x := range xs {
+		if x == name {
+			return xs
+		}
+	}
+	return append(xs, name)
+}
+
 // buildStackScenario builds the scenario for one fixture: the precast spell
 // (if any) is cast first, then the card under test with its targets placed in
-// slot order (a stack slot points at the precast spell on the stack).
-func buildStackScenario(f *cards.Face, name, mana string, pre precast, fx oraclegen.Fixture, slots []oraclegen.Slot, stackIdx []int, answers []oraclegen.Answer) oraclegen.Scenario {
+// slot order (a stack slot points at the precast spell on the stack). hand
+// is the physical card setup deals (physicalName).
+func buildStackScenario(f *cards.Face, name, hand, mana string, pre precast, fx oraclegen.Fixture, slots []oraclegen.Slot, stackIdx []int, answers []oraclegen.Answer) oraclegen.Scenario {
 	targets := insertStackTargets(slots, stackIdx, fx.Targets(), pre)
 	sc := oraclegen.Scenario{
 		Setup:        map[string]oraclegen.Seat{"p0": *fx.P0(), "p1": *fx.P1()},
 		SetupAnswers: oraclegen.OpeningHandAnswers(f),
 		Steps:        []oraclegen.Step{{Op: "cast", Seat: 0, Card: "p0:" + name, Mana: mana, Targets: targets, Answers: answers}},
 	}
-	sc.Setup["p0"] = oraclegen.WithHand(sc.Setup["p0"], name)
+	sc.Setup["p0"] = oraclegen.WithHand(sc.Setup["p0"], hand)
 	if pre.card != "" {
 		sc.Setup["p0"] = oraclegen.WithHand(sc.Setup["p0"], pre.card)
 		cast := oraclegen.Step{Op: "cast", Seat: 0, Card: "p0:" + pre.card, Mana: pre.mana, Targets: pre.targets}

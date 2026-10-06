@@ -502,6 +502,12 @@ func cloneFieldsEngineTriggerBatches(c, e *Engine, sp *Spare, remap *cloneRemap)
 			}
 		}
 	}
+	if e.excessDamageBaseline != nil {
+		c.excessDamageBaseline = make(map[state.ObjID]int32, len(e.excessDamageBaseline))
+		for k0, v0 := range e.excessDamageBaseline {
+			c.excessDamageBaseline[k0] = v0
+		}
+	}
 	if e.zoneBatchOpen {
 		c.zoneBatchOpen = e.zoneBatchOpen
 		c.zoneBatchDepth = e.zoneBatchDepth
@@ -662,6 +668,7 @@ func cloneFieldsEngineContinuation(c, e *Engine, sp *Spare, remap *cloneRemap) {
 		p0.PaidCost.Beholds = append([]state.ObjID(nil), e.cast.PaidCost.Beholds...)
 		p0.PaidCost.Taps = append([]state.ObjID(nil), e.cast.PaidCost.Taps...)
 		p0.PaidCost.Blights = append([]state.ObjID(nil), e.cast.PaidCost.Blights...)
+		p0.PaidCost.TeamworkTaps = append([]state.ObjID(nil), e.cast.PaidCost.TeamworkTaps...)
 		p0.PaidCost.RevealHandArm = append([]bool(nil), e.cast.PaidCost.RevealHandArm...)
 		p0.mods = cloneCastMods(e.cast.mods)
 		p0.preModes = append([]string(nil), e.cast.preModes...)
@@ -867,6 +874,7 @@ func cloneFieldsEngineParked(c, e *Engine, sp *Spare, remap *cloneRemap) {
 		p0.sacs = append([]state.ObjID(nil), e.triggerCost.sacs...)
 		p0.exiles = append([]state.ObjID(nil), e.triggerCost.exiles...)
 		p0.discards = append([]state.ObjID(nil), e.triggerCost.discards...)
+		p0.blights = append([]state.ObjID(nil), e.triggerCost.blights...)
 		p0.moveGraves = append([]state.ObjID(nil), e.triggerCost.moveGraves...)
 		p0.evidence = append([]state.ObjID(nil), e.triggerCost.evidence...)
 		c.triggerCost = &p0
@@ -990,6 +998,22 @@ func cloneFieldsEngineParked2(c, e *Engine, sp *Spare, remap *cloneRemap) {
 				c.replChoices[i0].stage = &p1
 			}
 			c.replChoices[i0].resumeAtPose = remap.resume(e.replChoices[i0].resumeAtPose)
+			if e.replChoices[i0].manaBoundary != nil {
+				p1 := *e.replChoices[i0].manaBoundary
+				if e.replChoices[i0].manaBoundary.phase != nil {
+					p2 := *e.replChoices[i0].manaBoundary.phase
+					if e.replChoices[i0].manaBoundary.phase.cands != nil {
+						p2.cands = make([]replMatch, len(e.replChoices[i0].manaBoundary.phase.cands))
+						for i3 := range e.replChoices[i0].manaBoundary.phase.cands {
+							p2.cands[i3] = e.replChoices[i0].manaBoundary.phase.cands[i3]
+							p2.cands[i3].remembered = append([]state.ObjID(nil), e.replChoices[i0].manaBoundary.phase.cands[i3].remembered...)
+							p2.cands[i3].rememberedPlayers = append([]state.PlayerID(nil), e.replChoices[i0].manaBoundary.phase.cands[i3].rememberedPlayers...)
+						}
+					}
+					p1.phase = &p2
+				}
+				c.replChoices[i0].manaBoundary = &p1
+			}
 		}
 	}
 }

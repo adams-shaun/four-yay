@@ -511,7 +511,7 @@ func (e *Engine) blightCostAsk() bool {
 		if pc.cost.Blight[pc.BlightPart].Announced && !pc.xDone {
 			return false
 		}
-		candidates := pay.CostCandidates(asPayer(e), pc.player, pc.card, state.ZBattlefield, "Creature.YouCtrl", false, false)
+		candidates := pay.BlightCandidates(asPayer(e), pc.player, pc.card)
 		if len(candidates) == 0 {
 			e.abortCast(pc, "blight cost no longer payable; cast aborted", true)
 			return true
@@ -878,6 +878,9 @@ func (e *Engine) castModeAsk() bool {
 	}
 	ctx := effects.NewCtxPtr(pc.card, pc.player, effects.CtxInit{})
 	ctx.Kicker.PendingKicked = modeIsKicked(pc.mode)
+	// CR 702.194b-c: the mode count is fixed by the declared Teamwork
+	// election at 601.2b, before the optional tap payment is answered.
+	ctx.Kicker.PendingTeamwork = castAnswerCodes.Code(pc.mode) == castAnswerTeamworkMode
 	effects.SetSVars(ctx, f.SVars)
 	if effects.CharmRandomChosen(e, ctx, sa) {
 		// param:api:Charm.Random: a random Charm's mode announcement is not

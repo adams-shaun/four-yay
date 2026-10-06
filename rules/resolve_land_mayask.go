@@ -13,8 +13,9 @@ import (
 
 // tapeLandMayAsk reports whether playing land obj by p may pose a decision,
 // judged from the face's entry text, the replacements on the board, and the
-// optional-mana-conversion board gate (the land play drives the ordinary cast
-// flow, whose continueCast reaches ManaConvertAsk). true is always safe.
+// optional-mana-conversion board gate. Land plays use the ordinary cast flow,
+// but do not pay a spell mana cost and therefore cannot ask that election. true
+// is always safe.
 func tapeLandMayAsk(e *Engine, p state.PlayerID, obj state.ObjID) bool {
 	o := e.G.Obj(obj)
 	if o == nil {
@@ -31,10 +32,6 @@ func tapeLandMayAsk(e *Engine, p state.PlayerID, obj state.ObjID) bool {
 				return true
 			}
 		}
-	}
-	_, optional := e.manaConversionParts(p, obj, false)
-	if !optional.Empty() {
-		return true
 	}
 	return tapeLandReplMayAsk(e, obj)
 }

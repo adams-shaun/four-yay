@@ -73,6 +73,31 @@ func changeZoneAllPlayers(h Host, c *Ctx, sa *cards.SA, p *ChangeZoneAllParams) 
 	return out
 }
 
+const ashiokPayLifeChangeType = "Card.NotDefinedReplacedSimultaneousETB"
+
+func changeZoneAllTypeLimitSpec(spec string) string {
+	if spec == ashiokPayLifeChangeType {
+		return "Card"
+	}
+	return spec
+}
+
+func changeZoneAllCap(h Host, c *Ctx, cza *ChangeZoneAllParams) int32 {
+	cap := int32(-1)
+	value := cza.ChangeNum
+	if !cza.ChangeNumCapped {
+		value = cza.TypeLimit
+		if value.Text == "" {
+			return cap
+		}
+	}
+	cap = numText(h, c, value, 0)
+	if cap < 0 {
+		return 0
+	}
+	return cap
+}
+
 func effChangeZoneAll(h Host, c *Ctx, sa *cards.SA) {
 	cza := ChangeZoneAllOf(sa)
 	noteUnreadParams(h, c, "ChangeZoneAll", cza.Unread)
@@ -86,7 +111,7 @@ func effChangeZoneAll(h Host, c *Ctx, sa *cards.SA) {
 		return
 	}
 	to := cza.Destination
-	spec := cza.ChangeType
+	spec := changeZoneAllTypeLimitSpec(cza.ChangeType)
 	// ChangeNum$ caps the sweep (expert_level_safe's DBOpenSafe writes "All",
 	// bone_dancer's DBChangeZone writes "1"): an omitted value or "All" moves
 	// every matching card -- the behaviour the primitive always had -- while a
@@ -96,13 +121,7 @@ func effChangeZoneAll(h Host, c *Ctx, sa *cards.SA) {
 	// cap, since the shuffle only sets the move order). A value Num cannot
 	// resolve degrades to 0 by Num's own documented convention -- "the card
 	// did nothing", the fail-closed direction.
-	changeCap := int32(-1) // -1: uncapped
-	if cza.ChangeNumCapped {
-		changeCap = numText(h, c, cza.ChangeNum, 0)
-		if changeCap < 0 {
-			changeCap = 0
-		}
-	}
+	changeCap := changeZoneAllCap(h, c, cza)
 	g := h.Game()
 	// LibraryPosition$ (Terminus' "put all creatures on the bottom of their
 	// owners' libraries") and Shuffle$ (Jace, the Mind Sculptor's [-12]

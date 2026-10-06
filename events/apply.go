@@ -167,6 +167,8 @@ func ApplyPtr(g *state.Game, e *Event) {
 		foldResolve(g, e)
 	case Mutate:
 		foldMutate(g, e)
+	case Meld:
+		foldMeld(g, e)
 	case PlanarRoll:
 		// The planar-dice roll (CR 901.3, task rollplanar1) is a pure marker:
 		// no plane deck exists in this build, so a roll folds no state — the

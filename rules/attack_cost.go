@@ -837,7 +837,7 @@ func (e *Engine) blockChargeAffordable(p state.PlayerID, c blockCharge, excluded
 // defensive window strand can never leave a half-paid composite behind.
 func (e *Engine) payCombatExtras(p state.PlayerID, c blockCharge, taps, sacs, returns []state.ObjID, lifeExtra int32) {
 	if total := c.life + lifeExtra; total > 0 {
-		e.emit(events.Event{Kind: events.LifeChange, Player: p, Amount: -total})
+		e.emit(events.Event{Kind: events.LifeChange, Player: p, Amount: -total, Text: "paylife proposal"})
 	}
 	for _, id := range sacs {
 		e.emit(events.Sacrifice(id))

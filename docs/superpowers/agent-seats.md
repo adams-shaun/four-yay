@@ -25,13 +25,13 @@ enabled. Dispatching a model outside that set fails at launch.
 |---|---|---|---|---|---|
 | **Local (default)** | `bm-llms` / `DeepSeek-V4-Flash` | 262K / 32K | no | free | all ordinary task work |
 | **Local vision** | `bm-llms-vision` / `DeepSeek-V4-Flash-Vision-Exp` | 1M / 32K | **yes** | free | visual/UI work, screenshot review |
-| Codex | `openai-codex` / `gpt-6-astra` | 272K / 128K | yes | ChatGPT plan | escalation |
+| Codex | `openai-codex` / `gpt-6.1-sol` | 272K / 128K | yes | ChatGPT plan | escalation (gorge `sol` tier since 2026-10-05) |
+| Codex | `openai-codex` / `gpt-6-luna` | 272K / 128K | yes | ChatGPT plan | review / triage / implement (gorge `luna` tier) |
+| Codex | `openai-codex` / `gpt-6-astra` | 272K / 128K | yes | ChatGPT plan | not for reviews (user rule); top-end rescue only |
+| Codex | `openai-codex` / `gpt-6-sol` | 272K / 128K | yes | ChatGPT plan | superseded by gpt-6.1-sol |
+| Codex | `openai-codex` / `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, `gpt-5.5`, `gpt-5.3-codex-spark` | 272K / 128K (spark 128K) | yes | ChatGPT plan | legacy; still enabled, not used by tiers |
 | DeepSeek | `deepinfra` / `deepseek-ai/DeepSeek-V4.1-Flash` | 1M / 384K | no | pay-per-token $0.14/$0.42 per M | escalation — cheapest paid seat, measured 145–190 tok/s |
-| Codex | `openai-codex` / `gpt-5.6-sol` | 272K / 128K | yes | ChatGPT plan | escalation |
-| Codex | `openai-codex` / `gpt-5.6-terra` | 272K / 128K | yes | ChatGPT plan | escalation |
-| Codex | `openai-codex` / `gpt-5.6-luna` | 272K / 128K | yes | ChatGPT plan | escalation |
-| Codex | `openai-codex` / `gpt-5.5` | 272K / 128K | yes | ChatGPT plan | escalation |
-| Codex | `openai-codex` / `gpt-5.3-codex-spark` | 128K / 128K | yes | ChatGPT plan | escalation |
+| Claude | `anthropic` / `claude-fable-5-1`, `claude-opus-5-5`, `claude-sonnet-5-5` | per pi catalog | yes | Anthropic extra usage | newest Claude models (enabled 2026-10-05); rescue |
 | Claude | `anthropic` / `claude-opus-4-8` | 1M / 128K | yes | Anthropic extra usage | rescue (currently blocked: no extra-usage credits) |
 
 There are TWO local providers, on different hosts:
@@ -152,8 +152,8 @@ The permanent fix is on the deployment, not here: lower
 - **ds4 seats run at `--thinking medium`.** A previous round found medium
   outperformed high on this repo for the local model. Do not raise it to high
   without a measurement that says so.
-- **Prefer the gpt seats for non-ds4 work** — `gpt-5.6-terra`, `gpt-5.6-luna`,
-  `gpt-5.6-sol`. When a task is going to a paid seat rather than the local one,
+- **Prefer the gpt seats for non-ds4 work** — `gpt-6.1-sol` (implement,
+  escalation) and `gpt-6-luna` (review, triage); the gpt-5.6 series is legacy. When a task is going to a paid seat rather than the local one,
   a codex model is the default choice, not Claude.
 - **`claude-opus-4-8` runs at `--thinking medium` (user, 2026-09-19)** —
   `pi-agent --provider anthropic --model claude-opus-4-8 --thinking medium`

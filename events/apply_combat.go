@@ -5,7 +5,12 @@
 // Apply (g, e) switch; see apply.go for the dispatch.
 package events
 
-import "github.com/adams-shaun/gorge/state"
+import (
+	"strconv"
+	"strings"
+
+	"github.com/adams-shaun/gorge/state"
+)
 
 // foldDeclareAttackers folds Kind DeclareAttackers into state.
 func foldDeclareAttackers(g *state.Game, e *Event) {
@@ -228,6 +233,34 @@ func foldDamageProvenance(g *state.Game, e *Event) {
 		return
 	}
 	src := e.Obj
+	if o := g.Obj(src); o != nil && e.Amount > 0 {
+		oldText, sourceWords, hasSource := strings.Cut(e.Text, DamageProvenanceSourceSeparator)
+		head, typeWords, hasTypes := strings.Cut(oldText, DamageProvenanceTypeSeparator)
+		provenance, colours, hasColours := strings.Cut(head, DamageProvenanceColorSeparator)
+		record := state.DamageDealtRecord{
+			SourceControl: o.Controller, Recipient: e.IDs[0], Amount: e.Amount, Combat: provenance == DamageProvenanceCombat,
+			SourceColors: colours, HasSourceColors: hasColours,
+		}
+		if hasTypes {
+			record.RecipientTypes = strings.Split(typeWords, DamageProvenanceTypeWordSeparator)
+		}
+		if hasSource {
+			zoneWord, sourceTypes, hasSourceTypes := strings.Cut(sourceWords, DamageProvenanceSourceTypeSeparator)
+			if zone, err := strconv.ParseUint(zoneWord, 10, 8); err == nil && hasSourceTypes {
+				record.SourceZone = state.Zone(zone)
+				record.HasSourceZone = true
+				record.SourceTypes = strings.Split(sourceTypes, DamageProvenanceTypeWordSeparator)
+			}
+		}
+		if recipient := g.Obj(e.IDs[0]); recipient != nil {
+			record.RecipientZone = recipient.Zone
+			record.RecipientControl = recipient.Controller
+			if face := recipient.Face(); face != nil && !hasTypes {
+				record.RecipientTypes = append([]string(nil), face.Types...)
+			}
+		}
+		o.DamageDealtThisTurn = append(o.DamageDealtThisTurn, record)
+	}
 	if p, isPlayer := e.IDs[0].PlayerRef(); isPlayer {
 		if !validPlayer(g, p) {
 			return

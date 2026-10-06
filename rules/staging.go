@@ -2,6 +2,7 @@ package rules
 
 import (
 	"fmt"
+	"maps"
 	"sort"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -139,6 +140,7 @@ type StagedObjects struct {
 // seat's deck manifest is built from the cards Stage places for it). The
 // returned engine has no pending decision: Advance it.
 func NewStaged(cfg Config, st Stage) (*Engine, StagedObjects, error) {
+	cfg.Tokens = maps.Clone(cfg.Tokens)
 	var ids StagedObjects
 	if err := validateStage(cfg, st); err != nil {
 		return nil, ids, err

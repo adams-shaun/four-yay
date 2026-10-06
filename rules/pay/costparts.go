@@ -38,6 +38,10 @@ func CastFlowDrawPlayer(spec string, payer state.PlayerID) (state.PlayerID, bool
 	return 0, false
 }
 
+func BlightCandidates(e Engine, p state.PlayerID, source state.ObjID) []state.ObjID {
+	return CostCandidates(e, p, source, state.ZBattlefield, "Creature.YouCtrl", false, false)
+}
+
 func CostCandidates(e Engine, p state.PlayerID, source state.ObjID, zone state.Zone, spec string, excludeSource, untapped bool) []state.ObjID {
 	var out []state.ObjID
 	for _, id := range e.Game().Zone(zone, p) {
@@ -81,9 +85,62 @@ func TapCostCandidates(e Engine, p state.PlayerID, source state.ObjID, part cost
 // the offer gate (nonManaCastable) and the ask so the count that offered the
 // cast and the objects the payer may elect cannot disagree.
 func RevealOrChooseCandidates(e Engine, p state.PlayerID, source state.ObjID, part costvocab.CostPart) (hand, battlefield []state.ObjID) {
+	if part.ChooseCard && part.Spec == costvocab.CloseEncounterChooseSpec {
+		// ChooseCard is a choice-only cost. Build one deterministic list from
+		// the two printed alternatives; exile is indexed by owner, while the
+		// battlefield is indexed by controller.
+		for _, id := range e.Game().Zone(state.ZBattlefield, p) {
+			o := e.Game().Obj(id)
+			if o != nil && o.Controller == p && ExistsOnBattlefield(o) && o.EffectiveIsCreature() {
+				battlefield = append(battlefield, id)
+			}
+		}
+		for _, id := range e.Game().Zone(state.ZExile, p) {
+			o := e.Game().Obj(id)
+			if o != nil && o.Owner == p && o.Zone == state.ZExile && o.Face() != nil && o.Face().IsCreature() && warpCostExiled(e, id) {
+				battlefield = append(battlefield, id)
+			}
+		}
+		return nil, battlefield
+	}
 	hand = CostCandidates(e, p, source, state.ZHand, part.Spec, true, false)
 	battlefield = CostCandidates(e, p, source, state.ZBattlefield, part.Spec, false, false)
 	return hand, battlefield
+}
+
+const warpCostDelayedTag = "__kwWarpExile"
+
+// warpCostExiled verifies that the most recent exile of id was the delayed
+// exile of its own warp cast. Zone movement clears CastFlags, so the log is
+// the authoritative provenance (a later turn is NOT required to choose it).
+func warpCostExiled(e Engine, id state.ObjID) bool {
+	log := e.Log().Events
+	for i := len(log) - 1; i >= 0; i-- {
+		if log[i].Obj != id || log[i].Kind != events.MoveZone {
+			continue
+		}
+		if log[i].To != state.ZExile {
+			return false
+		}
+		for j := i - 1; j >= 0; j-- {
+			if log[j].Obj != id {
+				continue
+			}
+			if log[j].Kind == events.MoveZone {
+				return false
+			}
+			if log[j].Kind == events.DelayedPush && log[j].Counter == warpCostDelayedTag {
+				for k := j - 1; k >= 0; k-- {
+					if log[k].Obj == id && log[k].Kind == events.CastInfo && events.FlagsFrom(log[k].Counter)&state.FlagWarped != 0 {
+						return true
+					}
+				}
+				return false
+			}
+		}
+		return false
+	}
+	return false
 }
 
 // LastDrawnThisTurn returns the card player p most recently DREW this turn

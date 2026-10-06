@@ -118,7 +118,7 @@ type walkFaceFacts struct {
 // pass, since every reader of a guarded half checks its guard first, and
 // the list-identity guards themselves are not facts.
 func (ff *walkFaceFacts) verifyFresh(f *cards.Face) {
-	fresh := computeWalkFaceFacts(f)
+	fresh := computeWalkFaceFactsForVerify(f)
 	got := *ff
 	if !ff.keywordsCurrent(f) {
 		got.kwGranted, got.kwFirst, got.kwLen, got.ph = fresh.kwGranted, fresh.kwFirst, fresh.kwLen, fresh.ph
@@ -133,12 +133,16 @@ func (ff *walkFaceFacts) verifyFresh(f *cards.Face) {
 		got.name, got.castLabel, got.playLabel, got.manaLabel = fresh.name, fresh.castLabel, fresh.playLabel, fresh.manaLabel
 	}
 	if !ff.fullyCurrent(f) {
-		got.scan, got.staticOn, got.staticOff, got.mayPlay = fresh.scan, fresh.staticOn, fresh.staticOff, fresh.mayPlay
+		got.staticOn, got.staticOff, got.mayPlay = fresh.staticOn, fresh.staticOff, fresh.mayPlay
 	}
+	// Scan verdicts have their own verifier in faceScanHas. Keep the cached
+	// value on both sides here rather than recomputing it in this whole-facts
+	// check; this verifier still compares every other field.
 	got.statFirst, got.statLen, got.replFirst, got.replLen = fresh.statFirst, fresh.statLen, fresh.replFirst, fresh.replLen
 	got.svars, got.svarsLen = fresh.svars, fresh.svarsLen
 	// DeepEqual, not ==: altCosts holds Cost slices, which are not
 	// comparable. This verify path runs only in the rules test binary.
+	fresh.scan = ff.scan
 	if !reflect.DeepEqual(got, fresh) {
 		panic(fmt.Sprintf("rules: walk face facts for %q are stale (%+v vs %+v)", f.Name, *ff, fresh))
 	}
@@ -170,12 +174,24 @@ func (ff *walkFaceFacts) keywordsCurrent(f *cards.Face) bool {
 var walkSkipVerify = derivedMemoVerifyFlag != ""
 
 func computeWalkFaceFacts(f *cards.Face) walkFaceFacts {
+	return computeWalkFaceFactsMode(f, true)
+}
+
+// computeWalkFaceFactsForVerify omits scan facts because faceScanHas owns
+// their independent verification on every scan read.
+func computeWalkFaceFactsForVerify(f *cards.Face) walkFaceFacts {
+	return computeWalkFaceFactsMode(f, false)
+}
+
+func computeWalkFaceFactsMode(f *cards.Face, includeScan bool) walkFaceFacts {
 	ff := walkFaceFacts{face: f, abLen: len(f.Abilities), kwLen: len(f.Keywords), name: f.Name,
 		castLabel: "Cast " + f.Name, playLabel: "Play " + f.Name, manaLabel: "Activate " + f.Name + " for mana"}
 	if len(f.Abilities) > 0 {
 		ff.abFirst = &f.Abilities[0]
 	}
-	ff.scan = computeFaceScan(f)
+	if includeScan {
+		ff.scan = computeFaceScan(f)
+	}
 	ff.trigZones, ff.trigLen = computeFaceTriggerZones(f, phaseSpecValid), len(f.Triggers)
 	ff.trigSig, ff.trigSigOther = computeFaceTrigSigs(f, phaseSpecValid)
 	ff.trigLookBack = computeFaceLookBackZones(f)

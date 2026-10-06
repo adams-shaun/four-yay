@@ -741,18 +741,14 @@ func (w *legalWalk) battlefieldWalk() {
 					// not exist, so it cannot be unlocked.
 					continue
 				}
-				// unlockRoomCost is ok exactly when the room has a locked
-				// face; test that first so a non-room permanent never builds
-				// (and returns) a zero Cost.
-				if roomLockedFace(o) == nil {
-					continue
-				}
-				cost, ok := e.unlockRoomCost(o)
-				if !ok {
-					continue
-				}
-				if _, ok := e.unlockMods(p, id); ok && w.offerCastable(p, id, cost, specialActionScope("unlock"), true) {
-					w.add("unlock", "Unlock "+roomLockedFace(o).Name, id)
+				for _, fi := range []int{1 - int(o.FaceIdx), int(o.FaceIdx)} {
+					cost, ok := e.unlockRoomFaceCost(o, fi)
+					if !ok {
+						continue
+					}
+					if _, ok := e.unlockMods(p, id); ok && w.offerCastable(p, id, cost, specialActionScope("unlock"), true) {
+						w.out = append(w.out, decision.Option{Index: len(w.out), Kind: "unlock", Label: "Unlock " + o.Card.Faces[fi].Name, Obj: id, Mode: strconv.Itoa(fi)})
+					}
 				}
 			}
 		}

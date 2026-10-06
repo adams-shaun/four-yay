@@ -72,7 +72,7 @@ func adventureCorpusEngine(t *testing.T, reg *cards.Registry) (*Engine, Config, 
 // TestAdventureSpellFaceOfferedCastAndRecast is the main-path pin, on the
 // real corpus card: the hand offers BOTH faces; casting Petty Theft poses
 // its target ask, resolves, and exiles the card into the adventure zone
-// (ZExile at the spell face, NOT the graveyard); the engine then offers the
+// (ZExile as its main face, CR 715.4 -- NOT the graveyard); the engine then offers the
 // main face from the adventure zone, casting it brings the creature in at
 // its front face, and the adventure-zone offer is gone afterwards. The front
 // face's ordinary cast from hand is present throughout.
@@ -108,8 +108,9 @@ func TestAdventureSpellFaceOfferedCastAndRecast(t *testing.T) {
 	submitChoices(t, e, tgt)
 	passUntilStackEmpty(t, e, 20)
 	o := e.G.Obj(id)
-	if o.Zone != state.ZExile || int(o.FaceIdx) != 1 {
-		t.Fatalf("after Petty Theft resolved: zone=%s faceIdx=%d, want ZExile/1", o.Zone, o.FaceIdx)
+	// CR 715.4: in the adventure zone the card is its main face again.
+	if o.Zone != state.ZExile || int(o.FaceIdx) != 0 {
+		t.Fatalf("after Petty Theft resolved: zone=%s faceIdx=%d, want ZExile/0", o.Zone, o.FaceIdx)
 	}
 	if bounced := e.G.Obj(oppBear); bounced.Zone != state.ZHand {
 		t.Fatalf("Petty Theft's target zone=%s, want hand", bounced.Zone)

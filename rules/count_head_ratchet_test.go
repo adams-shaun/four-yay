@@ -46,10 +46,6 @@ import (
 // three bodies remain (Count$ResolvedThisTurn and Count$CardNumAttacksThisTurn
 // were modelled and removed).
 var knownUnmodelledCountHeads = map[string][]string{
-	// Forge's Count$NonCombatDamageThisTurn <spec> Any (Temple of Power's
-	// "X = noncombat damage you've dealt this turn" payoff): a filtered
-	// non-combat damage tally.
-	"Count$NonCombatDamageThisTurn Card.Red+YouCtrl Any": {"Temple of Power"},
 	// NOT an unmodelled head: Count$ChosenNumber IS implemented
 	// (state.ContinuousEffect.ChosenNumber, wildgrowth1) — its (0, false)
 	// verdict here is the documented UNBOUND-context read, because this

@@ -709,6 +709,10 @@ type Decision struct {
 	// strict rule. omitempty: a non-repeatable decision carries no field, so
 	// every existing payload serialises byte-identically.
 	Repeatable bool `json:"repeatable,omitempty"`
+	// DistinctTypePicks requires each picked card to be assigned a different
+	// matching ChangeValid alternative (DigMultiple). SetProps lists the
+	// alternatives each option satisfies, including overlapping types.
+	DistinctTypePicks bool `json:"distinctTypePicks,omitempty"`
 	// AllowNone makes the EMPTY answer legal beside the Min..Max range: the
 	// legal answer sizes are {0} and Min..Max. It is the "you may ... exactly
 	// N" shape -- Forge's Exactly$ True search ("You may reveal exactly two
@@ -1346,7 +1350,10 @@ func (d *Decision) Validate(in Intent) error {
 			return fmt.Errorf("blocker %d cannot block multiple attackers outside BlockAllDefined pairs", d.Options[c].Obj)
 		}
 	}
-	// The cumulative-budget rule: (Decision.MaxSum): the chosen options'
+	if d.DistinctTypePicks && !d.DistinctTypesFit(in.Choices) {
+		return fmt.Errorf("chosen cards cannot be assigned distinct types")
+	}
+	// The cumulative-budget rule (Decision.MaxSum): the chosen options'
 	// Value fields sum to at most MaxSum. This is a general wire contract --
 	// the field says nothing about cards or mana values, only that the picked
 	// set's total price is capped -- so a client can enforce it without

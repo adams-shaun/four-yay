@@ -1773,6 +1773,33 @@ func rememberTarget(h Host, c *Ctx, t state.Target) {
 	eventRemember(h, c, t.Obj)
 }
 
+// rememberDefinedObjects is a RememberObjects$ write over the shared Defined$
+// resolver: every object and player r names joins both halves of the
+// remembered state through rememberTarget (the resolution's Ctx.Remembered
+// for the chain, the source's event-backed list for later IsRemembered
+// reads). ThisTargetedCard is the resolving ability's own targets
+// (definedSpec). The resolver's strict tier (knownDefinedTargets) decides
+// what is modelled, plus the Valid <filter> sweep and the Imprinted pile,
+// which only DefinedRef's broader fallback resolves. Anything else is never
+// guessed at: one Note naming api and the value, and nothing is remembered.
+func rememberDefinedObjects(h Host, c *Ctx, r Ref, api string) {
+	ts, ok := knownDefinedTargets(h, c, r.Raw)
+	if !ok && !r.Has(RefCompound) && (r.Has(RefValid) || r.Is(RefImprinted) || r.Is(RefImprintedLKI)) {
+		ts, ok = DefinedRef(h, c, r, nil), true
+	}
+	if !ok {
+		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+			Text: api + " RememberObjects$ " + r.Text + " is not implemented; nothing is remembered"})
+		return
+	}
+	for _, t := range ts {
+		if !t.IsPlayer && t.Obj == 0 {
+			continue
+		}
+		rememberTarget(h, c, t)
+	}
+}
+
 // eventForgetChanged implements ForgetChanged$ True (Forge ChangeZoneEffect's
 // host.removeRemembered on each moved card): the moved object leaves BOTH
 // halves of the remembered state -- the resolution's Ctx.Remembered set and

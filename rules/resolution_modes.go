@@ -244,7 +244,7 @@ func (e *Engine) resumeETBEntry(chosen []decision.Option) state.ObjID {
 		e.emit(events.Event{Kind: events.Choose, Obj: move.Obj, Counter: "number", Amount: x})
 		e.emit(events.Event{Kind: events.XChange, Obj: move.Obj, Amount: x})
 		if x > 0 {
-			e.emit(events.Event{Kind: events.LifeChange, Player: opt.Player, Amount: -x})
+			e.emit(events.Event{Kind: events.LifeChange, Player: opt.Player, Amount: -x, Text: "paylife proposal"})
 		}
 	}
 	e.choosing = chooseNone

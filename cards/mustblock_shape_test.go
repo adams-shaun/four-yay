@@ -15,6 +15,11 @@ func TestMustBlockCoverageRejectsOtherShapes(t *testing.T) {
 	}{
 		{"named target", "DB$ MustBlock | ValidTgts$ Creature.OppCtrl | DefinedAttacker$ TriggeredAttacker | Duration$ UntilEndOfCombat", true},
 		{"creature target", "DB$ MustBlock | ValidTgts$ Creature | DefinedAttacker$ TriggeredAttacker", true},
+		{"Crashing Boars choice pool", "DB$ MustBlock | Choices$ Creature.untapped+DefenderCtrl | Chooser$ TriggeredDefendingPlayer", true},
+		{"other choice selector", "DB$ MustBlock | Choices$ Creature.DefenderCtrl | Chooser$ TriggeredDefendingPlayer", false},
+		{"other chooser", "DB$ MustBlock | Choices$ Creature.untapped+DefenderCtrl | Chooser$ You", false},
+		{"choice pool with attacker override", "DB$ MustBlock | Choices$ Creature.untapped+DefenderCtrl | Chooser$ TriggeredDefendingPlayer | DefinedAttacker$ TriggeredAttacker", false},
+		{"choice pool unknown duration", "DB$ MustBlock | Choices$ Creature.untapped+DefenderCtrl | Chooser$ TriggeredDefendingPlayer | Duration$ UntilYourNextTurn", false},
 		{"player target", "DB$ MustBlock | ValidTgts$ Player | DefinedAttacker$ TriggeredAttacker | Duration$ UntilEndOfCombat", false},
 		{"mixed targets", "DB$ MustBlock | ValidTgts$ Creature.OppCtrl,Player | DefinedAttacker$ TriggeredAttacker | Duration$ UntilEndOfCombat", false},
 		{"any target", "DB$ MustBlock | ValidTgts$ Any | DefinedAttacker$ TriggeredAttacker", false},
@@ -26,7 +31,6 @@ func TestMustBlockCoverageRejectsOtherShapes(t *testing.T) {
 		{"optional", "DB$ MustBlock | ValidTgts$ Creature | DefinedAttacker$ TriggeredAttacker | TargetMin$ 0", true},
 		{"parent target selectors", "DB$ MustBlock | Defined$ ParentTarget | DefinedAttacker$ ParentTarget", true},
 		{"unknown defined selector fails closed", "DB$ MustBlock | Defined$ Bogus", false},
-		{"choice selector fails closed", "DB$ MustBlock | Choices$ Creature.untapped+DefenderCtrl | Chooser$ TriggeredDefendingPlayer", false},
 		{"triggered attacker LKI copy", "DB$ MustBlock | ValidTgts$ Creature | DefinedAttacker$ TriggeredAttackerLKICopy", true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

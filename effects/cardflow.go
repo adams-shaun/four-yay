@@ -15,6 +15,7 @@ func init() {
 	Register("Discard", effDiscard)
 	Register("Mill", effMill)
 	Register("Dig", effDig)
+	Register("DigMultiple", effDigMultiple)
 	Register("Reveal", effReveal)
 	Register("RevealHand", effReveal)
 	Register("PeekAndReveal", effReveal)
@@ -261,6 +262,21 @@ func actingPlayers(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
 // discardAndRemember emits one discard with the riders bound above.
 func discardAndRemember(h Host, c *Ctx, r discardRiders, id state.ObjID, p state.PlayerID) {
 	discardAndRememberEvent(h, c, r, events.Discard(id, p))
+}
+
+// resolveOptionalHandDiscard applies an answered whole-hand election. An
+// affirmative choice is remembered even when there are no cards to move;
+// per-card calls deduplicate this for a non-empty hand.
+func resolveOptionalHandDiscard(h Host, c *Ctx, r discardRiders, hand []state.ObjID, p state.PlayerID, ans []decision.Option) {
+	if !answerYes(ans) {
+		return
+	}
+	if r.rememberPlayers {
+		rememberPlayerBothHalves(h, c, p)
+	}
+	for _, id := range hand {
+		discardAndRemember(h, c, r, id, p)
+	}
 }
 
 // The random choice rides the canonical discard move itself: Amount is the
@@ -706,12 +722,7 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 						{Index: 1, Kind: "no", Label: "No — keep it", Player: p},
 					}}
 				if ans, ok := AskTape(h, d); ok {
-					// Answered in place: the whole-hand discard (or decline).
-					if answerYes(ans) {
-						for _, id := range hand {
-							discardAndRemember(h, c, riders, id, p)
-						}
-					}
+					resolveOptionalHandDiscard(h, c, riders, hand, p, ans)
 					continue
 				}
 
@@ -848,8 +859,17 @@ func effMill(h Host, c *Ctx, sa *cards.SA) {
 	g := h.Game()
 	for _, t := range actingPlayers(h, c, sa) {
 		p := t
+		// A zero-card instruction is not a mill action: Water Crystal's
+		// "one or more" replacement must not turn it into four cards.
+		count := n
+		if count > 0 {
+			count = h.CountReplacementProposed(events.Event{Kind: events.MillProposal, Player: p, Obj: c.Source, Amount: count}).Amount
+		}
+		if count < 0 {
+			count = 0
+		}
 		var milledIDs []state.ObjID
-		for i := int32(0); i < n; i++ {
+		for i := int32(0); i < count; i++ {
 			lib := zoneOf(g, state.ZLibrary, p)
 			if len(lib) == 0 {
 				break

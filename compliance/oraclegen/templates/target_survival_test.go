@@ -10,9 +10,11 @@ import (
 // TestGeneratedMandatoryCastTargetsSurvive checks both directions of the
 // target contract. A clean replay alone cannot detect a missing mandatory
 // target when a cast was reversed or the fixture happened to have no targets.
+// By default it checks the representative required cards; set
+// GORGE_ORACLEGEN_FULL_TARGET_AUDIT=1 to run the exhaustive pinned-corpus sweep.
 func TestGeneratedMandatoryCastTargetsSurvive(t *testing.T) {
 	reg := loadGenRegistry(t)
-	carriers := targetCarriers(t, reg)
+	carriers := targetAuditCards(t, reg)
 	mandatory := 0
 	// These two corpus cards require a cast-time creature target. A broken
 	// rewrite can silently turn a generated card into a skip, so checking

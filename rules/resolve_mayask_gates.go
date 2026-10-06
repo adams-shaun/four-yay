@@ -33,6 +33,7 @@ var replEventGates = [cards.ReplEventCount]replEventGate{
 	cards.ReplAddCounter:  {ask: func(e *Engine) bool { return tapeReplMayAsk(e, "AddCounter") }},
 	cards.ReplGainLife:    {ask: func(e *Engine) bool { return tapeReplMayAsk(e, "GainLife") }},
 	cards.ReplLifeReduced: {ask: func(e *Engine) bool { return tapeReplMayAsk(e, "LifeReduced") }},
+	cards.ReplPayLife:     {ask: func(e *Engine) bool { return tapeReplMayAsk(e, "PayLife") }},
 	cards.ReplDamageDone:  {ask: func(e *Engine) bool { return tapeReplMayAsk(e, "DamageDone") }},
 	cards.ReplCreateToken: {ask: func(e *Engine) bool { return tapeReplMayAsk(e, "CreateToken") }},
 	cards.ReplAttached:    {ask: func(e *Engine) bool { return tapeReplMayAsk(e, "Attached") }},
@@ -40,6 +41,7 @@ var replEventGates = [cards.ReplEventCount]replEventGate{
 	// graveyard offering its election (CR 702.55).
 	cards.ReplDraw:      {ask: func(e *Engine) bool { return tapeReplMayAsk(e, "Draw") || tapeDredgeMayAsk(e) }},
 	cards.ReplDrawCards: {unreachable: "an alias of Draw: replEventBit shares Draw's bit and the Draw gate counts both"},
+	cards.ReplMill:      {ask: func(e *Engine) bool { return tapeReplMayAsk(e, "Mill") }},
 
 	cards.ReplBeginPhase:     {unreachable: "turn structure; no allowlisted API begins a phase"},
 	cards.ReplBeginTurn:      {unreachable: "turn structure; no allowlisted API begins a turn"},
@@ -47,12 +49,14 @@ var replEventGates = [cards.ReplEventCount]replEventGate{
 	cards.ReplProduceMana:    {unreachable: "mana abilities are not allowlisted; a mana rider has its own tape gate (offstack_mana_rider_tape.go)"},
 	cards.ReplCascade:        {unreachable: "cascade is a cast trigger body outside the allowlist"},
 	cards.ReplExplore:        {unreachable: "no allowlisted API explores"},
+	cards.ReplConnive:        {unreachable: "no allowlisted API connives"},
 	cards.ReplGameLoss:       {unreachable: "a game loss is a state-based action after the resolution, or a LosesGame body outside the allowlist"},
 	cards.ReplGameWin:        {unreachable: "a WinsGame body is outside the allowlist"},
 	cards.ReplRollDice:       {unreachable: "RollDice is not allowlisted"},
 	cards.ReplRollPlanarDice: {unreachable: "planar dice are a special action, never a resolution"},
 	cards.ReplScry:           {unreachable: "Scry is not allowlisted"},
 	cards.ReplTurnFaceUp:     {unreachable: "a turn-up is a special action; its tape boundary is turnup_tape.go"},
+	cards.ReplLoseMana:       {unreachable: "turn-structure ManaClear is not proposed by an allowlisted resolution"},
 }
 
 // tapeMovedReplMayAsk is the Moved gate of an otherwise ask-free resolution

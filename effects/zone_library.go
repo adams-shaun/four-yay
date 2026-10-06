@@ -144,6 +144,23 @@ func shuffleLibraryOrder(h Host, owner state.PlayerID) {
 	h.Emit(events.Event{Kind: events.Shuffle, Player: owner, IDs: order, Secret: true})
 }
 
+// shuffleSelectedLibraryObjects randomizes only a resolved object subset that
+// is about to be placed in its owner's library. Shuffle events replace an
+// owner's whole library order, so the subset permutation is recorded by the
+// subsequent full LibraryOrder placement event instead.
+func shuffleSelectedLibraryObjects(h Host, _ state.PlayerID, selected []state.ObjID) []state.ObjID {
+	out := append([]state.ObjID(nil), selected...)
+	// ShuffleLibrary is reserved for whole-library Shuffle events: on a
+	// hypothetical engine it also consults the shuffle planner and advances
+	// the observed shuffle ordinal. This subset uses ordinary chance draws,
+	// as ChangeZoneAll's RandomOrder does; placement records the result.
+	for i := len(out) - 1; i > 0; i-- {
+		j := h.Rand(i + 1)
+		out[i], out[j] = out[j], out[i]
+	}
+	return out
+}
+
 // placeTargetedLibraryObjects implements LibraryPosition$ for the
 // object-target path of effChangeZone (golgari_thug1): the one placement the
 // targeted movers never reached. Each moved card is placed in ITS OWNER's
@@ -195,6 +212,9 @@ func placeTargetedLibraryObjects(h Host, c *Ctx, cz *ChangeZoneParams, moved []s
 		groups[idx].ids = append(groups[idx].ids, id)
 	}
 	for _, grp := range groups {
+		if position < 0 && cz.RandomOrder && cz.NoShuffle {
+			randomizeLibraryPile(h, grp.ids)
+		}
 		libraryOrderPlacementAt(h, grp.owner, grp.ids, position)
 	}
 }
@@ -230,6 +250,9 @@ func placeLibraryObjects(h Host, c *Ctx, cz *ChangeZoneParams, owner state.Playe
 		return
 	}
 	if position == "0" || position == "-1" {
+		if position[0] == '-' && cz.RandomOrder && cz.NoShuffle {
+			randomizeLibraryPile(h, moved)
+		}
 		libraryOrderPlacement(h, owner, moved, position == "-1")
 		return
 	}
@@ -246,6 +269,13 @@ func placeLibraryObjects(h Host, c *Ctx, cz *ChangeZoneParams, owner state.Playe
 		return
 	}
 	libraryOrderPlacementAt(h, owner, moved, p)
+}
+
+func randomizeLibraryPile(h Host, ids []state.ObjID) {
+	for i := len(ids) - 1; i > 0; i-- {
+		j := h.Rand(i + 1)
+		ids[i], ids[j] = ids[j], ids[i]
+	}
 }
 
 // libraryOrderPlacement is the one LibraryPosition$ placement both
