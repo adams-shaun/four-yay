@@ -510,7 +510,16 @@ func (r *oracleRun) build(sc oracleScenario) error {
 			}
 			r.refs[ref] = id
 			if from := e.G.Obj(id).Zone; from != pl.zone {
+				pendingBefore := len(e.pendingTriggers)
 				e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: from, To: pl.zone})
+				if sc.xmageFixture && pl.zone == state.ZBattlefield {
+					// XMage fixture setup places battlefield cards with addCard,
+					// which does not queue entry triggers. Drop exactly the triggers
+					// caused by this placement; setup counters emitted below retain
+					// their independent triggers.
+					clear(e.pendingTriggers[pendingBefore:])
+					e.pendingTriggers = e.pendingTriggers[:pendingBefore]
+				}
 			}
 			if pl.zone == state.ZBattlefield {
 				// A back-face battlefield card starts transformed: FlipFace's
@@ -582,27 +591,6 @@ func (r *oracleRun) build(sc oracleScenario) error {
 		}
 		emitSetupSpeed(e.emit, p, e.G.Players[p].Speed, sc.Setup[fmt.Sprintf("p%d", p)])
 	}
-	if sc.xmageFixture {
-		// Generated scenarios start from a position XMage creates with
-		// addCard, which does not fire enters-the-battlefield triggers. Other
-		// setup triggers (for example, CounterAddedOnce from loyalty setup)
-		// do fire there and must remain queued.
-		kept := e.pendingTriggers[:0]
-		ordered := 0
-		for i, pt := range e.pendingTriggers {
-			tr, ok := e.triggerOf(pt)
-			destination, hasDestination := tr.ParamCode(cards.PKDestination)
-			if ok && tr.ModeKind() == cards.TriggerChangesZone && hasDestination &&
-				effects.Destination(destination).Zone() == state.ZBattlefield {
-				continue
-			}
-			kept = append(kept, pt)
-			if i < e.orderedTriggers {
-				ordered++
-			}
-		}
-		e.pendingTriggers, e.orderedTriggers = kept, ordered
-	}
 	e.Advance()
 	r.answers = append([]oracleAnswer(nil), sc.SetupAnswers...)
 	// A setup mana seed lands the moment the drive enters the requested turn's
@@ -610,9 +598,9 @@ func (r *oracleRun) build(sc oracleScenario) error {
 	// earlier: a pool added during an earlier step would empty at that step's
 	// end (CR 500.4), and the first-main-phase trigger is posed in main1.
 	seededMana := false
-	// Drive to the requested turn's first main phase. Triggers that setup
-	// placements caused resolve here under the fallback answers; the transcript names
-	// every one.
+	// Drive to the requested turn's first main phase. Only triggers caused by
+	// setup actions that XMage itself performs are drained here; fixture
+	// battlefield placements have already had their entry triggers dropped.
 	for i := 0; i < 400*turn; i++ {
 		if !seededMana && e.G.Turn == targetTurn && e.G.Step == state.StepMain1 {
 			seededMana = true
