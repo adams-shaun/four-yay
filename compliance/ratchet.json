@@ -99,7 +99,7 @@
 "DDS": {"outstanding":48},
 "DDT": {"outstanding":50},
 "DDU": {"outstanding":54},
-"DFT": {"outstanding":0},
+"DFT": {"level":"A","outstanding":0},
 "DGM": {"outstanding":144},
 "DIS": {"outstanding":173},
 "DKA": {"outstanding":148},
