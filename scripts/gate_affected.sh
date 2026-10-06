@@ -58,6 +58,15 @@ echo "gate_affected: rules + $(echo $others)$([ $traj = 1 ] && echo ' + cardfuzz
 # go test processes (including the optional trajectory check).
 go vet -p=2 $others ./rules
 
+# Build the ./rules test binary ONCE before the three concurrent rules runs.
+# They are separate `go test` processes, and a process does not see a compile
+# another one is still running, so each used to compile and link the same
+# (large) test variant itself. Measured under a 200% cpu cap after a rules
+# edit: three concurrent runs 112 s wall / 200 cpu-s, build-once-then-run
+# 38 s / 62 cpu-s (the three then hit the build cache). The runs below are
+# unchanged, so the result cache and the reported output are too.
+go test -c -o /dev/null ./rules/
+
 go test -p=1 -skip "^($global|$kr8|$postmerge)$" ./rules/ & a=$!
 go test -p=1 -run '^TestKr8WorldsInFuzzGames$' ./rules/ & b=$!
 go test -p=1 -run '^TestKr8HeadsCheckpointAll$' ./rules/ & c=$!
