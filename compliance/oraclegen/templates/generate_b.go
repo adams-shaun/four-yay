@@ -29,6 +29,13 @@ func GenerateB(reg *cards.Registry, name string, req levelb.Requirement) (oracle
 		}
 		return activateAbility(reg, c.Faces[req.Face], name, req)
 	}
+	if req.Sub == "static.cost" {
+		c, ok := reg.Lookup(name)
+		if !ok || req.Face < 0 || req.Face >= len(c.Faces) {
+			return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: "not in corpus"}
+		}
+		return costStatic(reg, c.Faces[req.Face], name, req)
+	}
 	if triggerSubs(req.Sub) {
 		c, ok := reg.Lookup(name)
 		if !ok || req.Face < 0 || req.Face >= len(c.Faces) {
