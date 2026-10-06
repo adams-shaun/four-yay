@@ -24,11 +24,14 @@ type triggerCause struct {
 	// prelude activate step (a Class level-up), "" on every other prelude
 	// step. A ClassBand$ trigger prepends the level-up prelude, so its
 	// activate steps need selectors exactly as the cause's do.
-	preludeXAbility     []string // XMage rule-text prefix per prelude step; nil when no prelude activates
-	castSelfX           bool     // the card is cast from hand first (an X creature that setup would leave 0/0, or a p0 upkeep/draw trigger whose fixture turn 1 would otherwise spend)
-	opponentHand        []string // probes held by p1 for opponent-cast causes
-	opponentBattlefield []string // extra p1 permanents (an opponent-comparison gate)
-	activateCost        string   // Forge cost of the activate step in steps (Crew/Saddle tap choice); "" when none
+	preludeXAbility []string // XMage rule-text prefix per prelude step; nil when no prelude activates
+	castSelfX       bool     // the card is cast from hand first (an X creature that setup would leave 0/0, or a p0 upkeep/draw trigger whose fixture turn 1 would otherwise spend)
+	opponentHand    []string // probes held by p1 for opponent-cast causes
+	// opponentBattlefield are p1 permanents (a blocker, an attacker, a tap
+	// target, an opponent-comparison gate) the cause needs on the other side
+	// of the table.
+	opponentBattlefield []string
+	activateCost        string // Forge cost of the activate step in steps (Crew/Saddle tap choice); "" when none
 }
 
 // Probe cards, each named with why. Spec hypothesis H4: the probe exists in
@@ -88,6 +91,8 @@ func baseTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards
 		}}, ""
 	case "trigger.etb-other":
 		return etbProbeCauses(reg, name, t)
+	case "trigger.leaves-graveyard", "trigger.ltb-other", "trigger.zone-change-residue":
+		return zoneTriggerRecipe(reg, name, t, sub)
 	case "trigger.dies":
 		if !creature {
 			return nil, "dies needs a creature"
@@ -188,6 +193,9 @@ func baseTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards
 			return causes, why
 		}
 		if causes, why, ok := castFamilyRecipe(reg, f, name, t, sub); ok {
+			return causes, why
+		}
+		if causes, why, ok := tapCombatRecipe(reg, f, name, t, sub); ok {
 			return causes, why
 		}
 		return nil, "no recipe for " + sub
