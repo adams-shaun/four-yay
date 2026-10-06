@@ -22,5 +22,12 @@ func GenerateB(reg *cards.Registry, name string, req levelb.Requirement) (oracle
 	if req.Gap != "" {
 		return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: "level B: " + req.Gap}
 	}
+	if activateSubs(req.Sub) {
+		c, ok := reg.Lookup(name)
+		if !ok || req.Face < 0 || req.Face >= len(c.Faces) {
+			return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: "not in corpus"}
+		}
+		return activateAbility(reg, c.Faces[req.Face], name, req)
+	}
 	return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: "level B: no template for " + req.Sub}
 }
