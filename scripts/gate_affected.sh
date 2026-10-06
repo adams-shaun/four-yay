@@ -61,7 +61,14 @@ echo "gate_affected: rules + $(echo $others)$([ $traj = 1 ] && echo ' + cardfuzz
 # Vet and the ./rules test build overlap: vet type-checks from source and the
 # build compiles, so they share no work (go-build has already warmed the
 # non-test packages). Both must pass before any test starts, as before.
-go vet -p=2 $others ./rules & v=$!
+# GOMAXPROCS=6/-p=6: the scope's CPUQuota is 800% (8 cores) but the gate env
+# exports GOMAXPROCS=2, which caps each compile action to two threads. Measured
+# on a fresh `rules/mana.go` edit, inside the gate's own scope
+# (`systemd-run -p MemoryMax=8G -p CPUQuota=800%`): `go vet -p=2` over the
+# `$others` set plus ./rules took 75.9 s / 147 cpu-s; `GOMAXPROCS=6 go vet -p=6`
+# took 18.8 s / 68 cpu-s, peak RSS 3.7 GiB (under the 8 GiB scope). The quota,
+# not the flag, is the ceiling -- at 800% the extra -p is real parallelism.
+GOMAXPROCS=6 go vet -p=6 $others ./rules & v=$!
 # Build the ./rules test binary ONCE before the three concurrent rules runs.
 # They are separate `go test` processes, and a process does not see a compile
 # another one is still running, so each used to compile and link the same
@@ -69,7 +76,7 @@ go vet -p=2 $others ./rules & v=$!
 # edit: three concurrent runs 112 s wall / 200 cpu-s, build-once-then-run
 # 38 s / 62 cpu-s (the three then hit the build cache). The runs below are
 # unchanged, so the result cache and the reported output are too.
-go test -c -o /dev/null ./rules/ & w=$!
+GOMAXPROCS=6 go test -c -o /dev/null ./rules/ & w=$!
 rc=0
 wait "$v" || rc=1
 wait "$w" || rc=1
@@ -78,9 +85,14 @@ wait "$w" || rc=1
 go test -p=1 -skip "^($global|$kr8|$postmerge)$" ./rules/ & a=$!
 go test -p=1 -run '^TestKr8WorldsInFuzzGames$' ./rules/ & b=$!
 go test -p=1 -run '^TestKr8HeadsCheckpointAll$' ./rules/ & c=$!
-# -p=2: the $others packages are independent test binaries; with -p=1 they
-# ran strictly one at a time and were the long pole of the gate.
-go test -p=2 -skip "^($global)$" $others & d=$!
+# -p=6: the $others packages are independent test binaries; with -p=1 they
+# ran strictly one at a time and were the long pole of the gate. Measured on
+# the `$others` set alone under the gate scope (800% quota, test results
+# expired with `go clean -testcache`): -p=2 62.3 s, -p=4 40.8 s, -p=6 32.5 s,
+# peak RSS ~1.0 GiB. At most six others binaries run here (the two Kr8 runs
+# have already finished, ./rules is one binary), so the scope stays well
+# under its 8 GiB MemoryMax.
+GOMAXPROCS=6 go test -p=6 -skip "^($global)$" $others & d=$!
 # Event-text changes (any new or reworded event) move the committed
 # overshoot capture and the searchprobe digests; e2e19ebae and 5fa9f31a both
 # broke them unseen by this gate on 2026-10-05. Both checks are seconds, so
