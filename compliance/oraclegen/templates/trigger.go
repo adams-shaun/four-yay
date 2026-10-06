@@ -219,23 +219,11 @@ func triggerWithFixture(reg *cards.Registry, f *cards.Face, name string, req lev
 	}
 	// A cast cause leaves only the spell on the stack, and resolve clears
 	// triggers as well, so the probe retries with both players passing once:
-	// the spell resolves and the trigger it caused is on the stack. A spell
-	// that itself sets off another trigger (a Repartee creature's counter on
-	// the cast) leaves the spell still on the stack after that pair, so one
-	// more pair is tried then; with an empty stack another pass would only
-	// advance the turn and could show an unrelated firing of the slot.
+	// the spell resolves and the trigger it caused is on the stack.
 	passes := []oraclegen.Step{{Op: "pass", Seat: 0}, {Op: "pass", Seat: 1}}
-	for pairs := 0; pairs <= 2; pairs++ {
-		steps := append([]oraclegen.Step(nil), probe...)
-		for i := 0; i < pairs; i++ {
-			steps = append(steps, passes...)
-		}
-		_, res, ok := oraclegen.Settle(reg, triggerScenario(f, name, c, req, steps, fx))
-		if ok && abilityOnStack(res.Snapshots, name, req.Slot) {
+	for _, steps := range [][]oraclegen.Step{probe, append(append([]oraclegen.Step(nil), probe...), passes...)} {
+		if _, res, ok := oraclegen.Settle(reg, triggerScenario(f, name, c, req, steps, fx)); ok && abilityOnStack(res.Snapshots, name, req.Slot) {
 			fired = true
-			break
-		}
-		if pairs == 1 && (!ok || len(res.Snapshots) == 0 || len(res.Snapshots[len(res.Snapshots)-1].Stack) == 0) {
 			break
 		}
 	}
