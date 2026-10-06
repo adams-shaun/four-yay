@@ -97,6 +97,16 @@ type OracleDecision struct {
 	Picks    []string `json:"picks"`
 	PickIdx  []int    `json:"pick_idx"`
 	PickRefs []string `json:"pick_refs"`
+	// PickRefsInexact is parallel to PickRefs: true when the ref was derived
+	// by counting live objects rather than by identity -- an anonymous
+	// library/hand card that was never named at setup, whose ordinal
+	// XMage's zone-order alias binding cannot reproduce. Omitted or false
+	// means the ref is a setup identity or a token, which the driver binds
+	// exactly.
+	PickRefsInexact []bool `json:"pick_refs_inexact,omitempty"`
+	// OptionRefs records game-object identities among the offered options. It
+	// lets downstream answer adapters disambiguate same-named object picks.
+	OptionRefs []string `json:"option_refs,omitempty"`
 	// ObjectPicks records only selected game-object identities, in submission
 	// order. Unlike a snapshot delta, these are the objects the player chose.
 	ObjectPicks []string `json:"object_picks,omitempty"`
