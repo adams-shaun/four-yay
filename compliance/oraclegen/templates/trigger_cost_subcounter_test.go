@@ -49,14 +49,14 @@ func TestTriggerSubCounterCostPays(t *testing.T) {
 	reg := loadGenRegistry(t)
 	for _, tc := range []struct {
 		name, key, counter string
-		before, after      int32
+		after              int32
 		draws              bool
 	}{
-		{"Guiding Hydra", "trigger#0.0", "P1P1", 2, 1, false},
-		{"Ingenious Prodigy", "trigger#0.0", "P1P1", 2, 1, true},
-		{"Slumbering Walker", "trigger#0.0", "M1M1", 2, 1, false},
-		{"Leatherhead, Swamp Stalker", "trigger#0.0", "HEXPROOF", 1, 0, false},
-		{"Leatherhead, Swamp Stalker", "combat#0.attack", "HEXPROOF", 1, 0, false},
+		{"Guiding Hydra", "trigger#0.0", "P1P1", 1, false},
+		{"Ingenious Prodigy", "trigger#0.0", "P1P1", 1, true},
+		{"Slumbering Walker", "trigger#0.0", "M1M1", 1, false},
+		{"Leatherhead, Swamp Stalker", "trigger#0.0", "HEXPROOF", 0, false},
+		{"Leatherhead, Swamp Stalker", "combat#0.attack", "HEXPROOF", 0, false},
 	} {
 		t.Run(tc.name+"/"+tc.key, func(t *testing.T) {
 			it := levelBItem(t, tc.name, tc.key)
@@ -86,8 +86,11 @@ func TestTriggerSubCounterCostPays(t *testing.T) {
 			if !ok {
 				t.Fatalf("precondition: %s is not on p0's battlefield before the ask", tc.name)
 			}
-			if got := preSrc.Counters[tc.counter]; got != tc.before || got < 1 {
-				t.Fatalf("precondition: %s holds %s=%d before the ask, want %d (>=1)", tc.name, tc.counter, got, tc.before)
+			// The cost needs a counter to remove; paying it leaves one fewer, so
+			// the paid and unpaid post-states always differ.
+			preCount := preSrc.Counters[tc.counter]
+			if preCount < 1 {
+				t.Fatalf("precondition: %s holds %s=%d before the ask, want >=1", tc.name, tc.counter, preCount)
 			}
 			preHand := len(preSnap.Players[0].Hand)
 
@@ -97,8 +100,12 @@ func TestTriggerSubCounterCostPays(t *testing.T) {
 			if !ok {
 				t.Fatalf("%s left the battlefield", tc.name)
 			}
-			if got := src.Counters[tc.counter]; got != tc.after {
-				t.Fatalf("%s %s=%d after resolve, want %d (cost not paid)", tc.name, tc.counter, got, tc.after)
+			got := src.Counters[tc.counter]
+			if got != preCount-1 {
+				t.Fatalf("%s %s %d -> %d after resolve, want %d (cost not paid)", tc.name, tc.counter, preCount, got, preCount-1)
+			}
+			if got != tc.after {
+				t.Fatalf("%s %s=%d after resolve, want %d", tc.name, tc.counter, got, tc.after)
 			}
 			if tc.draws {
 				if got := len(post.Players[0].Hand); got != preHand+1 {
