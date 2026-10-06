@@ -117,7 +117,7 @@ func TestDoublingSeasonSagaEntryAndProgressionCounts(t *testing.T) {
 		t.Fatalf("precondition: Saga entry = %+v, want battlefield with doubled 2 lore", o)
 	}
 	// The entry's chapter trigger must be off the stack before the turn-based
-	// counter runs: advanceSagas models the after-your-draw-step action, which
+	// counter runs: advanceSagas models the precombat-main turn-based action, which
 	// happens with nothing resolving (actionCause()==0). Drain first so the
 	// EffectOnly$ gate reads the real turn-based provenance rather than an
 	// in-flight chapter trigger.

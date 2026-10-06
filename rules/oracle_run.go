@@ -611,9 +611,16 @@ func (r *oracleRun) build(sc oracleScenario) error {
 	// earlier: a pool added during an earlier step would empty at that step's
 	// end (CR 500.4), and the first-main-phase trigger is posed in main1.
 	seededMana := false
-	// Drive to the requested turn's first main phase. Triggers that setup
-	// placements caused resolve here under the fallback answers; the transcript names
-	// every one.
+	// Drive to the requested turn's first main phase. Only a generated
+	// compliance scenario (xmageFixture) stops at the FIRST priority even
+	// with a non-empty stack -- that is the exact point XMage's
+	// ScenarioReplay pauses at for its "setup" snapshot (runCode("setup",
+	// TURN, MAIN, ...)), so a beginning-of-first-main-phase trigger (and a
+	// Saga's precombat-main chapter trigger) is still on the stack at the
+	// setup checkpoint, not already resolved under the fallback. Every other
+	// scenario keeps the empty-stack stop: its fixture is written for the
+	// trigger to resolve during setup, and there is no XMage snapshot to
+	// align with.
 	for i := 0; i < 400*turn; i++ {
 		if !seededMana && e.G.Turn == targetTurn && e.G.Step == state.StepMain1 {
 			seededMana = true
@@ -627,8 +634,9 @@ func (r *oracleRun) build(sc oracleScenario) error {
 		if d == nil || e.G.Over {
 			return harnessf("game stopped during setup")
 		}
-		if d.Kind == decision.KPriority && e.G.Step == state.StepMain1 && e.G.Turn == targetTurn && len(e.G.Stack) == 0 {
-			r.logf("setup done: turn %d %s, stack empty", e.G.Turn, e.G.Step)
+		if d.Kind == decision.KPriority && e.G.Step == state.StepMain1 && e.G.Turn == targetTurn &&
+			(len(e.G.Stack) == 0 || sc.xmageFixture) {
+			r.logf("setup done: turn %d %s, stack %d", e.G.Turn, e.G.Step, len(e.G.Stack))
 			return nil
 		}
 		if err := r.answer(d, "setup"); err != nil {
