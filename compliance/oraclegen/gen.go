@@ -800,6 +800,14 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSt
 			}
 			as = targetDecisionAnswers(routing, i)
 		case "mode":
+			if d.Resume == "play" {
+				// Optional Play effects (Discover, Cascade, and other carriers)
+				// are XMage chooseUse asks, not numeric mode choices. Gorge's
+				// recorded pick means cast; no pick means decline to hand.
+				yes := len(d.Picks) > 0
+				as = append(as, XAnswer{d.Seat, "choice", map[bool]string{true: "yes", false: "no"}[yes]})
+				break
+			}
 			if (d.Resume == "unless_pay" || d.Resume == "unless_decline") && unlessPolarity(d) == "no" {
 				// An unless-pay (UnlessCost$) is XMage's boolean chooseUse,
 				// not a mode ask; the engine models it as a one-option mode
@@ -1169,8 +1177,8 @@ func targetDecisionAnswers(r *answerRouting, i int) []XAnswer {
 		as = perPlayerTargetAnswers(d)
 	case d.Divided > 0 && len(d.PickRefs) > 0:
 		// A TargetAmount slot (distribute counters, divided damage): XMage's
-		// chooseTargetAmount takes one "<ref>^X=<share>" per target and is
-		// complete once the shares reach the total, so no skip follows.
+		// chooseTargetAmount takes one "<ref>^X=<share>" per target and
+		// completes when the allocation is answered.
 		as = dividedTargetAnswers(r, i)
 	default:
 		for _, ref := range d.PickRefs {
@@ -1632,6 +1640,12 @@ func openingHandAnswers(f *cards.Face) []Answer {
 // TargetCardInLibrary target ask (measured on the std pass).
 func pickQueue(d rules.OracleDecision, k int, label string) string {
 	q := xmQueue(pickKind(d, k), label)
+	if d.Resume == "choice" {
+		// Resolution-time Choice asks can internally use a TargetPermanent
+		// option, but XMage's controller.choose queues that selection through
+		// makeChoose rather than chooseTarget (for example Trial of Agony).
+		return "choice"
+	}
 	if q == "target" && pickKind(d, k) == "search" && k < len(d.PickRefs) {
 		if s, ok := refSeat(d.PickRefs[k]); ok && s != d.Seat {
 			return "choice"

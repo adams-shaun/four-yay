@@ -1297,7 +1297,12 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 } else if (tg.size() == 1) {
                     // A single target goes through XMage's own string form, so
                     // a divided-damage target (TargetAmount) still lets XMage
-                    // pick the split as it always did.
+                    // pick the split as it always did. TargetAnyTargetAmount
+                    // may still offer another optional target (Twin Bolt); the
+                    // scenario's short target list must close that slot.
+                    if (spellTargetsDivided(card) && !singleTargetFilled(card, tg.size())) {
+                        addTarget(p, TestPlayer.TARGET_SKIP);
+                    }
                     castSpell(turn, phase, p, card, targetName(tg.get(0)));
                 } else {
                     // Two or more targets: queue each through addTarget and

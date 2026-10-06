@@ -71,7 +71,7 @@ func newAnswerRouting(ds []rules.OracleDecision) *answerRouting {
 	claimed := map[int]bool{}
 	for i := range ds {
 		d := ds[i]
-		if d.Kind != "target" || d.Divided <= 0 || len(d.PickRefs) < 2 {
+		if d.Kind != "target" || d.Divided <= 0 || len(d.PickRefs) == 0 {
 			continue
 		}
 		for j := i + 1; j < len(ds); j++ {
