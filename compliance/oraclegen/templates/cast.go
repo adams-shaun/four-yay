@@ -55,11 +55,20 @@ func castResolveWith(reg *cards.Registry, f *cards.Face, name, mana string, prob
 		plans = nil
 		for _, combo := range combos {
 			labels := make([]string, 0, len(combo.Modes))
+			usable := true
 			for _, mode := range combo.Modes {
+				if attachesOnReturn(f, mode.SVar()) {
+					// XMage asks which creature the returned Aura/Equipment
+					// attaches to, an ask the scenario cannot script yet.
+					usable = false
+					break
+				}
 				labels = append(labels, mode.Label())
 			}
-			answers := append([]oraclegen.Answer{{Kind: "modes", Pick: labels}}, xAns...)
-			plans = append(plans, plan{slots: combo.Slots, answers: answers})
+			if usable {
+				answers := append([]oraclegen.Answer{{Kind: "modes", Pick: labels}}, xAns...)
+				plans = append(plans, plan{slots: combo.Slots, answers: answers})
+			}
 		}
 	}
 	manas := []string{mana, mana + "C", mana + "CC", mana + "CCC"}
@@ -201,7 +210,6 @@ func castWithProbes(reg *cards.Registry, f *cards.Face, name, mana string, slots
 					}
 					it.Scenario = sc
 					it.XAnswers = oraclegen.XAnswersForScenario(res, sc, oraclegen.ModeNumbers(f), castSteps)
-					addAttachmentChoiceAnswer(&it)
 					if len(stackIdx) == 0 {
 						// A stack slot shifts the fixture's slot indices, so the
 						// explicit-skip plan covers plain slot lists only.
@@ -397,42 +405,20 @@ func precastFitsSlots(slots []oraclegen.Slot, stackIdx []int, p precast) bool {
 	return true
 }
 
-// addAttachmentChoiceAnswer scripts the resolving-time creature choice for a
-// selected mode that returns an Aura or Equipment attached to a creature. The
-// fixture supplies Llanowar Elves for the mana activation, a legal bearer.
-func addAttachmentChoiceAnswer(it *oraclegen.Item) {
-	selected := false
-	for _, st := range it.Steps {
-		if st.Op != "cast" {
-			continue
+// attachesOnReturn reports whether a charm mode's ability chain puts a card
+// onto the battlefield attached to a chosen object (an AttachedTo$ param).
+func attachesOnReturn(f *cards.Face, svar string) bool {
+	for name := svar; name != ""; {
+		body := f.SVars[name]
+		if strings.Contains(body, "AttachedTo$") {
+			return true
 		}
-		for _, answer := range st.Answers {
-			if answer.Kind != "modes" {
-				continue
-			}
-			for _, mode := range answer.Pick {
-				if strings.Contains(mode, "Aura or Equipment") {
-					selected = true
-				}
+		name = ""
+		for _, part := range strings.Split(body, "|") {
+			if k, v, ok := strings.Cut(strings.TrimSpace(part), "$"); ok && strings.TrimSpace(k) == "SubAbility" {
+				name = strings.TrimSpace(v)
 			}
 		}
-		if selected {
-			break
-		}
 	}
-	if !selected {
-		return
-	}
-	for i, st := range it.Steps {
-		if st.Op != "resolve" {
-			continue
-		}
-		for len(it.XAnswers) <= i {
-			it.XAnswers = append(it.XAnswers, nil)
-		}
-		it.XAnswers[i] = append(it.XAnswers[i], oraclegen.XAnswer{
-			Seat: 0, Kind: "target", Value: "p0:Llanowar Elves",
-		})
-		return
-	}
+	return false
 }
