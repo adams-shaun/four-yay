@@ -24,11 +24,16 @@ func TestScenarioReplayConsumesScenarioTurn(t *testing.T) {
 		// whole batch, so a static TURN would leak one scenario's turn into
 		// the next.
 		"private int TURN = 1;",
-		// Default to turn 1 for every scenario that omits the field.
-		"TURN = sc.has(\"turn\") ? sc.get(\"turn\").getAsInt() : 1;",
-		// Reject an out-of-range value rather than silently clamping.
-		"if (TURN < 1 || TURN > 100) {",
-		"throw new IllegalArgumentException(\"invalid scenario turn \" + TURN + \" (want 1..100)\");",
+		// The parser defaults absent/null to 1, like gorge's *int field.
+		"TURN = scenarioTurn(sc);",
+		"if (value == null || value.isJsonNull()) {\n            return 1;",
+		// Gson getAsInt would truncate fractions and wrap overflow. Reject
+		// both, and reject strings rather than accepting a quoted number.
+		"value.getAsJsonPrimitive().isNumber()",
+		"value.getAsString().matches(\"-?[0-9]+\")",
+		"int turn = Integer.parseInt(value.getAsString());",
+		"if (turn >= 1 && turn <= 100) {",
+		"throw new IllegalArgumentException(\"invalid scenario turn \" + value + \" (want integer 1..100)\");",
 		// Both anchors must use TURN: setup establishes the board at the
 		// requested turn, and the stop-at checkpoint snapshots the same one.
 		"runCode(\"setup\", TURN, MAIN, playerA, (info, p, g) -> {",

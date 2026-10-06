@@ -307,6 +307,28 @@ public class ScenarioReplay extends CardTestPlayerBase {
         return res;
     }
 
+    // Match encoding/json's *int field: absent/null defaults to 1; otherwise
+    // require an integer JSON number. Gson's getAsInt truncates fractions and
+    // wraps oversized numbers, potentially replaying a different turn.
+    private static int scenarioTurn(JsonObject sc) {
+        JsonElement value = sc.get("turn");
+        if (value == null || value.isJsonNull()) {
+            return 1;
+        }
+        try {
+            if (value.isJsonPrimitive() && value.getAsJsonPrimitive().isNumber()
+                    && value.getAsString().matches("-?[0-9]+")) {
+                int turn = Integer.parseInt(value.getAsString());
+                if (turn >= 1 && turn <= 100) {
+                    return turn;
+                }
+            }
+        } catch (NumberFormatException ignored) {
+            // Overflow is invalid, not an invitation to wrap to another turn.
+        }
+        throw new IllegalArgumentException("invalid scenario turn " + value + " (want integer 1..100)");
+    }
+
     JsonObject replayOnce(JsonObject sc, boolean strict) {
         JsonObject res = new JsonObject();
         res.addProperty("strict", strict);
@@ -335,10 +357,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
             cast.clear();
             refAlias.clear();
             phase = MAIN;
-            TURN = sc.has("turn") ? sc.get("turn").getAsInt() : 1;
-            if (TURN < 1 || TURN > 100) {
-                throw new IllegalArgumentException("invalid scenario turn " + TURN + " (want 1..100)");
-            }
+            TURN = scenarioTurn(sc);
             build(sc);
             runCode("setup", TURN, MAIN, playerA, (info, p, g) -> {
                 registerAliases(g);
