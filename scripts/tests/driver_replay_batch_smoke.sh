@@ -512,7 +512,7 @@ mkrepo M
 mkticket t1 2026-10-06T03:00:00Z tools/xmageoracle/t1.txt one
 mkticket t3 2026-10-06T04:00:00Z tools/xmageoracle/t3.txt three
 printf 'Beta/cast-resolve/v1\n' >"$R/always.txt"
-key=$(git -C "$R" ls-tree -d main -- tools/xmageoracle compliance/oraclegen cmd/oraclediff | sha1sum | cut -c1-12)
+key=$(git -C "$R" ls-tree -d main -- tools/xmageoracle compliance/oraclegen cmd/oraclediff compliance/manifests | sha1sum | cut -c1-12)
 echo "2026-10-06 09:00:00 $key Beta/cast-resolve/v1 | diverge" >"$R/.ds4/driver-drift.log"
 runpass
 has "$L" 'DRIFT-KNOWN Beta/cast-resolve/v1'

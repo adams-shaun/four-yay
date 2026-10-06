@@ -307,7 +307,7 @@ last_main() {
 }
 record_last_main() { git rev-parse --verify -q "$1^{commit}" >"$LASTMAIN.tmp" && mv -f "$LASTMAIN.tmp" "$LASTMAIN"; }
 # gen_key <ref>: identifies the driver + generator at <ref> (their tree ids).
-gen_key() { git ls-tree -d "$1" -- tools/xmageoracle compliance/oraclegen cmd/oraclediff | sha1sum | cut -c1-12; }
+gen_key() { git ls-tree -d "$1" -- tools/xmageoracle compliance/oraclegen cmd/oraclediff compliance/manifests | sha1sum | cut -c1-12; }
 # drift_known <row>: 0 iff a DRIFT replay of this driver+generator regressed the row.
 drift_known() {
   [ -e "$DRIFTLOG" ] || return 1
