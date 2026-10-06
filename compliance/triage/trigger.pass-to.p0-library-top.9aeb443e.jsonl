@@ -1,2 +1,0 @@
-{"shape":{"template":"trigger","op":"pass_to","field":"p0.library_top","diff":"gorge+[Fblthp, Impossibly Lost] xmage+[$LIB]"},"key":"trigger | pass_to | p0.library_top | gorge+[Fblthp, Impossibly Lost] xmage+[$LIB]","cards":1}
-{"card":"Fblthp, Impossibly Lost","template":"trigger#0.0","status":"diverge","api":"DamageAll:Draw","sets":["FRA"],"detail":"step 1 (pass_to) p0.library_top: gorge \"[Wastes, Wastes, Fblthp, Impossibly Lost, Wastes, Wastes]\", xmage \"[Wastes, Wastes, Wastes, Wastes, Wastes]\""}
