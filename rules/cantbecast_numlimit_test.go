@@ -151,7 +151,7 @@ func TestCantBeCastNumLimitFiresOfInvention(t *testing.T) {
 		t.Fatal("Fires lets seat 0 cast a THIRD spell this turn")
 	}
 	// Casting is for the controller's own turn only: seat 0 off its turn.
-	e.G.Active = 1
+	e.emit(events.Event{Kind: events.TurnChange, Player: 1, Amount: e.G.Turn + 1})
 	if !e.castRestricted(0, c) {
 		t.Fatal("Fires lets seat 0 cast on an opponent's turn (Caster$ You.NonActive)")
 	}
