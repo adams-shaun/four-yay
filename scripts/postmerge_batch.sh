@@ -20,11 +20,12 @@
 # A pause anyone else wrote (fleet halt, operator) is never touched.
 #
 #   scripts/postmerge_batch.sh            # loop forever
-#   LOCK=/path/heavy.lock scripts/postmerge_batch.sh
+#   GORGE_HEAVY_LOCK=/path/to/lock scripts/postmerge_batch.sh
 #   scripts/postmerge_batch.sh --parse-fails <go-test-output>   # self-test aid
 set -uo pipefail
 repo=$(git rev-parse --show-toplevel)
-LOCK=${LOCK:-/tmp/gorge-heavy.lock}
+. "$(dirname "$0")/heavy_lock.sh"  # the one HEAVY lock definition
+LOCK=${LOCK:-$GORGE_HEAVY_LOCK}
 LOG=${LOG:-$repo/.ds4/postmerge-batch.log}
 CULPRITS=${CULPRITS:-$repo/.ds4/postmerge-culprits.log}
 OUT=$repo/.ds4/postmerge-full.out
@@ -66,6 +67,8 @@ parse_fails() {
     }' "$1"
 }
 
+for _a in "$@"; do [ "$_a" = --print-heavy-lock ] && { printf '%s\n' "$LOCK"; exit 0; }; done
+unset _a
 if [ "${1:-}" = "--parse-fails" ]; then parse_fails "$2"; exit 0; fi
 
 # fails_at <sha> <pkg> <regex>: 0 if the tests FAIL at sha, 1 if they pass.

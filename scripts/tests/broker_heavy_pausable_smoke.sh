@@ -26,7 +26,7 @@ export GORGE_REWARD_DIR=$TMP/reward
 export HEAVY_START_FLOOR_MB=1 PROBE_START_FLOOR_MB=1
 export HEAVY_MAX_LEASES=5 PROBE_MAX_LEASES=5
 export PAUSE_GRACE_S=2 KILL_FLOOR_MB=1 LOAD_CEIL_FRAC=100
-export GORGE_HEAVY_LOCK=$TMP/heavy.lock
+export GORGE_HEAVY_LOCK=$TMP/lockfile
 BROKER=$ROOT/scripts/broker.sh
 HEAVY=$ROOT/scripts/heavy.sh
 fails=0
@@ -122,7 +122,8 @@ fi
 
 # And it resumes.
 "$BROKER" resume-all heavy >/dev/null
-sleep 1.5
+# The supervisor (1 s loop) re-takes the heavy lock and then continues the job.
+sleep 3.5
 r=$(wc -l <"$TICKS")
 [ "$r" -gt "$p2" ]
 check "heavy job resumes after resume-all" $? "parked=$p2 resumed=$r"
