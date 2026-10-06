@@ -145,7 +145,7 @@ func TestWhirlerVirtuosoFixedEnergyCostGatesAndPays(t *testing.T) {
 	e := handEngine(t, corpusAlternativeCard(t, "Whirler Virtuoso"))
 	if thopter := reg.Tokens["c_1_1_a_thopter_flying"]; thopter != nil {
 		e.G.Tokens = fixtureTokenMap(e.G.Tokens)
-		e.G.Tokens["c_1_1_a_thopter_flying"] = thopter
+		setFixtureToken(e, "c_1_1_a_thopter_flying", thopter)
 	}
 	virt := e.G.Zone(state.ZHand, 0)[0]
 	e.emit(events.Event{Kind: events.MoveZone, Obj: virt, From: state.ZHand, To: state.ZBattlefield})

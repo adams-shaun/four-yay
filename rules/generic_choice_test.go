@@ -58,8 +58,8 @@ const treasureTokenScript = "Name:Treasure Token\nManaCost:no cost\nTypes:Artifa
 func provisionerAtModes(t *testing.T, seed uint64) (*Engine, Config) {
 	t.Helper()
 	e, cfg, _ := newFixtureDeck(t, seed, provisionerScript, provForestScript)
-	e.G.Tokens["c_a_food_sac"] = card(t, foodTokenScript)
-	e.G.Tokens["c_a_treasure_sac"] = card(t, treasureTokenScript)
+	setFixtureToken(e, "c_a_food_sac", card(t, foodTokenScript))
+	setFixtureToken(e, "c_a_treasure_sac", card(t, treasureTokenScript))
 	putCreature(t, e, 0, provisionerScript)
 	if d := e.Pending(); d != nil && d.Kind != decision.KPriority {
 		t.Fatalf("after the provisioner enters, pending = %+v, want priority (its own entry must not fire Landfall)", d)

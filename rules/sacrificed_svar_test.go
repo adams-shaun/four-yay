@@ -70,7 +70,7 @@ func TestGhoulcallerGisaCreatesTokensForSacrificedPower(t *testing.T) {
 			e, cfg, gisa := newFixtureDeck(t, 77, sacGisa, tc.sacSrc)
 			moveSeeded(t, e, 0, sacGisa, state.ZBattlefield)
 			creature := moveSeeded(t, e, 0, tc.sacSrc, state.ZBattlefield)
-			e.G.Tokens["sac1_zombie"] = card(t, sac1Zombie)
+			setFixtureToken(e, "sac1_zombie", card(t, sac1Zombie))
 			addMana(t, e, 0, "B")
 			submitChoices(t, e, abilityOption(t, e, gisa, 0).Index)
 			d := e.Pending()
@@ -207,7 +207,7 @@ func TestSacrificedPowerIsTheLayerDerivedLastKnownPower(t *testing.T) {
 		if got := e.Power(creature); got != 3 {
 			t.Fatalf("PRECONDITION: bear power under the anthem = %d, want 3", got)
 		}
-		e.G.Tokens["sac1_zombie"] = card(t, sac1Zombie)
+		setFixtureToken(e, "sac1_zombie", card(t, sac1Zombie))
 		addMana(t, e, 0, "B")
 		submitChoices(t, e, abilityOption(t, e, gisa, 0).Index)
 		d := e.Pending()

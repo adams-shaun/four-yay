@@ -38,7 +38,7 @@ func seedAngelToken(t *testing.T, e *Engine) {
 	if !ok {
 		t.Fatal("corpus token registry has no w_4_4_angel_flying for Descend's TokenScript$")
 	}
-	e.G.Tokens[angelTokenKey] = c
+	setFixtureToken(e, angelTokenKey, c)
 }
 
 const deliriumBearSrc = "Name:Delirium Bear\nTypes:Creature\nPT:2/2\nOracle:x\n"

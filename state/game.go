@@ -429,7 +429,9 @@ type Game struct {
 	Clock uint32
 
 	// Tokens is the token definitions this match may create, keyed by
-	// Forge script stem; set at genesis, never mutated, so Clone shares it.
+	// Forge script stem; set at genesis and never mutated, so Clone shares it
+	// -- and so does every Game built from one Config: New adopts
+	// Config.Tokens by reference, without copying it.
 	Tokens map[string]*cards.Card
 	// NameUniverse is the immutable compiled card-name universe used by
 	// NameCard choices. It is supplied by the embedder and shared by clones.
