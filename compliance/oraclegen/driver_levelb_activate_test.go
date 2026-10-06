@@ -98,7 +98,7 @@ func TestDriverStepSwitchCoversLevelBActivateOps(t *testing.T) {
 		cased[m[1]] = true
 	}
 
-	reg, err := cards.LoadRegistry(cards.CachePath(filepath.Join("..", "..", ".cards")))
+	reg, err := cards.SharedCorpus(filepath.Join("..", "..", ".cards"))
 	if err != nil {
 		t.Fatalf("the generator needs the corpus: %v", err)
 	}
@@ -145,6 +145,9 @@ func TestDriverStepSwitchCoversLevelBActivateOps(t *testing.T) {
 			}
 			if st.Op == "activate" {
 				sawActivate = true
+				if tc.card == "Cathar Commando" && it.XAbility[n] != "{1}, Sacrifice {this}" {
+					t.Errorf("Cathar Commando self-sacrifice prefix = %q, want XMage's literal {this} form", it.XAbility[n])
+				}
 			}
 			if (it.XAbility[n] != "") != (st.Op == "activate") {
 				t.Errorf("%s step %d (%s): xmage_ability = %q, want non-empty exactly on activate", tc.card, n, st.Op, it.XAbility[n])
