@@ -504,7 +504,7 @@
 "SOI": {"outstanding":275},
 "SOK": {"outstanding":164},
 "SOM": {"outstanding":219},
-"SOS": {"outstanding":0},
+"SOS": {"level":"A","outstanding":0},
 "SPE": {"outstanding":27},
 "SPG": {"outstanding":116},
 "SPM": {"outstanding":2},
