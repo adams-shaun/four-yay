@@ -1,3 +1,0 @@
-{"shape":{"template":"static","op":"setup","field":"permanents","diff":"gorge+token"},"key":"static | setup | permanents | gorge+token","cards":2}
-{"card":"Clay-Fired Bricks","template":"static#1.0","status":"diverge","api":"ChangesZone:ChangeZone","sets":["LCI"],"detail":"setup permanents: gorge \"c0 o0 token [artifact creature gnome] {} 2/2; c0 o0 token [artifact creature gnome] {} 2/2\", xmage \"\""}
-{"card":"Private Eye","template":"static#0.0","status":"diverge","api":"Drawn:Effect","sets":["MKM"],"detail":"setup permanents: gorge \"c0 o0 token [creature enchantment glimmer] {W} 1/1\", xmage \"\""}

@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"setup","field":"p0.life","diff":"gorge-xmage=-1"},"key":"activate | setup | p0.life | gorge-xmage=-1","cards":1}
-{"card":"The Black Arrow","template":"activate#0.0","status":"diverge","api":"ChangesZone:DealDamage","sets":["HOB"],"detail":"setup p0.life: gorge \"19\", xmage \"20\""}

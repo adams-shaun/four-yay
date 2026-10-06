@@ -120,7 +120,7 @@ func (e *Engine) maxSpeedAbilities(p state.PlayerID, id state.ObjID) []*cards.SA
 		if st.Mode != "Continuous" || st.ParamStr(cards.PKAddAbility) == "" {
 			continue
 		}
-		if st.ParamStr(cards.PKCondition) != "MaxSpeed" {
+		if !isMaxSpeedCondition(st.ParamStr(cards.PKCondition)) {
 			continue
 		}
 		if ab := cards.ResolveSVar(f.SVars, st.ParamStr(cards.PKAddAbility)); ab != nil && ab.Kind == "AB" {
@@ -199,7 +199,7 @@ func (e *Engine) beginGainedActivation(p state.PlayerID, opt decision.Option) {
 // degrades to a no-op.
 func (e *Engine) beginGrantedActivation(p state.PlayerID, opt decision.Option) {
 	o := e.G.Obj(opt.Obj)
-	if o == nil || o.Zone != state.ZBattlefield || o.Face() == nil {
+	if o == nil || o.Face() == nil {
 		return
 	}
 	// The body resolves from the GRANTOR (a printed static's own permanent),
@@ -220,7 +220,7 @@ func (e *Engine) beginGrantedActivation(p state.PlayerID, opt decision.Option) {
 	// Note this is a NAME anchor, not the flat pile-ability index: a granted
 	// activation carries ability == -1 and decodes no index at all.
 	ab := e.grantedSAFrom(grantor, opt.Obj, opt.SVar)
-	if ab == nil {
+	if !grantedAnchorZoneOK(o, ab) {
 		return
 	}
 	cost, ok := pay.FixLifeXCost(asPayer(e), p, opt.Obj, e.parseCost(ab.ParamStr(cards.PKCost)))

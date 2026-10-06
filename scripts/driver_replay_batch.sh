@@ -125,7 +125,9 @@ checks() {
     if [ "$1" = pre ]; then capped go build ./... || exit 1; fi
     capped go test -timeout 2m ./compliance/oraclegen ./compliance/oraclegen/templates ./cmd/oraclediff || exit 1
     if [ "$1" = post ]; then capped go test -timeout 2m ./compliance/adopt ./compliance/gate ./compliance || exit 1; fi
-    capped go test -timeout 2m -run Oracle ./rules || exit 1
+    # Census guards too: a driver/runner branch that edits rules/ trips the
+    # param census (50a74c19c went red on oracleRun.build). ~10s, 0.9 GB.
+    capped go test -timeout 2m -run 'Oracle|Census' ./rules || exit 1
   ) >"$2" 2>&1
 }
 
@@ -134,15 +136,25 @@ PYHELP=$(
   cat <<'PY'
 import json, re, sys, glob, os
 
+def normalize_ids(x):
+    if isinstance(x, dict):
+        return {k: normalize_ids(v) for k, v in x.items()}
+    if isinstance(x, list):
+        return [normalize_ids(v) for v in x]
+    if isinstance(x, str):
+        x = re.sub(r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b", "<uuid>", x)
+        return re.sub(r"\[[0-9a-f]{3}\]", "[<id>]", x)
+    return x
+
 def canon(path):
-    """One xmage.jsonl snapshot with the per-run timing fields dropped."""
+    """One xmage.jsonl snapshot with per-run timings and object IDs dropped."""
     out = []
     for line in open(path):
         if line.strip():
             r = json.loads(line)
             for k in ("ms", "xmage_ms"):
                 r.pop(k, None)
-            out.append(r)
+            out.append(normalize_ids(r))
     return out
 
 def leaves(x, p=""):
@@ -238,6 +250,28 @@ elif cmd == "agrees":
             if r.get("id") == args[1]:
                 st = r.get("status") or (r.get("verdict") or {}).get("status", "")
                 sys.exit(0 if str(st).lower() == "agree" else 1)
+    sys.exit(1)
+elif cmd == "scenariochanged":
+    # scenariochanged WT MAINSHA ID: true iff both verdict rows have different scenario hashes.
+    wt, ref, rid = args
+    import subprocess
+    current = None
+    for f in sorted(glob.glob(os.path.join(wt, "compliance/verdicts/*.jsonl"))):
+        for line in open(f):
+            if line.strip() and json.loads(line).get("id") == rid:
+                current = json.loads(line).get("scenario_sha")
+                break
+        if current is not None:
+            break
+    if current is None:
+        sys.exit(1)
+    for f in sorted(glob.glob(os.path.join(wt, "compliance/verdicts/*.jsonl"))):
+        rel = "compliance/verdicts/" + os.path.basename(f)
+        show = subprocess.run(["git", "-C", wt, "show", ref + ":" + rel], capture_output=True, text=True, check=True).stdout
+        for line in show.split("\n"):
+            if line.strip() and json.loads(line).get("id") == rid:
+                original = json.loads(line).get("scenario_sha")
+                sys.exit(0 if current and original and current != original else 1)
     sys.exit(1)
 elif cmd == "keepmain":
     # keepmain WT MAINSHA ID: put main's verdict row for ID back in WT's file
@@ -551,7 +585,10 @@ classify() {
     fi
     flaky_check "$id"; rc=$?
     if [ "$rc" -eq 2 ]; then CLASSIFY_ERR="could not replay single scenario $id"; return 1; fi
-    if [ "$rc" -eq 0 ]; then
+    if [ "$rc" -eq 0 ] && py scenariochanged "$wt" "$MAIN" "$id"; then
+      say "STABLE $id ($FLAKE_FIELD): scenario differs from main; attributing instead of keeping main's stale row"
+      STABLE+=("$id")
+    elif [ "$rc" -eq 0 ]; then
       say "FLAKY $id ($FLAKE_FIELD): $FLAKE_RUNS replays on the batch driver differ; keeping main's row"
       echo "$(date '+%F %T') $bid ${id%%/*} $id varies: $FLAKE_FIELD" >>"$FLAKES"
       FLAKY+=("$id")

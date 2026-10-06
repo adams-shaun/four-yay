@@ -804,7 +804,7 @@ func (w *legalWalk) battlefieldWalk() {
 				// identity is the SVar name beginGrantedActivation mints its
 				// DelayedPush with (abSVarName), never a face index.
 				sv := abSVarName(o.Face(), ab)
-				if strings.EqualFold(strings.TrimSpace(ab.ParamStr(cards.PKBoast)), "True") && !e.boastGateOK(id, -1, sv) {
+				if !maxSpeedBoastHolds(w, id, ab, sv) {
 					continue
 				}
 				*out = append(*out, decision.Option{Index: len(*out), Kind: "granted",
@@ -812,6 +812,7 @@ func (w *legalWalk) battlefieldWalk() {
 					Obj:   id, SVar: sv})
 			}
 		}
+		offBattlefieldGrantedWalk(w)
 		// Morph-family turn face up (CR 708.6 / CR 116.2b, rules/morph_turnup.go):
 		// a face-down permanent its controller cast with Morph, Megamorph or
 		// Disguise may be turned face up as a SPECIAL ACTION any time they have

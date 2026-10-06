@@ -118,6 +118,13 @@ while true; do
           last_green=$head
           say "GREEN ${head:0:9} pushed ($(( $(date +%s) - s ))s)"
           resume_pipeline "$head"
+        elif git fetch -q origin main && git merge-base --is-ancestor "$head" origin/main; then
+          # Someone pushed main past the green head first (a direct push):
+          # the green commit is already on origin, so the pause must lift --
+          # with nothing left to push this loop would never run again.
+          last_green=$head
+          say "GREEN ${head:0:9} already on origin ($(( $(date +%s) - s ))s)"
+          resume_pipeline "$head"
         else
           say "GREEN ${head:0:9} push FAILED"
         fi

@@ -167,15 +167,19 @@ func (e *Engine) priorityOptionStale(p state.PlayerID, opt decision.Option) stri
 
 // grantedAnchorStale is beginGrantedActivation's first guard pair.
 func (e *Engine) grantedAnchorStale(o *state.Object, opt decision.Option) string {
-	if o.Zone != state.ZBattlefield || o.Face() == nil {
-		return "the recipient left the battlefield"
+	if o == nil || o.Face() == nil {
+		return "the recipient left its activation zone"
 	}
 	grantor := opt.GrantSource
 	if grantor == 0 {
 		grantor = opt.Obj
 	}
-	if e.grantedSAFrom(grantor, opt.Obj, opt.SVar) == nil {
+	ab := e.grantedSAFrom(grantor, opt.Obj, opt.SVar)
+	if ab == nil {
 		return "the granted ability no longer resolves"
+	}
+	if !grantedAnchorZoneOK(o, ab) {
+		return "the recipient left its activation zone"
 	}
 	return ""
 }

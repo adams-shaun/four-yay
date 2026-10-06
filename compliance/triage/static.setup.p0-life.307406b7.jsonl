@@ -1,4 +1,0 @@
-{"shape":{"template":"static","op":"setup","field":"p0.life","diff":"gorge-xmage=1"},"key":"static | setup | p0.life | gorge-xmage=1","cards":3}
-{"card":"Sokka, Tenacious Tactician","template":"static#0.0","status":"diverge","api":"SpellCast:Token+SpellCast:Pump","sets":["TLA"],"detail":"setup p0.life: gorge \"21\", xmage \"20\""}
-{"card":"Valley Questcaller","template":"static#0.0","status":"diverge","api":"ChangesZoneAll:Scry","sets":["BLB"],"detail":"setup p0.life: gorge \"21\", xmage \"20\""}
-{"card":"White Lotus Reinforcements","template":"static#0.0","status":"diverge","api":"-","sets":["TLA"],"detail":"setup p0.life: gorge \"21\", xmage \"20\""}

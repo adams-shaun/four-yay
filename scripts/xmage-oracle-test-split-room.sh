@@ -12,6 +12,9 @@ cp="$tests/target/test-classes:$tests/target/classes:$(< "$root/tests.cp")"
 mkdir -p "$out"
 javac -J-Xmx512m -nowarn -d "$out" -cp "$cp" \
   "$here/tools/xmageoracle/src/org/mage/test/oracle/ScenarioReplay.java" \
-  "$here/tools/xmageoracle/test/org/mage/test/oracle/ScenarioReplaySplitRoomTest.java"
+  "$here/tools/xmageoracle/test/org/mage/test/oracle/ScenarioReplaySplitRoomTest.java" \
+  "$here/tools/xmageoracle/test/org/mage/test/oracle/ScenarioReplayAnswerRoutingTest.java"
 java -Xmx512m -XX:ActiveProcessorCount=2 -Dlog4j.configuration=file:/dev/null -cp "$out:$cp" \
   org.mage.test.oracle.ScenarioReplaySplitRoomTest
+java -Xmx512m -XX:ActiveProcessorCount=2 -Dlog4j.configuration=file:/dev/null -cp "$out:$cp" \
+  org.mage.test.oracle.ScenarioReplayAnswerRoutingTest

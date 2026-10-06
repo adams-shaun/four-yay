@@ -178,8 +178,12 @@ func TestStaticContinuousAttachClusterTarget(t *testing.T) {
 		}
 		// The generic reason, or the named one for an Aura that removes the
 		// vanilla target's abilities (Honest Work): both are observation gaps.
+		// A granted ability (levelb-static-granted-abilities) is named by shape
+		// instead of the generic reason.
 		if skip.Reason != "static effect not observable on a probe or the card" &&
-			skip.Reason != "static removes the abilities of a permanent the fixture gives none" {
+			skip.Reason != "static removes the abilities of a permanent the fixture gives none" &&
+			!strings.HasPrefix(skip.Reason, "static grants a") && !strings.HasPrefix(skip.Reason, "static adds an SVar") &&
+			!strings.HasPrefix(skip.Reason, "static gains the") {
 			t.Errorf("%s %s %s: unexpected skip reason %q", row.set, row.card, row.key, skip.Reason)
 			continue
 		}

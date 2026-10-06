@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"setup","field":"permanents","diff":"$CARD gorge+[tapped] xmage+[]"},"key":"activate | setup | permanents | $CARD gorge+[tapped] xmage+[]","cards":1}
-{"card":"Harrier Strix","template":"activate#0.0","status":"diverge","api":"ChangesZone:Tap","sets":["OTJ"],"detail":"setup permanents: gorge \"c0 o0 Harrier Strix [bird creature] {U} 1/1 tapped\", xmage \"c0 o0 Harrier Strix [bird creature] {U} 1/1\""}

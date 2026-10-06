@@ -407,13 +407,32 @@ func (e *Engine) PotentialActions(p state.PlayerID) []decision.PotentialAction {
 		return nil
 	}
 	_, opts := e.potentialWalkOf(p, true)
+	// Payability is read from the decision builder's memo only. PotentialActions
+	// also serves auto-pass and search readers; it must not run the planner or
+	// open extra legal-action walks. Without a built decision, payability stays
+	// unknown and the affordance remains visible.
+	var unpayable map[state.ObjID]struct{}
+	if e.pending != nil && e.pending.Kind == decision.KPriority && e.pending.Acting() == p {
+		unpayable = make(map[state.ObjID]struct{}, len(e.pending.PotentialUnpayableCasts))
+		for _, id := range e.pending.PotentialUnpayableCasts {
+			unpayable[id] = struct{}{}
+		}
+	}
 	var out []decision.PotentialAction
 	for _, o := range opts {
-		if potentialPlayKind(o.Kind) {
-			out = append(out, decision.PotentialAction{
-				Kind: o.Kind, Obj: o.Obj, Ability: o.Ability, Mode: o.Mode, Label: o.Label,
-			})
+		if !potentialPlayKind(o.Kind) {
+			continue
 		}
+		a := decision.PotentialAction{
+			Kind: o.Kind, Obj: o.Obj, Ability: o.Ability, Mode: o.Mode, Label: o.Label,
+		}
+		if o.Kind == optCast && o.Mode == "" && o.AltCostIndex == 0 {
+			if _, proven := unpayable[o.Obj]; proven {
+				no := false
+				a.Payable = &no
+			}
+		}
+		out = append(out, a)
 	}
 	// opts belongs to the decision's potential walk cache (or is the
 	// decision's own Options): never released here.

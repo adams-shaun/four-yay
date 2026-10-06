@@ -1,9 +1,0 @@
-{"shape":{"template":"combat","op":"setup","field":"p0.life","diff":"gorge-xmage=1"},"key":"combat | setup | p0.life | gorge-xmage=1","cards":8}
-{"card":"Dream Beavers","template":"combat#0.attack","status":"diverge","api":"ChangesZone:LoseLife","sets":["TMT"],"detail":"setup p0.life: gorge \"21\", xmage \"20\""}
-{"card":"Dream Beavers","template":"combat#0.block","status":"diverge","api":"ChangesZone:LoseLife","sets":["TMT"],"detail":"setup p0.life: gorge \"21\", xmage \"20\""}
-{"card":"Inspiring Overseer","template":"combat#0.attack","status":"diverge","api":"ChangesZone:GainLife","sets":["FDN"],"detail":"setup p0.life: gorge \"21\", xmage \"20\""}
-{"card":"Inspiring Overseer","template":"combat#0.block","status":"diverge","api":"ChangesZone:GainLife","sets":["FDN"],"detail":"setup p0.life: gorge \"21\", xmage \"20\""}
-{"card":"Luminollusk","template":"combat#0.attack","status":"diverge","api":"ChangesZone:GainLife","sets":["ECL"],"detail":"setup p0.life: gorge \"21\", xmage \"20\""}
-{"card":"Luminollusk","template":"combat#0.block","status":"diverge","api":"ChangesZone:GainLife","sets":["ECL"],"detail":"setup p0.life: gorge \"21\", xmage \"20\""}
-{"card":"Shimmercreep","template":"combat#0.attack","status":"diverge","api":"ChangesZone:LoseLife","sets":["ECL"],"detail":"setup p0.life: gorge \"21\", xmage \"20\""}
-{"card":"Shimmercreep","template":"combat#0.block","status":"diverge","api":"ChangesZone:LoseLife","sets":["ECL"],"detail":"setup p0.life: gorge \"21\", xmage \"20\""}

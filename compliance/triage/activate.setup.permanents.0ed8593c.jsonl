@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"setup","field":"permanents","diff":"$CARD gorge+[4/2] xmage+[]; $CARD types gorge+[creature] xmage+[]"},"key":"activate | setup | permanents | $CARD gorge+[4/2] xmage+[]; $CARD types gorge+[creature] xmage+[]","cards":1}
-{"card":"Gastal Thrillroller","template":"activate#0.1","status":"diverge","api":"ChangesZone:Animate","sets":["DFT"],"detail":"setup permanents: gorge \"c0 o0 Gastal Thrillroller [artifact creature vehicle] {R} 4/2\", xmage \"c0 o0 Gastal Thrillroller [artifact vehicle] {R}\""}

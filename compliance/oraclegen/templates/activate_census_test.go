@@ -70,6 +70,9 @@ var activateCensusSets = []string{"BIG", "EOE", "FDN", "FRA"}
 // (cli-20261006T071710Z-0ab6e98c): a non-loyalty AddCounter<N/KIND> on the
 // source is payable with no prerequisite, so the two FDN Mazemind Tome
 // AddCounter<1/PAGE> skips become served battlefield requirements (FDN +2).
+// Re-measured for cli-20261006T110935Z-0968a39b: seeded setup permanents
+// no longer fire ETB triggers. Command Bridge activate#0.0 is now served
+// instead of a no-fixture skip (EOE mana 16 -> 17, no-fixture 1 -> 0).
 var wantActivateCensus = map[string]map[string]int{
 	"BIG": {
 		"served:activate.battlefield":             10,
@@ -81,11 +84,10 @@ var wantActivateCensus = map[string]map[string]int{
 	},
 	"EOE": {
 		"served:activate.battlefield":             36,
-		"served:activate.mana":                    16,
+		"served:activate.mana":                    17,
 		"skip:activate cost gap: Sac<token>":      1,
 		"skip:activate cost gap: SubCounter<...>": 1,
 		"skip:activate cost gap: tapXType<X>":     1,
-		"skip:activate no fixture":                1,
 		"skip:activate xmage text ambiguous":      6,
 	},
 	"FDN": {

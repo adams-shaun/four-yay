@@ -1,5 +1,0 @@
-{"shape":{"template":"combat","op":"setup","field":"p0.life","diff":"gorge-xmage=4"},"key":"combat | setup | p0.life | gorge-xmage=4","cards":4}
-{"card":"Migrating Ketradon","template":"combat#0.attack","status":"diverge","api":"ChangesZone:GainLife","sets":["DFT"],"detail":"setup p0.life: gorge \"24\", xmage \"20\""}
-{"card":"Migrating Ketradon","template":"combat#0.block","status":"diverge","api":"ChangesZone:GainLife","sets":["DFT"],"detail":"setup p0.life: gorge \"24\", xmage \"20\""}
-{"card":"Pummeler for Hire","template":"combat#0.attack","status":"diverge","api":"ChangesZone:GainLife+BecomesTarget:Ward","sets":["ECL"],"detail":"setup p0.life: gorge \"24\", xmage \"20\""}
-{"card":"Pummeler for Hire","template":"combat#0.block","status":"diverge","api":"ChangesZone:GainLife+BecomesTarget:Ward","sets":["ECL"],"detail":"setup p0.life: gorge \"24\", xmage \"20\""}

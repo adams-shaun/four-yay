@@ -1,6 +1,0 @@
-{"shape":{"template":"combat","op":"setup","field":"p1.graveyard","diff":"gorge+[Grizzly Bears] xmage+[]"},"key":"combat | setup | p1.graveyard | gorge+[Grizzly Bears] xmage+[]","cards":5}
-{"card":"Gurmag Rakshasa","template":"combat#0.attack","status":"diverge","api":"ChangesZone:Pump","sets":["TDM"],"detail":"setup p1.graveyard: gorge \"[Grizzly Bears]\", xmage \"[]\""}
-{"card":"Harvester of Misery","template":"combat#0.attack","status":"diverge","api":"ChangesZone:PumpAll","sets":["BIG"],"detail":"setup p1.graveyard: gorge \"[Grizzly Bears]\", xmage \"[]\""}
-{"card":"Sephiroth, Planet's Heir","template":"combat#0.attack","status":"diverge","api":"ChangesZone:PumpAll+ChangesZone:PutCounter","sets":["FIN"],"detail":"setup p1.graveyard: gorge \"[Grizzly Bears]\", xmage \"[]\""}
-{"card":"Shefet Archfiend","template":"combat#0.attack","status":"diverge","api":"ChangesZone:PumpAll","sets":["DFT"],"detail":"setup p1.graveyard: gorge \"[Grizzly Bears]\", xmage \"[]\""}
-{"card":"Vile Mutilator","template":"combat#0.attack","status":"diverge","api":"PermanentCreature","sets":["DSK"],"detail":"setup p1.graveyard: gorge \"[Grizzly Bears]\", xmage \"[]\""}

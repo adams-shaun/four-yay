@@ -21,7 +21,15 @@ import (
 // and by levelb-static-cda-types-control, which also observes a card's own
 // characteristic-defining P/T, a type or colour change and a control change
 // (Eluge-style CDAs, Tractor Beam, Ygra move out of the skips; a removal of
-// abilities from the vanilla fixture creature is a named skip).
+// abilities from the vanilla fixture creature is a named skip), and by
+// levelb-static-zone-permissions, which observes a static acting outside the
+// battlefield (a play permission or a granted Flashback, Plot or cost
+// reduction) as an offered option, a lifelink grant to spells through the
+// life it gains, and gives MayLookAt$ its own named skip, and by
+// levelb-static-granted-abilities, which observes a granted mana ability or
+// loyalty ability and an extra land drop as an offered option and gives every
+// other grant shape (activated, triggered and static abilities, abilities
+// gained from another card, an SVar) a named skip instead of the generic one.
 // It fails in both directions.
 var wantStaticContinuousCensus = map[string]map[string]int{
 	"BIG": {
@@ -29,31 +37,59 @@ var wantStaticContinuousCensus = map[string]map[string]int{
 		"skip:static counts cards exiled with the source": 1,
 	},
 	"EOE": {
-		"served": 24,
-		"skip:static effect not observable on a probe or the card":                   8,
-		"skip:static changes a player rule (hand size, land plays), not a permanent": 1,
-		"skip:static grants only keywords outside the compared evergreen set":        1,
-		"skip:static needs counters on the affected permanent":                       30,
+		"served": 30,
+		"skip:static effect not observable on a probe or the card":                      1,
+		"skip:static adds an SVar a granted trigger reads (needs that trigger's cause)": 1,
+		"skip:static look-at not observable":                                            1,
+		"skip:static changes a player rule (hand size, land plays), not a permanent":    1,
+		"skip:static needs counters on the affected permanent":                          30,
 	},
 	"FDN": {
-		"served": 54,
-		"skip:static effect not observable on a probe or the card":                    14,
-		"skip:static amount is a computed count the fixture does not make observable": 1,
-		"skip:static removes the abilities of a permanent the fixture gives none":     1,
-		"skip:static changes a player rule (hand size, land plays), not a permanent":  1,
-		"skip:static hand size is not observable in the permanent snapshot":           1,
-		"skip:static needs counters on the affected permanent":                        3,
+		"served": 63,
+		"skip:static effect not observable on a probe or the card":                                   3,
+		"skip:static adds an SVar a granted trigger reads (needs that trigger's cause)":              1,
+		"skip:static grants an activated ability (needs the driver's activate on a granted ability)": 1,
+		"skip:static look-at not observable":                                                         1,
+		"skip:static amount is a computed count the fixture does not make observable":                1,
+		"skip:static removes the abilities of a permanent the fixture gives none":                    1,
+		"skip:static hand size is not observable in the permanent snapshot":                          1,
+		"skip:static needs counters on the affected permanent":                                       3,
 	},
 	"FRA": {
-		"served": 19,
-		"skip:static effect not observable on a probe or the card":                14,
-		"skip:static removes the abilities of a permanent the fixture gives none": 1,
-		"skip:static counts cards exiled with the source":                         1,
-		"skip:static grants only keywords outside the compared evergreen set":     1,
-		"skip:static needs a token (setup places none)":                           1,
-		"skip:static needs counters on the affected permanent":                    2,
+		"served": 26,
+		"skip:static effect not observable on a probe or the card":                                        3,
+		"skip:static grants a loyalty ability that adds mana (its offered label names no text to assert)": 1,
+		"skip:static grants a loyalty ability the probe planeswalkers cannot pay for":                     2,
+		"skip:static grants a static ability (observed only through its own effect)":                      1,
+		"skip:static removes the abilities of a permanent the fixture gives none":                         1,
+		"skip:static counts cards exiled with the source":                                                 1,
+		"skip:static grants only keywords outside the compared evergreen set":                             1,
+		"skip:static needs a token (setup places none)":                                                   1,
+		"skip:static needs counters on the affected permanent":                                            2,
+	},
+	// DFT carries the Surveyor cycle's graveyard AddAbility$ grant, so the
+	// engine-gap skip is pinned here as its own key (levelb-static-zone-
+	// permissions named it, so the census tells it apart from the MaxSpeed
+	// setup gap).
+	"DFT": {
+		"served": 25,
+		"skip:static amount is a computed count the fixture does not make observable":            1,
+		"skip:static characteristic-defining P/T of a non-creature (the snapshot omits its P/T)": 1,
+		"skip:static effect not observable on a probe or the card":                               2,
+		"skip:static grants a triggered ability (needs a probe-sourced trigger cause)":           1,
+		"skip:static granted ability in Graveyard is not offered by the engine":                  4,
+		"skip:static grants only keywords outside the compared evergreen set":                    1,
+		"skip:static hand size is not observable in the permanent snapshot":                      1,
+		"skip:static needs max speed (setup has no speed knob)":                                  28,
+		"skip:static removes the abilities of a permanent the fixture gives none":                1,
 	},
 }
+
+// staticCensusSets are the sets TestStaticContinuousCensus pins. It extends
+// the level-A census sets (activateCensusSets) with DFT, whose Surveyor cycle
+// carries the graveyard AddAbility$ grant the engine offers no activation for
+// -- pinning DFT is what gives that named reason its own census key.
+var staticCensusSets = append([]string{"DFT"}, activateCensusSets...)
 
 func TestStaticContinuousCensus(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
@@ -62,7 +98,7 @@ func TestStaticContinuousCensus(t *testing.T) {
 	folded := compliance.FoldedNames(reg)
 
 	got := map[string]map[string]int{}
-	for _, set := range activateCensusSets {
+	for _, set := range staticCensusSets {
 		printed, err := compliance.LoadPrinted(filepath.Join(root, "compliance", "printed"), set)
 		if err != nil {
 			t.Fatalf("%s: %v", set, err)
@@ -88,7 +124,7 @@ func TestStaticContinuousCensus(t *testing.T) {
 		}
 		got[set] = counts
 	}
-	for _, set := range activateCensusSets {
+	for _, set := range staticCensusSets {
 		if diff := activateCensusDiff(wantStaticContinuousCensus[set], got[set]); diff != "" {
 			t.Errorf("%s static.continuous census mismatch:\n%s", set, diff)
 		}

@@ -116,6 +116,29 @@ describe('plan-less hand cast later affordance', () => {
     expect(html).not.toContain('menu__item--later');
   });
 
+  it('does not index a hand cast the engine has proved unpayable', () => {
+    const d = decision();
+    // Precondition: this is the report's Treasonous Ogre / Goblin shape —
+    // the cast is in potential_actions with no live option and no payment
+    // action, so without the payable verdict it would be indexed as a
+    // "(tap other mana first)" row. The engine's planner proved it
+    // unpayable, so tapping can never reach it.
+    const unpayable: PotentialAction = { ...cast, payable: false };
+    expect(unpayable.kind).toBe('cast');
+    expect([CARD]).toContain(unpayable.obj);
+    expect(d.options.some((o) => o.kind === 'cast' && o.obj === CARD)).toBe(false);
+    expect(d.payment_actions?.some((a) => a.cast.object === CARD)).not.toBe(true);
+
+    expect(laterByObj(d, [unpayable], [CARD])).toBeUndefined();
+
+    // The plan-less-but-unknown case still gets its row: only a PROVEN
+    // unpayable cast is suppressed, and `payable` is absent here.
+    expect(laterByObj(d, [cast], [CARD])?.get(CARD)).toEqual([cast]);
+
+    const { html } = render(HandFan, { props: { player: HAND, width: BOARD_W, options: bundle(d, [unpayable], [CARD]) } });
+    expect(html).not.toContain('tap other mana first');
+  });
+
   it('keeps land drops and stations excluded even for hand cards', () => {
     const d = decision();
     const potentials: PotentialAction[] = [

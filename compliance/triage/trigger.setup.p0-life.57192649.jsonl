@@ -1,3 +1,0 @@
-{"shape":{"template":"trigger","op":"setup","field":"p0.life","diff":"gorge-xmage=-4"},"key":"trigger | setup | p0.life | gorge-xmage=-4","cards":2}
-{"card":"Overlord of the Boilerbilges","template":"trigger#0.1","status":"diverge","api":"ChangesZone:DealDamage+Attacks:DealDamage","sets":["DSK"],"detail":"setup p0.life: gorge \"16\", xmage \"20\""}
-{"card":"Starving Revenant","template":"trigger#0.1","status":"diverge","api":"ChangesZone:Surveil+Drawn:LoseLife","sets":["LCI"],"detail":"setup p0.life: gorge \"16\", xmage \"20\""}

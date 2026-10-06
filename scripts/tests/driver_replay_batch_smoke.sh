@@ -114,7 +114,9 @@ for f in $d/*.regress; do [ -e "$f" ] && /usr/bin/grep -qxF -- "$id" "$f" && sta
 [ -e rules/oracle_run.go ] && /usr/bin/grep -qxF -- "$id" rules/oracle_run.go && state=bad
 for f in $d/*.flaky; do [ -e "$f" ] && /usr/bin/grep -qxF -- "$id" "$f" && state="r$(date +%N)$RANDOM"; done
 /usr/bin/grep -q '"scen": "bad"' "$1" && state=bad
-printf '{"id":"%s","scen":"%s","state":"%s","ms":%s}\n' "$id" "$scenario" "$state" "$((RANDOM + 1))" >"$2"
+extra=""
+[ "${STUB_VOLATILE_IDS:-}" != "$id" ] || extra=",\"error\":\"object_id='$(cat /proc/sys/kernel/random/uuid)' [$(printf '%03x' "$((RANDOM % 4096))")]\""
+printf '{"id":"%s","scen":"%s","state":"%s","ms":%s%s}\n' "$id" "$scenario" "$state" "$((RANDOM + 1))" "$extra" >"$2"
 EOF
 cat >"$S/gen.sh" <<'EOF'
 #!/usr/bin/env bash
@@ -224,7 +226,7 @@ mkrepo() {
 	echo base >"$R/compliance/manifests/base.txt"
 	{
 		echo '{"id":"Alpha/cast-resolve/v1","card":"Alpha","status":"agree"}'
-		echo '{"id":"Beta/cast-resolve/v1","card":"Beta","status":"agree"}'
+		echo '{"id":"Beta/cast-resolve/v1","card":"Beta","scenario_sha":"original-scenario-sha","status":"agree"}'
 		echo '{"id":"Gamma/cast-resolve/v1","card":"Gamma","status":"diverge"}'
 	} >"$R/compliance/verdicts/a.jsonl"
 	git -C "$R" add -A && git -C "$R" commit -q -m init
@@ -467,6 +469,39 @@ check "G a conflicting main move redoes the pass without landing" $?
 [ "$(status_of t1)" = human_needed ] && hasnt "$R/.ds4/issues/t1.md" 'driver_replay_batch:'
 check "G the ticket is untouched, so the redo selects it again" $?
 
+# ---- H0: changing XMage object identifiers do not turn a stable failure flaky -----
+mkrepo H0
+mkticket t1 2026-10-06T03:00:00Z tools/xmageoracle/t1.txt one
+mkticket t3 2026-10-06T04:00:00Z tools/xmageoracle/t3.regress 'Beta/cast-resolve/v1'
+STUB_VOLATILE_IDS=Beta/cast-resolve/v1 runpass
+has "$L" 'CULPRIT t3 row Beta/cast-resolve/v1'
+check "H0 UUID and three-hex XMage IDs normalize so stable failures are attributed" $?
+hasnt "$L" 'FLAKY Beta/cast-resolve/v1'
+check "H0 volatile object identifiers do not log a false flake" $?
+
+# ---- H1: a genuinely varying replay with a changed scenario is attributed, not restored -----
+mkrepo H1
+mkticket t1 2026-10-06T03:00:00Z tools/xmageoracle/t1.txt one
+mkticket t3 2026-10-06T04:00:00Z tools/xmageoracle/t3.regress 'Beta/cast-resolve/v1'
+printf 'Beta/cast-resolve/v1\n' >"$R/.worktrees/t3/tools/xmageoracle/t3.flaky"
+# The changed branch scenario hash must prevent restoring main's stale verdict row.
+python3 - "$R/.worktrees/t3/compliance/verdicts/a.jsonl" <<'PY'
+import json, sys
+p=sys.argv[1]
+rows=[json.loads(line) for line in open(p) if line.strip()]
+for row in rows:
+    if row["id"] == "Beta/cast-resolve/v1":
+        row["scenario_sha"] = "new-scenario-sha"
+with open(p,"w") as f:
+    f.write("\n".join(json.dumps(row) for row in rows)+"\n")
+PY
+git -C "$R/.worktrees/t3" add compliance/verdicts/a.jsonl tools/xmageoracle/t3.flaky && git -C "$R/.worktrees/t3" commit -q -m "change scenario hash"
+runpass
+has "$L" 'STABLE Beta/cast-resolve/v1 (' && has "$L" 'CULPRIT t3 row Beta/cast-resolve/v1'
+check "H1 variable output with a changed scenario is promoted to stable attribution" $?
+hasnt "$L" 'FLAKY Beta/cast-resolve/v1'
+check "H1 stale main verdict is not kept for the changed scenario" $?
+
 # ---- H: a row already in driver-flakes.log is never a CULPRIT -----------------------
 mkrepo H
 mkticket t1 2026-10-06T03:00:00Z tools/xmageoracle/t1.txt one
@@ -477,7 +512,7 @@ has "$L" 'FLAKY Beta/cast-resolve/v1 (listed in driver-flakes.log)'
 check "H a stable-looking row listed in the flakes log is FLAKY without re-testing" $?
 hasnt "$L" 'CULPRIT'
 check "H a known-flaky row is never named CULPRIT" $?
-git -C "$R" show main:compliance/verdicts/a.jsonl | /usr/bin/grep -q '{"id":"Beta/cast-resolve/v1","card":"Beta","status":"agree"}'
+git -C "$R" show main:compliance/verdicts/a.jsonl | /usr/bin/grep -q '"id":"Beta/cast-resolve/v1".*"status":"agree"'
 check "H main's verdict row is kept for the known flake" $?
 /usr/bin/grep -qE 'LANDED [0-9a-f]{9} t1 t3$' "$L" && [ "$(status_of t3)" = merged ]
 check "H the branch that only looked guilty lands with the rest" $?
@@ -656,7 +691,7 @@ has "$L" "DRIFT Beta/cast-resolve/v1 diverge" && has "$L" "DRIFT Delta/trigger#0
 check "L each stable regressed row is logged as DRIFT <row> <detail> commits=<sha>" $?
 hasnt "$L" 'FLAKY' && hasnt "$L" 'CULPRIT' && hasnt "$L" 'UNATTRIBUTED'
 check "L a DRIFT row is neither flaky nor attributed to a branch" $?
-/usr/bin/grep -q 'LANDED' "$L" && git -C "$R" show main:compliance/verdicts/a.jsonl | /usr/bin/grep -q '"card": "Beta", "status": "diverge"'
+/usr/bin/grep -q 'LANDED' "$L" && git -C "$R" show main:compliance/verdicts/a.jsonl | /usr/bin/grep -q '"card": "Beta".*"status": "diverge"'
 check "L the refreshed (regressed) verdicts land so main matches its generator" $?
 [ "$(/usr/bin/grep -c '^TICKET ' "$R/tickets.out")" = 2 ]
 check "L one ticket per regressed template class (two rows of one class: one ticket)" $?
