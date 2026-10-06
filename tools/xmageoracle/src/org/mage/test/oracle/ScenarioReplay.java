@@ -398,25 +398,65 @@ public class ScenarioReplay extends CardTestPlayerBase {
             System.exit(2);
         }
         ScenarioReplay r = new ScenarioReplay();
-        int n = 0;
+        int n;
         try (BufferedReader in = new BufferedReader(new FileReader(args[0]));
              PrintWriter out = new PrintWriter(new FileWriter(args[1]))) {
-            String line;
-            while ((line = in.readLine()) != null) {
-                if (line.trim().isEmpty()) {
-                    continue;
-                }
-                JsonObject sc = JsonParser.parseString(line).getAsJsonObject();
-                long t0 = System.nanoTime();
-                JsonObject res = r.replay(sc);
-                res.addProperty("ms", (System.nanoTime() - t0) / 1_000_000);
-                out.println(GSON.toJson(res));
-                out.flush();
-                n++;
-            }
+            n = replayLines(r, in, out);
         }
         System.err.println("ScenarioReplay: " + n + " scenarios");
         System.exit(0);
+    }
+
+    /** Replay every scenario line, writing one result row each. ANY throwable
+     * while handling a scenario -- including in replay or in replayOnce's own
+     * catch/alignment path -- becomes a harness row for that scenario id, and
+     * the loop goes on to the next. Returns the row count. */
+    static int replayLines(ScenarioReplay r, BufferedReader in, PrintWriter out) throws Exception {
+        int n = 0;
+        String line;
+        while ((line = in.readLine()) != null) {
+            if (line.trim().isEmpty()) {
+                continue;
+            }
+            JsonObject sc = JsonParser.parseString(line).getAsJsonObject();
+            long t0 = System.nanoTime();
+            JsonObject res;
+            try {
+                res = r.replay(sc);
+            } catch (Throwable t) {
+                res = harnessRow(sc, true, t);
+            }
+            res.addProperty("ms", (System.nanoTime() - t0) / 1_000_000);
+            out.println(GSON.toJson(res));
+            out.flush();
+            n++;
+        }
+        return n;
+    }
+
+    /** Null-safe read of a scenario's "steps". A missing key, an explicit
+     * JSON null or any non-array value yields an empty array instead of the
+     * ClassCastException that used to escape replayOnce and kill the JVM, so
+     * a malformed scenario fails its own row and the batch goes on. */
+    static JsonArray steps(JsonObject sc) {
+        JsonElement e = sc.get("steps");
+        return e != null && e.isJsonArray() ? e.getAsJsonArray() : new JsonArray();
+    }
+
+    /** The result row a scenario gets when handling it throws -- including a
+     * throw inside replayOnce's own catch/alignment path. Same shape as an
+     * ordinary harness error so the comparator reads it unchanged. */
+    private static JsonObject harnessRow(JsonObject sc, boolean strict, Throwable t) {
+        JsonObject res = new JsonObject();
+        res.addProperty("strict", strict);
+        res.addProperty("name", str(sc, "name"));
+        if (sc.has("id")) {
+            res.add("id", sc.get("id"));
+        }
+        String msg = t.getClass().getSimpleName() + ": " + t.getMessage();
+        res.addProperty("harness", msg.length() > 800 ? msg.substring(0, 800) : msg);
+        res.add("snapshots", new JsonArray());
+        return res;
     }
 
     /**
@@ -428,10 +468,20 @@ public class ScenarioReplay extends CardTestPlayerBase {
      * not) do not void a run that reached every checkpoint.
      */
     JsonObject replay(JsonObject sc) {
-        JsonObject res = replayOnce(sc, true);
+        JsonObject res;
+        try {
+            res = replayOnce(sc, true);
+        } catch (Throwable t) {
+            return harnessRow(sc, true, t);
+        }
         String h = res.has("harness") ? res.get("harness").getAsString() : "";
         if (h.contains("Missing") && h.contains("def for turn")) {
-            JsonObject loose = replayOnce(sc, false);
+            JsonObject loose;
+            try {
+                loose = replayOnce(sc, false);
+            } catch (Throwable t) {
+                return harnessRow(sc, false, t);
+            }
             loose.addProperty("strict_miss", h.length() > 300 ? h.substring(0, 300) : h);
             return loose;
         }
@@ -499,7 +549,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 registerAliases(g);
                 snaps.add(snapshot(info, g));
             });
-            JsonArray steps = sc.has("steps") ? sc.getAsJsonArray("steps") : new JsonArray();
+            JsonArray steps = steps(sc);
             JsonArray xans = sc.has("xmage_answers") && sc.get("xmage_answers").isJsonArray()
                     ? sc.getAsJsonArray("xmage_answers") : new JsonArray();
             splitScripted = xans.toString().contains("^X=");
@@ -538,7 +588,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
             execute();
         } catch (Throwable t) {
             String msg = t.getClass().getSimpleName() + ": " + t.getMessage();
-            int stepCount = sc.has("steps") ? sc.getAsJsonArray("steps").size() : 0;
+            int stepCount = steps(sc).size();
             int completedSteps = snaps.size() - 1;
             if (endTurnScenario && unusedActionCount(msg) >= 0
                     && completedSteps >= 0 && completedSteps < stepCount
@@ -549,7 +599,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 // action from an earlier step is still a harness error. Record
                 // every skipped label from the post-turn state for alignment.
                 for (int skipped = completedSteps; skipped < stepCount; skipped++) {
-                    String op = str(sc.getAsJsonArray("steps").get(skipped).getAsJsonObject(), "op");
+                    String op = str(steps(sc).get(skipped).getAsJsonObject(), "op");
                     snaps.add(snapshot("step " + skipped + " (" + op + ")", currentGame));
                 }
                 msg = null;
