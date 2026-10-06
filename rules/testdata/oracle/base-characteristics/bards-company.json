@@ -1,0 +1,58 @@
+{
+  "card": "Bard's Company",
+  "family": "base-characteristics",
+  "author": "cli-20261006T024353Z-c6ff08b6 (Oracle packet + Scryfall + CR)",
+  "oracle_sha": "5e4488e60508",
+  "scenarios": [
+    {
+      "name": "resolves-as-a-two-three-and-pumps-other-creatures",
+      "cr": [
+        "208.1",
+        "611.3a",
+        "613.4c"
+      ],
+      "why": "The printed card is a 2/3 Human Citizen whose static reads 'Other creatures you control get +1/+1'. Resolving it must leave Bard's Company itself at its printed 2/3 (CR 611.3a/613.4c: an 'Other ... you control' static excludes its own source), while a second creature its controller controls is 2/2 + 1/+1 = 3/3.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Bard's Company"
+          ],
+          "battlefield": [
+            "Grizzly Bears"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Bard's Company",
+          "mana": "CCWU"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Bard's Company",
+          "zone": "battlefield",
+          "pt": "2/3"
+        },
+        {
+          "card": "p0:Grizzly Bears",
+          "pt": "3/3"
+        },
+        {
+          "card": "p1:Grizzly Bears",
+          "pt": "2/2"
+        }
+      ]
+    }
+  ]
+}
