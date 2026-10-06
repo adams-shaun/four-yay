@@ -34,8 +34,8 @@ func TestSelfCastCoverageIsLimitedToLevelASettledShape(t *testing.T) {
 			if tc.covered && got[0].Sub != "trigger.spell-cast-self" {
 				t.Fatalf("covered Emrakul shape has Sub=%q, want trigger.spell-cast-self", got[0].Sub)
 			}
-			if !tc.covered && got[0].Sub != "trigger.gap:SpellCast" {
-				t.Fatalf("unsettled targeted trigger has Sub=%q, want trigger.gap:SpellCast", got[0].Sub)
+			if !tc.covered && got[0].Sub != "trigger.spell-cast-self-cast" {
+				t.Fatalf("unsettled self-cast trigger has Sub=%q, want trigger.spell-cast-self-cast", got[0].Sub)
 			}
 		})
 	}
