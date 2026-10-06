@@ -118,24 +118,55 @@ func TestStaticIsPresentGraveyardSnapshots(t *testing.T) {
 	}
 }
 
-func TestStaticContinuousClassLevelNamedSkips(t *testing.T) {
+// TestStaticContinuousClassLevelDispositions pins each class-level continuous
+// static's level-B disposition after the shared Class level-up prelude landed.
+// Ninja Teen's level-2 static is now served (the prelude raises the Class to
+// level 2); the other three still skip, but on their OWN condition fixture (an
+// equipped permanent, a token, counters), not on the obsolete class-level
+// reason. The prelude removes the class gate; a static whose condition needs a
+// fixture this generator cannot build remains a named skip.
+func TestStaticContinuousClassLevelDispositions(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
-	for _, name := range []string{"Blacksmith's Talent", "Caretaker's Talent", "Innkeeper's Talent", "Ninja Teen"} {
-		t.Run(name, func(t *testing.T) {
-			card, ok := reg.Lookup(name)
+	const classLevelReason = "static needs a class level (the driver has no level-up op)"
+	for _, tc := range []struct {
+		name   string
+		served bool
+		reason string
+	}{
+		{name: "Ninja Teen", served: true},
+		{name: "Blacksmith's Talent", reason: "static needs an equipped permanent"},
+		{name: "Caretaker's Talent", reason: "static needs a token (setup places none)"},
+		{name: "Innkeeper's Talent", reason: "static needs counters on the affected permanent"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			card, ok := reg.Lookup(tc.name)
 			if !ok || len(card.Faces) == 0 {
-				t.Fatalf("precondition: %s missing from corpus", name)
+				t.Fatalf("precondition: %s missing from corpus", tc.name)
 			}
 			for _, req := range levelb.Requirements(card) {
 				if req.Key != "static#0.0" {
 					continue
 				}
 				if req.Sub != "static.continuous" || card.Faces[0].Statics[0].Params["ClassBand"] == "" {
-					t.Fatalf("precondition: %s static#0.0 is not a class-level continuous static", name)
+					t.Fatalf("precondition: %s static#0.0 is not a class-level continuous static", tc.name)
 				}
-				_, skip := templates.GenerateB(reg, name, req)
-				if skip == nil || skip.Reason != "static needs a class level (the driver has no level-up op)" {
-					t.Fatalf("class-level skip = %v", skip)
+				_, skip := templates.GenerateB(reg, tc.name, req)
+				if tc.served {
+					if skip != nil {
+						t.Fatalf("static#0.0 skip = %q, want a served scenario", skip.Reason)
+					}
+					return
+				}
+				if skip == nil {
+					t.Fatal("static#0.0 served, want the named condition skip")
+				}
+				// The obsolete class-level reason must not be the remaining one:
+				// the prelude removed that gate.
+				if skip.Reason == classLevelReason {
+					t.Fatalf("static#0.0 still reports the class-level reason %q", skip.Reason)
+				}
+				if skip.Reason != tc.reason {
+					t.Fatalf("static#0.0 skip = %q, want %q", skip.Reason, tc.reason)
 				}
 				return
 			}

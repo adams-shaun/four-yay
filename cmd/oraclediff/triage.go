@@ -68,6 +68,9 @@ func freezeRuled(reg *cards.Registry, r *compliance.VerdictRow) bool {
 // clusters what no ruling covers (section 11.3 C2). Without -apply it only
 // reports.
 func runTriage(dir, verdictDir, rulingDir, outDir string, apply bool) error {
+	if err := installXMageKnown(filepath.Join("compliance", "manifests")); err != nil {
+		return err
+	}
 	reg, err := loadReg(dir)
 	if err != nil {
 		return err

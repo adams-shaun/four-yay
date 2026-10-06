@@ -50,6 +50,51 @@ func eventTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *card
 		}
 	}
 	switch sub {
+	case classLevelGainedSub:
+		// "When this Class becomes level N" (CR 716.2e): the cause is the
+		// level-up activator that sets the designation to N. A level >2
+		// trigger first needs the prelude to N-1, then the level-N
+		// activation; the trigger is put on the stack when that activation
+		// resolves, which the probe's pass retry reveals.
+		band := classBandLevel(t)
+		if band < 2 {
+			return nil, "class-level-gained without a band", true
+		}
+		idx := classLevelUpIndex(f, band)
+		if idx < 0 {
+			return nil, "class-level-gained has no level-up ability", true
+		}
+		prefixes, why := oraclegen.XMageAbility(f)
+		if why != "" {
+			return nil, "class-level-gained xmage text ambiguous", true
+		}
+		prefix, okp := prefixes[idx]
+		if !okp {
+			return nil, "class-level-gained xmage text ambiguous", true
+		}
+		pool, gap := activationCostIn(f.Abilities[idx].ParamStr(cards.PKCost), "battlefield")
+		if gap != "" {
+			return nil, "class-level-gained cost gap: " + gap, true
+		}
+		var pre []oraclegen.Step
+		var preXab []string
+		if band > 2 {
+			var ok bool
+			pre, preXab, ok = classLevelPrelude(f, name, band-1)
+			if !ok {
+				return nil, "class-level-gained prelude unsupported", true
+			}
+		}
+		i := idx
+		activate := oraclegen.Step{
+			Op: "activate", Seat: 0, Card: "p0:" + name, Mana: pool,
+			AbilityIndex: &i, Answers: activationXAnswers(f.Abilities[idx].ParamStr(cards.PKCost)),
+		}
+		return []triggerCause{{
+			prelude: pre, preludeXAbility: preXab,
+			steps:    []oraclegen.Step{activate},
+			xability: []string{prefix},
+		}}, "", true
 	case "trigger.dies-other":
 		if name == bearsProbe {
 			return nil, "dies-other probe is the card", true

@@ -87,7 +87,7 @@ func activateAbility(reg *cards.Registry, f *cards.Face, name string, req levelb
 	// restriction names. gap names the restriction shape no setup reaches, so
 	// a failure is reported as a known restriction rather than the generic
 	// no-fixture reason.
-	restriction, gap := activateRestriction(reg, f, sa)
+	restriction, gap := activateRestriction(reg, f, name, sa)
 	it, ok := activateWith(reg, f, name, req, idx, prefix, pool, sa.ParamStr(cards.PKCost), zone, slots, restriction)
 	if !ok {
 		if oraclegen.HasType(f, "Aura") {
@@ -193,7 +193,13 @@ func activateWithFixture(reg *cards.Registry, f *cards.Face, name string, req le
 	dropUnproducedManaColours(it.XAnswers, activateStepIndex(sc.Steps), res)
 	it.XAnswers = scriptPreludeSacrifice(it.XAnswers, prelude, len(sc.Steps))
 	it.XAbility = make([]string, len(sc.Steps))
-	it.XAbility[activateStepIndex(sc.Steps)] = prefix
+	copy(it.XAbility, pre.xability)
+	activateStep := activateStepIndex(sc.Steps)
+	it.XAbility[activateStep] = prefix
+	if comboPrefix, ok := comboManaColourPrefix(f.Abilities[idx], cost, activateStep, res); ok {
+		it.XAbility[activateStep] = comboPrefix
+		dropColourChoices(it.XAnswers, activateStep)
+	}
 	return it, true
 }
 
@@ -262,16 +268,18 @@ func attackedThisTurn(filter string) bool {
 	return false
 }
 
-// activateStepIndex returns the index of the scenario's activate step. The
-// template emits it first today; the helper keeps XAbility parallel to Steps
-// if a prelude is ever added.
+// activateStepIndex returns the index of the scenario's PROBE activate step.
+// A probe with an activation prelude (a Class level-up) emits the prelude's
+// activate steps first, so the LAST activate step is the ability under test;
+// the cost answers and mana-colour drops must target it, not the prelude.
 func activateStepIndex(steps []oraclegen.Step) int {
+	found := 0
 	for i := range steps {
 		if steps[i].Op == "activate" {
-			return i
+			found = i
 		}
 	}
-	return 0
+	return found
 }
 
 // costTokens splits a Forge cost string on whitespace, keeping a token's

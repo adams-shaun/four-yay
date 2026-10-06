@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"path/filepath"
 	"sort"
 
 	"github.com/adams-shaun/gorge/compliance"
@@ -18,6 +19,9 @@ import (
 // are the very result XMage agreed with (or the ruling froze). Any other
 // row keeps its canon_sha and says why.
 func runRefreeze(dir string, apply bool) error {
+	if err := installXMageKnown(filepath.Join("compliance", "manifests")); err != nil {
+		return err
+	}
 	reg, err := loadReg(dir)
 	if err != nil {
 		return err

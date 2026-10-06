@@ -157,6 +157,11 @@ type setScan struct {
 // problems are the set-level ones (no printed list); loadSet does not walk
 // cards.
 func loadSet(reg *cards.Registry, root, set string) (*setScan, []Problem, error) {
+	xmageNames, err := compliance.LoadXMageNames(filepath.Join(root, "compliance", "manifests"))
+	if err != nil {
+		return nil, nil, err
+	}
+	oraclegen.SetXMageKnown(xmageNames)
 	m, err := compliance.LoadManifest(filepath.Join(root, "compliance", "manifests"), set)
 	if err != nil {
 		return nil, nil, err

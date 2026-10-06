@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/compliance/levelb"
 	"github.com/adams-shaun/gorge/compliance/oraclegen"
 )
 
@@ -46,7 +47,7 @@ var etbCastProbes = []string{
 	"Extremis Elite", "Dragon Hatchling", "Go-Shintai of Boundless Vigor",
 	"Expedition Envoy", "Carrion Feeder", "Canopy Spider", "Bog Rats",
 	"Inkrise Infiltrator", "Bulwark Ox", "Cloud Sprite", "Air Elemental",
-	"Boreal Druid", "Snubhorn Sentry", "Disguise Agent", "Bruce Banner",
+	"Boreal Druid", "Snubhorn Sentry", "Bruce Banner",
 	"Aven Skirmisher", "Spore Frog", "Zodiac Rabbit", "Cabaretti Initiate",
 	"Bonecache Overseer", "Assassin Initiate",
 	// Conjunction and qualifier probes: a legendary Elf (Elf.Legendary), a
@@ -63,7 +64,8 @@ var etbAuraProbes = map[string]bool{"Rancor": true, "Pacifism": true}
 // are each tested, and only a filter every alternative of which is
 // unservable is reported: "Creature.YouCtrl,Land.OppCtrl" is still served by
 // a creature. In one alternative, token means a TOKEN must enter (a cast card
-// is never a token), faceDown a face-down permanent, ChosenType a permanent
+// is never a token; a ChangesZoneAll filter a token maker serves is handled
+// by etbTokenServed), faceDown a face-down permanent, ChosenType a permanent
 // of a type chosen earlier, and OppCtrl an opponent's permanent. A negated
 // qualifier (!token) is satisfied by an ordinary non-token probe, so it is
 // stripped before the test.
@@ -96,18 +98,45 @@ func etbUnservableAlternative(alt string) string {
 	return ""
 }
 
+// etbTokenServed reports whether some alternative of a ChangesZoneAll filter
+// is a creature token the player controls, which a token-maker probe supplies:
+// a token needs a plain Card/Creature/Permanent base and no qualifier no
+// token probe can meet. "Artifact.token+YouCtrl" stays unservable.
+func etbTokenServed(filter string) bool {
+	for _, alt := range strings.Split(filter, ",") {
+		rest := strings.ReplaceAll(strings.ReplaceAll(strings.ToLower(alt), "!token", ""), "nontoken", "")
+		base, _, _ := strings.Cut(rest, ".")
+		if strings.Contains(rest, "token") && !strings.Contains(rest, "oppctrl") &&
+			!strings.Contains(rest, "facedown") && !strings.Contains(rest, "chosentype") &&
+			(base == "card" || base == "creature" || base == "permanent") {
+			return true
+		}
+	}
+	return false
+}
+
 // etbProbeCauses builds the candidate causes for an etb-other trigger, or the
 // named reason no probe can serve its filter.
 func etbProbeCauses(reg *cards.Registry, name string, t *cards.Trigger) ([]triggerCause, string) {
-	filter := t.ParamStr(cards.PKValidCard)
+	filter := levelb.ZoneChangeFilter(t)
+	if t.ModeKind() == cards.TriggerChangesZoneAll {
+		if why := zoneETBHistorySkip(t, filter); why != "" {
+			return nil, why
+		}
+	}
+	tokenServed := t.ModeKind() == cards.TriggerChangesZoneAll && etbTokenServed(filter)
 	if bad := etbUnservableFilter(filter); bad != "" {
-		return nil, "etb filter " + bad + " (" + filter + ")"
+		if !tokenServed {
+			return nil, "etb filter " + bad + " (" + filter + ")"
+		}
+		// Only a token satisfies the filter: the token maker is the one cause.
+		return tokenCauses(reg, name)
 	}
 	// Try the specific land and spell probes before the generic fallback. The
 	// old vanilla Bear remains last so it can still serve broad creature filters.
 	var out []triggerCause
 	for _, p := range etbLandProbes {
-		if p == name {
+		if p == name || !oraclegen.XMageKnown(p) {
 			continue
 		}
 		if _, ok := reg.Lookup(p); !ok {
@@ -119,7 +148,7 @@ func etbProbeCauses(reg *cards.Registry, name string, t *cards.Trigger) ([]trigg
 		})
 	}
 	for _, p := range etbCastProbes {
-		if p == name {
+		if p == name || !oraclegen.XMageKnown(p) {
 			continue
 		}
 		if etbAuraProbes[p] {
@@ -139,6 +168,24 @@ func etbProbeCauses(reg *cards.Registry, name string, t *cards.Trigger) ([]trigg
 	}
 	if c, ok := castCause(reg, name, bearsProbe); ok {
 		out = append(out, c)
+	}
+	if tokenServed {
+		tokens, _ := tokenCauses(reg, name)
+		out = append(out, tokens...)
+	}
+	if len(out) == 0 {
+		return nil, "probe not in corpus"
+	}
+	return out, ""
+}
+
+// tokenCauses casts a one-token maker (tokenProbes).
+func tokenCauses(reg *cards.Registry, name string) ([]triggerCause, string) {
+	var out []triggerCause
+	for _, p := range tokenProbes {
+		if c, ok := castCause(reg, name, p); ok {
+			out = append(out, c)
+		}
 	}
 	if len(out) == 0 {
 		return nil, "probe not in corpus"

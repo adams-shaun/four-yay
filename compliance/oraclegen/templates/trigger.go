@@ -26,14 +26,14 @@ var TriggerFires = Template{ID: "trigger", Version: 1}
 // trigger.gap:* still skips.
 func triggerSubs(sub string) bool {
 	switch sub {
-	case "trigger.etb-other", "trigger.etb-land", "trigger.dies", "trigger.attacks", "trigger.combat-damage",
+	case "trigger.etb-other", "trigger.etb-land", "trigger.dies", "trigger.leaves-graveyard", "trigger.ltb-other", "trigger.attacks", "trigger.combat-damage",
 		"trigger.spell-cast", "trigger.spell-cast-self", "trigger.becomes-target", "trigger.life-gained", "trigger.drawn", "trigger.phase",
-		"trigger.dies-other", "trigger.scry", "trigger.surveil", "trigger.noncombat-damage", "trigger.combat-damage-all",
-		"trigger.loyalty-activated", "trigger.discarded", "trigger.attacks-one-target",
+		"trigger.dies-other", "trigger.zone-change-residue", "trigger.scry", "trigger.surveil", "trigger.noncombat-damage", "trigger.combat-damage-all",
+		"trigger.loyalty-activated", "trigger.discarded", "trigger.attacks-one-target", classLevelGainedSub,
 		"trigger.spell-cast-opponent", "trigger.spell-cast-self-cast", "trigger.commit-crime", "trigger.ability-activated":
 		return true
 	}
-	return false
+	return tapCombatSub(sub)
 }
 
 // PassToSteps returns the exact pass_to checkpoints emitted by current
@@ -113,8 +113,15 @@ func triggerFires(reg *cards.Registry, f *cards.Face, name string, req levelb.Re
 				return skip(reason)
 			}
 		}
-		if f.Triggers[idx].ParamStr(cards.PKClassBand) != "" {
-			return skip("condition: class level")
+		if band := classBandLevel(&f.Triggers[idx]); band >= 2 {
+			// The cause prepends the level-up prelude; only when that prelude
+			// could not be built is the class level itself the reason the
+			// trigger did not fire. Once the prelude ran, a non-firing trigger
+			// is its own cause's failure, reported below.
+			_, _, preludeOK := classLevelPrelude(f, name, band)
+			if !preludeOK {
+				return skip("condition: class level")
+			}
 		}
 		// A graveyard-source trigger keeps its own, narrower reason below.
 		if req.Sub == "trigger.phase" || (conditionTriggerSub(req.Sub) && !triggerFromGraveyard(f, req)) {
@@ -156,6 +163,9 @@ func triggerScenario(f *cards.Face, name string, c triggerCause, req levelb.Requ
 	}
 	for _, card := range c.graveyard {
 		p0.Graveyard = appendFixtureUnique(p0.Graveyard, card)
+	}
+	for _, card := range c.opponentBattlefield {
+		p1.Battlefield = appendFixtureUnique(p1.Battlefield, card)
 	}
 	for _, card := range c.opponentHand {
 		p1.Hand = appendFixtureUnique(p1.Hand, card)
@@ -270,10 +280,13 @@ func triggerWithFixture(reg *cards.Registry, f *cards.Face, name string, req lev
 			}
 		}
 	}
-	if c.xability != nil {
+	if c.xability != nil || len(c.preludeXAbility) > 0 {
 		it.XAbility = make([]string, len(sc.Steps))
-		offset := len(c.prelude) + len(triggerSteps(f, name, c, nil, fx))
-		copy(it.XAbility[offset:], c.xability)
+		copy(it.XAbility, c.preludeXAbility)
+		if c.xability != nil {
+			offset := len(c.prelude) + len(triggerSteps(f, name, c, nil, fx))
+			copy(it.XAbility[offset:], c.xability)
+		}
 	}
 	return it, true, true
 }

@@ -155,6 +155,10 @@ type triggeredEffectCost struct {
 	// the flag also keeps a payer-chooses ask from re-posing if a future
 	// call path re-enters while the announcement is still unanswered.
 	xDone bool
+	// counterPicks is the kind of each counter unit an "Any" SubCounter part
+	// removes (RemoveAnyCounter<N/Any/CARDNAME>), recorded in cost order by
+	// subCounterKindAsk and settled by subCounterSettle.
+	counterPicks []string
 }
 
 // xFoldBoundCap is the defensive ceiling on an announced trigger-cost X when
@@ -1100,6 +1104,12 @@ func (e *Engine) triggeredCostPayable(tc *triggeredEffectCost) bool {
 		return false
 	}
 	rest := amt.WithoutEnergy()
+	if len(rest.SubCounter) > 0 {
+		// The counter-removal cost (trigger_cost_subcounter.go): payable from
+		// the source's own counters beside a priceable mana/life half; any
+		// other shape keeps the decline-only ask.
+		return tc.subCounterPayable(e, rest)
+	}
 	if len(rest.Sac)+len(rest.Discard)+len(rest.Exile)+len(rest.MoveToGrave) > 0 || len(rest.Evidence) > 0 || len(rest.Blight) > 0 {
 		// A component-bearing cost is payable ONLY through the settle gate
 		// (trigcost2): the Draw arm alone would offer "pay" while silently
@@ -1577,6 +1587,12 @@ func (e *Engine) triggeredCostAnswer(chosen []decision.Option) {
 		tc.xPaid = x
 		e.triggeredCostPaymentAsk()
 		return
+	case triggeredCostAnswerTriggerCostCounter:
+		// The counter-kind pick of an "Any" SubCounter unit: record it and
+		// re-enter the pay arm, which asks for the next unit or settles.
+		tc.counterPicks = append(tc.counterPicks, chosen[0].Counter)
+		e.triggeredCostAnswer([]decision.Option{{Kind: "trigger_cost_pay", Obj: tc.source}})
+		return
 	case triggeredCostAnswerPayPip:
 		// A flexible-pip announcement answer (the cast flow's own pay_W
 		// family): record the face the payer elected and advance to the next
@@ -1600,7 +1616,14 @@ func (e *Engine) triggeredCostAnswer(chosen []decision.Option) {
 		// charges is exactly the cost triggeredCostPayable proved. A cost with
 		// no announcement pip returns amount unchanged.
 		announced := tc.announcedCost()
-		if len(announced.Sac)+len(announced.Discard)+len(announced.Exile)+len(announced.MoveToGrave) > 0 || len(announced.Evidence) > 0 || len(announced.Blight) > 0 {
+		if len(announced.SubCounter) > 0 {
+			// The counter-removal cost: pick the kind of every "Any" unit
+			// (an ask only when more than one kind is left), then settle.
+			if tc.subCounterKindAsk(e, announced) {
+				return
+			}
+			paid = tc.subCounterSettle(e, announced)
+		} else if len(announced.Sac)+len(announced.Discard)+len(announced.Exile)+len(announced.MoveToGrave) > 0 || len(announced.Evidence) > 0 || len(announced.Blight) > 0 {
 			// The settleable-component cost (trigcost2): the election is
 			// "pay"; walk the components (the mandatory walk's picks -- a
 			// real KChoose where a choice exists, the Hand/Random discard
@@ -1617,8 +1640,7 @@ func (e *Engine) triggeredCostAnswer(chosen []decision.Option) {
 				e.advanceTriggeredMandatory(tc)
 			}
 			return
-		}
-		if len(announced.Draw) > 0 {
+		} else if len(announced.Draw) > 0 {
 			// The Draw-bearing cost: resolve every count (source SVar for the
 			// dynamic form), charge the mana half, then draw. The window's ask
 			// offered "pay" only when this resolution succeeds, so the pay
@@ -2347,6 +2369,7 @@ const (
 	triggeredCostAnswerTriggerCostBlight
 	triggeredCostAnswerTriggerCostX
 	triggeredCostAnswerPayPip
+	triggeredCostAnswerTriggerCostCounter
 )
 
 var triggeredCostAnswerCodes = state.NewStrCodes(
@@ -2355,6 +2378,7 @@ var triggeredCostAnswerCodes = state.NewStrCodes(
 	state.StrEntry[triggeredCostAnswerCode]{Key: "trigger_cost_tap", Val: triggeredCostAnswerTriggerCostTap},
 	state.StrEntry[triggeredCostAnswerCode]{Key: "trigger_cost_blight", Val: triggeredCostAnswerTriggerCostBlight},
 	state.StrEntry[triggeredCostAnswerCode]{Key: "trigger_cost_x", Val: triggeredCostAnswerTriggerCostX},
+	state.StrEntry[triggeredCostAnswerCode]{Key: "trigger_cost_counter", Val: triggeredCostAnswerTriggerCostCounter},
 	state.StrEntry[triggeredCostAnswerCode]{Key: "pay_W", Val: triggeredCostAnswerPayPip},
 	state.StrEntry[triggeredCostAnswerCode]{Key: "pay_U", Val: triggeredCostAnswerPayPip},
 	state.StrEntry[triggeredCostAnswerCode]{Key: "pay_B", Val: triggeredCostAnswerPayPip},
