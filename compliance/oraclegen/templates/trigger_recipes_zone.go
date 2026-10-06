@@ -114,6 +114,22 @@ func zoneTriggerRecipe(reg *cards.Registry, name string, t *cards.Trigger, sub s
 	return out, ""
 }
 
+// zoneETBHistorySkip names enter-together filters whose every alternative
+// requires graveyard/exile provenance. Casting from hand or making a token
+// cannot supply it. An OR branch without that constraint stays probeable.
+func zoneETBHistorySkip(t *cards.Trigger, filter string) string {
+	if origin := t.ParamStr(cards.PKOrigin); strings.EqualFold(origin, "Graveyard") || strings.EqualFold(origin, "Exile") {
+		return "etb origin " + origin
+	}
+	for _, alt := range strings.Split(strings.ToLower(filter), ",") {
+		if !strings.Contains(alt, "wascastfromgraveyard") && !strings.Contains(alt, "thisturnenteredfrom_graveyard") &&
+			!strings.Contains(alt, "wascastfromexile") && !strings.Contains(alt, "thisturnenteredfrom_exile") {
+			return ""
+		}
+	}
+	return "etb filter zone history (" + filter + ")"
+}
+
 func zoneChangeSkip(filter string, t *cards.Trigger) string {
 	lower := strings.ToLower(filter)
 	if strings.Contains(lower, "chosencardstrict") || strings.Contains(lower, "chosen card") || strings.Contains(lower, "chosen strict") {

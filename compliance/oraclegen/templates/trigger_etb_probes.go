@@ -119,6 +119,11 @@ func etbTokenServed(filter string) bool {
 // named reason no probe can serve its filter.
 func etbProbeCauses(reg *cards.Registry, name string, t *cards.Trigger) ([]triggerCause, string) {
 	filter := levelb.ZoneChangeFilter(t)
+	if t.ModeKind() == cards.TriggerChangesZoneAll {
+		if why := zoneETBHistorySkip(t, filter); why != "" {
+			return nil, why
+		}
+	}
 	tokenServed := t.ModeKind() == cards.TriggerChangesZoneAll && etbTokenServed(filter)
 	if bad := etbUnservableFilter(filter); bad != "" {
 		if !tokenServed {
