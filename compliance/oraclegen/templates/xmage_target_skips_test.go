@@ -76,6 +76,19 @@ func TestXMageOptionalTargetSkipControls(t *testing.T) {
 		t.Fatalf("Rise from the Wreck does not settle: fails=%v", res.Fails)
 	}
 
+	t.Run("reject unproven object shape", func(t *testing.T) {
+		ambiguous := append([]oraclegen.Slot(nil), slots...)
+		ambiguous[0].ZeroOrOne = false
+		if ambiguous[0].ZeroOrOne == slots[0].ZeroOrOne {
+			t.Fatal("precondition: correspondence metadata must differ")
+		}
+		// The engine still reads Rise's real abilities and can cast it;
+		// only the fixture-to-XMage correspondence is now unproven.
+		if _, ok := castWithProbes(reg, card.Faces[0], it.Card, cast.Mana, ambiguous, nil, nil); ok {
+			t.Fatal("an omitted object with unproven correspondence fell back to the legacy queue")
+		}
+	})
+
 	// Controls: each has several targets but no omitted independent 0..1
 	// object, so the legacy payload (no skip plan) must stay.
 	controls := []struct {
