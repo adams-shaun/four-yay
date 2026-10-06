@@ -274,7 +274,7 @@ func (r *oracleRun) snapshot(checkpoint string) OracleSnapshot {
 			src = g.Obj(o.Source)
 			it.Trigger = stackTriggerSlot(src, o.Ability)
 		}
-		it.Source = r.objRef(src)
+		it.Source = stackSourceRef(r.objRef(src), src)
 		s.Stack = append(s.Stack, it)
 	}
 	return s
@@ -297,6 +297,26 @@ func stackTriggerSlot(src *state.Object, sa *cards.SA) string {
 		}
 	}
 	return ""
+}
+
+// stackSourceRef is ref (objRef of o) for a stack item's source, except that a
+// battlefield permanent standing on a face other than its first reports that
+// face's name under its setup ref's seat prefix and "#n" ordinal: the setup
+// ref names the front face, but the ability on the stack is the back face's
+// (a "back_face" setup permanent), exactly as the XMage driver names it.
+func stackSourceRef(ref string, o *state.Object) string {
+	if o == nil || o.Zone != state.ZBattlefield || o.FaceIdx == 0 || o.CopyFace != nil || o.Face() == nil {
+		return ref
+	}
+	seat, nth := "", ""
+	if i := strings.IndexByte(ref, ':'); i >= 0 {
+		seat = ref[:i+1]
+		ref = ref[i+1:]
+	}
+	if j := strings.LastIndexByte(ref, '#'); j >= 0 {
+		nth = ref[j:]
+	}
+	return seat + o.Face().Name + nth
 }
 
 // objRef names o by the ref resolve maps back to o right now, so a snapshot
