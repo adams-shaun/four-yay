@@ -41,9 +41,14 @@ GO_TEST_FLAGS ?= -p=2
 # Where forgec puts the fetched corpus and the IR compiled from it. Never
 # committed — the scripts are GPL-3.0.
 CARDS_DIR  ?= .cards
+# gorge's fork of Card-Forge/forge: its `gorge` branch is upstream plus
+# script corrections against the printed card, each also sent upstream.
+FORGE_REPO ?= https://github.com/adams-shaun/forge.git
 # Pinned to the lock's commit for M2r; a corpus bump is a deliberate,
 # ledgered change, not a side effect of Forge's master moving.
-FORGE_REF  ?= fb4d8091126051b0c579db5f3bfdcb7e03aae63d
+# ab2a79bd8 = fb4d80911 (Card-Forge master 2026-10-02) + Card-Forge/forge#12153
+# (Bard's Company P/T, Voice of Victory type, Yip Yip! target).
+FORGE_REF  ?= ab2a79bd87b87df17c32a4eef77c4a6f3fdc998e
 # The XMage commit the compliance oracle (manifests, out-of-tree driver)
 # is pinned to. XMage is MIT; nothing from it is a build dependency.
 # docs/superpowers/specs/2026-10-02-xmage-compliance-oracle-design.md
@@ -161,7 +166,7 @@ sim: $(BIN_DIR)/mtgsim
 
 .PHONY: fetch-cards
 fetch-cards: $(BIN_DIR)/forgec
-	$(BIN_DIR)/forgec fetch -dir $(CARDS_DIR) -ref $(FORGE_REF)
+	$(BIN_DIR)/forgec fetch -dir $(CARDS_DIR) -repo $(FORGE_REPO) -ref $(FORGE_REF)
 
 .PHONY: compile-cards
 compile-cards: $(BIN_DIR)/forgec

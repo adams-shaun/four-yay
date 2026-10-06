@@ -47,7 +47,7 @@ guidelines*.
 ## Build / run / test
 
 ```sh
-make fetch-cards          # one-time; ~25 MB, pinned commit from Card-Forge/forge
+make fetch-cards          # one-time; ~25 MB, pinned commit from adams-shaun/forge (our fork of Card-Forge/forge; FORGE_REPO)
 make compile-cards        # parse into the IR cache
 make report               # card coverage against implemented primitives
 make sim                  # build mtgsim and play 20 verified 4-seat games

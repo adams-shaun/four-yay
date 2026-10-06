@@ -1,4 +1,4 @@
-{"shape":{"template":"cast-resolve","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: Cast $CARD"},"key":"cast-resolve | harness | xmage | AssertionError: Can't find ability to activate command: Cast $CARD","cards":56}
+{"shape":{"template":"cast-resolve","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: Cast $CARD"},"key":"cast-resolve | harness | xmage | AssertionError: Can't find ability to activate command: Cast $CARD","cards":55}
 {"card":"Bottomless Pool","template":"cast-resolve","status":"harness","api":"UnlockDoor:ChangeZone","detail":"xmage: AssertionError: Can't find ability to activate command: Cast Bottomless Pool"}
 {"card":"Cease","template":"cast-resolve","status":"harness","api":"ChangeZone+GainLife+Draw","detail":"xmage: AssertionError: Can't find ability to activate command: Cast Cease"}
 {"card":"Central Elevator","template":"cast-resolve","status":"harness","api":"UnlockDoor:ChangeZone","detail":"xmage: AssertionError: Can't find ability to activate command: Cast Central Elevator"}
@@ -54,4 +54,3 @@
 {"card":"Unfortunate Accident","template":"cast-resolve","status":"harness","api":"Charm","sets":["OTJ"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Unfortunate Accident"}
 {"card":"Unholy Annex","template":"cast-resolve","status":"harness","api":"Phase:Draw","detail":"xmage: AssertionError: Can't find ability to activate command: Cast Unholy Annex"}
 {"card":"Walk-In Closet","template":"cast-resolve","status":"harness","api":"-","detail":"xmage: AssertionError: Can't find ability to activate command: Cast Walk-In Closet"}
-{"card":"Yip Yip!","template":"cast-resolve","status":"harness","api":"Pump","sets":["TLA"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Yip Yip!$target=@p1:Grizzly Bears"}
