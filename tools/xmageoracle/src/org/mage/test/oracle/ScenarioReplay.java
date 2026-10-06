@@ -1601,6 +1601,54 @@ public class ScenarioReplay extends CardTestPlayerBase {
         return false;
     }
 
+    static final int PASS_RESOLVE_ONE = 1;
+    static final int PASS_HANDOFF = 2;
+    static final int PASS_SECOND = 3;
+
+    /** Classify only the pass shapes emitted by Level-B scenarios. A pair of
+     * opposing passes resolves one stack object; the supported lone p0 pass
+     * merely yields priority to p1's immediately following cast. */
+    static int passAction(JsonArray steps, int index) {
+        if (index < 0 || index >= steps.size()) {
+            throw new IllegalArgumentException("pass step index out of range: " + index);
+        }
+        JsonObject current = steps.get(index).getAsJsonObject();
+        if (!str(current, "op").equals("pass")) {
+            throw new IllegalArgumentException("pass action requested for non-pass step " + index);
+        }
+        int seat = current.has("seat") ? current.get("seat").getAsInt() : 0;
+        boolean previousPass = index > 0
+                && str(steps.get(index - 1).getAsJsonObject(), "op").equals("pass");
+        boolean nextPass = index + 1 < steps.size()
+                && str(steps.get(index + 1).getAsJsonObject(), "op").equals("pass");
+        if (previousPass) {
+            JsonObject previous = steps.get(index - 1).getAsJsonObject();
+            int previousSeat = previous.has("seat") ? previous.get("seat").getAsInt() : 0;
+            if (previousSeat != seat && !nextPass
+                    && (index < 2 || !str(steps.get(index - 2).getAsJsonObject(), "op").equals("pass"))) {
+                return PASS_SECOND;
+            }
+            throw new IllegalArgumentException("unsupported pass sequence at step " + index);
+        }
+        if (nextPass) {
+            JsonObject next = steps.get(index + 1).getAsJsonObject();
+            int nextSeat = next.has("seat") ? next.get("seat").getAsInt() : 0;
+            if (seat != nextSeat && (index + 2 == steps.size()
+                    || !str(steps.get(index + 2).getAsJsonObject(), "op").equals("pass"))) {
+                return PASS_RESOLVE_ONE;
+            }
+            throw new IllegalArgumentException("unsupported pass pair at step " + index);
+        }
+        if (seat == 0 && index + 1 < steps.size()) {
+            JsonObject next = steps.get(index + 1).getAsJsonObject();
+            int nextSeat = next.has("seat") ? next.get("seat").getAsInt() : 0;
+            if (str(next, "op").equals("cast") && nextSeat == 1) {
+                return PASS_HANDOFF;
+            }
+        }
+        throw new IllegalArgumentException("unsupported pass pattern at step " + index);
+    }
+
     private void step(JsonObject st, String op, int stepIdx) {
         int seatIdx = st.has("seat") ? st.get("seat").getAsInt() : 0;
         TestPlayer p = seat(seatIdx);
@@ -1867,6 +1915,15 @@ public class ScenarioReplay extends CardTestPlayerBase {
             case "play":
                 playLand(turn, phase, p, xmageSpelling(refName(str(st, "card"))));
                 return;
+            case "pass": {
+                int action = passAction(steps(sc0), stepIdx);
+                if (action == PASS_RESOLVE_ONE) {
+                    waitStackResolved(turn, phase, p, true);
+                } else if (action != PASS_HANDOFF && action != PASS_SECOND) {
+                    throw new IllegalArgumentException("unsupported pass action " + action);
+                }
+                return;
+            }
             case "resolve":
                 // gorge's resolve op passes priority until the stack is empty.
                 waitStackResolved(turn, phase, p);

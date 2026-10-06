@@ -6,6 +6,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.BiPredicate;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonParser;
 import mage.abilities.keyword.SpreeAbility;
 import mage.cards.Card;
 import mage.cards.CardSetInfo;
@@ -142,6 +144,24 @@ public final class ScenarioReplayDriverContractTest {
         System.out.println("PASS move destination mapping (exile->EXILED) and multi-zone source search");
     }
 
+    private static void passes() {
+        JsonArray pair = JsonParser.parseString("[{op:'pass',seat:0},{op:'pass',seat:1}]").getAsJsonArray();
+        check(pair.get(0).getAsJsonObject().get("seat").getAsInt()
+                        != pair.get(1).getAsJsonObject().get("seat").getAsInt(),
+                "precondition: resolving pass pair must come from opposing seats");
+        check(ScenarioReplay.passAction(pair, 0) == ScenarioReplay.PASS_RESOLVE_ONE,
+                "opposing consecutive passes must resolve exactly one stack object");
+        check(ScenarioReplay.passAction(pair, 1) == ScenarioReplay.PASS_SECOND,
+                "second opposing pass must not queue another resolution");
+
+        JsonArray handoff = JsonParser.parseString("[{op:'pass',seat:0},{op:'cast',seat:1}]").getAsJsonArray();
+        check(handoff.get(1).getAsJsonObject().get("op").getAsString().equals("cast"),
+                "precondition: supported handoff must immediately precede an opponent cast");
+        check(ScenarioReplay.passAction(handoff, 0) == ScenarioReplay.PASS_HANDOFF,
+                "lone p0 pass before p1 cast must hand off without a resolution command");
+        System.out.println("PASS pass mapping (opposing pair resolves one; lone p0 hands off to p1 cast)");
+    }
+
     private static CardSetInfo info(String name) {
         return new CardSetInfo(name, "TEST", "1", Rarity.RARE);
     }
@@ -164,6 +184,7 @@ public final class ScenarioReplayDriverContractTest {
     public static void main(String[] args) throws Exception {
         attachments();
         zones();
+        passes();
         spree();
     }
 }
