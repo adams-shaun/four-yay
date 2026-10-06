@@ -252,6 +252,10 @@ func drainDeferredAsks(e *Engine) {
 		if len(e.deferredAsks) == 0 {
 			e.deferredAsks = nil
 		}
+		// A deferred decision may have been built in a generation an earlier
+		// Submit already retired; relocate it into the current one so the
+		// live arena's contract holds for it too (decision_arena_live.go).
+		d = arenaRelocateDecision(e.activeArena(), d)
 		e.ask(d)
 	}
 }

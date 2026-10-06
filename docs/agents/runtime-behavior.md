@@ -37,6 +37,25 @@ unconditionally), there is no `Count$wasCastFromYourGraveyard` head, and the
 may-play provenance predicates (`MayPlaySource`/`CastSa`) stay fail-closed
 (see the ValidLKI row in `AGENTS.md`'s Known approximations register).
 
+## Decision-arena lifetime contract
+
+A fresh `rules.Engine` carves its decisions -- the posed `*decision.Decision`
+and its `Options` -- out of a bump-allocated arena (rules/decision_arena.go)
+to keep them off the GC's plate (~34% of alloc_space on enginebench's play
+rows). That storage is reclaimed by generation: a posed decision, its
+`Options` slice and everything they reference are **valid only until the next
+`Submit` (or `Advance`) on the engine that posed them**. A reader that needs
+the decision past that point (the host's decision feed, the view projection,
+a bot policy that stores offers, a bench trace) must copy it with
+`decision.Decision.Clone()` (or an equivalent deep copy). A live engine keeps
+two generations and retires one at each Submit boundary
+(rules/decision_arena_live.go), so the arena is bounded across a whole game;
+a search simulation's engine uses `SetDecisionArena` and is Release-scoped
+instead. The rules, host and view test binaries enable a poison verify mode
+(`decisionArenaVerify`) that overwrites a retired generation with a sentinel,
+so a reader that retains a decision fails loudly instead of reading a reused
+slot.
+
 ## Host behaviour notes (embedder observer hooks, D15)
 
 `OnBurst` errors crash the match like a persist failure (D15): the table
