@@ -879,6 +879,7 @@ func cloneFieldsEngineParked(c, e *Engine, sp *Spare, remap *cloneRemap) {
 		p0.blights = append([]state.ObjID(nil), e.triggerCost.blights...)
 		p0.moveGraves = append([]state.ObjID(nil), e.triggerCost.moveGraves...)
 		p0.evidence = append([]state.ObjID(nil), e.triggerCost.evidence...)
+		p0.counterPicks = append([]string(nil), e.triggerCost.counterPicks...)
 		c.triggerCost = &p0
 	}
 	if e.echo != nil {
