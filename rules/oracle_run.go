@@ -604,6 +604,9 @@ func (r *oracleRun) submit(d *decision.Decision, choices []int, why string) erro
 		}
 		if len(d.Options) > 0 {
 			od.First = d.Options[0].Label
+			if d.Options[0].Kind == "altaddcost" {
+				od.AltPayable = altPayableCount(r.e.cast, d, r.e.castable)
+			}
 		}
 		for _, c := range choices {
 			if c < 0 || c >= len(d.Options) {
@@ -628,6 +631,24 @@ func (r *oracleRun) submit(d *decision.Decision, choices []int, why string) erro
 		return harnessf("submit %s %v: %v (options %s)", d.Kind, choices, err, optionDump(d))
 	}
 	return nil
+}
+
+// altPayableCount counts the options of the pending AlternateAdditionalCost
+// ask the cast could pay, by the same test altAddAsk ordered them with.
+func altPayableCount(pc *pendingCast, d *decision.Decision, castable func(state.PlayerID, state.ObjID, Cost, bool) bool) int {
+	if pc == nil {
+		return 0
+	}
+	n := 0
+	for _, o := range d.Options {
+		if o.Amount < 0 || o.Amount >= len(pc.altAddParts) {
+			continue
+		}
+		if castable(pc.player, pc.card, pc.cost.Plus(ParseCost(pc.altAddParts[o.Amount])), pc.isAbility()) {
+			n++
+		}
+	}
+	return n
 }
 
 // oracleActivateKind reports whether an option's Kind names an action the
