@@ -18,6 +18,11 @@ type conditionPrelude struct {
 	graveyard   []string
 	counters    map[string]map[string]int
 	steps       []oraclegen.Step
+	// xability is parallel to steps: the XMage rule-text prefix of a prelude
+	// activate step (a Class level-up), "" on every other prelude step. It
+	// lets the activate and trigger templates label the prelude's activations
+	// for XMage exactly as they label their own.
+	xability []string
 }
 
 // conditionPreludes offers condition setup candidates in stable order. It

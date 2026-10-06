@@ -29,7 +29,7 @@ func triggerSubs(sub string) bool {
 	case "trigger.etb-other", "trigger.etb-land", "trigger.dies", "trigger.attacks", "trigger.combat-damage",
 		"trigger.spell-cast", "trigger.spell-cast-self", "trigger.becomes-target", "trigger.life-gained", "trigger.drawn", "trigger.phase",
 		"trigger.dies-other", "trigger.scry", "trigger.surveil", "trigger.noncombat-damage", "trigger.combat-damage-all",
-		"trigger.loyalty-activated", "trigger.discarded", "trigger.attacks-one-target":
+		"trigger.loyalty-activated", "trigger.discarded", "trigger.attacks-one-target", classLevelGainedSub:
 		return true
 	}
 	return false
@@ -112,8 +112,15 @@ func triggerFires(reg *cards.Registry, f *cards.Face, name string, req levelb.Re
 				return skip(reason)
 			}
 		}
-		if f.Triggers[idx].ParamStr(cards.PKClassBand) != "" {
-			return skip("condition: class level")
+		if band := classBandLevel(&f.Triggers[idx]); band >= 2 {
+			// The cause prepends the level-up prelude; only when that prelude
+			// could not be built is the class level itself the reason the
+			// trigger did not fire. Once the prelude ran, a non-firing trigger
+			// is its own cause's failure, reported below.
+			_, _, preludeOK := classLevelPrelude(f, name, band)
+			if !preludeOK {
+				return skip("condition: class level")
+			}
 		}
 		// A graveyard-source trigger keeps its own, narrower reason below.
 		if req.Sub == "trigger.phase" || (conditionTriggerSub(req.Sub) && !triggerFromGraveyard(f, req)) {
@@ -269,10 +276,13 @@ func triggerWithFixture(reg *cards.Registry, f *cards.Face, name string, req lev
 			}
 		}
 	}
-	if c.xability != nil {
+	if c.xability != nil || len(c.preludeXAbility) > 0 {
 		it.XAbility = make([]string, len(sc.Steps))
-		offset := len(c.prelude) + len(triggerSteps(f, name, c, nil, fx))
-		copy(it.XAbility[offset:], c.xability)
+		copy(it.XAbility, c.preludeXAbility)
+		if c.xability != nil {
+			offset := len(c.prelude) + len(triggerSteps(f, name, c, nil, fx))
+			copy(it.XAbility[offset:], c.xability)
+		}
 	}
 	return it, true, true
 }
