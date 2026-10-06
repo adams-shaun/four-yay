@@ -146,6 +146,10 @@ var baseBuckets = map[string]bucket{
 	// ResolvedLimit$ (the per-turn resolution cap's increment eligibility).
 	"rt": bTrig,
 	"s":  bStat, "st": bStat, "sv": bStat,
+	// carrier is offBattlefieldGrantedWalk's element of
+	// actionStaticSource.addAbilityContinuous(): a staticView like s/st/sv,
+	// whose Params (Condition$/Affected$/AddAbility$) the offer walk reads.
+	"carrier": bStat,
 	// pst.Static is manaConversionParts' PileStaticAt element (state.PileStatic
 	// -- the merged-under-card static walk): its Static is a cards.Static whose
 	// Params (EffectZone$) is the same static parameter map every bStat entry
@@ -2042,7 +2046,13 @@ var handRoots = struct {
 			// The mana walk's AddAbility$ pre-filter reads the same
 			// Continuous statics' AddAbility$ once per offer walk, over the
 			// collectActionStatics snapshot, instead of once per object.
-			"actionStaticSource.addAbilityContinuous"},
+			"actionStaticSource.addAbilityContinuous",
+			// offBattlefieldGrantedWalk reads the same Continuous AddAbility$
+			// carriers' Condition$/Affected$/AddAbility$ over that same
+			// actionStaticSource snapshot (the off-battlefield MaxSpeed
+			// grant offer) -- the direct-scan shape actionStaticSource's
+			// pre-filter has.
+			"offBattlefieldGrantedWalk"},
 		// maxSpeedAbilities scans Continuous AddAbility$/Condition$MaxSpeed
 		// statics directly over the face's Statics slice (CR 702.179e's
 		// max-speed grant), with no activeStatics call -- the same
