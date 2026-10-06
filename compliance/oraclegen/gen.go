@@ -834,10 +834,11 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSt
 	routing := newAnswerRouting(ds)
 	for i, d := range ds {
 		if d.Step < 0 {
-			// Setup ETB replacement choices are answered before XMage places the
-			// seeded permanents. Keep them in step zero's answer stream with a
-			// distinct kind so the driver can queue them before build().
-			if d.Resume == "etb" && d.Kind == "choose_n" && len(d.Picks) == 1 && len(d.PickKinds) == 1 && d.PickKinds[0] == "color" {
+			// Setup ETB replacement choices (colour or creature type) are
+			// answered before XMage places the seeded permanents. Keep them in
+			// step zero's answer stream with a distinct kind so the driver can
+			// queue them before build().
+			if IsSetupChoice(d) {
 				// Setup answers are read from xmage_answers[0] before build(),
 				// even when the scenario has no gameplay steps.
 				if len(out) == 0 {
