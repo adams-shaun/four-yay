@@ -170,6 +170,9 @@ func classifyTrigger(f *cards.Face, t *cards.Trigger) (sub, gap string, covered 
 	if sub, ok := classifyEventTrigger(t); ok {
 		return sub, "", false
 	}
+	if sub, ok := classifyTapCombatTrigger(f, t); ok {
+		return sub, "", false
+	}
 	if sub, ok := classifyCastTrigger(f, t); ok {
 		return sub, "", false
 	}
@@ -205,7 +208,10 @@ func classifyTrigger(f *cards.Face, t *cards.Trigger) (sub, gap string, covered 
 		return gapMode()
 
 	case cards.TriggerAttackersDeclared:
-		if strings.EqualFold(t.ParamStr(cards.PKAttackingPlayer), "You") || namesYouCtrl(t.ParamStr(cards.PKValidAttackers)) {
+		// "Whenever a player attacks with N or more creatures" is p0's attack
+		// too (AttackingPlayer$ Player, no attacked-target filter).
+		anyPlayer := strings.EqualFold(t.ParamStr(cards.PKAttackingPlayer), "Player") && !t.HasParam(cards.PKAttackedTarget)
+		if strings.EqualFold(t.ParamStr(cards.PKAttackingPlayer), "You") || anyPlayer || namesYouCtrl(t.ParamStr(cards.PKValidAttackers)) {
 			return "trigger.attacks", "", false
 		}
 		return gapMode()
@@ -299,6 +305,12 @@ func classifyStatic(f *cards.Face, st *cards.Static) (sub, gap string) {
 	}
 	if sub, ok := supportedLegalityStatic(f, st); ok {
 		return sub, ""
+	}
+	if sub, ok := cantBeShape(f, st); ok {
+		return sub, ""
+	}
+	if gap := cantBeNamedGap(st); gap != "" {
+		return "static.gap:" + st.Mode, gap
 	}
 	if isCombatStaticMode(st.Mode) {
 		return "static.combat", "legality static"

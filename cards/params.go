@@ -560,6 +560,7 @@ const (
 	PKNewCounterAmount
 	PKNoResolvingCheck
 	PKNotFirstCardInDrawStep
+	PKNumLimitEachTurn
 	PKNum
 	PKOneOff
 	PKOrderDuplicates
@@ -1337,6 +1338,7 @@ var paramKeyNames = [paramKeyCount]string{
 	PKNewCounterAmount:                 "NewCounterAmount",
 	PKNoResolvingCheck:                 "NoResolvingCheck",
 	PKNotFirstCardInDrawStep:           "NotFirstCardInDrawStep",
+	PKNumLimitEachTurn:                 "NumLimitEachTurn",
 	PKNum:                              "Num",
 	PKOneOff:                           "OneOff",
 	PKOrderDuplicates:                  "OrderDuplicates",

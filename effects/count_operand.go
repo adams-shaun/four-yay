@@ -325,17 +325,17 @@ func countBranchOperand(h Host, c *Ctx, holds bool, yesTok, noTok string, depth 
 // need only the bare value and /Twice.
 // modelledCountOp reports whether op is an arithmetic suffix the Count$
 // evaluator actually applies: a literal op validConvokedCountOp accepts, or a
-// Plus./Minus./Times. operand naming one of c's SVars (applyCountOpOperandOK's
-// SVar-operand arm, Avacyn's Judgment's /Plus.MaxPermanents).
-func modelledCountOp(c *Ctx, op string) bool {
+// named operand resolved by countOperandValue. This includes direct count
+// refs such as Remembered$Amount in PlayerCountOpponents$Amount/Minus.*.
+func modelledCountOp(h Host, c *Ctx, op string, depth int) bool {
 	op = strings.TrimSpace(op)
 	if validConvokedCountOp(op) {
 		return true
 	}
 	for _, prefix := range countOperandOps {
-		if operand, ok := strings.CutPrefix(op, prefix); ok && c != nil && c.SVars != nil {
-			_, named := c.SVars[strings.TrimSpace(operand)]
-			return named
+		if operand, ok := strings.CutPrefix(op, prefix); ok {
+			_, resolved := countOperandValue(h, c, strings.TrimSpace(operand), depth)
+			return resolved
 		}
 	}
 	return false
@@ -345,18 +345,8 @@ func modelledCountOp(c *Ctx, op string) bool {
 // body, is one the evaluator applies: a literal op, or a named operand that
 // resolves (countOperandValue) -- including a runtime StoreSVar write the
 // printed table never names (Face to Face's /LimitMin.Losses).
-func modelledGateOp(h Host, c *Ctx, op string) bool {
-	op = strings.TrimSpace(op)
-	if validConvokedCountOp(op) {
-		return true
-	}
-	for _, prefix := range countOperandOps {
-		if operand, ok := strings.CutPrefix(op, prefix); ok {
-			_, resolved := countOperandValue(h, c, strings.TrimSpace(operand), 0)
-			return resolved
-		}
-	}
-	return false
+func modelledGateOp(h Host, c *Ctx, op string, depth int) bool {
+	return modelledCountOp(h, c, op, depth)
 }
 
 func validConvokedCountOp(op string) bool {

@@ -101,7 +101,7 @@ func compilePlayerSingle(spec string) []playerAlt {
 		a.qualCode = playerSpecQualifierCodes.Code(a.qualifier)
 		if inner, negated := strings.CutPrefix(a.qualifier, "!"); a.qualified && negated {
 			a.negInner, a.inner = true, inner
-			a.innerKnown = matchesPlayerSingleSpecKeys.Has(inner)
+			a.innerKnown = matchesPlayerSingleSpecKeys.Has(inner) || playerSpecQualifierCodes.Code(inner) == playerSpecQualifierMaxSpeed
 			if a.innerKnown {
 				a.baseOnly = compilePlayerSingle(a.base)
 				a.positive = compilePlayerSingle(a.base + "." + inner)
