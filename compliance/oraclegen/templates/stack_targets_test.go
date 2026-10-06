@@ -12,9 +12,12 @@ import (
 // loadGenRegistry loads the corpus the generator needs. The corpus is
 // gitignored; without it these tests skip rather than pass vacuously (a
 // missing corpus is not a passing generator).
+// loadGenRegistry is the process-shared corpus (cards.SharedCorpus): a
+// registry is read-only after open, and a fresh decode per test cost every
+// test seconds and ~400 MB, and re-derived every card-keyed memo.
 func loadGenRegistry(t *testing.T) *cards.Registry {
 	t.Helper()
-	reg, err := cards.LoadRegistry(cards.CachePath(filepath.Join("..", "..", "..", ".cards")))
+	reg, err := cards.SharedCorpus(filepath.Join("..", "..", "..", ".cards"))
 	if err != nil {
 		t.Fatalf("the generator needs the corpus (make fetch-cards compile-cards): %v", err)
 	}

@@ -195,7 +195,10 @@ type oracleRun struct {
 	snaps      []OracleSnapshot
 	decisions  []OracleDecision
 	noSnapshot bool // runOracleScenarioWith's switch
-	step       int  // the scenario step being played; -1 during setup
+	// spare, when non-nil, is recycled engine storage build hands to the
+	// probe and the scenario's game (RunOracleScenarioJSON's pool).
+	spare *Spare
+	step  int // the scenario step being played; -1 during setup
 }
 
 func (r *oracleRun) logf(format string, a ...any) {
@@ -395,11 +398,17 @@ func (r *oracleRun) build(sc oracleScenario) error {
 	default:
 		return harnessf("unknown format %q", sc.Format)
 	}
-	cfg = seatZeroStart(cfg)
+	// r.spare (RunOracleScenarioJSON's pooled storage, nil otherwise) backs
+	// both the seat-0 probe and the real game: Spare reuse is invisible to
+	// the game (TestSpareReuseIsInvisible), so a scenario plays and logs
+	// exactly as with fresh arrays.
+	cfg = seatZeroStartSpare(cfg, r.spare)
 	r.cfg = cfg
 	// NewStartingPlayerChoice defers turn 1 to the first Advance (the toss
 	// is identical to New's, so seatZeroStart's seed still starts seat 0).
-	e := NewStartingPlayerChoice(cfg)
+	built := cfg
+	built.Spare = r.spare
+	e := NewStartingPlayerChoice(built)
 	r.e = e
 	if e.G.StartingPlayer != 0 {
 		return harnessf("seat 0 does not start (seed %d)", cfg.Seed)
@@ -613,11 +622,16 @@ func oracleActivateKind(kind string) bool {
 func oracleLabelMatches(label, want string) bool {
 	normalize := func(s string) string {
 		s = strings.ToLower(s)
-		s = strings.NewReplacer("{", "", "}", "").Replace(s)
+		s = oracleBraceStripper.Replace(s)
 		return s
 	}
 	return strings.Contains(normalize(label), normalize(want))
 }
+
+// oracleBraceStripper is built once: a strings.Replacer compiles its lookup
+// table on first use, and a per-call one rebuilt it for every option label
+// every answered decision compared.
+var oracleBraceStripper = strings.NewReplacer("{", "", "}", "")
 
 // oracleManaColourAliases maps a scenario's colour word or letter to the
 // mana symbol. Package-level, not a local: rules' param census scans every
@@ -1633,7 +1647,13 @@ func runOracleScenario(reg *cards.Registry, sc oracleScenario) (fails []string, 
 // runOracleScenarioWith is runOracleScenario with snapshots switched off
 // when noSnapshot is set (the A/B check that snapshotting is read-only).
 func runOracleScenarioWith(reg *cards.Registry, sc oracleScenario, noSnapshot bool) (fails []string, transcript []string, run *oracleRun) {
-	r := &oracleRun{reg: reg, refs: map[string]state.ObjID{}, noSnapshot: noSnapshot, step: -1}
+	return runOracleScenarioSpare(reg, sc, noSnapshot, nil)
+}
+
+// runOracleScenarioSpare is runOracleScenarioWith building its engines on
+// sp's recycled storage (see oracleRun.spare).
+func runOracleScenarioSpare(reg *cards.Registry, sc oracleScenario, noSnapshot bool, sp *Spare) (fails []string, transcript []string, run *oracleRun) {
+	r := &oracleRun{reg: reg, refs: map[string]state.ObjID{}, noSnapshot: noSnapshot, step: -1, spare: sp}
 	run = r
 	defer func() {
 		if p := recover(); p != nil {
@@ -1695,10 +1715,21 @@ func runOracleScenarioWith(reg *cards.Registry, sc oracleScenario, noSnapshot bo
 // toss draw sits BEFORE any shuffle, so it is deck-independent and the first
 // acceptable seed is a pure function of the requested one; the effective seed
 // travels in the returned Config, which is what a replay must be handed.
-func seatZeroStart(cfg Config) Config {
+func seatZeroStart(cfg Config) Config { return seatZeroStartSpare(cfg, nil) }
+
+// seatZeroStartSpare is seatZeroStart building each probe game on sp's
+// recycled storage (nil: fresh arrays) and handing the spent probe's back
+// into sp, so the caller's real game reuses it too.
+func seatZeroStartSpare(cfg Config, sp *Spare) Config {
 	for {
-		e := New(cfg)
-		if e.G.Active == 0 {
+		probe := cfg
+		probe.Spare = sp
+		e := New(probe)
+		ok := e.G.Active == 0
+		if sp != nil {
+			*sp = e.Release()
+		}
+		if ok {
 			return cfg
 		}
 		cfg.Seed++

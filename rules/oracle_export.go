@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"strings"
+	"sync"
 
 	"github.com/adams-shaun/gorge/cards"
 )
@@ -39,10 +41,38 @@ func RunOracleScenarioJSON(reg *cards.Registry, raw []byte) (OracleResult, error
 		return OracleResult{}, err
 	}
 	sc.xmageFixture = true
-	fails, transcript, run := runOracleScenario(reg, sc)
-	return OracleResult{
+	sp := oracleSparePool.Get().(*Spare)
+	fails, transcript, run := runOracleScenarioSpare(reg, sc, false, sp)
+	res := OracleResult{
 		Fails: fails, Transcript: transcript,
 		Snapshots: append([]OracleSnapshot{}, run.snaps...),
 		Decisions: append([]OracleDecision{}, run.decisions...),
-	}, nil
+	}
+	// The result holds only strings and fresh slices, never the engine's
+	// arrays, so the finished game's storage goes back to the pool. A run
+	// that panicked mid-emit keeps its engine (it is simply dropped): only
+	// a cleanly returned engine is released.
+	if run.e != nil && !oracleRunPanicked(fails) {
+		*sp = run.e.Release()
+		run.e = nil
+	}
+	oracleSparePool.Put(sp)
+	return res, nil
+}
+
+// oracleSparePool recycles engine storage (Spare) across
+// RunOracleScenarioJSON calls. The compliance generator and its audits play
+// tens of thousands of short two-seat scenarios back to back; without it
+// every probe and every scenario allocated and zeroed a full game's event
+// log and object arena. Reuse never changes a game (Spare), and a
+// sync.Pool keeps at most a handful live per P, released under GC pressure.
+var oracleSparePool = sync.Pool{New: func() any { return new(Spare) }}
+
+func oracleRunPanicked(fails []string) bool {
+	for _, f := range fails {
+		if strings.HasPrefix(f, "harness: panic: ") {
+			return true
+		}
+	}
+	return false
 }
