@@ -199,6 +199,7 @@ func evalRememberedOK(h Host, c *Ctx, body string) (int32, bool) {
 // Remembered$ group every Valid/condition reader resolves through),
 // rememberedLKIGroup (the RememberedLKI ref group) and evalRefProperty's
 // Remembered$<Property> heads.
+// Contract: docs/superpowers/specs/2026-09-22-engine-contracts.md, “Trigger remembered readers intentionally differ.”
 // A no-capture ctx (captured empty) returns the list unchanged; the helper
 // is idempotent -- the instance ctx effImmediateTrigger builds has Captured
 // and Remembered disjoint, so applying it a second time there answers the
