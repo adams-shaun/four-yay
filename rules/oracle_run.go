@@ -1730,10 +1730,14 @@ func runOracleScenarioSpare(reg *cards.Registry, sc oracleScenario, noSnapshot b
 // player, so every fixture addresses seats and turns by index -- and the
 // winner-chooses arm that would let a fixture name its starter is
 // deliberately unbuilt (the "Known approximations" row in AGENTS.md). The
-// toss draw sits BEFORE any shuffle, so it is deck-independent and the first
-// acceptable seed is a pure function of the requested one; the effective seed
-// travels in the returned Config, which is what a replay must be handed.
-func seatZeroStart(cfg Config) Config { return seatZeroStartSpare(cfg, nil) }
+// toss draw sits BEFORE any shuffle, but opening-hand effects can run before
+// turn 1 and affect whether seat 0 starts. Preserve the full-engine probe for
+// each seed while recycling its storage; the effective seed travels in the
+// returned Config, which is what a replay must be handed.
+func seatZeroStart(cfg Config) Config {
+	var sp Spare
+	return seatZeroStartSpare(cfg, &sp)
+}
 
 // seatZeroStartSpare is seatZeroStart building each probe game on sp's
 // recycled storage (nil: fresh arrays) and handing the spent probe's back

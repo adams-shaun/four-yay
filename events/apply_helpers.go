@@ -133,12 +133,14 @@ func grantPreparedCopy(g *state.Game, o *state.Object) {
 	for i := range g.Objs {
 		if cp := &g.Objs[i]; cp.PreparedSource == src {
 			cp.PreparedSource = 0
+			g.ClearPreparedSource()
 		}
 	}
 	cp := g.AddObject(card, ctrl)
 	cp.IsCopy = true
 	cp.SetFaceIdx(1)
 	cp.PreparedSource = src
+	g.NotePreparedSource()
 	Move(g, cp.ID, state.ZLibrary, state.ZExile)
 }
 
