@@ -674,8 +674,9 @@ func bodyReadsAllTargeted(v string, svars map[string]string, depth int) bool {
 }
 
 // bodyReadsRootTarget reports whether v, or any SVar body it reaches, reads a
-// ROOT-target reference (Targeted$ / ParentTarget$ / ThisTargetedCard$ -- the
-// names refTargets binds to Ctx.Targets, the ability's OWN chosen targets).
+// ROOT-target reference (Targeted$ / ParentTarget$ / ThisTargetedCard$ or a
+// TargetedPlayer/TargetedController count operand -- references to the ability's
+// own chosen targets).
 // The AllTargeted$ union is deliberately excluded: it is the sub-ability
 // pre-ask's shape (alltargeted1), priced only by repriceForTargets, and this
 // predicate arms the offer-time potential-target read for an equip cost
@@ -689,7 +690,9 @@ func bodyReadsRootTarget(v string, svars map[string]string, depth int) bool {
 		}
 		return strings.Contains(s, "Targeted$") ||
 			strings.Contains(s, "ParentTarget$") ||
-			strings.Contains(s, "ThisTargetedCard$")
+			strings.Contains(s, "ThisTargetedCard$") ||
+			strings.Contains(s, "TargetedPlayer") ||
+			strings.Contains(s, "TargetedController")
 	})
 }
 
@@ -800,6 +803,18 @@ func (e *Engine) subTargetAsk(pc *pendingCast) bool {
 		if !pc.isAbility() || sub.API == "Attach" {
 			excludeSelf = pc.card
 		}
+		// CR 601.2c: a chained link's target whose legal set reads an EARLIER
+		// target of the same spell or ability is still chosen on cast. Bind the
+		// nearest earlier targeting link's already-announced targets for this
+		// census, exactly as the resolution-time offer does (LegalSubTargets),
+		// so ValidTgts$/DefinedController$/dynamic bounds that name a
+		// Targeted*/ParentTarget referent resolve here instead of failing
+		// closed to an empty pool.
+		savedParent, savedBound := e.subOfferParent, e.subOfferBound
+		e.subOfferParent, e.subOfferBound = pc.targets, true
+		if pc.subStage > 0 {
+			e.subOfferParent = pc.subAns[pc.subStage-1]
+		}
 		candidates := e.legalTargetCandidates(pc.player, pc.card, excludeSelf, sub)
 		if effects.TargetUniqueRequested(sub) {
 			chosen := append([]state.Target(nil), pc.targets...)
@@ -823,6 +838,7 @@ func (e *Engine) subTargetAsk(pc *pendingCast) bool {
 		}
 		min, max := e.resolvedTargetBounds(pc.player, pc.card, sub, pc.x)
 		min, max, _, _ = e.oneEachTargetBounds(sub, candidates, min, max)
+		e.subOfferParent, e.subOfferBound = savedParent, savedBound
 		if min > 0 && len(candidates) < min {
 			e.abortCast(pc, "cast aborted: no legal target for a chained ability", true)
 			return true
@@ -946,22 +962,54 @@ func castSubBattlefieldChangeZoneShape(sa *cards.SA) bool {
 }
 
 // castSubPreAskable reports whether the cast flow can announce this chain
-// link's targets itself. The one shape it cannot: a link whose legality reads
-// an EARLIER target of the same spell or ability (Searing Blaze's
-// `Creature.ControlledBy ParentTargetedController`, Keeper of the Dead's
-// `Creature.nonBlack+TargetedPlayerCtrl`, Goblin Welder's
-// TargetsWithDefinedController$ ParentTargetedController, Mogg Assassin's
-// TargetingPlayer$ ParentTargetedController). CR 601.2c still wants it on
-// cast, relative to the target just chosen -- but the target census
-// (candidatesFor -> targetSpecContext) binds the Targeted*/ParentTarget
-// referents only for a RESOLVING context, never while an offer is being
-// built, so here the pool would come back empty and a mandatory link would
-// abort a castable spell. The link keeps the mid-resolution path it has on
-// main (where the same census cannot bind the referent either -- measured:
-// the ask is never posed). Closing it needs the census to take the
-// proposal's already-announced targets; ~12 corpus links.
+// link's targets itself. subTargetAsk binds the nearest earlier targeting
+// link's announced targets for the census, so an OPTIONAL link (TargetMin$ 0)
+// whose ValidTgts$ or DefinedController$ names a Targeted*/ParentTarget
+// referent (Rite of Renewal's up-to-four graveyard cards,
+// `Creature.AttachedTo ParentTarget`) is announced on cast (CR 601.2c). Still
+// deferred to resolution: a MANDATORY link reading an earlier target
+// (Searing Blaze, Mutiny, Goblin Welder -- the root offer does not yet demand
+// the link's pool), a link whose CHOOSER (TargetingPlayer$) reads one (Mogg
+// Assassin), and a dynamic bound body that does.
 func (e *Engine) castSubPreAskable(pc *pendingCast, sub *cards.SA) bool {
-	return !subTargetingReadsRootTarget(sub, e.castStageSVars(pc))
+	return !subTargetingRootUnbindable(sub, e.castStageSVars(pc))
+}
+
+// subTargetingRootUnbindable reports whether a chain link's declaration still
+// cannot be judged by the cast census even after the census binds the
+// parent targets: its CHOOSER (TargetingPlayer$) reads an earlier target and
+// is resolved from a resolution/trigger context (targetChooserCore), or a
+// dynamic bound body reads one (the numeric-bound evaluator carries no parent
+// binding). A ValidTgts$ or DefinedController$ reference to an earlier target
+// is NOT unbindable -- the census now resolves those -- which is what makes
+// the dependent-slot family (Rite of Renewal and its siblings) announce at
+// cast.
+func subTargetingRootUnbindable(sub *cards.SA, svars map[string]string) bool {
+	tp := effects.TargetsOf(sub)
+	if subTargetingChoosesParent(sub) {
+		return true
+	}
+	// A MANDATORY link whose pool reads an earlier target stays on its
+	// mid-resolution path: the root's own offer census does not yet know the
+	// link needs a legal pool, so asking it on cast would abort a castable
+	// spell (Searing Blaze with no creature on the targeted side). An
+	// optional link (TargetMin$ 0, Rite of Renewal) can never abort the cast.
+	if strings.TrimSpace(tp.Min.Text) != "0" &&
+		(strings.Contains(tp.ValidTgts, "Targeted") || strings.Contains(tp.ValidTgts, "ParentTarget") ||
+			strings.Contains(tp.DefinedController, "Targeted") || strings.Contains(tp.DefinedController, "ParentTarget")) {
+		return true
+	}
+	return bodyReadsRootTarget(tp.Min.Text, svars, 0) ||
+		bodyReadsRootTarget(tp.Max.Text, svars, 0)
+}
+
+// subTargetingChoosesParent reports whether a chain link's chooser
+// (TargetingPlayer$) is relative to an earlier target of the same spell or
+// ability, the one shape the cast ask cannot resolve (see castSubPreAskable).
+func subTargetingChoosesParent(sub *cards.SA) bool {
+	tp := effects.TargetsOf(sub)
+	return strings.Contains(tp.TargetingPlayer, "Targeted") ||
+		strings.Contains(tp.TargetingPlayer, "ParentTarget")
 }
 
 // subTargetingReadsRootTarget reports whether a chain link's target
