@@ -24,7 +24,7 @@ func censusSubjects(keep func(*cards.Card) bool) func(t testing.TB) []*cards.Car
 	return func(t testing.TB) []*cards.Card {
 		reg := testutil.CorpusRegistry(t)
 		once.Do(func() {
-			for _, c := range reg.Cards {
+			for _, c := range reg.AllCards() {
 				if keep(c) {
 					subjects = append(subjects, c)
 				}

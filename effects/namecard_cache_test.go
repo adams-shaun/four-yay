@@ -19,12 +19,12 @@ import (
 func TestNameChoicesCacheMatchesUncachedOnCorpus(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	g := state.NewGame(names(2))
-	g.NameUniverse = reg.Cards
-	g.NameUniverseNames = NameUniverseNames(reg.Cards)
-	if again := NameUniverseNames(reg.Cards); &again[0] != &g.NameUniverseNames[0] {
+	g.NameUniverse = reg.AllCards()
+	g.NameUniverseNames = NameUniverseNames(reg.AllCards())
+	if again := NameUniverseNames(reg.AllCards()); &again[0] != &g.NameUniverseNames[0] {
 		t.Fatal("NameUniverseNames recomputed for the same universe")
 	}
-	if !slices.Equal(g.NameUniverseNames, buildNameUniverseNames(reg.Cards)) {
+	if !slices.Equal(g.NameUniverseNames, buildNameUniverseNames(reg.AllCards())) {
 		t.Fatal("memoised universe names differ from a fresh build")
 	}
 	specs := []string{"", "Card.nonLand", "Card.nonBasic", "Creature", "Card.Creature",

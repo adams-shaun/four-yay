@@ -62,7 +62,7 @@ func TestWizardsStaffGrantedProwessUsesRealCorpusCard(t *testing.T) {
 // cards/keywords.go.
 func grantedTriggerKeywordHeads(reg *cards.Registry) map[string]bool {
 	heads := map[string]bool{}
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for _, f := range c.Faces {
 			for i := range f.Triggers {
 				line := f.Triggers[i].ParamStr(cards.PKKeywordLine)
@@ -141,7 +141,7 @@ func TestEquipAuraGrantedTriggerKeywordCensus(t *testing.T) {
 		t.Fatal("no printed keyword expansion carries KeywordLine: the census cannot classify heads")
 	}
 	measured := map[string][2]string{}
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for _, f := range c.Faces {
 			isEquipAura := false
 			for _, ty := range f.Types {

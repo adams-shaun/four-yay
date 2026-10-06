@@ -14,7 +14,7 @@ import (
 func TestTeamworkCorpusCensus(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	var files, keywordFiles, countFiles []string
-	for _, card := range reg.Cards {
+	for _, card := range reg.AllCards() {
 		if card == nil || card.Path == "" {
 			continue
 		}

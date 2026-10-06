@@ -32,7 +32,7 @@ func craftShapeName(param string) string {
 func TestCraftCorpusShapeCensus(t *testing.T) {
 	reg := compiledCorpus(t)
 	counts := map[string]int{}
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for _, face := range c.Faces {
 			for _, keyword := range face.Keywords {
 				if KeywordHead(keyword) != "Craft" {

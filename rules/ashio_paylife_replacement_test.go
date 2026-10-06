@@ -141,11 +141,11 @@ func TestAshiokPayLifeReplacement(t *testing.T) {
 func TestPayLifeReplacementCarrierCensus(t *testing.T) {
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
-	if len(reg.Cards) == 0 {
+	if reg.Len() == 0 {
 		t.Fatal("precondition: corpus registry is empty")
 	}
 	got := map[string]bool{}
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		if c == nil {
 			continue
 		}

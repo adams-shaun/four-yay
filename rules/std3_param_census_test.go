@@ -119,7 +119,7 @@ func std3ParamCarriers(reg *cards.Registry) map[string]map[string]bool {
 			matchOne(card, sa)
 		}
 	}
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for _, f := range c.Faces {
 			if f == nil {
 				continue

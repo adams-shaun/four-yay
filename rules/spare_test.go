@@ -20,7 +20,7 @@ func TestSpareReuseIsInvisible(t *testing.T) {
 	cfgFor := func(seed uint64) Config {
 		names := []string{all[int(seed)%len(all)], all[(int(seed)+1)%len(all)]}
 		decks := [][]*cards.Card{testutil.RepoDeck(t, reg, names[0]), testutil.RepoDeck(t, reg, names[1])}
-		return Config{Seed: seed, Names: names, Decks: decks, Tokens: reg.Tokens, NameUniverse: reg.Cards}
+		return Config{Seed: seed, Names: names, Decks: decks, Tokens: reg.Tokens, NameUniverse: reg.AllCards()}
 	}
 	play := func(cfg Config) *Engine {
 		e := New(cfg)

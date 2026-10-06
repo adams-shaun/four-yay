@@ -137,7 +137,7 @@ func triggerShownOnStack(t *testing.T, reg *cards.Registry, sc oraclegen.Scenari
 func TestTriggerSkipsWhatCannotFire(t *testing.T) {
 	reg := loadGenRegistry(t)
 	sawFireSkip := false
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		f := c.Faces[0]
 		for _, r := range levelb.Requirements(c) {
 			if r.Gap != "" || r.Family != "trigger" || r.Sub != "trigger.drawn" {

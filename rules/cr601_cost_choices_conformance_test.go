@@ -28,7 +28,7 @@ func TestCR601HybridCostsCannotSpendOnlyColorless(t *testing.T) {
 	// Graduated: passes with the conformance flag on; runs in the ordinary lane.
 	reg := testutil.CorpusRegistry(t)
 	checked, rejected := 0, 0
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for _, f := range c.Faces {
 			pool := state.Mana{}
 			hybrids, generic, admitted := 0, int32(0), true

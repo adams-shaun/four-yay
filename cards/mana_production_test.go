@@ -213,13 +213,13 @@ func TestManaProductionDerivedRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for i, c := range r.Cards {
+	for i, c := range r.AllCards() {
 		f := c.Faces[0]
 		var want ManaProduction
 		for _, a := range f.ManaAbilities() {
 			want.add(a)
 		}
-		for _, got := range []ManaProduction{f.ManaProduction(), back.Cards[i].Faces[0].ManaProduction(), back.Tokens[f.Name].Faces[0].ManaProduction()} {
+		for _, got := range []ManaProduction{f.ManaProduction(), back.Card(i).Faces[0].ManaProduction(), back.Tokens[f.Name].Faces[0].ManaProduction()} {
 			if got != want {
 				t.Errorf("%s: got %v, want %v", f.Name, got, want)
 			}

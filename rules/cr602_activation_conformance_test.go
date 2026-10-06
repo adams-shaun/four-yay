@@ -38,7 +38,7 @@ func TestCR602HybridActivationCostsRequireColor(t *testing.T) {
 	// Graduated: passes with the conformance flag on; runs in the ordinary lane.
 	reg := testutil.CorpusRegistry(t)
 	checked, wrong := 0, 0
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for _, f := range c.Faces {
 			for _, sa := range f.Abilities {
 				if sa.Kind != "AB" {

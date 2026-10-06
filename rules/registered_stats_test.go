@@ -53,7 +53,7 @@ func TestImplementedStatsCensusCarriersAreNotBlocked(t *testing.T) {
 	for _, s := range implementedStats {
 		carriers := 0
 		var blocked []string
-		for _, c := range reg.Cards {
+		for _, c := range reg.AllCards() {
 			has := false
 			for _, p := range c.Primitives() {
 				if p == s.primitive {

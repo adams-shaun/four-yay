@@ -28,7 +28,7 @@ func targetCarriers(t *testing.T, reg *cards.Registry) []string {
 		t.Fatalf("decode pinned target carrier census: %v", err)
 	}
 	var got []string
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		if len(c.Faces) != 0 && len(oraclegen.TargetSlots(c.Faces[0])) != 0 {
 			got = append(got, c.Faces[0].Name)
 		}

@@ -82,7 +82,7 @@ func TestCanonicalKeywordLinePreservesUnknownSentencePrimitive(t *testing.T) {
 func TestMustBeBlockedCensus(t *testing.T) {
 	r := compiledCorpus(t)
 	var printed []string
-	for _, c := range r.Cards {
+	for _, c := range r.AllCards() {
 		for _, f := range c.Faces {
 			for _, k := range f.Keywords {
 				if strings.EqualFold(KeywordHead(k), "MustBlock") {
@@ -134,7 +134,7 @@ func TestMustBeBlockedCensus(t *testing.T) {
 	// producer, Bumper Cars, is the first.
 	const sentence = "HIDDEN CARDNAME must be blocked if able."
 	var pump []string
-	for _, c := range r.Cards {
+	for _, c := range r.AllCards() {
 		for _, f := range c.Faces {
 			for _, body := range f.SVars {
 				if strings.Contains(body, sentence) {
@@ -177,7 +177,7 @@ func TestMustBeBlockedCensus(t *testing.T) {
 func TestCardNameSentenceKeywordClass(t *testing.T) {
 	r := compiledCorpus(t)
 	heads := map[string]int{}
-	for _, c := range r.Cards {
+	for _, c := range r.AllCards() {
 		for _, f := range c.Faces {
 			for _, k := range f.Keywords {
 				head := KeywordHead(k)

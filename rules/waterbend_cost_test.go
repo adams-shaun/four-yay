@@ -92,7 +92,7 @@ func TestWaterbendCostCensus(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	abilityNames := map[string]bool{}
 	optionalNames := map[string]bool{}
-	for _, card := range reg.Cards {
+	for _, card := range reg.AllCards() {
 		for _, f := range card.Faces {
 			for _, ab := range f.Abilities {
 				raw := strings.TrimSpace(ab.Params["Cost"])

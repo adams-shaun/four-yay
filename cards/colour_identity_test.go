@@ -46,7 +46,7 @@ func mustLookup(t *testing.T, r *Registry, name string) *Card {
 // rather than re-asserted across the corpus where it could never fail.
 func TestColourIdentityAcrossTheCorpus(t *testing.T) {
 	r := corpusCache(t)
-	for _, c := range r.Cards {
+	for _, c := range r.AllCards() {
 		for _, f := range c.Faces {
 			id := f.ColourIdentity()
 			// cost pips ⊆ identity
@@ -181,7 +181,7 @@ func TestColourIdentitySurvivesGobRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := loaded.Cards[0].Faces[0].ColourIdentity(); got != ColourGreen {
+	if got := loaded.Card(0).Faces[0].ColourIdentity(); got != ColourGreen {
 		t.Fatalf("gob-routed identity = %08b, want green", got)
 	}
 }
@@ -289,11 +289,11 @@ func TestColourIdentityConstructionRoutesAgree(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}
-	if len(loaded.Cards) != len(r.Cards) {
-		t.Fatalf("round trip lost cards: %d != %d", len(loaded.Cards), len(r.Cards))
+	if loaded.Len() != r.Len() {
+		t.Fatalf("round trip lost cards: %d != %d", loaded.Len(), r.Len())
 	}
-	for i, c := range r.Cards {
-		l := loaded.Cards[i]
+	for i, c := range r.AllCards() {
+		l := loaded.Card(i)
 		if l.Path != c.Path {
 			t.Fatalf("round trip reordered cards at %d: %q != %q", i, l.Path, c.Path)
 		}

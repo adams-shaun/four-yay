@@ -94,7 +94,7 @@ func atAbilityChains(f *cards.Face) []*cards.SA {
 func attachedToTokenCarriers(reg *cards.Registry) map[string][]attachedToTokenCarrier {
 	out := map[string][]attachedToTokenCarrier{}
 	seen := map[string]bool{}
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for _, f := range c.Faces {
 			for _, a := range atAbilityChains(f) {
 				for sa := a; sa != nil; sa = sa.Sub {
@@ -130,7 +130,7 @@ func attachedToTokenCarriers(reg *cards.Registry) map[string][]attachedToTokenCa
 func attachRememberedCarriers(reg *cards.Registry) map[string][]attachRememberedCarrier {
 	out := map[string][]attachRememberedCarrier{}
 	seen := map[string]bool{}
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for _, f := range c.Faces {
 			for _, a := range atAbilityChains(f) {
 				for sa := a; sa != nil; sa = sa.Sub {

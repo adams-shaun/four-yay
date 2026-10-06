@@ -15,7 +15,7 @@ import (
 func TestEndureCorpusCensus(t *testing.T) {
 	r := compiledCorpus(t)
 	var got []string
-	for _, card := range r.Cards {
+	for _, card := range r.AllCards() {
 		for _, primitive := range card.Primitives() {
 			if primitive == "api:Endure" {
 				got = append(got, card.Faces[0].Name)

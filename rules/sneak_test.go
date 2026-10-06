@@ -154,7 +154,7 @@ func TestSneakCorpusCensusNamesEveryCarrier(t *testing.T) {
 		t.Fatal("kw:Sneak is not registered; the coverage census would report every carrier")
 	}
 	var carriers []string
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		if c == nil {
 			continue
 		}

@@ -117,7 +117,7 @@ func TestCorpusHeapCensus(t *testing.T) {
 	if before.heap > 64<<20 {
 		t.Fatalf("corpusheap: pre-load baseline HeapAlloc = %s, expected an empty heap", mb(before.heap))
 	}
-	if len(reg.Cards) == 0 {
+	if reg.Len() == 0 {
 		t.Fatalf("corpusheap: populated registry reports 0 cards -- the load did not happen")
 	}
 	for name, v := range map[string]int64{

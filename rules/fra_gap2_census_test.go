@@ -53,7 +53,7 @@ func TestRealityFractureGap2ClassCensus(t *testing.T) {
 	}
 	reg := testutil.CorpusRegistry(t)
 	var props, negate, zero, bad []string
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		var isProp, isNegate, isZero bool
 		for _, f := range c.Faces {
 			if f == nil {
