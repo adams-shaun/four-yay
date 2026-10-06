@@ -323,6 +323,19 @@ func DividedParam(sa *cards.SA) (p ParamText, ok bool) {
 	return ParamText{Text: v, Present: present}, strings.TrimSpace(v) != ""
 }
 
+// DividedTotal is the literal total of DividedAsYouChoose$ (0 when the
+// ability does not divide, or names its total by an SVar or expression).
+func DividedTotal(sa *cards.SA) int {
+	p, ok := DividedParam(sa)
+	if !ok {
+		return 0
+	}
+	if n, lit := literalInt(p); lit && n > 0 {
+		return n
+	}
+	return 0
+}
+
 // literalTargetBounds is the literal-only bound pair (TargetParams.BoundMin/
 // BoundMax): a present literal integer is honoured, anything else defaults
 // to 1, then the clamps min < 0 -> 1, max < 1 -> 1, max < min -> min.
