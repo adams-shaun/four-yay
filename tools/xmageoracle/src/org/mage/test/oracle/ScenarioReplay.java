@@ -1084,6 +1084,104 @@ public class ScenarioReplay extends CardTestPlayerBase {
         }
     }
 
+    /** True when s is a scenario object ref ("p0:Name", "p1:token:Name#2").
+     * A seat target ("p1") and a skip token ("[target_skip]") are not refs. */
+    static boolean isScenarioRef(String s) {
+        int i = s.indexOf(':');
+        return !s.startsWith("[") && i > 0 && s.substring(0, i).matches("p[0-9]+");
+    }
+
+    /**
+     * Binds the "@&lt;ref&gt;" alias an answer names if it is not already bound.
+     * registerAliases covers every setup object; an object that entered after
+     * setup (a token copy) has no alias yet, so a same-name answer naming it
+     * by exact ref could not be matched. Locate it by the same counting rule
+     * gorange's objRef uses: a token ranks among its controller's battlefield
+     * tokens whose name CONTAINS the ref name; a card ranks among its owner's
+     * live objects of that name in registerAliases' zone order. Additive and
+     * idempotent: it never rebinds a ref registerAliases already bound.
+     */
+    private void bindAnswerAlias(String ref) {
+        if (refAlias.containsKey(ref) || currentGame == null || !isScenarioRef(ref)) {
+            return;
+        }
+        int seatIndex = Integer.parseInt(ref.substring(0, ref.indexOf(':')));
+        String name = refName(ref);
+        boolean token = ref.contains(":token:");
+        int wanted = 1;
+        int hash = ref.lastIndexOf('#');
+        if (hash >= 0 && ref.substring(hash + 1).matches("[0-9]+")) {
+            wanted = Integer.parseInt(ref.substring(hash + 1));
+        }
+        mage.MageObject match = null;
+        int seen = 0;
+        if (token) {
+            for (Permanent perm : currentGame.getBattlefield().getAllPermanents()) {
+                if (!perm.isToken() || !seat(seatIndex).getId().equals(perm.getControllerId())
+                        || !perm.getName().contains(name)) {
+                    continue;
+                }
+                if (++seen == wanted) {
+                    match = perm;
+                    break;
+                }
+            }
+        } else {
+            List<mage.MageObject> objs = new ArrayList<>();
+            Player pl = seat(seatIndex);
+            for (Permanent perm : currentGame.getBattlefield().getAllPermanents()) {
+                if (pl.getId().equals(perm.getControllerId())) {
+                    objs.add(perm);
+                }
+            }
+            for (Card c : pl.getHand().getCards(currentGame)) objs.add(c);
+            for (Card c : pl.getGraveyard().getCards(currentGame)) objs.add(c);
+            for (Card c : currentGame.getExile().getAllCards(currentGame)) {
+                if (pl.getId().equals(c.getOwnerId())) objs.add(c);
+            }
+            for (Card c : pl.getLibrary().getCards(currentGame)) objs.add(c);
+            for (mage.MageObject o : objs) {
+                if (!setupNames.getOrDefault(o.getId(), o.getName()).equals(name)) {
+                    continue;
+                }
+                if (++seen == wanted) {
+                    match = o;
+                    break;
+                }
+            }
+        }
+        if (match == null) {
+            return;
+        }
+        refAlias.put(ref, "@" + ref);
+        for (int j = 0; j < 2; j++) {
+            try {
+                seat(j).addAlias(ref, match.getId());
+            } catch (IllegalArgumentException ignored) {
+                // already bound on this player
+            }
+        }
+    }
+
+    /**
+     * The choice-queue value for an answer that may name a scenario ref. The
+     * driver matches an object by its "@ref" alias; an answer the generator
+     * already emits as "@ref" is passed through, and a bare ref is mapped to
+     * its alias here (the choice queue has no targetName step). Any other
+     * value (a label, a yes/no, a skip token) is unchanged.
+     */
+    private String aliasChoiceValue(String v) {
+        if (v.startsWith("@")) {
+            bindAnswerAlias(v.substring(1));
+            return v;
+        }
+        if (isScenarioRef(v)) {
+            bindAnswerAlias(v);
+            return targetName(v);
+        }
+        return v;
+    }
+
     /** Whether the ask belongs to the spell ability of a card the scenario cast
      * through a target adjuster. */
     private boolean isAdjustedSpellAsk(Ability source, Game game) {
@@ -2019,8 +2117,15 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     } else if (v.contains("^X=")) {
                         // Divided damage: the ref carries its share.
                         String[] parts = v.split("\\^X=", 2);
+                        bindAnswerAlias(parts[0]);
                         addTarget(p, amountTargetName(parts[0]) + "^X=" + parts[1]);
                     } else {
+                        if (isScenarioRef(v)) {
+                            // A same-name target the generator names by its
+                            // exact ref: bind its @alias if it entered after
+                            // setup, so targetName resolves it.
+                            bindAnswerAlias(v);
+                        }
                         addTarget(p, v.equals("[target_skip]") ? TestPlayer.TARGET_SKIP : targetName(v));
                     }
                     break;
@@ -2048,7 +2153,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     } else if (isSeatRef(v)) {
                         setChoice(p, seat(seatOf(v)).getName());
                     } else {
-                        queueChoice(p, v);
+                        queueChoice(p, aliasChoiceValue(v));
                     }
                     break;
                 default:

@@ -2,7 +2,6 @@ package templates
 
 import (
 	"encoding/json"
-	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
@@ -16,86 +15,178 @@ import (
 
 // sameNameCensus is, per declared set, the generated items (level A plus
 // every non-gap level-B requirement) whose gorge run picks an object that
-// shares its name with another offered object. It reads the EMITTED
-// xmage_answers, not the classification helper: the previous census re-derived
-// the ambiguity from SameNameAmbiguity and so stayed green when the answer
-// derivation was stubbed out. The Joo Dee flake was a pick among a card and a
-// same-named token copy that reached XMage as a bare name; XMage then chose
-// whichever object its own iteration order reached first.
+// shares its name with a DIFFERENT offered object (same-name options that
+// resolve to one ref are the same object, not an ambiguity).
 //
-// Distinct counts ambiguous picks whose same-named siblings include an object
-// of a different kind (a token among cards, or the reverse): XMage's
-// TestPlayer.makeChoose parses a "[only copy]"/"[no copy]" suffix and filters
-// on isCopy(), so these are resolvable and MUST carry the discriminator.
-// Unresolved is the subset of Distinct whose emitted answer carries no
-// discriminator: it is the ticket's defect and must stay 0. SameKind counts
-// ambiguous picks among objects of one kind (two cards, two tokens), which
-// XMage has no discriminator for; they keep the bare name and are pinned for
-// drift only. Fails in both directions: any change that adds or removes an
-// ambiguous pick, or drops a discriminator from an emitted answer, moves a
-// pin.
+// It reads the EMITTED xmage_answers and re-runs the driver's own matching
+// over the offered refs, so a bare name that could match more than one object
+// counts as unresolved even if some other helper would call it resolved. The
+// three buckets are:
+//
+//   - Alias: the emitted value is the pick's exact scenario ref ("p0:Forest#2",
+//     carried to XMage as its "@ref" alias), which names that one object.
+//   - Copy: the emitted value is "name[only copy]"/"name[no copy]", and the
+//     isCopy() filter leaves exactly one same-name candidate.
+//   - Unresolved: the emitted value matches zero or more than one distinct
+//     same-name candidate. This is the Joo Dee defect and must stay 0.
+//
+// Fails in both directions: adding or removing an ambiguous pick, or dropping
+// a discriminator from an emitted answer, moves a pin.
 type sameNameCensus struct {
-	Distinct   int      `json:"distinct"`
-	SameKind   int      `json:"same_kind"`
+	Alias      int      `json:"alias"`
+	Copy       int      `json:"copy"`
 	Unresolved int      `json:"unresolved"`
 	Items      []string `json:"items"`
 }
 
-// wantSameNameCensus pins the per-set census as JSON. Measured 2026-10-06.
+// wantSameNameCensus pins the per-set census as JSON. Measured 2026-10-06 on
+// the fix that emits an exact ref for same-kind and cross-seat duplicates and
+// a ref-bound copy marker for a unique token-or-card pick.
 var wantSameNameCensus = map[string]string{
-	"BIG": `{"distinct":0,"same_kind":18,"unresolved":0,"items":null}`,
-	"BLB": `{"distinct":0,"same_kind":98,"unresolved":0,"items":null}`,
-	"DFT": `{"distinct":0,"same_kind":56,"unresolved":0,"items":null}`,
-	"DSK": `{"distinct":0,"same_kind":101,"unresolved":0,"items":null}`,
-	"ECL": `{"distinct":0,"same_kind":84,"unresolved":0,"items":null}`,
-	"EOE": `{"distinct":0,"same_kind":49,"unresolved":0,"items":null}`,
-	"FDN": `{"distinct":1,"same_kind":102,"unresolved":0,"items":["Extravagant Replication/trigger#0.0/v1"]}`,
-	"FIN": `{"distinct":0,"same_kind":80,"unresolved":0,"items":null}`,
-	"FRA": `{"distinct":0,"same_kind":53,"unresolved":0,"items":null}`,
-	"HOB": `{"distinct":0,"same_kind":33,"unresolved":0,"items":null}`,
-	"LCI": `{"distinct":0,"same_kind":64,"unresolved":0,"items":null}`,
-	"MKM": `{"distinct":0,"same_kind":63,"unresolved":0,"items":null}`,
-	"MSH": `{"distinct":0,"same_kind":85,"unresolved":0,"items":null}`,
-	"OTJ": `{"distinct":1,"same_kind":63,"unresolved":0,"items":["Double Down/trigger#0.0/v1"]}`,
-	"SOS": `{"distinct":0,"same_kind":66,"unresolved":0,"items":null}`,
-	"SPM": `{"distinct":0,"same_kind":55,"unresolved":0,"items":null}`,
-	"TDM": `{"distinct":0,"same_kind":91,"unresolved":0,"items":null}`,
-	"TLA": `{"distinct":1,"same_kind":84,"unresolved":0,"items":["Joo Dee, One of Many/activate#0.0/v1"]}`,
-	"TMT": `{"distinct":0,"same_kind":48,"unresolved":0,"items":null}`,
-	"WOE": `{"distinct":0,"same_kind":49,"unresolved":0,"items":null}`,
+	"BIG": `{"alias":1,"copy":0,"unresolved":0,"items":null}`,
+	"BLB": `{"alias":7,"copy":0,"unresolved":0,"items":null}`,
+	"DFT": `{"alias":3,"copy":0,"unresolved":0,"items":null}`,
+	"DSK": `{"alias":33,"copy":0,"unresolved":0,"items":null}`,
+	"ECL": `{"alias":6,"copy":0,"unresolved":0,"items":null}`,
+	"EOE": `{"alias":2,"copy":0,"unresolved":0,"items":null}`,
+	"FDN": `{"alias":2,"copy":1,"unresolved":0,"items":null}`,
+	"FIN": `{"alias":5,"copy":0,"unresolved":0,"items":null}`,
+	"FRA": `{"alias":2,"copy":0,"unresolved":0,"items":null}`,
+	"HOB": `{"alias":2,"copy":0,"unresolved":0,"items":null}`,
+	"LCI": `{"alias":5,"copy":0,"unresolved":0,"items":null}`,
+	"MKM": `{"alias":2,"copy":0,"unresolved":0,"items":null}`,
+	"MSH": `{"alias":5,"copy":0,"unresolved":0,"items":null}`,
+	"OTJ": `{"alias":3,"copy":1,"unresolved":0,"items":null}`,
+	"SOS": `{"alias":7,"copy":0,"unresolved":0,"items":null}`,
+	"SPM": `{"alias":3,"copy":0,"unresolved":0,"items":null}`,
+	"TDM": `{"alias":6,"copy":0,"unresolved":0,"items":null}`,
+	"TLA": `{"alias":3,"copy":1,"unresolved":0,"items":null}`,
+	"TMT": `{"alias":5,"copy":0,"unresolved":0,"items":null}`,
+	"WOE": `{"alias":3,"copy":0,"unresolved":0,"items":null}`,
 }
 
-// markedAnswers counts the emitted answers for a step that carry an XMage
-// copy discriminator. Both the choice queue (TestPlayer.makeChoose) and the
-// target queue (chooseTarget / chooseTargetAmount) parse the marker and
-// filter on isCopy(). A definition may join several picks with '^', so the
-// marker is tested per segment.
-func markedAnswers(as []oraclegen.XAnswer) int {
-	n := 0
-	for _, a := range as {
-		if a.Kind != "choice" && a.Kind != "target" {
-			continue
-		}
-		for _, seg := range strings.Split(a.Value, "^") {
-			if strings.HasSuffix(seg, "[no copy]") || strings.HasSuffix(seg, "[only copy]") {
-				n++
-			}
-		}
+// refName strips a scenario ref to the object name.
+func refName(ref string) string {
+	n := ref
+	if i := strings.IndexByte(n, ':'); i >= 0 && strings.HasPrefix(n, "p") {
+		n = n[i+1:]
+	}
+	n = strings.TrimPrefix(n, "token:")
+	if j := strings.LastIndexByte(n, '#'); j >= 0 && j+1 < len(n) && strings.Trim(n[j+1:], "0123456789") == "" {
+		n = n[:j]
 	}
 	return n
 }
 
+func isTokenRef(ref string) bool { return strings.Contains(ref, ":token:") }
+
+// isRefSpelling reports whether s is a full scenario ref ("p0:Name#2",
+// "p1:token:Name"). The generator emits one for an alias pick on the target
+// queue, which the driver's targetName maps to the object's "@" alias.
+func isRefSpelling(s string) bool {
+	if len(s) < 3 || s[0] != 'p' || s[1] < '0' || s[1] > '9' {
+		return false
+	}
+	return strings.Contains(s, ":")
+}
+
+// answerMatchesRef mirrors the XMage driver when it checks one emitted answer
+// against one offered object: an exact-ref alias equals the ref; a bare or
+// copy-marked name matches by name, with "[only copy]"/"[no copy]" filtering
+// on the token-vs-card distinction (TestPlayer.hasObjectTargetNameOrAlias +
+// the isCopy() filter).
+func answerMatchesRef(answer, ref string) bool {
+	if strings.HasPrefix(answer, "@") {
+		return answer == "@"+ref
+	}
+	if isRefSpelling(answer) {
+		return answer == ref
+	}
+	base := answer
+	copyFilter := ""
+	switch {
+	case strings.HasSuffix(base, "[no copy]"):
+		copyFilter = "origin"
+		base = strings.TrimSuffix(base, "[no copy]")
+	case strings.HasSuffix(base, "[only copy]"):
+		copyFilter = "copy"
+		base = strings.TrimSuffix(base, "[only copy]")
+	}
+	if !strings.EqualFold(base, refName(ref)) {
+		return false
+	}
+	switch copyFilter {
+	case "origin":
+		return !isTokenRef(ref)
+	case "copy":
+		return isTokenRef(ref)
+	}
+	return true
+}
+
+// classifyAnswer returns the census bucket for one emitted answer over the
+// offered refs, and the number of DISTINCT same-name candidates it matches.
+// Zero or more than one match is unresolved.
+func classifyAnswer(answer string, ref string, options []string) (bucket string, matches int) {
+	name := refName(ref)
+	seen := map[string]bool{}
+	for _, o := range options {
+		if !strings.EqualFold(refName(o), name) {
+			continue
+		}
+		if answerMatchesRef(answer, o) {
+			seen[o] = true
+		}
+	}
+	if len(seen) == 1 {
+		if strings.HasPrefix(answer, "@") {
+			return "alias", 1
+		}
+		if isRefSpelling(answer) {
+			return "alias", 1
+		}
+		return "copy", 1
+	}
+	return "unresolved", len(seen)
+}
+
+// segmentFor finds the emitted answer segment (answers may be '^'-joined)
+// that NAMES the pick's ref: an exact "@ref"/ref alias, or a bare/copy-marked
+// name equal to the pick's name. Returns "" when no segment names the pick,
+// which is the ordinary case for a pick XMage answers with a number, a
+// yes/no, or a skip token rather than a name selection.
+func segmentFor(value, ref string) string {
+	segs := []string{value}
+	if strings.Contains(value, "^") {
+		segs = strings.Split(value, "^")
+	}
+	for _, seg := range segs {
+		if seg == "@"+ref || seg == ref {
+			return seg
+		}
+	}
+	for _, seg := range segs {
+		if strings.HasPrefix(seg, "@") || isRefSpelling(seg) {
+			continue
+		}
+		base := strings.TrimSuffix(strings.TrimSuffix(seg, "[no copy]"), "[only copy]")
+		if strings.EqualFold(base, refName(ref)) {
+			return seg
+		}
+	}
+	return ""
+}
+
 func TestSameNameAnswerCensus(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
-	root := filepath.Join("..", "..", "..")
 	has := func(n string) bool { _, ok := reg.Lookup(n); return ok }
 	folded := compliance.FoldedNames(reg)
 
-	var sets []string
-	declared, err := compliance.LoadDeclared(filepath.Join(root, "compliance", "declared.json"))
+	declared, err := compliance.EmbeddedDeclared()
 	if err != nil {
 		t.Fatal(err)
 	}
+	var sets []string
 	for set := range declared {
 		sets = append(sets, set)
 	}
@@ -103,7 +194,7 @@ func TestSameNameAnswerCensus(t *testing.T) {
 
 	got := map[string]string{}
 	for _, set := range sets {
-		printed, err := compliance.LoadPrinted(filepath.Join(root, "compliance", "printed"), set)
+		printed, err := compliance.EmbeddedPrinted(set)
 		if err != nil {
 			t.Fatalf("%s: %v", set, err)
 		}
@@ -113,42 +204,47 @@ func TestSameNameAnswerCensus(t *testing.T) {
 			if err != nil {
 				return
 			}
-			// Ambiguous picks and the emitted answers that resolve them are
-			// counted per step, because one step's XAnswers may answer several
-			// decisions at that step.
-			type stepCensus struct{ distinct, marked int }
-			byStep := map[int]*stepCensus{}
-			stepOf := func(s int) *stepCensus {
-				if byStep[s] == nil {
-					byStep[s] = &stepCensus{}
-				}
-				return byStep[s]
-			}
 			for _, d := range res.Decisions {
 				for k := range d.Picks {
-					amb, marker := oraclegen.SameNameAmbiguity(d, k)
-					if !amb {
+					if !oraclegen.IsNameSelection(d, k) {
 						continue
 					}
-					if marker == "" {
-						c.SameKind++
+					if !oraclegen.ClassifySameName(d, k).Ambiguous {
 						continue
 					}
-					stepOf(d.Step).distinct++
-					c.Distinct++
-					c.Items = append(c.Items, id)
-				}
-			}
-			for step, sc := range byStep {
-				if step < 0 || step >= len(it.XAnswers) {
-					// No emitted answers for a step that needs one: every
-					// distinct pick there is unresolved.
-					sc.marked = 0
-				} else {
-					sc.marked = markedAnswers(it.XAnswers[step])
-				}
-				if sc.marked < sc.distinct {
-					c.Unresolved += sc.distinct - sc.marked
+					ref := d.PickRefs[k]
+					// Find the emitted answer that NAMES this pick. A step can carry
+					// several answers; a multi-pick definition joins them with
+					// '^'. A pick XMage answers with a number, a yes/no or a
+					// skip token is not a name selection and is skipped (its
+					// object identity never reaches XMage's name match).
+					answer := ""
+					if d.Step >= 0 && d.Step < len(it.XAnswers) {
+						for _, a := range it.XAnswers[d.Step] {
+							if seg := segmentFor(a.Value, ref); seg != "" {
+								answer = seg
+								break
+							}
+						}
+					}
+					if answer == "" {
+						continue
+					}
+					bucket, matches := classifyAnswer(answer, ref, d.OptionRefs)
+					if matches != 1 && answer != "" {
+						// The answer named something, but not exactly one
+						// candidate: report both the defect and the pick.
+						t.Errorf("%s: ambiguous pick %q emitted %q, which matches %d distinct offered objects (kind=%s resume=%s via=%s pk=%v)", id, ref, answer, matches, d.Kind, d.Resume, d.Via, d.PickKinds)
+					}
+					switch bucket {
+					case "alias":
+						c.Alias++
+					case "copy":
+						c.Copy++
+					default:
+						c.Unresolved++
+						c.Items = append(c.Items, id)
+					}
 				}
 			}
 		}

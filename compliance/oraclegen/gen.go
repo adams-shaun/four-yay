@@ -885,9 +885,14 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSt
 			}
 			if pickKind(d, 0) == "discard" || d.Resume == "discard" {
 				// Gorge's discard card picker is KModes; XMage uses
-				// TargetDiscard.choose -> makeChoose (not chooseMode).
-				for _, ref := range d.PickRefs {
-					as = append(as, XAnswer{d.Seat, "choice", oraclediffRefName(ref)})
+				// TargetDiscard.choose -> makeChoose (not chooseMode). A
+				// discard among same-named cards needs the exact-object
+				// discriminator, exactly as the ordinary choice path does.
+				for k, ref := range d.PickRefs {
+					// discardLabel is the card name XMage's TargetDiscard matches;
+					// the pick LABEL is often "Discard <name>", which would not
+					// match. Only the exact-object discriminator is added.
+					as = append(as, XAnswer{d.Seat, "choice", disambiguatedObjectChoice(d, k, oraclediffRefName(ref))})
 				}
 				if d.Max > len(d.PickRefs) {
 					as = append(as, XAnswer{d.Seat, "choice", "[choice_skip]"})
@@ -1021,14 +1026,21 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSt
 						if k < len(d.PickRefs) {
 							v = d.PickRefs[k]
 						}
-						if !isSeat(v) {
-							v = oraclediffRefName(v)
+						if isSeat(v) {
+							as = append(as, XAnswer{d.Seat, "target", v})
+							continue
 						}
 						// XMage's chooseTarget parses the same copy marker as
 						// makeChoose, so a target among same-named objects needs
-						// the discriminator too.
-						v = disambiguatedObjectChoice(d, k, v)
-						as = append(as, XAnswer{d.Seat, "target", v})
+						// the discriminator too. An alias pick keeps its full ref:
+						// the driver's targetName maps a bound ref to its @alias.
+						if p := ClassifySameName(d, k); p.Alias != "" {
+							as = append(as, XAnswer{d.Seat, "target", d.PickRefs[k]})
+							continue
+						}
+						v = oraclediffRefName(v)
+						_, marker := SameNameAmbiguity(d, k)
+						as = append(as, XAnswer{d.Seat, "target", v + marker})
 						continue
 					}
 					// The choice queue: makeChoose shows the option's label, which
@@ -1288,16 +1300,22 @@ func targetDecisionAnswers(r *answerRouting, i int) []XAnswer {
 		as = append(as, dividedTargetAnswers(r, i)...)
 	default:
 		for k, ref := range d.PickRefs {
-			v := ref
-			if !isSeat(ref) {
-				v = oraclediffRefName(ref)
+			if isSeat(ref) {
+				as = append(as, XAnswer{d.Seat, "target", ref})
+				continue
 			}
 			// XMage's chooseTarget parses the same copy marker as
 			// makeChoose and filters on isCopy(), so a target that shares its
 			// name with another offered object needs the discriminator here
-			// too (a token copy of a card, Extravagant Replication).
-			v = disambiguatedObjectChoice(d, k, v)
-			as = append(as, XAnswer{d.Seat, "target", v})
+			// too (a token copy of a card, Extravagant Replication). An alias
+			// pick keeps its full ref, which the driver's targetName maps to
+			// the object's @alias.
+			if p := ClassifySameName(d, k); p.Alias != "" {
+				as = append(as, XAnswer{d.Seat, "target", ref})
+				continue
+			}
+			_, marker := SameNameAmbiguity(d, k)
+			as = append(as, XAnswer{d.Seat, "target", oraclediffRefName(ref) + marker})
 		}
 		if len(d.PickRefs) < d.Max {
 			// Fewer picks than the "up to N" ask allows: XMage keeps
@@ -1683,48 +1701,132 @@ func isSeat(s string) bool {
 	return len(s) >= 2 && s[0] == 'p' && strings.Trim(s[1:], "0123456789") == ""
 }
 
-// disambiguatedObjectChoice appends the copy discriminator XMage's
-// TestPlayer.makeChoose parses (no space before the bracket) when a
-// choice-queue object pick collides by name with another offered object. The
-// driver handles these markers only on the choice path.
-func disambiguatedObjectChoice(d rules.OracleDecision, k int, label string) string {
-	_, marker := SameNameAmbiguity(d, k)
-	return label + marker
+// SameNamePick describes one object pick that shares its name with another
+// offered object, and the XMage answer that selects it exactly.
+//
+// Ambiguous is set only when the pick and a sibling are DISTINCT objects
+// (their scenario refs differ). Two options that resolve to the same ref are
+// the same object -- a repeated trigger source, a dual-mode index -- and
+// XMage's name match already selects it, so they are not ambiguous and need
+// no discriminator.
+//
+// At most one of CopyMarker and Alias is set:
+//
+//   - CopyMarker ("[only copy]"/"[no copy]") is XMage's isCopy() filter. It
+//     is used only when it leaves EXACTLY ONE candidate: a token among
+//     same-named cards, or a card among same-named tokens. Its spelling
+//     carries no space before the bracket; TestPlayer.makeChoose strips
+//     exactly 9/11 characters.
+//   - Alias ("@<ref>") is the driver's exact-object form
+//     (TestPlayer.hasObjectTargetNameOrAlias): a bound alias names one
+//     object and no other. It is used when the copy filter is not unique --
+//     two cards, two tokens, or a card and a token that share a name -- and
+//     the scenario ref is therefore the only thing that separates them.
+//     registerAliases binds a setup ref to its object; the driver also binds
+//     the ref of a mid-game permanent (a token copy) before the ask.
+//
+// A pick with neither (a bare name) is NOT uniquely identified and is the
+// defect the same-name census counts as unresolved.
+type SameNamePick struct {
+	Ambiguous  bool
+	Distinct   int    // distinct same-name offered refs, pick included
+	CopyMarker string // "[only copy]"/"[no copy]" when the copy filter is unique
+	Alias      string // "@<ref>" when only the exact ref separates the candidates
 }
 
-// SameNameAmbiguity reports whether pick k of d names an object that shares
-// its name with another offered object, and the XMage discriminator that
-// separates them. The discriminator is the token-or-card distinction XMage's
-// choice parser understands: "[only copy]" for a token among same-named
-// cards, "[no copy]" for a card among same-named tokens. Same-named objects
-// of one kind (two cards, two tokens) get "": XMage has nothing to separate
-// them by and the bare name stays, as before.
-func SameNameAmbiguity(d rules.OracleDecision, k int) (ambiguous bool, marker string) {
+// ClassifySameName reports how pick k of d is disambiguated.
+func ClassifySameName(d rules.OracleDecision, k int) SameNamePick {
 	if k >= len(d.PickRefs) || !strings.Contains(d.PickRefs[k], ":") {
-		return false, ""
+		return SameNamePick{}
 	}
 	ref := d.PickRefs[k]
 	name := oraclediffRefName(ref)
 	pickToken := strings.Contains(ref, ":token:")
-	matches, otherKind := 0, 0
+	distinct := map[string]bool{}
+	sameKind := 0
 	for _, candidate := range d.OptionRefs {
-		if strings.EqualFold(oraclediffRefName(candidate), name) {
-			matches++
-			if strings.Contains(candidate, ":token:") != pickToken {
-				otherKind++
-			}
+		if !strings.EqualFold(oraclediffRefName(candidate), name) {
+			continue
+		}
+		distinct[candidate] = true
+		if strings.Contains(candidate, ":token:") == pickToken {
+			sameKind++
 		}
 	}
-	if matches < 2 {
-		return false, ""
+	if len(distinct) < 2 {
+		// The pick's name is unambiguous, or every same-named option is the
+		// same object (a repeated trigger source), which a bare name still
+		// selects exactly.
+		return SameNamePick{}
 	}
-	switch {
-	case otherKind == 0:
-		return true, ""
-	case pickToken:
-		return true, "[only copy]"
+	p := SameNamePick{Ambiguous: true, Distinct: len(distinct)}
+	if sameKind == 1 {
+		// Exactly one candidate passes the copy filter: the token-or-card
+		// distinction is unique, so the bare name plus the marker selects it.
+		if pickToken {
+			p.CopyMarker = "[only copy]"
+		} else {
+			p.CopyMarker = "[no copy]"
+		}
+		return p
 	}
-	return true, "[no copy]"
+	// Two or more candidates of the same kind (or a card and a token plus a
+	// same-kind sibling): the copy filter leaves more than one. Only the
+	// pick's own scenario ref identifies it.
+	p.Alias = "@" + ref
+	return p
+}
+
+// IsNameSelection reports whether pick k of d is answered by an object name
+// or scenario ref that XMage's own name matching consumes (makeChoose,
+// chooseTarget, TargetDiscard). It is the scope of the same-name census.
+//
+// Excluded are the two mechanisms that do NOT reach a name match:
+//
+//   - an arrange order (Surveil/Scry/Dig "put them back"): XMage shows the
+//     looked-at cards as an ordering list; two identical basics are
+//     interchangeable and the compared snapshot cannot tell which one moved,
+//     so disambiguating changes nothing.
+//   - a library search (pickKind search, or a dig/hideaway pick): XMage's
+//     computer player resolves it and the card's identity among identical
+//     same-named basics does not change the compared state.
+//
+// Both are out of the brief's scope ("an original and its token copy, or two
+// copies of a card") and counting them would demand a discriminator XMage
+// cannot use. The remaining picks are the ones where two same-named objects
+// can be confused for real.
+func IsNameSelection(d rules.OracleDecision, k int) bool {
+	if d.Kind == "order" {
+		return false
+	}
+	if pickKind(d, k) == "search" {
+		return false
+	}
+	switch d.Resume {
+	case "dig", "search", "dig_arrange", "hideaway_arrange":
+		return false
+	}
+	return true
+}
+
+// SameNameAmbiguity is ClassifySameName's boolean summary: whether the pick
+// shares its name with a distinct sibling, and the copy marker when that
+// filter is unique (empty for an alias pick). It is the compatibility form
+// the census used before Alias existed; new callers use ClassifySameName.
+func SameNameAmbiguity(d rules.OracleDecision, k int) (ambiguous bool, marker string) {
+	p := ClassifySameName(d, k)
+	return p.Ambiguous, p.CopyMarker
+}
+
+// disambiguatedObjectChoice returns the choice-queue answer for pick k: the
+// exact-ref alias when the copy marker cannot separate the candidates, else
+// the label with the copy marker appended (no space before the bracket).
+func disambiguatedObjectChoice(d rules.OracleDecision, k int, label string) string {
+	p := ClassifySameName(d, k)
+	if p.Alias != "" {
+		return p.Alias
+	}
+	return label + p.CopyMarker
 }
 
 // oraclediffRefName strips a scenario ref to the object name.

@@ -24,10 +24,10 @@ func TestXAnswersDisambiguateSameNamedCopyChoice(t *testing.T) {
 	}
 }
 
-// Two same-named cards (no token) have nothing XMage can separate them by, so
-// the bare name stays; a marker there would be an unparseable name on any
-// dialog that does not strip it.
-func TestXAnswersSameKindSameNameStaysBare(t *testing.T) {
+// Two same-named cards have no copy-filter discriminator, so the answer is
+// the pick's exact scenario ref (carried to XMage as its @alias), which names
+// exactly one object; a bare name would leave two candidates.
+func TestXAnswersSameKindSameNameIsExactRef(t *testing.T) {
 	d := rules.OracleDecision{
 		Step: 0, Seat: 0, Kind: "choose_n", GorgeKind: "choose", Options: 2, Max: 1,
 		Picks: []string{"Forest"}, PickRefs: []string{"p0:Forest#1"},
@@ -36,10 +36,10 @@ func TestXAnswersSameKindSameNameStaysBare(t *testing.T) {
 	}
 	amb, marker := SameNameAmbiguity(d, 0)
 	if !amb || marker != "" {
-		t.Fatalf("two same-named cards: ambiguous=%v marker=%q, want true and bare", amb, marker)
+		t.Fatalf("two same-named cards: ambiguous=%v marker=%q, want true and no copy marker", amb, marker)
 	}
 	got := XAnswers([]rules.OracleDecision{d}, 1, nil)
-	want := [][]XAnswer{{{Seat: 0, Kind: "choice", Value: "Forest"}}}
+	want := [][]XAnswer{{{Seat: 0, Kind: "choice", Value: "@p0:Forest#1"}}}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("same-kind answer = %#v, want %#v", got, want)
 	}

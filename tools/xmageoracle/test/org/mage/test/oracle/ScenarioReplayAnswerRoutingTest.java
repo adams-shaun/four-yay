@@ -218,5 +218,25 @@ public final class ScenarioReplayAnswerRoutingTest {
         equal(List.of("Joo Dee, One of Many[only copy]"), field(field(copy, "playerA"), "choices"));
         equal(List.of(), copy.queues);
         System.out.println("PASS same-name token copy choice uses XMage's choice queue");
+
+        // A same-kind same-name pick (two cards, two tokens, or an opponent's
+        // object) is answered by the pick's exact scenario ref, which XMage
+        // matches as its "@ref" alias. The choice queue must receive it
+        // unchanged; targetName is only applied to a bare ref, never to an
+        // already-aliased one.
+        RecordingDriver alias = driver();
+        scripted(alias, answers("choice", "@p0:Forest#2"));
+        equal(List.of("@p0:Forest#2"), field(field(alias, "playerA"), "choices"));
+        equal(List.of(), alias.queues);
+        System.out.println("PASS same-kind same-name choice uses the exact-ref alias");
+
+        // isScenarioRef is the gate that decides whether aliasChoiceValue
+        // rewrites a value. A seat ref and a skip token are not object refs.
+        equal(true, ScenarioReplay.isScenarioRef("p0:Forest#2"));
+        equal(true, ScenarioReplay.isScenarioRef("p1:token:Goblin Token#2"));
+        equal(false, ScenarioReplay.isScenarioRef("p1"));
+        equal(false, ScenarioReplay.isScenarioRef("[target_skip]"));
+        equal(false, ScenarioReplay.isScenarioRef("Forest"));
+        System.out.println("PASS scenario-ref predicate excludes seats and skip tokens");
     }
 }
