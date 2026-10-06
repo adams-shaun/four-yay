@@ -27,9 +27,10 @@ func activationCost(cost string) (pool, gap string) {
 				continue
 			}
 		case "Sac":
-			if sacSelf(tok) || sacOtherFixtureSupported(tok) {
+			if sacFixtureSupported(tok) {
 				continue
 			}
+			return "", sacGapClass(tok)
 		case "Discard":
 			if discardFixtureSupported(tok) {
 				continue
