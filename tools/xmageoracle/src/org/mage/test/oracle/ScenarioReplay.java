@@ -801,6 +801,18 @@ public class ScenarioReplay extends CardTestPlayerBase {
         }
     }
 
+    /** An adjusted spell must receive targets through the cast-time chooser. */
+    static boolean queueAdjustedCastTargets(boolean hasAdjuster, boolean divided, int targetCount) {
+        return hasAdjuster && !divided && targetCount > 0;
+    }
+
+    /** Whether the card's spell ability gets its targets from a target adjuster. */
+    private static boolean spellHasTargetAdjuster(String name) {
+        CardInfo info = CardRepository.instance.findCard(name);
+        Card c = info == null ? null : info.createCard();
+        return c != null && c.getSpellAbility().getTargetAdjuster() != null;
+    }
+
     /** Whether the card's spell ability has a divided-amount target. */
     private static boolean spellTargetsDivided(String name) {
         CardInfo info = CardRepository.instance.findCard(name);
@@ -1133,7 +1145,16 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     cast.add(card);
                     return;
                 }
-                if (tg.size() == 1 && isSeatRef(tg.get(0)) && !hasGift(card)) {
+                if (!tg.isEmpty() && queueAdjustedCastTargets(spellHasTargetAdjuster(card), spellTargetsDivided(card), tg.size())) {
+                    // An adjuster may add the SpellAbility's target slots only
+                    // after cast setup. Inline $target is validated too early
+                    // (against the unadjusted, targetless ability), so queue
+                    // scenario targets for the chooser that runs during casting.
+                    for (String t : tg) {
+                        queueCastTarget(p, t);
+                    }
+                    castSpell(turn, phase, p, card);
+                } else if (tg.size() == 1 && isSeatRef(tg.get(0)) && !hasGift(card)) {
                     castSpell(turn, phase, p, card, seat(seatOf(tg.get(0))));
                 } else if (tg.size() == 1 && isSeatRef(tg.get(0))) {
                     // A Gift spell (Mind Spiral, Sazacap's Brew): the castSpell

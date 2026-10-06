@@ -100,6 +100,11 @@ public final class ScenarioReplaySplitRoomTest {
         equal("Dain Ironfoot", call(alias, "castSpelling", new Class<?>[]{String.class}, "Dáin Ironfoot"));
         RecordingDriver plain = driver("Shock", "");
         equal("Shock", call(plain, "castSpelling", new Class<?>[]{String.class}, "Shock"));
+        equal(true, ScenarioReplay.queueAdjustedCastTargets(true, false, 1));
+        equal(false, ScenarioReplay.queueAdjustedCastTargets(false, false, 1));
+        equal(false, ScenarioReplay.queueAdjustedCastTargets(true, true, 1));
+        equal(false, ScenarioReplay.queueAdjustedCastTargets(true, false, 0));
+        System.out.println("PASS adjusted spell targets are queued without changing divided, ordinary, or targetless casts");
         System.out.println("PASS ordinary alias and unchanged spelling");
     }
 }
