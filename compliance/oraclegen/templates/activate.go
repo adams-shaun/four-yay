@@ -189,8 +189,15 @@ func activateWithFixture(reg *cards.Registry, f *cards.Face, name string, req le
 	if len(it.XAnswers) == 0 {
 		it.XAnswers = make([][]oraclegen.XAnswer, len(sc.Steps))
 	}
-	addActivationCostAnswers(it.XAnswers, activateStepIndex(sc.Steps), cost, res.Decisions)
-	dropUnproducedManaColours(it.XAnswers, activateStepIndex(sc.Steps), res)
+	activateStep := activateStepIndex(sc.Steps)
+	// XMage consumes answers FIFO. Cost choices are asked while paying the
+	// activation, before any choices made by the resolving ability (such as
+	// the colour of mana it produces).
+	costAnswerStart := len(it.XAnswers[activateStep])
+	addActivationCostAnswers(it.XAnswers, activateStep, cost, res.Decisions)
+	costAnswers := append([]oraclegen.XAnswer(nil), it.XAnswers[activateStep][costAnswerStart:]...)
+	it.XAnswers[activateStep] = append(costAnswers, it.XAnswers[activateStep][:costAnswerStart]...)
+	dropUnproducedManaColours(it.XAnswers, activateStep, res)
 	addSetupColourAnswers(it.XAnswers, res.Decisions)
 	it.XAnswers = scriptPreludeSacrifice(it.XAnswers, prelude, len(sc.Steps))
 	it.XAbility = make([]string, len(sc.Steps))

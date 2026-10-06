@@ -67,6 +67,18 @@ func TestActivateTokenCostPrelude(t *testing.T) {
 			if !gotToken {
 				t.Fatalf("XMage answers for %s name no %q: %+v", tc.name, tc.token, it.XAnswers[step])
 			}
+			if tc.name == "Baylen, the Haymaker" {
+				var queue []string
+				for _, ans := range it.XAnswers[step] {
+					if ans.Seat == 0 && ans.Kind == "choice" {
+						queue = append(queue, ans.Value)
+					}
+				}
+				want := []string{"Goblin Token", "Goblin Token", "White"}
+				if strings.Join(queue, "|") != strings.Join(want, "|") {
+					t.Fatalf("Baylen FIFO choices = %v, want cost token picks before resolving mana colour %v", queue, want)
+				}
+			}
 			res, ok := oraclegen.PlaysThrough(reg, it.Scenario)
 			if !ok || len(res.Snapshots) == 0 {
 				t.Fatalf("%s token-cost scenario does not replay through gorge", tc.name)
