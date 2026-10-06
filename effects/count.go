@@ -155,7 +155,7 @@ func numResolvedText(h Host, c *Ctx, p ParamText, def int32) (int32, bool) {
 	// uses the same runtime -> printed -> publication precedence as the
 	// explicit SVar$ spelling below. Keep this at the parameter boundary so
 	// evalCountBody's bare-head semantics remain unchanged.
-	if name, op, hasOp := strings.Cut(raw, "/"); hasOp && modelledCountOp(c, op) {
+	if name, op, hasOp := strings.Cut(raw, "/"); hasOp && modelledCountOp(h, c, op) {
 		name = strings.TrimSpace(name)
 		if v, ok := runtimeSVar(c, name); ok {
 			return sign * applyCountOpOperand(h, c, v, op, 0), true
@@ -347,7 +347,7 @@ func evalCountExprOK(h Host, c *Ctx, expr string, depth int) (int32, bool) {
 	// Keep this scoped to the one head and to modeled operators so player-head
 	// and unknown-operator behavior remains unchanged.
 	if strings.HasPrefix(expr, "PlayerCountRemembered$Valid ") {
-		if body, op, hasOp := strings.Cut(expr, "/"); hasOp && modelledCountOp(c, op) {
+		if body, op, hasOp := strings.Cut(expr, "/"); hasOp && modelledCountOp(h, c, op) {
 			if n, ok := evalCountBody(h, c, strings.TrimSpace(body), depth); ok {
 				return applyCountOpOperand(h, c, n, strings.TrimSpace(op), depth), true
 			}
@@ -570,10 +570,10 @@ func evalCountExprOK(h Host, c *Ctx, expr string, depth int) (int32, bool) {
 		// Tried only after the whole body missed, so a head whose argument
 		// legitimately carries a slash keeps its reading, and only for an
 		// operator this evaluator models (a literal arithmetic op, or a
-		// Plus/Minus/Times operand naming one of this face's SVars) -- an
+		// named operand resolved by countOperandValue) -- an
 		// unmodelled operator stays unresolved rather than silently
 		// returning the bare head's value.
-		if head, op, hasOp := strings.Cut(strings.TrimSpace(expr), "/"); hasOp && modelledCountOp(c, op) {
+		if head, op, hasOp := strings.Cut(strings.TrimSpace(expr), "/"); hasOp && modelledCountOp(h, c, op) {
 			if n, ok2 := evalCountBody(h, c, strings.TrimSpace(head), depth); ok2 {
 				return applyCountOpOperand(h, c, n, op, depth), true
 			}
