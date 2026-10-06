@@ -91,8 +91,9 @@ func TypesAndAllCreatureTypes(b Board, act []state.ContinuousEffect, id state.Ob
 			break
 		}
 	}
+	allCreatureTypes := effects.IntrinsicAllCreatureTypes(o)
 	if !anyLType {
-		return impendingTypeSwitch(o, reconfigureTypeSwitch(o, bestowedTypeSwitch(o, base))), !faceDown && !o.ImpendingDormant() && o.Face().AllCreatureTypesCDA()
+		return impendingTypeSwitch(o, reconfigureTypeSwitch(o, bestowedTypeSwitch(o, base))), !o.ImpendingDormant() && allCreatureTypes
 	}
 	// Copy-on-write: the printed list is copied only once an effect actually
 	// applies to this object (most objects are untouched by the layer-4
@@ -100,10 +101,9 @@ func TypesAndAllCreatureTypes(b Board, act []state.ContinuousEffect, id state.Ob
 	// and the appends -- runs on the owned copy, never on the face's array.
 	ty := base
 	owned := false
-	allCreatureTypes := !faceDown && o.Face().AllCreatureTypesCDA()
 	for i := range act {
 		ce := &act[i]
-		if ce.Layer != state.LType || !matchesWithTypes(b, ce, id, ty, atStack) {
+		if ce.Layer != state.LType || !matchesWithTypes(b, ce, id, effects.TypeMatchWords(ty, allCreatureTypes), atStack) {
 			continue
 		}
 		if ce.AffectedZone != "" && !ce.MayPlay {

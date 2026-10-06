@@ -2515,6 +2515,9 @@ func (sc *SpecContext) TargetBinding() ([]state.Target, bool) {
 type ObjectTypes struct {
 	ID    state.ObjID
 	Types []string
+	// AllCreatureTypes is the finished layer-4 semantic marker; a false
+	// value must not fall back to the object's printed CDA.
+	AllCreatureTypes bool
 }
 
 // ObjectPower binds one object's layer-derived current power.
