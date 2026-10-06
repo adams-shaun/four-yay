@@ -414,9 +414,15 @@ public class ScenarioReplay extends CardTestPlayerBase {
             phase = MAIN;
             TURN = scenarioTurn(sc);
             build(sc);
+            if (TURN == 1) {
+                // Turn 1's first priority is in upkeep, before any gameplay
+                // entry (Bitterblossom's token is still on the stack), so
+                // everything on the battlefield is seeded setup.
+                runCode("setup entry history", TURN, PhaseStep.UPKEEP, playerA,
+                        (info, p, g) -> clearSetupEntryHistory(g));
+            }
             runCode("setup", TURN, MAIN, playerA, (info, p, g) -> {
                 registerAliases(g);
-                clearSetupEntryHistory(g);
                 snaps.add(snapshot(info, g));
             });
             JsonArray steps = sc.has("steps") ? sc.getAsJsonArray("steps") : new JsonArray();
@@ -573,8 +579,12 @@ public class ScenarioReplay extends CardTestPlayerBase {
     /**
      * CardTestPlayerAPIImpl cheats setup permanents onto the battlefield
      * before the game starts, but XMage leaves their turnsOnBattlefield at
-     * zero. Normalize both the permanent predicate and the ETB watcher
-     * history so setup means "already present" in oracle snapshots.
+     * zero (so EnteredThisTurnPredicate matches them) and the ETB watcher
+     * shifts them into its last-turn history. Run only at turn 1's first
+     * priority, before any gameplay entry: age the seeded permanents and
+     * drop the last-turn history (at turn 1 it holds only setup entries).
+     * The this-turn watcher map is left alone. At a later requested turn the
+     * setup permanents age naturally, so this is not called.
      */
     private static void clearSetupEntryHistory(Game game) {
         try {
@@ -587,10 +597,10 @@ public class ScenarioReplay extends CardTestPlayerBase {
             PermanentsEnteredBattlefieldWatcher watcher = game.getState()
                     .getWatcher(PermanentsEnteredBattlefieldWatcher.class);
             if (watcher != null) {
-                // reset() shifts this-turn entries into last-turn history;
-                // a second reset clears that shifted setup history too.
-                watcher.reset();
-                watcher.reset();
+                java.lang.reflect.Field last = PermanentsEnteredBattlefieldWatcher.class
+                        .getDeclaredField("enteringBattlefieldLastTurn");
+                last.setAccessible(true);
+                ((java.util.Map<?, ?>) last.get(watcher)).clear();
             }
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException("cannot normalize setup entry history", e);
