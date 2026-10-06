@@ -53,11 +53,15 @@ if git diff --name-only "$mb" HEAD | /usr/bin/grep -v -E '_test\.go$' | /usr/bin
 fi
 echo "gate_affected: rules + $(echo $others)$([ $traj = 1 ] && echo ' + cardfuzz findings')"
 
-# The vet and test phases are sequential. Vet can build two package actions
-# concurrently; the test phase is kept to four binaries total across all
-# go test processes (including the optional trajectory check).
-go vet -p=2 $others ./rules
-
+# Gate wall is the longest chain, so the phases below overlap everything that
+# does not depend on another phase (measured on the 2026-10-06 gate logs: for
+# a ticket that moves engine code the `$others` packages summed to ~115 s of
+# test time run one after another, longer than the ~70 s ./rules run).
+#
+# Vet and the ./rules test build overlap: vet type-checks from source and the
+# build compiles, so they share no work (go-build has already warmed the
+# non-test packages). Both must pass before any test starts, as before.
+go vet -p=2 $others ./rules & v=$!
 # Build the ./rules test binary ONCE before the three concurrent rules runs.
 # They are separate `go test` processes, and a process does not see a compile
 # another one is still running, so each used to compile and link the same
@@ -65,24 +69,31 @@ go vet -p=2 $others ./rules
 # edit: three concurrent runs 112 s wall / 200 cpu-s, build-once-then-run
 # 38 s / 62 cpu-s (the three then hit the build cache). The runs below are
 # unchanged, so the result cache and the reported output are too.
-go test -c -o /dev/null ./rules/
+go test -c -o /dev/null ./rules/ & w=$!
+rc=0
+wait "$v" || rc=1
+wait "$w" || rc=1
+[ "$rc" = 0 ] || exit 1
 
 go test -p=1 -skip "^($global|$kr8|$postmerge)$" ./rules/ & a=$!
 go test -p=1 -run '^TestKr8WorldsInFuzzGames$' ./rules/ & b=$!
 go test -p=1 -run '^TestKr8HeadsCheckpointAll$' ./rules/ & c=$!
-go test -p=1 -skip "^($global)$" $others & d=$!
-rc=0
-for p in "$a" "$b" "$c" "$d"; do wait "$p" || rc=1; done
+# -p=2: the $others packages are independent test binaries; with -p=1 they
+# ran strictly one at a time and were the long pole of the gate.
+go test -p=2 -skip "^($global)$" $others & d=$!
 # Event-text changes (any new or reworded event) move the committed
 # overshoot capture and the searchprobe digests; e2e19ebae and 5fa9f31a both
-# broke them unseen by this gate on 2026-10-05. Both checks are seconds.
+# broke them unseen by this gate on 2026-10-05. Both checks are seconds, so
+# they start as soon as the two short Kr8 runs free their slots instead of
+# waiting for ./rules and every other package to finish.
+wait "$b" || rc=1
+wait "$c" || rc=1
 go test -p=1 ./internal/searchprobe/ & e=$!
 go test -p=1 -run '^TestCommittedOvershootCaptureReplaysToTheParkedAsk$' ./host/ & f=$!
+pids="$a $d $e $f"
 if [ "$traj" = 1 ]; then
   go test -p=1 -run '^(TestRoundTenFindings|TestForbiddenRitualRepeatYesFinding)$' ./cmd/cardfuzz/ & g=$!
-  pids="$e $f $g"
-else
-  pids="$e $f"
+  pids="$pids $g"
 fi
 for p in $pids; do wait "$p" || rc=1; done
 exit "$rc"
