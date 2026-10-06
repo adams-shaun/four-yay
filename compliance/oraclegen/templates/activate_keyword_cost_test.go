@@ -23,7 +23,7 @@ func TestActivateKeywordCostTokenShapes(t *testing.T) {
 		{"T AddCounter<1/PAGE>", "", ""},
 		{"2 T AddCounter<1/STUN>", "CC", ""},
 		{"AddCounter<X/PAGE>", "", "AddCounter<...>"},
-		{"SubCounter<1/PAGE>", "", "SubCounter<...>"},
+		{"SubCounter<1/PAGE>", "", ""}, // source-counter setup makes it payable
 		{"2 Forage", "CC", ""},
 		{"W T Exert<1/NICKNAME>", "W", ""},
 		{"T Exert<1/CARDNAME>", "", ""},

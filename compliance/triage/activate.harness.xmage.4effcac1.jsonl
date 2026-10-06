@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: Remove five +N/+N counters from Ramos"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: Remove five +N/+N counters from Ramos","cards":1}
+{"card":"Ramos, Dragon Engine","template":"activate#0.0","status":"harness","api":"SpellCast:PutCounter","sets":["FDN"],"detail":"xmage: AssertionError: Can't find ability to activate command: Remove five +1/+1 counters from Ramos"}

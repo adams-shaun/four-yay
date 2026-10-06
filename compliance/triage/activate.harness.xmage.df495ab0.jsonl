@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: Remove a charge counter from {this}"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: Remove a charge counter from {this}","cards":1}
+{"card":"Lost Jitte","template":"activate#0.0","status":"harness","api":"DamageDealtOnce:PutCounter","sets":["BIG"],"detail":"xmage: AssertionError: Can't find ability to activate command: Remove a charge counter from {this}"}

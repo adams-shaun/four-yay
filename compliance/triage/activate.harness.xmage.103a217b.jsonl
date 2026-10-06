@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: {N}{G}, Remove two +N/+N counters from this creature"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: {N}{G}, Remove two +N/+N counters from this creature","cards":1}
+{"card":"District Mascot","template":"activate#0.0","status":"harness","api":"Attacks:PutCounter","sets":["DFT"],"detail":"xmage: AssertionError: Can't find ability to activate command: {1}{G}, Remove two +1/+1 counters from this creature"}
