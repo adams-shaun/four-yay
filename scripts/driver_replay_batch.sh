@@ -738,7 +738,7 @@ drift_pass() {
   stamp=$(date -u +%Y%m%dT%H%M%SZ); bid=driver-batch-$stamp; bbranch=wt/$bid
   wt=$repo/.worktrees/$bid; probe=$repo/.worktrees/$bid-probe; run=$RUNS/$bid
   M0=$(sha12 "$MAIN"); MERGED=()
-  commits=$(git log --format=%h "$last..$cur" -- compliance/oraclegen cmd/oraclediff | tr '\n' ',' | sed 's/,$//')
+  commits=$(git log --format=%h "$last..$cur" -- "${GEN_PATHS[@]}" | tr '\n' ',' | sed 's/,$//')
   mkdir -p "$run"
   say "DRIFT-START $bid main=$M0 last=${last:0:12} generator commits=$commits"
   if ! "${WORKTREE_CMD[@]}" "$bid" "$MAIN" >"$run.worktree.log" 2>&1; then

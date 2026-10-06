@@ -46,8 +46,9 @@ cat >"$S/replay.sh" <<'EOF'
 rdir=$1; mkdir -p "$rdir/S"
 [ -z "${STUB_REPLAY_RC:-}" ] || exit "$STUB_REPLAY_RC"
 if [ -n "${STUB_MOVE_MAIN:-}" ]; then
-	echo moved >"$STUB_MOVE_MAIN/tools/xmageoracle/shared.txt"
-	git -C "$STUB_MOVE_MAIN" add tools/xmageoracle/shared.txt
+	mf=${STUB_MOVE_FILE:-tools/xmageoracle/shared.txt}
+	echo moved >"$STUB_MOVE_MAIN/$mf"
+	git -C "$STUB_MOVE_MAIN" add "$mf"
 	git -C "$STUB_MOVE_MAIN" commit -q -m "main moved during the replay"
 fi
 python3 - "$rdir/S/scen.jsonl" <<'PY'
@@ -142,6 +143,11 @@ mkrepo() {
 	: >"$R/compliance/triage/.keep"
 	echo '{}' >"$R/compliance/ratchet.json"
 	echo base >"$R/tools/xmageoracle/base.txt"
+	# every path gen_key and GEN_PATHS name must exist, or a key test cannot see it
+	mkdir -p "$R/compliance/oraclegen" "$R/cmd/oraclediff" "$R/compliance/manifests"
+	echo base >"$R/compliance/oraclegen/base.txt"
+	echo base >"$R/cmd/oraclediff/base.txt"
+	echo base >"$R/compliance/manifests/base.txt"
 	{
 		echo '{"id":"Alpha/cast-resolve/v1","card":"Alpha","status":"agree"}'
 		echo '{"id":"Beta/cast-resolve/v1","card":"Beta","status":"agree"}'
@@ -529,6 +535,30 @@ echo "2026-10-06 09:00:00 0123456789ab Beta/cast-resolve/v1 | diverge" >"$R/.ds4
 runpass
 hasnt "$L" 'DRIFT-KNOWN' && has "$L" 'UNATTRIBUTED row Beta/cast-resolve/v1'
 check "M2 a drift record for another driver+generator excludes nothing" $?
+
+# ---- N: a manifests-only change drifts, and its commit is a candidate ------------------
+mkdrift N
+echo changed >"$R/compliance/manifests/m.txt"
+git -C "$R" add -A && git -C "$R" commit -q -m "feat(manifests): m"
+mc=$(git -C "$R" rev-parse --short HEAD)
+printf 'Beta/cast-resolve/v1\n' >"$R/always.txt"
+runpass
+has "$L" 'DRIFT-START' && /usr/bin/grep -qE "DRIFT Beta/cast-resolve/v1 diverge .*commits=$mc\$" "$L"
+check "N a manifests-only drift runs, and the DRIFT row names the manifests commit" $?
+has "$R/tickets.out" "$mc"
+check "N the ticket's candidate commits include the manifests commit" $?
+
+# ---- O: a generator change that reaches main during a batch replay is not marked replayed
+mkrepo O
+mkticket t1 2026-10-06T03:00:00Z tools/xmageoracle/t1.txt one
+o_main0=$(git -C "$R" rev-parse main)
+STUB_MOVE_MAIN=$R STUB_MOVE_FILE=compliance/oraclegen/late.txt runpass
+/usr/bin/grep -qE 'LANDED [0-9a-f]{9} t1$' "$L" && [ "$(git -C "$R" rev-parse main~1 | head -c 9)" != "" ]
+check "O the batch lands despite a non-conflicting generator move on main" $?
+[ -e "$R/compliance/oraclegen/late.txt" ] && [ "$(cat "$R/.ds4/driver-replay-last-main")" != "$(git -C "$R" rev-parse main)" ]
+check "O last-main is not advanced past the unreplayed generator commit" $?
+[ "$(cat "$R/.ds4/driver-replay-last-main")" = "$o_main0" ]
+check "O last-main stays at the replayed main M0" $?
 
 echo
 [ "$fails" = 0 ] && echo "driver_replay_batch smoke: all passed" || echo "driver_replay_batch smoke: $fails FAILED"
