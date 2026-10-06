@@ -105,7 +105,6 @@ import "embed"
 //go:embed kw_unearth.go
 //go:embed kw_vanishing.go
 //go:embed kw_ward.go
-//go:embed layout.go
 //go:embed linemodes.go
 //go:embed link.go
 //go:embed mana_production.go

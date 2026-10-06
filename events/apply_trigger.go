@@ -13,47 +13,6 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
-// TriggerPushFaceAmount packs a TriggerPush's Amount for a trigger line that
-// lives on face `face` of the source card rather than the source's live face
-// (the back-face "when this dies" line of a transforming double-faced card,
-// which is front face up again by the time the push is minted, CR 712.8a).
-// Face-specific indices reuse MergedTriggerAmount's 16-bit split. Existing
-// face>0 encodings remain byte-identical; a reserved face code represents
-// face 0 without aliasing a plain live-face index. Oversized values yield -1
-// (Apply degrades them to a no-op).
-const triggerPushFrontFaceCode = (1 << (mergedTriggerShift - 1)) - 1
-
-func TriggerPushFaceAmount(face, trigIdx int) int32 {
-	if face == 0 {
-		if trigIdx < 0 || trigIdx >= 1<<mergedTriggerShift {
-			return -1
-		}
-		return int32(triggerPushFrontFaceCode<<mergedTriggerShift | trigIdx)
-	}
-	if face < 0 {
-		return -1
-	}
-	return MergedTriggerAmount(face, trigIdx)
-}
-
-// triggerPushIndexes unpacks TriggerPushFaceAmount. A plain index names the
-// source's live face; packed values name a specific card face. -1 (the
-// sentinel Dethrone grant) passes through as idx -1.
-func triggerPushIndexes(amount int32) (face, idx int) {
-	if amount == -1 {
-		return 0, -1
-	}
-	if amount < 0 {
-		return -2, int(amount)
-	}
-	code := int(amount >> mergedTriggerShift)
-	idx = int(amount & (1<<mergedTriggerShift - 1))
-	if code == triggerPushFrontFaceCode {
-		return -1, idx
-	}
-	return code, idx
-}
-
 // foldTriggerPush folds Kind TriggerPush into state.
 func foldTriggerPush(g *state.Game, e *Event) {
 	// Ruling T20-a: the ability object is minted here, inside Apply, so
@@ -81,19 +40,8 @@ func foldTriggerPush(g *state.Game, e *Event) {
 	if src == nil {
 		return
 	}
-	face, idx := triggerPushIndexes(e.Amount)
 	f := src.Face()
-	if face != 0 {
-		f = nil
-		faceIdx := face
-		if face == -1 { // face-specific encoding for the front face
-			faceIdx = 0
-		}
-		if src.Card != nil && faceIdx >= 0 && faceIdx < len(src.Card.Faces) {
-			f = src.Card.Faces[faceIdx]
-		}
-	}
-	if f == nil || idx < -1 || idx >= len(f.Triggers) {
+	if f == nil || e.Amount < -1 || int(e.Amount) >= len(f.Triggers) {
 		return
 	}
 	o := g.AddObject(nil, e.Player)
@@ -104,7 +52,7 @@ func foldTriggerPush(g *state.Game, e *Event) {
 	// same reset; ordering them after is what makes Remembered actually
 	// survive onto the stack (Ruling T20-c).
 	Move(g, o.ID, state.ZLibrary, state.ZStack)
-	if idx == -1 {
+	if e.Amount == -1 {
 		// A layer-granted Dethrone has no printed Trigger index. The
 		// matcher already established its condition; this logged sentinel
 		// carries the fixed keyword body through replay.
@@ -112,7 +60,7 @@ func foldTriggerPush(g *state.Game, e *Event) {
 			"Defined": "Self", "CounterType": "P1P1", "CounterNum": "1",
 		}}
 	} else {
-		o.Ability = f.Triggers[idx].Effect
+		o.Ability = f.Triggers[e.Amount].Effect
 	}
 	o.StackKind, o.StackKindKnown = state.StackKindTriggered, true
 	o.Source = e.Obj
