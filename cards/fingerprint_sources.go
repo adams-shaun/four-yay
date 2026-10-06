@@ -35,6 +35,9 @@ import "embed"
 //go:embed fingerprint_sources.go
 //go:embed gitenv.go
 //go:embed hiddenkeyword.go
+//go:embed image.go
+//go:embed image_build.go
+//go:embed image_mat.go
 //go:embed intrinsic.go
 //go:embed ir.go
 //go:embed keywords.go
