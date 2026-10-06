@@ -1,2 +1,0 @@
-{"shape":{"template":"cast-resolve","op":"resolve","field":"p0.pool","diff":"gorge=WUBR xmage="},"key":"cast-resolve | resolve | p0.pool | gorge=WUBR xmage=","cards":1}
-{"card":"Desolation of Smaug","template":"cast-resolve","status":"diverge","api":"DamageAll+Mana","sets":["HOB"],"detail":"step 1 (resolve) p0.pool: gorge \"WUBR\", xmage \"\""}
