@@ -157,6 +157,17 @@ func effDelayedTrigger(h Host, c *Ctx, sa *cards.SA) {
 			Text: "registers a delayed trigger with no Execute"})
 		return
 	}
+	// RememberNumber$ True (Mana Drain, Plasm Capture, Scattering Stroke):
+	// Forge's DelayedTriggerEffect copies the host's remembered Integers onto
+	// the delayed trigger, which its body reads back through
+	// Count$TriggerRememberAmount ("add an amount of {C} equal to that
+	// spell's mana value"). The chain's remembered number is the Counter
+	// primitive's RememberCounteredCMC$ binding; it rides "|RN=<n>", appended
+	// LAST so the decode strips it first. An unbound chain remembers nothing
+	// and the registration is byte-identical to before.
+	if dp.RememberNumber && c.Num.RememberedCMCBound {
+		text += "|RN=" + strconv.Itoa(int(c.Num.RememberedCMC))
+	}
 	h.Emit(events.Event{Kind: events.DelayedRegister, Obj: c.Source,
 		Player: c.Controller, Step: step, Counter: exec, Amount: amount,
 		IDs: encodeRemembered(remembered), Text: text})
