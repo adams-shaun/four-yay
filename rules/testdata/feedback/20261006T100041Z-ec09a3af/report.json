@@ -1,0 +1,10 @@
+{
+  "received": "2026-10-06T10:00:41Z",
+  "text": "party thrasher -- unable to play the selected card from exile\r\n\r\nparty thrasher -- choose \"one of\" only offers [1] and [2] -- please give card names in prompt",
+  "url": "http://127.0.0.1:8080/t/g1?seat=0\u0026token=517794874924881e9434e0c905d497e7",
+  "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36",
+  "table": "g1",
+  "seat": "0",
+  "client": "client.json",
+  "snapshot": "captured: match.json log.json view.json"
+}

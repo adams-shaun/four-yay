@@ -393,6 +393,8 @@ func staticConditionGap(f *cards.Face, st cards.Static) string {
 		return "needs Equipment attached to the card"
 	case has("attackersdeclared"):
 		return "counts attackers declared this turn"
+	case has("maxspeed"):
+		return "needs max speed (setup has no speed knob)"
 	}
 	return ""
 }

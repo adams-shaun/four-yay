@@ -1,2 +1,0 @@
-{"shape":{"template":"static","op":"setup","field":"permanents","diff":"Island gorge+[counters=FLOOD=2] xmage+[counters=FLOOD=1]"},"key":"static | setup | permanents | Island gorge+[counters=FLOOD=2] xmage+[counters=FLOOD=1]","cards":1}
-{"card":"Eluge, the Shoreless Sea","template":"static#0.1","status":"diverge","api":"ChangesZone:PutCounter+Attacks:PutCounter","sets":["BLB"],"detail":"setup permanents: gorge \"c0 o0 Island [basic island land] {} counters=FLOOD=2\", xmage \"c0 o0 Island [basic island land] {} counters=FLOOD=1\""}

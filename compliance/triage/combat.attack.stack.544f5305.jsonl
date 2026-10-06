@@ -1,0 +1,2 @@
+{"shape":{"template":"combat","op":"attack","field":"stack","diff":"gorge=[ability:$CARD@p0] xmage=[ability:Dread Osseosaur@p0]"},"key":"combat | attack | stack | gorge=[ability:$CARD@p0] xmage=[ability:Dread Osseosaur@p0]","cards":1}
+{"card":"Visage of Dread","template":"combat#1.attack","status":"diverge","api":"ChangesZone:Discard","sets":["LCI"],"detail":"step 0 (attack) stack: gorge \"[ability:Visage of Dread@p0]\", xmage \"[ability:Dread Osseosaur@p0]\""}

@@ -127,17 +127,33 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 			}
 		}
 	}
-	// A counter- or speed-gated static that grants only an ability, trigger,
-	// static or replacement is a named wait: the probes compare P/T and
-	// evergreen keywords, which a granted ability never moves.
-	if (gated || speedGated) && staticGrantsAbility(&st) {
-		return skip(staticGrantWaits)
+	// A static that acts on cards outside the battlefield changes nothing a
+	// snapshot shows; it is observed as an offered option instead
+	// (static_offer.go). A look-at permission shows in neither engine's
+	// snapshot, so it carries its own named skip.
+	if it, ok := staticOfferItem(reg, c, f, name, req, st); ok {
+		return it, nil
+	}
+	if st.HasParam(cards.PKMayLookAt) {
+		return skip(staticLookAtReason)
+	}
+	if it, ok := staticSpellLifelinkItem(reg, c, f, name, req, st); ok {
+		return it, nil
 	}
 	if gap := staticProbeCapGap(probePlan); gap != "" {
 		return skip(gap)
 	}
 	if st.HasParam(cards.PKClassBand) {
 		return skip(staticClassReason)
+	}
+	if gap := staticOffBattlefieldGrantGap(st); gap != "" {
+		return skip(gap)
+	}
+	// A counter- or speed-gated static that grants only an ability, trigger,
+	// static or replacement is a named wait: the probes compare P/T and
+	// evergreen keywords, which a granted ability never moves.
+	if (gated || speedGated) && staticGrantsAbility(&st) {
+		return skip(staticGrantWaits)
 	}
 	if gap := staticObserveGap(f, st); gap != "" {
 		return skip(gap)
@@ -146,6 +162,9 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 		return skip(gap)
 	}
 	if gap := staticConditionGap(f, st); gap != "" {
+		return skip(gap)
+	}
+	if gap := staticGrantGap(f, st); gap != "" {
 		return skip(gap)
 	}
 	return skip("effect not observable on a probe or the card")

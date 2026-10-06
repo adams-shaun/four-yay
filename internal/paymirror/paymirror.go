@@ -187,6 +187,10 @@ type Report struct {
 	Routes  []RouteResult `json:"routes"`
 	// forkObjs is the object-arena size at the pre-submit fork (floatReorder).
 	forkObjs int
+	// castMode is the Mode of the priority option that begins this cast: ""
+	// for a hand or command-zone cast, "mayplay" for one planned from exile
+	// or the graveyard under an untyped may-play permission.
+	castMode string
 }
 
 // Verdict folds the routes into one per-cast verdict: equivalent if any
@@ -306,6 +310,7 @@ func check(base, a *rules.Engine, in decision.Intent, answer Answerer, opt Optio
 	}
 	plan := decision.ClonePaymentPlan(in.Payment.Plan)
 	rep.Plan, rep.Object = plan, action.Cast.Object
+	rep.castMode = castOptionMode(action.Cast.Origin)
 	rep.Activations = len(plan.Activations)
 	rep.BaseOption = action.BaseOptionIndex != nil
 	if o := base.G.Obj(action.Cast.Object); o != nil && o.Face() != nil {
@@ -569,6 +574,15 @@ func floatTriggerPrecedesCast(res *RouteResult) {
 	res.Status, res.Reason, res.Expected = Unmirrorable, "float_trigger_precedes_cast", true
 }
 
+// castOptionMode is the option Mode a planned cast's origin begins with: a
+// card in exile or the graveyard is cast through its untyped may-play offer.
+func castOptionMode(origin string) string {
+	if origin == "exile" || origin == "graveyard" {
+		return "mayplay"
+	}
+	return ""
+}
+
 // mirrorFloat is RouteFloat: activate each planned source at priority with
 // the witness's production, then cast through the ordinary option. aEvents is
 // run A's event stream since the fork: where several priority-wheel options
@@ -631,7 +645,7 @@ func mirrorFloat(b *rules.Engine, rep *Report, res *RouteResult, aEvents []event
 	}
 	d := b.Pending()
 	idx := findOption(d, func(o decision.Option) bool {
-		return o.Kind == "cast" && o.Obj == rep.Object && o.Mode == "" && o.AltCostIndex == 0
+		return o.Kind == "cast" && o.Obj == rep.Object && o.Mode == rep.castMode && o.AltCostIndex == 0
 	})
 	if idx < 0 {
 		why := fmt.Sprintf("pool %v", b.G.Players[p].Pool)
@@ -746,7 +760,7 @@ func mirrorBase(b *rules.Engine, rep *Report, action *decision.PaymentAction, re
 		return
 	}
 	o := d.Options[i]
-	if o.Kind != "cast" || o.Obj != action.Cast.Object || o.Mode != "" || o.AltCostIndex != 0 {
+	if o.Kind != "cast" || o.Obj != action.Cast.Object || o.Mode != castOptionMode(action.Cast.Origin) || o.AltCostIndex != 0 {
 		setMismatch(res, "base_option_names_other_action", fmt.Sprintf("%+v", o))
 		return
 	}

@@ -430,11 +430,11 @@ func foldImprint(g *state.Game, e *Event) {
 					// on the battlefield (state.Object.ImprintTokens).
 					list = &o.ImprintTokens
 				} else if e.Text == "seek-found" {
-					// Seek's ImprintFound$ records the cards it moved to a
-					// hand here; `Defined$ Imprinted` resolves them wherever
-					// they currently sit (state.Object.SeekFound), so the
-					// ordinary Imprinted list's exile-only reader keeps its
-					// CR 607.2a contract.
+					// Seek's ImprintFound$ and ChooseCard's ImprintChosen$
+					// record associated cards here; `Defined$ Imprinted` resolves
+					// them wherever they currently sit (state.Object.SeekFound),
+					// while the ordinary Imprinted list keeps its CR 607.2a
+					// exile-only contract.
 					list = &o.SeekFound
 				} else if e.Text == "encoded" {
 					// Cipher (CR 702.99a): the resolving spell card is exiled

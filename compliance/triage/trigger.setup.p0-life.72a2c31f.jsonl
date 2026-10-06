@@ -1,3 +1,0 @@
-{"shape":{"template":"trigger","op":"setup","field":"p0.life","diff":"gorge-xmage=3"},"key":"trigger | setup | p0.life | gorge-xmage=3","cards":2}
-{"card":"Colossus of the Blood Age","template":"trigger#0.1","status":"diverge","api":"ChangesZone:DealDamage+ChangesZone:Discard","sets":["SOS"],"detail":"setup p0.life: gorge \"23\", xmage \"20\""}
-{"card":"Vaultborn Tyrant","template":"trigger#0.1","status":"diverge","api":"ChangesZone:GainLife+ChangesZone:CopyPermanent","sets":["BIG"],"detail":"setup p0.life: gorge \"23\", xmage \"20\""}

@@ -1,2 +1,0 @@
-{"shape":{"template":"trigger","op":"setup","field":"permanents","diff":"Grizzly Bears gorge+[dmg=1] xmage+[]"},"key":"trigger | setup | permanents | Grizzly Bears gorge+[dmg=1] xmage+[]","cards":1}
-{"card":"Jet, Freedom Fighter","template":"trigger#0.1","status":"diverge","api":"ChangesZone:DealDamage+ChangesZone:PutCounter","sets":["TLA"],"detail":"setup permanents: gorge \"c1 o1 Grizzly Bears [bear creature] {G} 2/2 dmg=1\", xmage \"c1 o1 Grizzly Bears [bear creature] {G} 2/2\""}

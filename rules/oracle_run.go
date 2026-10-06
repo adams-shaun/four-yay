@@ -59,8 +59,8 @@ type oracleScenario struct {
 	Expect       []oracleExpect `json:"expect"`
 	// xmageFixture marks a generated compliance scenario
 	// (RunOracleScenarioJSON). Setup permanents are present before turn 1 in
-	// both engines; the driver clears XMage's seeded entry history. Never
-	// decoded from JSON.
+	// both engines (build drops the triggers their placement queued); the
+	// driver clears XMage's seeded entry history. Never decoded from JSON.
 	xmageFixture bool
 }
 
@@ -154,6 +154,10 @@ type oracleStep struct {
 	Observe      *oracleObserve `json:"observe,omitempty"`
 	Expect       []oracleExpect `json:"expect,omitempty"`
 }
+
+// oracleOfferedKindAlias maps an offered kind a scenario names to the option
+// kind gorge poses it as: playing a land is the "play" the XMage side offers.
+var oracleOfferedKindAlias = map[string]string{"play": "play_land"}
 
 type oracleObserve struct {
 	Kind   string   `json:"kind"`
@@ -577,6 +581,27 @@ func (r *oracleRun) build(sc oracleScenario) error {
 			}
 		}
 		emitSetupSpeed(e.emit, p, e.G.Players[p].Speed, sc.Setup[fmt.Sprintf("p%d", p)])
+	}
+	if sc.xmageFixture {
+		// Generated scenarios start from a position XMage creates with
+		// addCard, which does not fire enters-the-battlefield triggers. Other
+		// setup triggers (for example, CounterAddedOnce from loyalty setup)
+		// do fire there and must remain queued.
+		kept := e.pendingTriggers[:0]
+		ordered := 0
+		for i, pt := range e.pendingTriggers {
+			tr, ok := e.triggerOf(pt)
+			destination, hasDestination := tr.ParamCode(cards.PKDestination)
+			if ok && tr.ModeKind() == cards.TriggerChangesZone && hasDestination &&
+				effects.Destination(destination).Zone() == state.ZBattlefield {
+				continue
+			}
+			kept = append(kept, pt)
+			if i < e.orderedTriggers {
+				ordered++
+			}
+		}
+		e.pendingTriggers, e.orderedTriggers = kept, ordered
 	}
 	e.Advance()
 	r.answers = append([]oracleAnswer(nil), sc.SetupAnswers...)
@@ -1651,8 +1676,9 @@ func (r *oracleRun) check(x oracleExpect) []string {
 			failf("offered: p%d does not hold priority", x.Offered.Seat)
 		} else {
 			found := false
+			alias, aliased := oracleOfferedKindAlias[x.Offered.Kind]
 			for _, o := range d.Options {
-				kindOK := o.Kind == x.Offered.Kind || (x.Offered.Kind == "activate" && o.Kind == "ability")
+				kindOK := o.Kind == x.Offered.Kind || (x.Offered.Kind == "activate" && o.Kind == "ability") || (aliased && o.Kind == alias)
 				if o.Obj == id && kindOK && oracleLabelMatches(o.Label, x.Offered.Label) {
 					found = true
 				}

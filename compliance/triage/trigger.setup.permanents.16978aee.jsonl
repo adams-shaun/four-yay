@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"setup","field":"permanents","diff":"$CARD gorge+[2/2] xmage+[1/1]"},"key":"trigger | setup | permanents | $CARD gorge+[2/2] xmage+[1/1]","cards":1}
+{"card":"Ambitious Augmenter","template":"trigger#0.0","status":"diverge","api":"ChangesZone:Token+SpellCast:PutCounter","sets":["SOS"],"detail":"setup permanents: gorge \"c0 o0 Ambitious Augmenter [creature turtle wizard] {G} 2/2 counters=P1P1=1\", xmage \"c0 o0 Ambitious Augmenter [creature turtle wizard] {G} 1/1 counters=P1P1=1\""}

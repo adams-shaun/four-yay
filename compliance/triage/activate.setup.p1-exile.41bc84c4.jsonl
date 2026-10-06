@@ -1,5 +1,0 @@
-{"shape":{"template":"activate","op":"setup","field":"p1.exile","diff":"gorge+[Grizzly Bears] xmage+[]"},"key":"activate | setup | p1.exile | gorge+[Grizzly Bears] xmage+[]","cards":4}
-{"card":"Detention Chariot","template":"activate#0.0","status":"diverge","api":"ChangesZone:ChangeZone","sets":["DFT"],"detail":"setup p1.exile: gorge \"[Grizzly Bears]\", xmage \"[]\""}
-{"card":"Pinnacle Starcage","template":"activate#0.0","status":"diverge","api":"ChangesZone:ChangeZoneAll","sets":["EOE"],"detail":"setup p1.exile: gorge \"[Grizzly Bears]\", xmage \"[]\""}
-{"card":"Solitary Cell","template":"activate#0.0","status":"diverge","api":"ChangesZone:ChangeZone","sets":["FRA"],"detail":"setup p1.exile: gorge \"[Grizzly Bears]\", xmage \"[]\""}
-{"card":"White Auracite","template":"activate#0.0","status":"diverge","api":"ChangesZone:ChangeZone","sets":["FIN"],"detail":"setup p1.exile: gorge \"[Grizzly Bears]\", xmage \"[]\""}

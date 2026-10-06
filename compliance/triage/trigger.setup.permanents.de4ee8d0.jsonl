@@ -1,2 +1,0 @@
-{"shape":{"template":"trigger","op":"setup","field":"permanents","diff":"$CARD gorge+[4/3] xmage+[3/3]"},"key":"trigger | setup | permanents | $CARD gorge+[4/3] xmage+[3/3]","cards":1}
-{"card":"Reigning Victor","template":"trigger#0.1","status":"diverge","api":"ChangesZone:Pump+Attacks:Token","sets":["TDM"],"detail":"setup permanents: gorge \"c0 o0 Reigning Victor [creature orc warrior] {WBR} 4/3\", xmage \"c0 o0 Reigning Victor [creature orc warrior] {WBR} 3/3\""}

@@ -1,4 +1,0 @@
-{"shape":{"template":"trigger","op":"setup","field":"p0.life","diff":"gorge-xmage=2"},"key":"trigger | setup | p0.life | gorge-xmage=2","cards":3}
-{"card":"Apex Witchstalker","template":"trigger#0.1","status":"diverge","api":"ChangesZone:GainLife","sets":["FRA"],"detail":"setup p0.life: gorge \"22\", xmage \"20\""}
-{"card":"Corroding Dragonstorm","template":"trigger#0.1","status":"diverge","api":"ChangesZone:LoseLife+ChangesZone:ChangeZone","sets":["TDM"],"detail":"setup p0.life: gorge \"22\", xmage \"20\""}
-{"card":"Shroudstomper","template":"trigger#0.1","status":"diverge","api":"ChangesZone:LoseLife+Attacks:LoseLife","sets":["DSK"],"detail":"setup p0.life: gorge \"22\", xmage \"20\""}

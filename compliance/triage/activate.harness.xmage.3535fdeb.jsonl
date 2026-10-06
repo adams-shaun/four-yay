@@ -1,3 +1,8 @@
-{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Found wrong choice command (invalid target or miss skip command):"},"key":"activate | harness | xmage | AssertionError: Found wrong choice command (invalid target or miss skip command):","cards":2}
+{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Found wrong choice command (invalid target or miss skip command):"},"key":"activate | harness | xmage | AssertionError: Found wrong choice command (invalid target or miss skip command):","cards":7}
+{"card":"Dragonbroods' Relic","template":"activate#0.0","status":"harness","api":"-","sets":["TDM"],"detail":"xmage: AssertionError: Found wrong choice command (invalid target or miss skip command):"}
+{"card":"Gene Pollinator","template":"activate#0.0","status":"harness","api":"-","sets":["EOE"],"detail":"xmage: AssertionError: Found wrong choice command (invalid target or miss skip command):"}
 {"card":"Intruding Soulrager","template":"activate#0.0","status":"harness","api":"-","sets":["DSK"],"detail":"xmage: AssertionError: Found wrong choice command (invalid target or miss skip command):"}
+{"card":"Molt Tender","template":"activate#0.1","status":"harness","api":"-","sets":["DFT"],"detail":"xmage: AssertionError: Found wrong choice command (invalid target or miss skip command):"}
+{"card":"Scene of the Crime","template":"activate#0.1","status":"harness","api":"-","sets":["MKM"],"detail":"xmage: AssertionError: Found wrong choice command (invalid target or miss skip command):"}
 {"card":"Sparring Dummy","template":"activate#0.0","status":"harness","api":"-","sets":["TLA"],"detail":"xmage: AssertionError: Found wrong choice command (invalid target or miss skip command):"}
+{"card":"Springleaf Drum","template":"activate#0.0","status":"harness","api":"-","sets":["ECL"],"detail":"xmage: AssertionError: Found wrong choice command (invalid target or miss skip command):"}

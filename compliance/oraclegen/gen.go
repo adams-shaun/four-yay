@@ -912,6 +912,16 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSt
 				// the pool without asking.
 				continue
 			}
+			if n := colourPickCount(d); n > 1 && n == len(d.Picks) {
+				// A multi-unit "any combination of colors" mana ability
+				// (Baxter Building's "Add four mana in any combination of
+				// colors", Amount$ 4) is not one XMage colour dialog. XMage
+				// asks a multi-amount distribution among colours, so a joined
+				// "^" colour selection throws "Missing choice in multi
+				// amount". Emit nothing and let XMage distribute it itself,
+				// as it did before this routing existed.
+				continue
+			}
 			if len(d.Picks) == 1 && strings.HasPrefix(d.Picks[0], "X = ") {
 				as = append(as, XAnswer{d.Seat, "choice", "X=" + strings.TrimPrefix(d.Picks[0], "X = ")})
 				break
@@ -1539,12 +1549,36 @@ func triggerRule(label string) string {
 }
 
 // manaColourLabel maps gorge's "Add W" mana option to the colour name
-// XMage's colour chooser shows (its Choice key is "White", not "Add W").
+// XMage's colour chooser shows (its Choice key is "White", not "Add W"). A
+// colour option of a costed mana ability names the cost first ("Pay 1: Add W",
+// "Pay 2 life: Add W": pay.ManaAbilityCostPrefix), and XMage asks the same
+// colour dialog for it, so the cost prefix is dropped before matching.
 func manaColourLabel(label string) (string, bool) {
+	if i := strings.LastIndex(label, ": "); i >= 0 {
+		label = label[i+2:]
+	}
 	if strings.HasPrefix(label, "Add ") && len(label) == 5 {
 		return manaColour(label[4])
 	}
 	return "", false
+}
+
+// colourPickCount counts the picks of a decision that name a single mana
+// colour (a mana ability's colour option, with or without a cost prefix).
+// When every pick of a multi-pick decision is such an option, XMage models
+// the ask as a multi-amount distribution among colours, not one colour
+// dialog, so the decision must not emit a joined "^" colour selection.
+func colourPickCount(d rules.OracleDecision) int {
+	n := 0
+	for k, label := range d.Picks {
+		if label == "" && k < len(d.PickRefs) {
+			label = oraclediffRefName(d.PickRefs[k])
+		}
+		if _, ok := manaColourLabel(label); ok {
+			n++
+		}
+	}
+	return n
 }
 
 func manaColour(code byte) (string, bool) {
@@ -1570,6 +1604,11 @@ func payment(picks []string) bool {
 	}
 	for _, p := range picks {
 		if !strings.HasPrefix(p, "Pay ") {
+			return false
+		}
+		// "Pay 1: Add W" is a costed mana ability's colour pick, a real
+		// XMage colour dialog, not a hybrid/phyrexian payment half.
+		if _, colour := manaColourLabel(p); colour {
 			return false
 		}
 	}

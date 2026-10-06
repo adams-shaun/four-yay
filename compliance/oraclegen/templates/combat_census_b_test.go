@@ -25,8 +25,8 @@ import (
 // scenario-does-not-replay 1 -> 2 (the other is Monoist Sentry, whose plain
 // Defender genuinely cannot attack).
 var wantCombatCensus = map[string]map[string]int{
-	"BIG": {"served:combat.attack": 4, "served:combat.block": 3, "skip:combat block not offered": 1},
-	"EOE": {"served:combat.attack": 47, "served:combat.block": 48, "skip:combat block not offered": 1, "skip:combat scenario does not replay": 2},
+	"BIG": {"served:combat.attack": 4, "served:combat.block": 4},
+	"EOE": {"served:combat.attack": 47, "served:combat.block": 49, "skip:combat scenario does not replay": 2},
 	"FDN": {"served:combat.attack": 123, "served:combat.block": 122, "skip:combat block not offered": 5, "skip:combat scenario does not replay": 4},
 	"FRA": {"served:combat.attack": 62, "served:combat.block": 62, "skip:combat block not offered": 1, "skip:combat scenario does not replay": 1},
 }
