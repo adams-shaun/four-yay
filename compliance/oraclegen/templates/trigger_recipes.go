@@ -1,0 +1,120 @@
+package templates
+
+import (
+	"strings"
+
+	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/compliance/oraclegen"
+)
+
+// triggerCause is one candidate way of making a trigger's cause happen on
+// turn 1 with ops the XMage driver already has (cast, attack, pass_to).
+type triggerCause struct {
+	hand        []string         // probe cards added to p0's hand
+	battlefield []string         // extra p0 permanents (an attacker for a non-creature card)
+	steps       []oraclegen.Step // the cause steps emitted into the item
+	probeSteps  []oraclegen.Step // steps whose snapshots show the trigger on the stack; nil means steps
+}
+
+// Probe cards, each named with why. Spec hypothesis H4: the probe exists in
+// XMage's database; the host replay confirms it. Each list is tried in order
+// and the first that plays through gorge and fires the trigger wins.
+var (
+	// Murder ({1}{B}{B}, destroy target creature) is unconditional; Doom
+	// Blade and Terror are the fallbacks and refuse black / artifact cards.
+	destroyProbes = []string{"Murder", "Doom Blade", "Terror"}
+	// Angel's Mercy ({2}{W}{W}, gain 7 life) and Revitalize ({1}{W}, gain 3
+	// and draw) gain life with no choice to answer; Healing Salve asks a mode.
+	lifegainProbes = []string{"Angel's Mercy", "Revitalize", "Healing Salve"}
+	// Divination ({2}{U}, draw two) is the plain draw; Concentrate and
+	// Inspiration are the fallbacks.
+	drawProbes = []string{"Divination", "Concentrate", "Inspiration"}
+	// Shock (instant, {R}, 2 damage to any target) is the instant/sorcery
+	// cast cause and Grizzly Bears ({1}{G}) the creature one; Giant Growth
+	// ({G}) is the becomes-target cause. All three are level-A fixtures.
+	shockProbe, bearsProbe, growthProbe = "Shock", "Grizzly Bears", "Giant Growth"
+)
+
+// castProbe builds the cast step of probe, or false when the probe is not in
+// the corpus or its mana cost has no pool.
+func castProbe(reg *cards.Registry, probe string, targets ...string) (oraclegen.Step, bool) {
+	c, ok := reg.Lookup(probe)
+	if !ok || len(c.Faces) == 0 {
+		return oraclegen.Step{}, false
+	}
+	pool, why := oraclegen.PoolFor(c.Faces[0].ManaCost)
+	if why != "" {
+		return oraclegen.Step{}, false
+	}
+	return oraclegen.Step{Op: "cast", Seat: 0, Card: "p0:" + probe, Mana: pool, Targets: targets}, true
+}
+
+// triggerRecipe returns the candidate causes for one trigger sub-family, or
+// the reason none exists for this card.
+func triggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards.Trigger, sub string) ([]triggerCause, string) {
+	var out []triggerCause
+	cast := func(probe string, targets ...string) {
+		if probe == name {
+			return
+		}
+		if st, ok := castProbe(reg, probe, targets...); ok {
+			out = append(out, triggerCause{hand: []string{probe}, steps: []oraclegen.Step{st}})
+		}
+	}
+	creature := f.IsCreature()
+	switch sub {
+	case "trigger.etb-other":
+		cast(bearsProbe)
+	case "trigger.dies":
+		if !creature {
+			return nil, "dies needs a creature"
+		}
+		for _, p := range destroyProbes {
+			cast(p, "p0:"+name)
+		}
+	case "trigger.attacks", "trigger.combat-damage":
+		attacker, extra := "p0:"+name, []string(nil)
+		if !creature {
+			if sub == "trigger.combat-damage" {
+				return nil, "combat-damage needs a creature"
+			}
+			attacker, extra = "p0:"+bearsProbe, []string{bearsProbe}
+		}
+		attack := oraclegen.Step{Op: "attack", Seat: 0, Defender: "p1", Attackers: []string{attacker}}
+		c := triggerCause{battlefield: extra, steps: []oraclegen.Step{attack}}
+		if sub == "trigger.combat-damage" {
+			// The trigger resolves inside the pass to main2, so the emitted
+			// item shows no stack; the probe stops in end-combat, where the
+			// trigger is still on it.
+			c.steps = append(c.steps, oraclegen.Step{Op: "pass_to", Step: "main2"})
+			c.probeSteps = []oraclegen.Step{attack, {Op: "pass_to", Step: "end-combat"}}
+		}
+		out = append(out, c)
+	case "trigger.spell-cast":
+		filter := t.ParamStr(cards.PKValidCard)
+		if strings.Contains(filter, "Creature") && !strings.Contains(strings.ToLower(filter), "noncreature") {
+			cast(bearsProbe)
+		} else {
+			cast(shockProbe, "p1")
+		}
+	case "trigger.becomes-target":
+		if !creature {
+			return nil, "becomes-target needs a creature"
+		}
+		cast(growthProbe, "p0:"+name)
+	case "trigger.life-gained":
+		for _, p := range lifegainProbes {
+			cast(p)
+		}
+	case "trigger.drawn":
+		for _, p := range drawProbes {
+			cast(p)
+		}
+	default:
+		return nil, "no recipe for " + sub
+	}
+	if len(out) == 0 {
+		return nil, "probe not in corpus"
+	}
+	return out, ""
+}

@@ -308,45 +308,21 @@ func colors(s string) string {
 	return b.String()
 }
 
-func types(ts []string) string {
-	c := make([]string, 0, len(ts))
+func types(ts []string, allCreatureTypes bool) string {
+	c := make([]string, 0, len(ts)+1)
 	subtypeWords := make(map[string]bool, len(effects.CreatureTypeWordList()))
 	for _, subtype := range effects.CreatureTypeWordList() {
 		subtypeWords[strings.ToLower(strings.ReplaceAll(subtype, " ", ""))] = true
 	}
-	seenSubtypes := make(map[string]bool, len(ts))
-	subtypeCount := 0
 	for _, t := range ts {
 		normalized := strings.ToLower(strings.ReplaceAll(t, " ", ""))
+		if allCreatureTypes && subtypeWords[normalized] {
+			continue
+		}
 		c = append(c, normalized)
-		if subtypeWords[normalized] {
-			subtypeCount++
-			seenSubtypes[normalized] = true
-		}
-	}
-	// XMage's oracle driver prints one marker for the rules-defined
-	// “all creature types” bundle, while gorge materializes the exact shared
-	// creature-subtype vocabulary. Collapse only when every vocabulary word
-	// occurs exactly once; a large but incomplete or extended list must retain
-	// its distinguishing subtype names.
-	allCreatureTypes := len(seenSubtypes) == len(effects.CreatureTypeWordList()) && subtypeCount == len(seenSubtypes)
-	if allCreatureTypes {
-		for _, subtype := range effects.CreatureTypeWordList() {
-			if !seenSubtypes[strings.ToLower(strings.ReplaceAll(subtype, " ", ""))] {
-				allCreatureTypes = false
-				break
-			}
-		}
 	}
 	if allCreatureTypes {
-		kept := make([]string, 0, len(c)-subtypeCount+1)
-		for _, typ := range c {
-			if !subtypeWords[typ] {
-				kept = append(kept, typ)
-			}
-		}
-		kept = append(kept, "allcreaturetypes")
-		c = kept
+		c = append(c, "allcreaturetypes")
 	}
 	sort.Strings(c)
 	return strings.Join(c, " ")
@@ -379,7 +355,7 @@ func permKeysOpts(ps []rules.OracleSnapPerm, compare []string) []string {
 		if p.Token {
 			name = "token"
 		}
-		k := fmt.Sprintf("c%d o%d %s [%s] {%s}", p.Controller, p.Owner, name, types(p.Types), colors(p.Colors))
+		k := fmt.Sprintf("c%d o%d %s [%s] {%s}", p.Controller, p.Owner, name, types(p.Types, p.AllCreatureTypes), colors(p.Colors))
 		if p.PT != "" {
 			k += " " + p.PT
 		}

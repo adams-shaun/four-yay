@@ -246,13 +246,36 @@ func Sample(setup PublicGame, h History, opts SampleOptions) (out SampleResult, 
 	// pool that mixes proposals from different exclusion sets concentrates the
 	// weights and collapses the ESS gate (measured: covered decisions fell
 	// 185 -> 114 when exclusions accumulated attempt by attempt).
-	runAttempt := func(res *SampleResult, plans *constraintPlanCache, store *exclusionStore, staging *exclusionStore, attempt int) (World, float64, bool, error) {
+	// spare recycles a rejected attempt's engine arrays (its event log and
+	// object arena, ~0.7 MB) into the next attempt's genesis: most attempts
+	// are rejected, and a rejected world's engine is referenced by nothing
+	// (frames hold owned values, never engine memory). Reuse is invisible to
+	// the game (rules.Spare, TestSpareReuseIsInvisible). Like the plan cache,
+	// a spare is owned by one goroutine: the probe rounds and frozen worker 0
+	// share this one, every other frozen worker owns its own.
+	var spare rules.Spare
+	runAttempt := func(res *SampleResult, plans *constraintPlanCache, spare *rules.Spare, store *exclusionStore, staging *exclusionStore, attempt int) (_ World, _ float64, kept bool, _ error) {
 		res.Attempts++
 		seed := taggedSeed(opts.Seed, digest, attempt, seedEngine)
 		cfg := rules.Config{Seed: seed[0], Names: setup.Names, Decks: setup.Decks, Tokens: setup.Tokens, StartingLife: setup.StartingLife}
 		observer := NewCollector(h.Actor)
 		proposal := &proposalState{epochs: epochs, logWeight: tossWeight, base: opts.Seed, history: digest, attempt: attempt, observer: observer, result: res, plans: plans, exclusions: store, staging: staging, noLandExclusion: opts.NoLandExclusion}
-		e, err := rules.NewHypotheticalPlanned(cfg, tape, proposal.plan)
+		// The Spare rides a private copy: a kept World's Config must not
+		// alias the recycling slot.
+		hcfg := cfg
+		hcfg.Spare = spare
+		e, err := rules.NewHypotheticalPlanned(hcfg, tape, proposal.plan)
+		if e != nil {
+			// Decisions this replay poses are read only before their answer
+			// is submitted; a rejected engine's die at its Release, and a kept
+			// world is never released here, so its arena stays valid.
+			e.SetDecisionArena(true)
+			defer func() {
+				if !kept {
+					*spare = e.Release()
+				}
+			}()
+		}
 		if errors.Is(err, errIncompatibleProposal) {
 			return World{}, 0, false, nil
 		}
@@ -414,7 +437,7 @@ func Sample(setup PublicGame, h History, opts SampleOptions) (out SampleResult, 
 		before := store.size()
 		roundStart := len(probeWorlds)
 		for i := 0; i < probesPerRound && attemptsUsed < probeCap && opts.Attempts-attemptsUsed > 1; i++ {
-			world, lw, accepted, err := runAttempt(&result, plans, store, staging, attemptsUsed)
+			world, lw, accepted, err := runAttempt(&result, plans, &spare, store, staging, attemptsUsed)
 			if err != nil {
 				return result, err
 			}
@@ -450,22 +473,22 @@ func Sample(setup PublicGame, h History, opts SampleOptions) (out SampleResult, 
 	// goroutines: each worker owns one (worker 0 inherits the probe rounds').
 	// A cache only saves rebuilding a plan; a plan is a pure function of its
 	// constraints, so which cache served an attempt cannot change its draw.
-	runFrozen := func(i int, plans *constraintPlanCache) {
+	runFrozen := func(i int, plans *constraintPlanCache, sp *rules.Spare) {
 		o := &frozen[i]
 		defer func() {
 			if p := recover(); p != nil {
 				o.panicked = p
 			}
 		}()
-		o.world, o.lw, o.accepted, o.err = runAttempt(&o.res, plans, store, nil, attemptsUsed+i)
+		o.world, o.lw, o.accepted, o.err = runAttempt(&o.res, plans, sp, store, nil, attemptsUsed+i)
 	}
 	if workers := min(opts.Parallelism, len(frozen)); workers > 1 {
 		var wg sync.WaitGroup
 		var next atomic.Int64
 		for w := 0; w < workers; w++ {
-			workerPlans := plans
+			workerPlans, workerSpare := plans, &spare
 			if w > 0 {
-				workerPlans = newConstraintPlanCache()
+				workerPlans, workerSpare = newConstraintPlanCache(), new(rules.Spare)
 			}
 			wg.Add(1)
 			go func() {
@@ -475,14 +498,14 @@ func Sample(setup PublicGame, h History, opts SampleOptions) (out SampleResult, 
 					if i >= len(frozen) {
 						return
 					}
-					runFrozen(i, workerPlans)
+					runFrozen(i, workerPlans, workerSpare)
 				}
 			}()
 		}
 		wg.Wait()
 	} else {
 		for i := range frozen {
-			runFrozen(i, plans)
+			runFrozen(i, plans, &spare)
 			if frozen[i].err != nil || frozen[i].panicked != nil {
 				break
 			}

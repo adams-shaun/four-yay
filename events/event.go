@@ -1137,12 +1137,19 @@ const (
 	// MillProposal so every earlier ordinal, hash chain and golden replay is
 	// unchanged.
 	Meld
+	// ExcessDamage records that one Damage batch dealt the recipient more than
+	// its damage-time excess threshold (CR 120.4a / 120.10). Obj is the
+	// recipient, Player its controller and Amount a type bitmask (1 creature,
+	// 2 planeswalker, 4 battle). Appended after Meld so every earlier
+	// ordinal, hash chain and golden replay is unchanged.
+	ExcessDamage
 	// NumKinds is the explicit upper bound for the append-only event kind
 	// registry below. New kinds must be appended above this line: inserting or
 	// reordering a kind renumbers the hash-chained event stream and breaks replay.
 	// Forage, ManifestDread and CollectEvidence are completed keyword-action
 	// markers. Player is the acting player; ManifestDread carries the cards it
-	// put into the graveyard in IDs. Appended to preserve prior ordinals.
+	// put into the graveyard in IDs. Appended after ExcessDamage (main's
+	// CR 120.4a kind) to preserve every earlier ordinal.
 	ForageAction
 	ManifestDreadAction
 	CollectEvidenceAction

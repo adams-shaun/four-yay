@@ -3,7 +3,6 @@ package rules
 import (
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 )
@@ -16,11 +15,11 @@ import (
 // the enforcement: the file holding `type Engine struct` stays under the
 // steward's oversized threshold.
 func TestEngineStructStaysUnderTheOversizeBudget(t *testing.T) {
-	_, thisFile, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("runtime.Caller could not locate this test's source file")
-	}
-	dir := filepath.Dir(thisFile)
+	// `go test` runs the binary in the package directory, so "." is this
+	// package's source. runtime.Caller is not used: under -trimpath (which
+	// lets worktrees share build and test cache entries) it returns a
+	// module-relative path that does not exist on disk.
+	dir := "."
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		t.Fatalf("read package dir: %v", err)

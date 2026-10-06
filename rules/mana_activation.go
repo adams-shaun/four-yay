@@ -504,7 +504,7 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 			} else if !e.activatorAllows(p, id, ma) {
 				continue
 			}
-			if !mf.noActivation && !e.activationConditionOK(p, ma) {
+			if !mf.noActivation && !e.activationConditionOK(p, id, ma) {
 				continue
 			}
 			if mf.noIsPresent {
@@ -519,7 +519,7 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 			cc = mf.cost
 		} else {
 			if !e.activatorAllows(p, id, ma) ||
-				!e.activationConditionOK(p, ma) || !pay.ManaActivationGateHolds(asPayer(e), p, id, ma) {
+				!e.activationConditionOK(p, id, ma) || !pay.ManaActivationGateHolds(asPayer(e), p, id, ma) {
 				continue
 			}
 			cc = e.compiledCostOf(ma.ParamStr(cards.PKCost))

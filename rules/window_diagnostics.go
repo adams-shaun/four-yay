@@ -310,7 +310,7 @@ func (e *Engine) classifyBattlefieldAbilities(p state.PlayerID, w *windowCollect
 				w.record(id, windowKindActivation, wrAbilityUnsupported)
 				continue
 			}
-			if !e.activationConditionOK(p, ab) {
+			if !e.activationConditionOK(p, id, ab) {
 				w.record(id, windowKindActivation, wrActivationCondition)
 				continue
 			}

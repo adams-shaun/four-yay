@@ -265,6 +265,15 @@ func (p Player) ManaUnits() [7]Mana {
 	return units
 }
 
+// ExcessDamageVictim is the damage-time recipient snapshot for historical
+// checks after the permanent has left the battlefield. Type is a bitmask:
+// 1 = creature, 2 = planeswalker, 4 = battle (several may apply).
+type ExcessDamageVictim struct {
+	Obj        ObjID
+	Controller PlayerID
+	Type       int32
+}
+
 // Game is the complete authoritative state. Everything a client sees is a
 // projection of this. Only the events package may mutate it.
 type Game struct {
@@ -285,11 +294,14 @@ type Game struct {
 
 	Players []Player
 	// Objs is a dense arena: Objs[i] has ID i+1, so ObjID 0 is "no object".
-	Objs     []Object
-	Stack    []ObjID
-	Turn     int32
-	Active   PlayerID
-	Priority PlayerID
+	Objs []Object
+	// ExcessDamageVictims is appended by events.Apply's ExcessDamage fold
+	// and cleared at TurnChange; the source object's own predicate is separate.
+	ExcessDamageVictims []ExcessDamageVictim
+	Stack               []ObjID
+	Turn                int32
+	Active              PlayerID
+	Priority            PlayerID
 	// StartingPlayer is the seat that takes the first turn. HasStartingPlayer
 	// keeps seat zero distinct from a game whose opening determination has not
 	// completed (for example terminal genesis with no survivors). It is folded
@@ -804,6 +816,7 @@ func (g *Game) CloneIntoDirty(objs []Object, dirty int) *Game {
 	// backing array would let either evolve and corrupt the other (the same
 	// rule as Delayed below and Stack above).
 	c.Entered = append([]ZoneEntry(nil), g.Entered...)
+	c.ExcessDamageVictims = append([]ExcessDamageVictim(nil), g.ExcessDamageVictims...)
 	// Delayed is written in place (append on registration, remove on firing),
 	// so a clone must own its own registrations -- sharing the live one's
 	// backing array would let either evolve and corrupt the other (the same

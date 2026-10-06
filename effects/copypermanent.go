@@ -483,44 +483,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 	targets = dedupeTargets(targets)
 
 	// Controller$ of the copy.
-	owner := c.Controller
-	var owners []state.PlayerID
-	multiOwner := false
-	switch copyPermanentControllerCodes.Code(string(cp.Controller)) {
-	case copyPermanentControllerYou:
-	case copyPermanentControllerTargeted:
-		if ps := controllersOf(g, targets); len(ps) > 0 {
-			owner = ps[0].Player
-		}
-	case copyPermanentControllerRemembered:
-		if ps := controllersOf(g, rememberedWrittenByResolution(c)); len(ps) > 0 {
-			owner = ps[0].Player
-		}
-	case copyPermanentControllerTriggeredCardController:
-		if p, ok := TriggeredCardController(g, c.TriggerContext, c.Remembered); ok {
-			owner = p
-		}
-	case copyPermanentControllerOpponent:
-		for _, p := range g.AliveFrom(c.Controller) {
-			if p != c.Controller {
-				owner = p
-				break
-			}
-		}
-	case copyPermanentControllerNonRememberedController:
-		multiOwner = true
-		ts, _ := definedSpec(h, c, cp.Controller)
-		for _, t := range ts {
-			if t.IsPlayer {
-				owners = append(owners, t.Player)
-			}
-		}
-	default:
-		emitNote(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
-			Text: "Controller$ " + cp.Controller +
-				" is not implemented; the copy is controlled by the resolving controller"})
-	}
-
+	owner, owners, multiOwner := copyPermanentController(h, c, g, *cp, targets, emitNote)
 	if !multiOwner {
 		owners = []state.PlayerID{owner}
 	}
@@ -902,6 +865,63 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 			h.Emit(events.Event{Kind: events.Imprint, Obj: c.Source, IDs: ids, Text: "imprint-tokens"})
 		}
 	}
+}
+
+// copyPermanentController resolves api:CopyPermanent's Controller$ into the
+// copy's owner(s). It returns the single owner, or -- for the per-player
+// NonRememberedController family -- multiOwner with one entry per player.
+func copyPermanentController(h Host, c *Ctx, g *state.Game, cp CopyPermanentParams, targets []state.Target, emitNote func(events.Event)) (owner state.PlayerID, owners []state.PlayerID, multiOwner bool) {
+	owner = c.Controller
+	switch copyPermanentControllerCodes.Code(string(cp.Controller)) {
+	case copyPermanentControllerYou:
+	case copyPermanentControllerTargeted:
+		if ps := controllersOf(g, targets); len(ps) > 0 {
+			owner = ps[0].Player
+		}
+	case copyPermanentControllerRemembered:
+		if ps := controllersOf(g, rememberedWrittenByResolution(c)); len(ps) > 0 {
+			owner = ps[0].Player
+		}
+	case copyPermanentControllerTriggeredCardController:
+		if p, ok := TriggeredCardController(g, c.TriggerContext, c.Remembered); ok {
+			owner = p
+		}
+	case copyPermanentControllerOpponent:
+		for _, p := range g.AliveFrom(c.Controller) {
+			if p != c.Controller {
+				owner = p
+				break
+			}
+		}
+	case copyPermanentControllerNonRememberedController:
+		multiOwner = true
+		ts, _ := definedSpec(h, c, cp.Controller)
+		for _, t := range ts {
+			if t.IsPlayer {
+				owners = append(owners, t.Player)
+			}
+		}
+	default:
+		// The parent-target vocabulary ("ParentTarget", "ParentTargeted",
+		// "ParentTargetedController") has ONE home, definedSpecCodes, whose
+		// classifier DefinedControllerParentReferent names it without a
+		// second table. A CopyPermanent link reads it as the nearest
+		// targeting ancestor's chosen PLAYERS: Echocasting Symposium's
+		// "Target player creates a token that's a copy of target creature
+		// you control" -- the link's own target is the creature, whose
+		// controller is NOT the copy's controller; the parent Pump's player
+		// target is. Any other unrecognised Controller$ stays the loud Note.
+		if DefinedControllerParentReferent(cp.Controller) {
+			if ps := controllersOf(g, parentLinkTargets(c)); len(ps) > 0 {
+				owner = ps[0].Player
+			}
+			break
+		}
+		emitNote(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+			Text: "Controller$ " + cp.Controller +
+				" is not implemented; the copy is controlled by the resolving controller"})
+	}
+	return owner, owners, multiOwner
 }
 
 // copyTypeList parses Forge's multi-type grammar the way rules' statList

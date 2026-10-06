@@ -1,0 +1,51 @@
+{
+  "card": "Germination Practicum",
+  "family": "paradigm",
+  "oracle_sha": "6f808f4d8739",
+  "author": "cli-20261006T024353Z-98038af0 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "two-counters-on-each-creature-you-control-then-exiles-itself",
+      "cr": ["122.1", "608.2", "702.168a"],
+      "why": "Every creature the spell's controller controls gets two +1/+1 counters (122.1), so a 2/2 Grizzly Bears and a 3/3 Hill Giant become 4/4 and 5/5; a creature the controller does not control is untouched. The Paradigm rider then exiles the resolved spell.",
+      "setup": {
+        "p0": {"hand": ["Germination Practicum"], "battlefield": ["Grizzly Bears", "Hill Giant"]},
+        "p1": {"battlefield": ["Grizzly Bears"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Germination Practicum", "mana": "GGGGG"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Grizzly Bears", "pt": "4/4", "counters": {"+1/+1": 2}},
+        {"card": "p0:Hill Giant", "pt": "5/5", "counters": {"+1/+1": 2}},
+        {"card": "p1:Grizzly Bears", "pt": "2/2", "counters": {"+1/+1": 0}},
+        {"card": "p0:Germination Practicum", "zone": "exile"}
+      ]
+    },
+    {
+      "name": "paradigm-free-copy-at-the-next-first-main-phase",
+      "cr": ["702.168a", "702.168b", "601.2h"],
+      "why": "The exiled card is a free castable copy at the beginning of each of its owner's first main phases (702.168b), cast with no mana; it puts two more counters on each creature its controller controls, so each counter total goes from two to four.",
+      "setup": {
+        "p0": {"hand": ["Germination Practicum"], "battlefield": ["Grizzly Bears", "Hill Giant"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Germination Practicum", "mana": "GGGGG"},
+        {"op": "resolve"},
+        {"op": "pass_to", "step": "upkeep", "active": "p1"},
+        {"op": "pass_to", "step": "main1", "active": "p0",
+          "expect": [{"offered": {"seat": 0, "kind": "cast", "card": "p0:Germination Practicum"}, "want": true}]},
+        {"op": "cast", "seat": 0, "card": "p0:Germination Practicum"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Grizzly Bears", "pt": "6/6", "counters": {"+1/+1": 4}},
+        {"card": "p0:Hill Giant", "pt": "7/7", "counters": {"+1/+1": 4}},
+        {"card": "p0:Germination Practicum", "zone": "exile"},
+        {"pool": {"p0": ""}}
+      ]
+    }
+  ]
+}

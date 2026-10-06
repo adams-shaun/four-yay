@@ -129,10 +129,16 @@ const (
 	TriggerCounterAddedAll     TriggerMode = 95
 	TriggerCounterTypeAddedAll TriggerMode = 96
 	TriggerExcessDamageAll     TriggerMode = 97
-	TriggerForage              TriggerMode = 98
-	TriggerManifestDread       TriggerMode = 99
-	TriggerCollectEvidence     TriggerMode = 100
-	TriggerModeCount                       = 101 // one past the last; sizes a dense per-TriggerMode array
+	// CaseSolved (MKM Case File Auditor, "whenever you solve a Case"):
+	// appended after ExcessDamageAll so no earlier ordinal moves.
+	TriggerCaseSolved TriggerMode = 98
+	// cli-20261006T024353Z-ce4a0d59: keyword-action trigger modes, appended
+	// after TriggerCaseSolved so every earlier ordinal (including main's
+	// CaseSolved) is unchanged.
+	TriggerForage          TriggerMode = 99
+	TriggerManifestDread   TriggerMode = 100
+	TriggerCollectEvidence TriggerMode = 101
+	TriggerModeCount                   = 102 // one past the last; sizes a dense per-TriggerMode array
 )
 
 var triggerModeNames = [TriggerModeCount]string{
@@ -181,6 +187,7 @@ var triggerModeNames = [TriggerModeCount]string{
 	TriggerCounterRemovedOnce:         "CounterRemovedOnce",
 	TriggerDamageAll:                  "DamageAll",
 	TriggerExcessDamageAll:            "ExcessDamageAll",
+	TriggerCaseSolved:                 "CaseSolved",
 	TriggerForage:                     "Forage",
 	TriggerManifestDread:              "ManifestDread",
 	TriggerCollectEvidence:            "CollectEvidence",

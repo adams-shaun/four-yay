@@ -44,22 +44,23 @@ type OracleSnapPlayer struct {
 // OracleSnapPerm is one battlefield permanent. Ref is the object's scenario
 // ref (objRef): the one a scenario step would use to name it.
 type OracleSnapPerm struct {
-	Ref        string           `json:"ref"`
-	Name       string           `json:"name"`
-	Controller int              `json:"controller"`
-	Owner      int              `json:"owner"`
-	Token      bool             `json:"token,omitempty"`
-	Tapped     bool             `json:"tapped,omitempty"`
-	FaceDown   bool             `json:"face_down,omitempty"`
-	PT         string           `json:"pt,omitempty"` // creatures only
-	Damage     int32            `json:"damage,omitempty"`
-	Counters   map[string]int32 `json:"counters,omitempty"`
-	Types      []string         `json:"types"` // sorted
-	Colors     string           `json:"colors"`
-	Keywords   []string         `json:"keywords,omitempty"` // sorted
-	AttachedTo string           `json:"attached_to,omitempty"`
-	Attacking  bool             `json:"attacking,omitempty"`
-	Blocking   bool             `json:"blocking,omitempty"`
+	Ref              string           `json:"ref"`
+	Name             string           `json:"name"`
+	Controller       int              `json:"controller"`
+	Owner            int              `json:"owner"`
+	Token            bool             `json:"token,omitempty"`
+	Tapped           bool             `json:"tapped,omitempty"`
+	FaceDown         bool             `json:"face_down,omitempty"`
+	PT               string           `json:"pt,omitempty"` // creatures only
+	Damage           int32            `json:"damage,omitempty"`
+	Counters         map[string]int32 `json:"counters,omitempty"`
+	Types            []string         `json:"types"` // sorted
+	AllCreatureTypes bool             `json:"all_creature_types,omitempty"`
+	Colors           string           `json:"colors"`
+	Keywords         []string         `json:"keywords,omitempty"` // sorted
+	AttachedTo       string           `json:"attached_to,omitempty"`
+	Attacking        bool             `json:"attacking,omitempty"`
+	Blocking         bool             `json:"blocking,omitempty"`
 }
 
 // OracleSnapStack is one stack object, listed top first.
@@ -195,14 +196,16 @@ func (r *oracleRun) snapshot(checkpoint string) OracleSnapshot {
 	}
 	for _, id := range field {
 		o := g.Obj(id)
-		types := append([]string(nil), e.Derived(id).Types...)
+		derived := e.Derived(id)
+		types := append([]string(nil), derived.Types...)
 		sort.Strings(types)
 		kws := append([]string(nil), e.Keywords(id)...)
 		sort.Strings(kws)
 		p := OracleSnapPerm{
 			Ref: r.objRef(o), Name: r.fieldName(o), Controller: int(o.Controller), Owner: int(o.Owner),
 			Token: o.IsToken, Tapped: o.Tapped, FaceDown: o.FaceDown, Damage: o.Damage,
-			Counters: r.snapCounters(o.Counters), Types: types, Colors: e.Colors(id), Keywords: kws,
+			Counters: r.snapCounters(o.Counters), Types: types, AllCreatureTypes: derived.AllCreatureTypes,
+			Colors: e.Colors(id), Keywords: kws,
 			Attacking: o.IsAttacking, Blocking: blocking[id],
 		}
 		if oracleHasFold(types, "Creature") {

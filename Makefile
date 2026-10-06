@@ -33,6 +33,9 @@ GO_SRC     := $(shell $(GO_FILES) 2>/dev/null) go.mod
 #
 # Both ?= so a caller can raise them for a deliberate one-off measurement.
 export GOMEMLIMIT ?= 5GiB
+# -trimpath (operator, 2026-10-05): without it each worktree's absolute path
+# keys every compile, so no worktree reuses another's build cache.
+export GOFLAGS ?= -p=2 -trimpath
 GO_TEST_FLAGS ?= -p=2
 
 # Where forgec puts the fetched corpus and the IR compiled from it. Never

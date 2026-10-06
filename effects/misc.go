@@ -76,19 +76,22 @@ func effGoad(h Host, c *Ctx, sa *cards.SA) {
 // from the trigger's placement ask, Hot Pursuit's ETB the same way, and a
 // deeper sub (the DBDebuff family) through Resolve's generic pre-ask.
 //
-// The engine models TWO attributes: Suspected (CR 702.157, the Blame Game
-// precon family) and Prepared (CR 722.3a, the Secrets of Strixhaven
-// preparation cards). Both designations live on state.Object behind the
-// events.AlterAttribute fold; Suspected's two end conditions (leaves the
-// battlefield, another player gains control) and Prepared's (leaves the
-// battlefield, or an unprepare effect) are events.Apply's folds -- Prepared
-// deliberately keeps its designation across a control change, because CR
-// 722.3c ties the copy to the permanent, not to a controller.
-// A body naming any other attribute (Solved, Plotted, Saddled, Commander,
-// Harnessed -- the corpus's remaining populations) emits the loud
-// unsupported-attribute Note and moves nothing, exactly like the
-// Manifest/Cloak out-of-scope shapes: registration claims the API, the Note
-// claims the gap.
+// The engine models FOUR attributes: Suspected (CR 702.157, the Blame Game
+// precon family), Prepared (CR 722.3a, the Secrets of Strixhaven
+// preparation cards), Saddled (CR 702.171b) and Solved (CR 719.3b, the MKM
+// Case cycle's "To solve --" end-step trigger). Each designation lives on
+// state.Object behind the events.AlterAttribute fold; Suspected's two end
+// conditions (leaves the battlefield, another player gains control) and
+// Prepared's (leaves the battlefield, or an unprepare effect) are
+// events.Apply's folds -- Prepared deliberately keeps its designation across
+// a control change, because CR 722.3c ties the copy to the permanent, not to
+// a controller. Solved never ends while the Case stays on the battlefield,
+// so an already-solved Case emits no second grant: the grant IS the "you
+// solve a Case" event Mode$ CaseSolved matches, and a Case is solved once.
+// A body naming any other attribute (Plotted, Commander, Harnessed -- the
+// corpus's remaining populations) emits the loud unsupported-attribute Note
+// and moves nothing, exactly like the Manifest/Cloak out-of-scope shapes:
+// registration claims the API, the Note claims the gap.
 //
 // Activate$ False is Forge's removal spelling ("becomes unprepared"); for
 // Suspected it removes the designation (the DBDebuff family's
@@ -103,10 +106,20 @@ func effAlterAttribute(h Host, c *Ctx, sa *cards.SA) {
 	for _, name := range strings.FieldsFunc(attr, func(r rune) bool { return r == ',' || r == ' ' }) {
 		prepared := strings.EqualFold(name, "Prepared")
 		saddled := strings.EqualFold(name, "Saddled")
-		if !strings.EqualFold(name, "Suspected") && !prepared && !saddled {
+		solved := strings.EqualFold(name, "Solved")
+		if !strings.EqualFold(name, "Suspected") && !prepared && !saddled && !solved {
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 				Text: "AlterAttribute: attribute " + name + " not modelled"})
 			continue
+		}
+		text := "Suspected"
+		switch {
+		case prepared:
+			text = "Prepared"
+		case saddled:
+			text = "Saddled"
+		case solved:
+			text = "Solved"
 		}
 		amount := int32(1)
 		if !activate {
@@ -126,14 +139,18 @@ func effAlterAttribute(h Host, c *Ctx, sa *cards.SA) {
 			if prepared && activate && !o.HasPrepareSpell() {
 				continue
 			}
-			text := "Suspected"
-			if prepared {
-				text = "Prepared"
-			} else if saddled {
-				text = "Saddled"
+			// CR 719.3b: a solved Case stays solved -- no removal, and no
+			// second solve of an already-solved Case.
+			if solved && (!activate || o.Solved) {
+				continue
 			}
-			h.Emit(events.Event{Kind: events.AlterAttribute, Obj: o.ID,
-				Text: text, Amount: amount})
+			ev := events.Event{Kind: events.AlterAttribute, Obj: o.ID, Text: text, Amount: amount}
+			if solved {
+				// The solving player is the Case's controller -- Mode$
+				// CaseSolved's ValidPlayer$ You subject.
+				ev.Player = c.Controller
+			}
+			h.Emit(ev)
 		}
 	}
 }

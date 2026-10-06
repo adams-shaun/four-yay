@@ -279,7 +279,7 @@ func PlayGame(cfg rules.Config, seats []seat.Seat, maxTurns, maxIntents int, hoo
 				// boundary, instead of the live engine; a refused redeal
 				// plays the wrapped bot -- never a clairvoyant fallback.
 				b := botpolicy.BoardFromGameInto(e.G, e, d.Player, &board)
-				decisionBoard = &b
+				decisionBoard = &board // b is a copy of board; &b would escape per decision
 				rootEngine := e
 				fdLive := fdFrame
 				if hooks.HonestRoot && fdLive {
@@ -315,7 +315,7 @@ func PlayGame(cfg rules.Config, seats []seat.Seat, maxTurns, maxIntents int, hoo
 				// View.
 				b := botpolicy.BoardFromGameInto(e.G, e, d.Player, &board)
 				in, err = s.DecideBoard(context.Background(), b, *d)
-				decisionBoard = &b
+				decisionBoard = &board // b is a copy of board; &b would escape per decision
 			} else if lr, ok := seats[d.Player].(view.LeanReader); ok {
 				// A lean reader: its own reusable View, only the parts it reads.
 				lv := &leanViews[d.Player]
@@ -323,16 +323,16 @@ func PlayGame(cfg rules.Config, seats []seat.Seat, maxTurns, maxIntents int, hoo
 				lv.Round = rounds.Of(e.G, e.L.Events)
 				in, err = seats[d.Player].Decide(context.Background(), *lv, *d)
 				if hooks.NeedBoard {
-					b := botpolicy.BoardFromGameInto(e.G, e, d.Player, &board)
-					decisionBoard = &b
+					botpolicy.BoardFromGameInto(e.G, e, d.Player, &board)
+					decisionBoard = &board // fills board in place
 				}
 			} else {
 				v := view.Project(e.G, e, d.Player, d)
 				v.Round = rounds.Of(e.G, e.L.Events)
 				in, err = seats[d.Player].Decide(context.Background(), v, *d)
 				if hooks.NeedBoard {
-					b := botpolicy.BoardFromGameInto(e.G, e, d.Player, &board)
-					decisionBoard = &b
+					botpolicy.BoardFromGameInto(e.G, e, d.Player, &board)
+					decisionBoard = &board // fills board in place
 				}
 			}
 			if err != nil {

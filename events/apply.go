@@ -311,6 +311,15 @@ func ApplyPtr(g *state.Game, e *Event) {
 		foldLifeChange(g, e)
 	case Damage:
 		foldDamage(g, e)
+	case ExcessDamage:
+		if o := g.Obj(e.Obj); o != nil {
+			o.WasDealtExcessDamageThisTurn = true
+			if e.Amount != 0 {
+				g.ExcessDamageVictims = append(g.ExcessDamageVictims, state.ExcessDamageVictim{
+					Obj: e.Obj, Controller: e.Player, Type: e.Amount,
+				})
+			}
+		}
 	case Tap:
 		foldTap(g, e)
 	case Untap:

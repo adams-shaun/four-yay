@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -16,7 +17,9 @@ import (
 // may be a spell in hand that later counters a spell already cast. Capturing
 // is needed while that reader remains in a hidden zone (for example, its
 // library), so this deliberately covers every zone containing card objects.
-func targetedCastSpendReaderOut(g *state.Game) bool {
+// reads is the per-face test: Engine.faceScanHas's memoised
+// faceScanTargetedCastSpend bit.
+func targetedCastSpendReaderOut(g *state.Game, reads func(*cards.Face) bool) bool {
 	for _, p := range g.AliveFrom(0) {
 		for z := state.Zone(0); z <= state.ZPlanarDeck; z++ {
 			for _, id := range g.Zone(z, p) {
@@ -25,7 +28,7 @@ func targetedCastSpendReaderOut(g *state.Game) bool {
 					continue
 				}
 				f := o.Face()
-				if f != nil && f.Mentions("Targeted$CastTotalManaSpent") {
+				if f != nil && reads(f) {
 					return true
 				}
 			}
@@ -36,7 +39,7 @@ func targetedCastSpendReaderOut(g *state.Game) bool {
 
 func (e *Engine) paymentPlanBoardSpendReaderOut() bool {
 	scan := func() bool {
-		return e.triggeredConvergeReaderOut() || e.triggeredCastSpendReaderOut() || e.paymentPlanSunburstGrantOut() || targetedCastSpendReaderOut(e.G)
+		return e.triggeredConvergeReaderOut() || e.triggeredCastSpendReaderOut() || e.paymentPlanSunburstGrantOut() || targetedCastSpendReaderOut(e.G, func(f *cards.Face) bool { return e.faceScanHas(f, faceScanTargetedCastSpend) })
 	}
 	q := e.PlanQuery
 	if !q.Valid(e.L) {

@@ -15,7 +15,7 @@ import (
 // oracleHarnessCorpus loads the pinned card corpus the generator needs.
 func oracleHarnessCorpus(t *testing.T) *cards.Registry {
 	t.Helper()
-	reg, err := cards.LoadRegistry(cards.CachePath(filepath.Join("..", "..", "..", ".cards")))
+	reg, err := cards.SharedCorpus(filepath.Join("..", "..", "..", ".cards"))
 	if err != nil {
 		t.Fatalf("the generator needs the corpus (make fetch-cards compile-cards): %v", err)
 	}
