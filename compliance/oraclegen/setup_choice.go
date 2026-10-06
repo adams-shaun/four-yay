@@ -15,3 +15,30 @@ func IsSetupChoice(d rules.OracleDecision) bool {
 	}
 	return d.PickKinds[0] == "color" || d.PickKinds[0] == "type"
 }
+
+// HoistSetupChoices moves every setup_choice answer in a step's answer stream
+// to its front, preserving their relative order. XAnswers already prepends them
+// to step zero, but a template reorders a step's answers afterwards -- the
+// activate template hoists the activation-cost picks (Lifecraft Engine's crew
+// choice) to the front of the activation step, which would put a gameplay
+// answer ahead of the as-enters dialog and let XMage consume it there ("Choice
+// key [Colossal Dreadmaw] not found"). Calling this at the end of any such
+// reorder restores the invariant that the as-enters queue is answered first,
+// whatever the setup kind.
+func HoistSetupChoices(answers [][]XAnswer, step int) {
+	if step < 0 || step >= len(answers) {
+		return
+	}
+	var setup, rest []XAnswer
+	for _, a := range answers[step] {
+		if a.Kind == "setup_choice" {
+			setup = append(setup, a)
+			continue
+		}
+		rest = append(rest, a)
+	}
+	if len(setup) == 0 {
+		return
+	}
+	answers[step] = append(setup, rest...)
+}
