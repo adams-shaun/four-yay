@@ -342,7 +342,7 @@ env = { GOMEMLIMIT = "1GiB", GOMAXPROCS = "4", GOFLAGS = "-p=2 -trimpath" }
 # their own processes, ./view, ./internal/codeshape and every package the
 # branch touched. Run from the BASE copy so a branch cannot edit its own gate.
 name = "go test (affected)"
-cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=8G", "-p", "CPUQuota=1600%", "bash", "-c", "set -o pipefail; git show {base}:scripts/gate_affected.sh | bash -s {base}"]
+cmd = ["flock", "-o", "/home/sadams/projects/gorge/.ds4/heavy.lock", "systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=8G", "-p", "CPUQuota=1600%", "bash", "-c", "set -o pipefail; git show {base}:scripts/gate_affected.sh | bash -s {base}"]
 timeout = 600
 env = { GOMEMLIMIT = "4GiB", GOMAXPROCS = "16", GOGC = "200", GOFLAGS = "-p=2 -trimpath" }
 
@@ -438,7 +438,7 @@ push = false
 # a redeploy kills every in-flight vs-bot game (SIGTERM aborts live matches
 # and the persistence dir is wiped). Deploy by hand: `make deploy-demo`.
 deploy_cmd = []
-post_merge = [["make", "ledger"]]
+post_merge = [["flock", "-o", "/home/sadams/projects/gorge/.ds4/heavy.lock", "make", "ledger"]]
 carry_trailers = ["Test-Budget-Approved:"]
 
 # config.py:35, 138-163.

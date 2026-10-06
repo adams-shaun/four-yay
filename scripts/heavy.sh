@@ -14,7 +14,7 @@
 #   --wait S      wait up to S seconds for the broker to allow the class
 #                 (default 0: refuse immediately with exit 3)
 #   --lock PATH   flock path that serialises this class (default: the shared
-#                 training lock for heavy, none for probe)
+#                 repository heavy lock for heavy, none for probe)
 #   --name NAME   label recorded in the lease and the scope unit
 #
 # The job is told where its pause file is through GORGE_PAUSE_FILE. A job with
@@ -35,6 +35,7 @@ BROKER=$ROOT/scripts/broker.sh
 
 CLASS=${1:?usage: heavy.sh <heavy|probe> [options] -- <cmd>}
 shift
+ORIGINAL_ARGS=("$@")
 case $CLASS in
 heavy | probe) ;;
 *)
@@ -94,7 +95,9 @@ if [ "$CLASS" = heavy ]; then
 	MEM=${MEM:-6G}
 	WEIGHT=${WEIGHT:-20}
 	CPUS=${CPUS:-${GORGE_HEAVY_CPUS:-}}
-	LOCK=${LOCK:-${GORGE_HEAVY_LOCK:-/mnt/sata/gorge-training/spellbench-work/heavy.lock}}
+	SHARED_GIT_DIR=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || printf '%s/.git' "$ROOT")
+	LOCK=${LOCK:-${GORGE_HEAVY_LOCK:-$(dirname "$SHARED_GIT_DIR")/.ds4/heavy.lock}}
+	export GORGE_HEAVY_LOCK=$LOCK
 	SLICE=gorge-heavy.slice
 else
 	MEM=${MEM:-8G}
@@ -102,6 +105,14 @@ else
 	SLICE=gorge-probe.slice
 fi
 NAME=${NAME:-$(basename "$1")}
+
+# flock's command mode closes its descriptor before exec (-o), while keeping
+# the lock for the full wrapper lifetime. Re-exec once so children never inherit
+# the lock descriptor; the broker pause supervisor remains independent.
+if [ "$CLASS" = heavy ] && [ "${GORGE_HEAVY_LOCK_HELD:-0}" != 1 ]; then
+	mkdir -p "$(dirname "$LOCK")"
+	exec flock -o -w "$WAIT" "$LOCK" env GORGE_HEAVY_LOCK_HELD=1 "$0" "$CLASS" "${ORIGINAL_ARGS[@]}"
+fi
 
 mkdir -p "$LEASES"
 
@@ -120,21 +131,7 @@ while :; do
 	sleep 10
 done
 
-# 2. Serialise the class with the same flock the existing heavy callers use.
-#    -o matters: without it the lock fd is inherited by every child, and an
-#    inherited tick.lock has frozen the daemon here before (2026-09-22).
-if [ -n "$LOCK" ]; then
-	mkdir -p "$(dirname "$LOCK")" 2>/dev/null || true
-	exec 9>"$LOCK" || {
-		printf 'heavy.sh: cannot open lock %s\n' "$LOCK" >&2
-		exit 2
-	}
-	if ! flock -w "${WAIT:-0}" 9; then
-		printf 'heavy.sh: another %s job holds %s\n' "$CLASS" "$LOCK" >&2
-		exit 3
-	fi
-fi
-
+# 2. The outer flock -o command now owns the HEAVY lock for this process.
 PAUSE_FILE=$STATE/pause-$$.flag
 LEASE=$LEASES/$$.json
 cleanup() {
@@ -180,11 +177,6 @@ PAUSE_GRACE_S=${PAUSE_GRACE_S:-60}
 if [ "$CLASS" = heavy ]; then
 	: >"$LEASE.supervised"
 	(
-		# Do not hold the class lock for the supervisor's lifetime: it is
-		# inherited from heavy.sh's fd 9, and the job itself is the lock's
-		# owner. (The historical `flock -o` note is about that fd leaking into
-		# a caller's child; here we only drop it in our own subshell.)
-		exec 9>&-
 		while kill -0 "$job" 2>/dev/null; do
 			if [ -e "$PAUSE_FILE" ]; then
 				if [ ! -e "$LEASE.parked" ]; then

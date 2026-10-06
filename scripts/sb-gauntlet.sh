@@ -57,7 +57,7 @@
 # where the mount is not writable.
 #
 # Resources. Every botbench invocation is wrapped in
-#   flock -o /mnt/sata/gorge-training/spellbench-work/heavy.lock \
+#   flock -o "$GORGE_HEAVY_LOCK" \
 #     systemd-run --user --scope -q -p MemoryMax=4G \
 #     env GOMEMLIMIT=2GiB GOMAXPROCS=8 <botbench> ... -workers $WORKERS
 # with WORKERS defaulting to 8; SB_GAUNTLET_WORKERS overrides it (e.g.
@@ -69,7 +69,8 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 # SB_GAUNTLET_DIR overrides the gauntlet work root (cache, results.jsonl,
 # champions.txt); the default is the shared training mount.
 GDIR=${SB_GAUNTLET_DIR:-/mnt/sata/gorge-training/spellbench-work/gauntlet}
-LOCK=/mnt/sata/gorge-training/spellbench-work/heavy.lock
+SHARED_GIT_DIR=$(git -C "$ROOT" rev-parse --path-format=absolute --git-common-dir)
+LOCK=${LOCK:-${GORGE_HEAVY_LOCK:-$(dirname "$SHARED_GIT_DIR")/.ds4/heavy.lock}}
 SBPY=${SB_GAUNTLET_SBPY:-/mnt/sata/gorge-training/sbvenv/bin}
 WORKERS=${SB_GAUNTLET_WORKERS:-8}
 POOL="Wildfire Rally Affinity Elves Spy Burn CawGates Faeries"

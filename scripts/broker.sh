@@ -33,6 +33,9 @@ STATE=${GORGE_REWARD_DIR:-$ROOT/.ds4/reward}
 LEASES=$STATE/leases
 GATEFLAG=$STATE/gate-active
 SCORE=$STATE/scoreboard.jsonl
+SHARED_GIT_DIR=$(git -C "$ROOT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || printf '%s/.git' "$ROOT")
+GORGE_HEAVY_LOCK=${GORGE_HEAVY_LOCK:-$(dirname "$SHARED_GIT_DIR")/.ds4/heavy.lock}
+export GORGE_HEAVY_LOCK
 
 # Floors in MiB of AVAILABLE memory (not free: page cache is reclaimable).
 # The box has ~58 GiB. A gate's test binaries have peaked near 8 GiB, and two
@@ -295,6 +298,10 @@ case $cmd in
 status) status "$@" ;;
 may-i) may_i "$@" ;;
 gate-begin)
+	# HEAVY launch is serialized by GORGE_HEAVY_LOCK and rechecks may-i after
+	# taking it. Do not take that lock here: existing heavy leases hold it for
+	# their lifetime and must be paused, not waited out. enforce likewise acts
+	# on those lock-owning leases (and must remain able to SIGSTOP/kill them).
 	# Both preemptible classes yield: a probe competes with a gate for memory
 	# exactly as a training run does, and a gate is short.
 	printf '%s %s\n' "$(now)" "${1:-gate}" >"$GATEFLAG"
