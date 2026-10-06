@@ -5,8 +5,9 @@
 // cross product, one `activate` step naming the ability by IR index, and a
 // resolve for a non-mana ability.
 //
-// v1 cost tokens: mana, T, Q, PayLife<n>, Sac<1/CARDNAME> and a source
-// loyalty AddCounter/SubCounter. Anything else is a cost gap. The XMage
+// v1 cost tokens: mana, T, Q, PayLife<n>, one-card Discard, Sac (self or
+// filtered other permanent), Exile<1/CARDNAME>, tapXType<2/Artifact>, and a
+// source loyalty AddCounter/SubCounter. Anything else is a cost gap. The XMage
 // rule-text prefix rides the Item's XAbility slice (parallel to Steps), so
 // the runner -- which decodes steps strictly -- never sees it.
 package templates
@@ -50,7 +51,7 @@ func activateAbility(reg *cards.Registry, f *cards.Face, name string, req levelb
 		return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: "activate cost gap: " + gap}
 	}
 	slots := oraclegen.AbilitySlotSpecs(f, sa)
-	it, ok := activateWith(reg, f, name, req, idx, prefix, pool, slots)
+	it, ok := activateWith(reg, f, name, req, idx, prefix, pool, sa.ParamStr(cards.PKCost), slots)
 	if !ok {
 		return oraclegen.Item{}, &oraclegen.Skip{Card: name,
 			Reason: fmt.Sprintf("activate no fixture gorge can activate (targets %v)", filterStrings(slots))}
@@ -60,11 +61,12 @@ func activateAbility(reg *cards.Registry, f *cards.Face, name string, req levelb
 
 // activateWith tries every fixture for the ability's target plan and returns
 // the named level-B item.
-func activateWith(reg *cards.Registry, f *cards.Face, name string, req levelb.Requirement, idx int, prefix, mana string, slots []oraclegen.Slot) (oraclegen.Item, bool) {
+func activateWith(reg *cards.Registry, f *cards.Face, name string, req levelb.Requirement, idx int, prefix, mana, cost string, slots []oraclegen.Slot) (oraclegen.Item, bool) {
 	for _, fx := range oraclegen.Fixtures(reg, slots) {
 		abilityIndex := idx
 		p0 := *fx.P0()
 		p0.Battlefield = appendFixtureUnique(p0.Battlefield, name)
+		addActivationCostFixtures(&p0, cost)
 		sc := oraclegen.Scenario{
 			Setup:        map[string]oraclegen.Seat{"p0": p0, "p1": *fx.P1()},
 			SetupAnswers: oraclegen.OpeningHandAnswers(f),
@@ -98,6 +100,10 @@ func activateWith(reg *cards.Registry, f *cards.Face, name string, req levelb.Re
 		}
 		it := oraclegen.NewLevelBItem(name, req.Key, ActivateAbility.Version, []string{"602.2"}, sc)
 		it.XAnswers = oraclegen.XAnswersForScenario(res, sc, oraclegen.ModeNumbers(f), targetSteps)
+		if len(it.XAnswers) == 0 {
+			it.XAnswers = make([][]oraclegen.XAnswer, len(sc.Steps))
+		}
+		addActivationCostAnswers(it.XAnswers, activateStepIndex(sc.Steps), cost)
 		it.XAbility = make([]string, len(sc.Steps))
 		it.XAbility[activateStepIndex(sc.Steps)] = prefix
 		return it, true
@@ -137,7 +143,19 @@ func activationCost(cost string) (pool, gap string) {
 				continue
 			}
 		case "Sac":
-			if sacSelf(tok) {
+			if sacSelf(tok) || sacOtherFixtureSupported(tok) {
+				continue
+			}
+		case "Discard":
+			if discardFixtureSupported(tok) {
+				continue
+			}
+		case "Exile":
+			if selfZoneCost(tok) {
+				continue
+			}
+		case "tapXType":
+			if tapXTypeFixtureSupported(tok) {
 				continue
 			}
 		case "AddCounter", "SubCounter":
@@ -215,6 +233,153 @@ func sacSelf(tok string) bool {
 	}
 	fields := strings.Split(tok[i+1:len(tok)-1], "/")
 	return len(fields) >= 2 && strings.EqualFold(fields[1], "CARDNAME")
+}
+
+// discardFixtureSupported covers the two v1 discard selectors: any card and
+// a legendary card. Both use a single card, so one deterministic hand fixture
+// is sufficient and the engine/XMage answer translation selects it.
+func discardFixtureSupported(tok string) bool {
+	payload, ok := bracketPayload(tok)
+	if !ok {
+		return false
+	}
+	parts := strings.Split(payload, "/")
+	return len(parts) >= 2 && parts[0] == "1" &&
+		(strings.EqualFold(parts[1], "Card") || strings.EqualFold(parts[1], "Card.Legendary"))
+}
+
+// sacOtherFixtureSupported recognizes the filtered other-permanent costs the
+// template can satisfy with an explicit fixture permanent.
+func sacOtherFixtureSupported(tok string) bool {
+	payload, ok := bracketPayload(tok)
+	if !ok {
+		return false
+	}
+	parts := strings.Split(payload, "/")
+	if len(parts) < 2 || parts[0] != "1" {
+		return false
+	}
+	filter := strings.ToLower(parts[1])
+	return filter == "creature.other;planeswalker.other" || filter == "artifact.other" || filter == "artifact;land"
+}
+
+func selfZoneCost(tok string) bool {
+	payload, ok := bracketPayload(tok)
+	if !ok {
+		return false
+	}
+	parts := strings.Split(payload, "/")
+	return len(parts) >= 2 && parts[0] == "1" && strings.EqualFold(parts[1], "CARDNAME")
+}
+
+func tapXTypeFixtureSupported(tok string) bool {
+	payload, ok := bracketPayload(tok)
+	if !ok {
+		return false
+	}
+	parts := strings.Split(payload, "/")
+	if len(parts) != 2 || strings.ToLower(parts[1]) != "artifact" {
+		return false
+	}
+	n, err := strconv.Atoi(parts[0])
+	return err == nil && n == 2
+}
+
+func bracketPayload(tok string) (string, bool) {
+	i := strings.IndexByte(tok, '<')
+	if i < 0 || !strings.HasSuffix(tok, ">") {
+		return "", false
+	}
+	return tok[i+1 : len(tok)-1], true
+}
+
+// addActivationCostAnswers scripts XMage's cost selector with the same
+// deterministic fixture objects used by the engine-side payment path.
+func addActivationCostAnswers(answers [][]oraclegen.XAnswer, step int, cost string) {
+	if step < 0 || step >= len(answers) {
+		return
+	}
+	for _, tok := range costTokens(cost) {
+		head := tok
+		if i := strings.IndexByte(tok, '<'); i >= 0 {
+			head = tok[:i]
+		}
+		var picks []string
+		switch head {
+		case "Discard":
+			payload, _ := bracketPayload(tok)
+			if strings.Contains(strings.ToLower(payload), "legendary") {
+				picks = []string{"Ajani, Caller of the Pride"}
+			} else {
+				picks = []string{"Wastes"}
+			}
+		case "Sac":
+			if !sacSelf(tok) {
+				payload, _ := bracketPayload(tok)
+				if strings.Contains(strings.ToLower(payload), "creature") || strings.Contains(strings.ToLower(payload), "planeswalker") {
+					picks = []string{"Llanowar Elves"}
+				} else if strings.Contains(strings.ToLower(payload), "artifact") {
+					picks = []string{"Ornithopter"}
+				} else if strings.Contains(strings.ToLower(payload), "land") {
+					picks = []string{"Forest"}
+				}
+			}
+		case "tapXType":
+			if tapXTypeFixtureSupported(tok) {
+				picks = []string{"Ornithopter", "Sol Ring"}
+			}
+		}
+		for _, pick := range picks {
+			present := false
+			for _, answer := range answers[step] {
+				if answer.Seat == 0 && answer.Kind == "choice" && strings.EqualFold(answer.Value, pick) {
+					present = true
+					break
+				}
+			}
+			if !present {
+				answers[step] = append(answers[step], oraclegen.XAnswer{Seat: 0, Kind: "choice", Value: pick})
+			}
+		}
+	}
+}
+
+// addActivationCostFixtures supplies the explicit cards needed by supported
+// non-mana cost tokens. These are not choices: the shared runner makes the
+// deterministic legal selection, and XAnswersForScenario records that same
+// choice for XMage.
+func addActivationCostFixtures(p0 *oraclegen.Seat, cost string) {
+	for _, tok := range costTokens(cost) {
+		head := tok
+		if i := strings.IndexByte(tok, '<'); i >= 0 {
+			head = tok[:i]
+		}
+		switch head {
+		case "Discard":
+			payload, _ := bracketPayload(tok)
+			if strings.Contains(strings.ToLower(payload), "legendary") {
+				p0.Hand = appendFixtureUnique(p0.Hand, "Ajani, Caller of the Pride")
+			} else {
+				p0.Hand = appendFixtureUnique(p0.Hand, "Wastes")
+			}
+		case "Sac":
+			if !sacSelf(tok) {
+				payload, _ := bracketPayload(tok)
+				if strings.Contains(strings.ToLower(payload), "creature") || strings.Contains(strings.ToLower(payload), "planeswalker") {
+					p0.Battlefield = appendFixtureUnique(p0.Battlefield, "Llanowar Elves")
+				} else if strings.Contains(strings.ToLower(payload), "artifact") {
+					p0.Battlefield = appendFixtureUnique(p0.Battlefield, "Ornithopter")
+				} else if strings.Contains(strings.ToLower(payload), "land") {
+					p0.Battlefield = appendFixtureUnique(p0.Battlefield, "Forest")
+				}
+			}
+		case "tapXType":
+			if tapXTypeFixtureSupported(tok) {
+				p0.Battlefield = appendFixtureUnique(p0.Battlefield, "Ornithopter")
+				p0.Battlefield = appendFixtureUnique(p0.Battlefield, "Sol Ring")
+			}
+		}
+	}
 }
 
 // loyaltyCounter reports whether tok is an AddCounter<N/LOYALTY> or

@@ -117,6 +117,7 @@ func SettleManaForage(e Engine, md *ManaCostActivation) {
 	}
 	if md.ForageFood != 0 {
 		e.Emit(events.Sacrifice(md.ForageFood))
+		e.Emit(events.Event{Kind: events.ForageAction, Player: md.Player})
 		return
 	}
 	n := 0
@@ -130,6 +131,7 @@ func SettleManaForage(e Engine, md *ManaCostActivation) {
 			n++
 		}
 	}
+	e.Emit(events.Event{Kind: events.ForageAction, Player: md.Player})
 }
 
 // SettleManaUntap emits the elected untapYType permanents' Untap events.

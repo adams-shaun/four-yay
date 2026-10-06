@@ -1,6 +1,9 @@
 package cards
 
-import "strings"
+import (
+	"strings"
+	"unsafe"
+)
 
 // SA is a spell ability, activated ability, static ability or drawback: the
 // "SP$ / AB$ / DB$ / ST$ <API> | Param$ value | ..." construct that carries
@@ -458,7 +461,9 @@ var layer4TypeParams = map[string]bool{
 // line, an `Execute$ Y` trigger) is still recognised. A false positive costs
 // only the refresh's own anyLayer4Active short-circuit; a false negative would
 // silently miss the derived type at a target offer.
-func (c *Card) ChangesTypes() bool {
+func (c *Card) ChangesTypes() bool { return c.probe().changesTypes }
+
+func (c *Card) changesTypesScan() bool {
 	if c == nil {
 		return false
 	}
@@ -530,6 +535,8 @@ type Card struct {
 	// compiledSlot holds a downstream compiled summary of the card's text
 	// (slot.go), allocated at Link. Not serialized.
 	compiledSlot *Slot
+	// probes memoises the pool probes (card_probes.go). Not serialized.
+	probes unsafe.Pointer
 }
 
 // CompiledSlot is the card's slot for a downstream compiled summary of its

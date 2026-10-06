@@ -109,49 +109,49 @@ func TestSeaGateWreckageThresholdMetalcraftDelirium(t *testing.T) {
 		e.G.SetZone(state.ZGraveyard, 0, append(e.G.Zone(state.ZGraveyard, 0), o.ID))
 	}
 	ab := cardsSAActivation(t, "Hellbent")
-	if !e.activationConditionOK(0, ab) {
+	if !e.activationConditionOK(0, 0, ab) {
 		t.Fatal("hellbent must hold with an empty hand")
 	}
 	e.G.SetZone(state.ZHand, 0, nil)
 	_ = e.G
 	// Threshold: 6 cards short, 7 exactly.
 	ab = cardsSAActivation(t, "Threshold")
-	if e.activationConditionOK(0, ab) {
+	if e.activationConditionOK(0, 0, ab) {
 		t.Fatal("threshold must fail with an empty graveyard")
 	}
 	for i := 0; i < 6; i++ {
 		addGrave("Name:Filler\nTypes:Creature\nPT:1/1\nOracle:x\n")
 	}
-	if e.activationConditionOK(0, ab) {
+	if e.activationConditionOK(0, 0, ab) {
 		t.Fatal("threshold must fail with 6 cards")
 	}
 	addGrave("Name:Filler2\nTypes:Instant\nOracle:x\n")
-	if !e.activationConditionOK(0, ab) {
+	if !e.activationConditionOK(0, 0, ab) {
 		t.Fatal("threshold must hold with 7 cards")
 	}
 	// Metalcraft: two artifacts short, three exactly.
 	ab = cardsSAActivation(t, "Metalcraft")
-	if e.activationConditionOK(0, ab) {
+	if e.activationConditionOK(0, 0, ab) {
 		t.Fatal("metalcraft must fail with no artifacts")
 	}
 	onBoard(t, e, 0, "Name:Mox A\nManaCost:0\nTypes:Artifact\nOracle:x\n")
 	onBoard(t, e, 0, "Name:Mox B\nManaCost:0\nTypes:Artifact\nOracle:x\n")
-	if e.activationConditionOK(0, ab) {
+	if e.activationConditionOK(0, 0, ab) {
 		t.Fatal("metalcraft must fail with 2 artifacts")
 	}
 	onBoard(t, e, 0, "Name:Mox C\nManaCost:0\nTypes:Artifact\nOracle:x\n")
-	if !e.activationConditionOK(0, ab) {
+	if !e.activationConditionOK(0, 0, ab) {
 		t.Fatal("metalcraft must hold with 3 artifacts")
 	}
 	// Delirium: distinct core card types among the graveyard's cards.
 	ab = cardsSAActivation(t, "Delirium")
 	// The graveyard so far: 6 creatures + 1 instant = 2 types.
-	if e.activationConditionOK(0, ab) {
+	if e.activationConditionOK(0, 0, ab) {
 		t.Fatal("delirium must fail with 2 graveyard types")
 	}
 	addGrave("Name:Filler3\nTypes:Land\nOracle:x\n")
 	addGrave("Name:Filler4\nTypes:Enchantment\nOracle:x\n")
-	if !e.activationConditionOK(0, ab) {
+	if !e.activationConditionOK(0, 0, ab) {
 		t.Fatal("delirium must hold with 4 distinct graveyard types")
 	}
 }

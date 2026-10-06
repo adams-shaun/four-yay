@@ -607,6 +607,14 @@ type DelayedTrigger struct {
 	// battlefield liveness rule. It rides the DelayedRegister event's Text
 	// ("|SB") because the event gains no field (Ruling T20-a).
 	SourceBattlefield bool
+	// RememberedAmount is the per-trigger remembered Integer a DelayedTrigger
+	// RememberNumber$ True registration carried (Forge's delTrig.
+	// addRemembered of the host's remembered Integers): Mana Drain's
+	// countered spell's mana value, read back at fire time through
+	// Count$TriggerRememberAmount. It rides the DelayedRegister event's Text
+	// ("|RN=<n>") because the event gains no field (Ruling T20-a); zero when
+	// the registration remembered no number.
+	RememberedAmount int32
 }
 
 const startingLife = 20

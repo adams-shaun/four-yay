@@ -81,6 +81,19 @@ type TriggerContext struct {
 	// and survives to resolution through the per-stack-instance
 	// triggerContexts map. Zero when the causing event carried no amount.
 	TriggerAmount int32
+	// TriggerRememberedAmount is the per-trigger remembered Integer a rider
+	// bound on the spawning ability (Forge's SpellAbility.addRemembered):
+	// ImmediateTrigger's RememberSVarAmount$ evaluates the named SVar in the
+	// spawning resolution's context and records the result here, and the
+	// reflexive ability it mints carries the value to its own resolution
+	// through the same per-stack-instance triggerContexts map as
+	// TriggerAmount. It is what Count$TriggerRememberAmount answers (TDM New
+	// Way Forward's "deals that much damage ... and you draw that many
+	// cards"). Deliberately NOT TriggerAmount: that is the magnitude the
+	// causing EVENT carried, a different provenance channel. Zero when no
+	// rider bound one; the head reads zero legitimately (Forge's default
+	// remembered amount is zero).
+	TriggerRememberedAmount int32
 	// TriggerResult is the die result a Mode$ RolledDie trigger fired on (the
 	// canonical die-roll Note's modified result, effects.DieRollResult). It is
 	// what the TriggerCount$Result head answers -- Mr. House's

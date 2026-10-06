@@ -48,6 +48,10 @@ type DelayedTriggerParams struct {
 	NextTurn bool
 	// RememberChainFalse is RememberChain$ False.
 	RememberChainFalse bool
+	// RememberNumber is RememberNumber$ True: the registration carries the
+	// chain's remembered Integer (a RememberCounteredCMC$ binding) to the
+	// fired ability's Count$TriggerRememberAmount (Mana Drain).
+	RememberNumber bool
 	// Execute is Execute$, trimmed.
 	Execute string
 	// ThisTurn is ThisTurn$ True.
@@ -87,7 +91,7 @@ var delayedTriggerKnownKeys = [...]string{
 	"NewController", "NextTurn", "NumDmg", "OpponentTurn", "Origin", "Phase",
 	"Planeswalker", "PlayCost", "PlayerTurn", "PowerUp", "PrecostDesc",
 	"PresentCompare", "PresentDefined", "PresentZone", "RandomNumTargets", "ReduceAmount", "ReduceCost",
-	"RememberAnimated", "RememberChain", "RememberCostMana", "RememberObjects", "RememberTargets", "ReplaceColor",
+	"RememberAnimated", "RememberChain", "RememberCostMana", "RememberNumber", "RememberObjects", "RememberTargets", "ReplaceColor",
 	"ReplaceGraveyard", "ReplaceGraveyardValid", "ReplaceMana", "ReplaceOnly",
 	"ReplaceType", "SVarCompare", "SelectPrompt", "SetChosenMode", "SetColor",
 	"ShowCards", "SorcerySpeed", "SpellDescription", "StackDescription", "Static",
@@ -149,6 +153,7 @@ func compileDelayedTrigger(sa *cards.SA, ap *ActivationParams) *DelayedTriggerPa
 	p.RememberObjects = strings.TrimSpace(sa.ParamStr(cards.PKRememberObjects))
 	p.NextTurn = isTrue(sa.ParamStr(cards.PKNextTurn))
 	p.RememberChainFalse = strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberChain)), "False")
+	p.RememberNumber = isTrue(sa.ParamStr(cards.PKRememberNumber))
 	p.Execute = strings.TrimSpace(sa.ParamStr(cards.PKExecute))
 	p.ThisTurn = isTrue(sa.ParamStr(cards.PKThisTurn))
 	p.Static = strings.TrimSpace(sa.ParamStr(cards.PKStatic))
