@@ -1,3 +1,2 @@
-{"shape":{"template":"cast-resolve","op":"resolve","field":"p1.graveyard","diff":"gorge+[] xmage+[Grizzly Bears]"},"key":"cast-resolve | resolve | p1.graveyard | gorge+[] xmage+[Grizzly Bears]","cards":2}
-{"card":"Graceful Takedown","template":"cast-resolve","status":"diverge","api":"Pump+EachDamage+Cleanup","sets":["WOE"],"detail":"step 3 (resolve) p1.graveyard: gorge \"[]\", xmage \"[Grizzly Bears]\""}
+{"shape":{"template":"cast-resolve","op":"resolve","field":"p1.graveyard","diff":"gorge+[] xmage+[Grizzly Bears]"},"key":"cast-resolve | resolve | p1.graveyard | gorge+[] xmage+[Grizzly Bears]","cards":1}
 {"card":"Rite of Renewal","template":"cast-resolve","status":"diverge","api":"ChangeZone+Pump","sets":["TDM"],"detail":"step 1 (resolve) p1.graveyard: gorge \"[]\", xmage \"[Grizzly Bears]\""}

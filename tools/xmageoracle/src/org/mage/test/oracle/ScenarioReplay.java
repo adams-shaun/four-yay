@@ -13,6 +13,7 @@ import mage.abilities.common.SimpleStaticAbility;
 import mage.abilities.costs.AlternativeSourceCosts;
 import mage.cards.repository.CardInfo;
 import mage.cards.repository.CardRepository;
+import mage.abilities.effects.common.EndTurnEffect;
 import mage.abilities.effects.common.InfoEffect;
 import mage.cards.Card;
 import mage.cards.Cards;
@@ -32,6 +33,7 @@ import mage.players.Player;
 import mage.filter.FilterCard;
 import mage.target.TargetCard;
 import mage.util.CardUtil;
+import org.mage.test.player.PlayerAction;
 import org.mage.test.player.TestPlayer;
 import org.mage.test.serverside.base.CardTestPlayerBase;
 
@@ -313,6 +315,15 @@ public class ScenarioReplay extends CardTestPlayerBase {
             res.add("id", sc.get("id"));
         }
         snaps.clear();
+        boolean endTurnScenario = false;
+        // Preserve the exact actions each step queues (including mana and
+        // combat sub-actions), not just its final checkpoint.
+        List<List<PlayerAction>> queuedA = new ArrayList<>();
+        List<List<PlayerAction>> queuedB = new ArrayList<>();
+        List<List<String>> choicesA = new ArrayList<>();
+        List<List<String>> choicesB = new ArrayList<>();
+        List<List<String>> targetsA = new ArrayList<>();
+        List<List<String>> targetsB = new ArrayList<>();
         try {
             reset();
             skipInitShuffling();
@@ -320,6 +331,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
             sc0 = sc;
             gorgeName = str(sc, "card");
             xmageName = str(sc, "xmage_name");
+            endTurnScenario = hasEndTurnEffect(xmageName.isEmpty() ? gorgeName : xmageName);
             cast.clear();
             refAlias.clear();
             phase = MAIN;
@@ -335,26 +347,60 @@ public class ScenarioReplay extends CardTestPlayerBase {
             for (int i = 0; i < steps.size(); i++) {
                 JsonObject st = steps.get(i).getAsJsonObject();
                 String op = str(st, "op");
+                int beforeChoicesA = playerA.getChoices().size();
+                int beforeChoicesB = playerB.getChoices().size();
+                int beforeTargetsA = playerA.getTargets().size();
+                int beforeTargetsB = playerB.getTargets().size();
                 if (i < xans.size() && xans.get(i).isJsonArray()) {
                     scripted(xans.get(i).getAsJsonArray());
                 }
+                int beforeA = playerA.getActions().size();
+                int beforeB = playerB.getActions().size();
                 step(st, op);
                 String cp = "step " + i + " (" + op + ")";
                 runCode(cp, TURN, phase, playerA, (info, p, g) -> snaps.add(snapshot(info, g)));
+                queuedA.add(new ArrayList<>(playerA.getActions().subList(beforeA, playerA.getActions().size())));
+                queuedB.add(new ArrayList<>(playerB.getActions().subList(beforeB, playerB.getActions().size())));
+                choicesA.add(new ArrayList<>(playerA.getChoices().subList(beforeChoicesA, playerA.getChoices().size())));
+                choicesB.add(new ArrayList<>(playerB.getChoices().subList(beforeChoicesB, playerB.getChoices().size())));
+                targetsA.add(new ArrayList<>(playerA.getTargets().subList(beforeTargetsA, playerA.getTargets().size())));
+                targetsB.add(new ArrayList<>(playerB.getTargets().subList(beforeTargetsB, playerB.getTargets().size())));
             }
-            setStopAt(TURN, PhaseStep.END_TURN);
+            // Only EndTurn scenarios need the extended boundary. Ordinary
+            // replays retain the original turn-1 stop and cannot encounter
+            // unrelated turn-2 upkeep triggers or decisions.
+            setStopAt(endTurnScenario ? TURN + 1 : TURN,
+                    endTurnScenario ? PhaseStep.UPKEEP : PhaseStep.END_TURN);
             execute();
         } catch (Throwable t) {
             String msg = t.getClass().getSimpleName() + ": " + t.getMessage();
-            if (!xmageName.isEmpty()) {
-                // Name the card the way the scenario (and gorge) does.
-                msg = msg.replace(xmageName, gorgeName);
+            int stepCount = sc.has("steps") ? sc.getAsJsonArray("steps").size() : 0;
+            int completedSteps = snaps.size() - 1;
+            if (endTurnScenario && unusedActionCount(msg) >= 0
+                    && completedSteps >= 0 && completedSteps < stepCount
+                    && currentGame != null && currentGame.getTurnNum() > TURN
+                    && skippedActionsMatch(completedSteps, queuedA, queuedB)
+                    && skippedAnswersMatch(completedSteps, choicesA, choicesB, targetsA, targetsB)) {
+                // Only the actions for skipped steps remain. An unconsumed
+                // action from an earlier step is still a harness error. Record
+                // every skipped label from the post-turn state for alignment.
+                for (int skipped = completedSteps; skipped < stepCount; skipped++) {
+                    String op = str(sc.getAsJsonArray("steps").get(skipped).getAsJsonObject(), "op");
+                    snaps.add(snapshot("step " + skipped + " (" + op + ")", currentGame));
+                }
+                msg = null;
             }
-            int want = (sc.has("steps") ? sc.getAsJsonArray("steps").size() : 0) + 1;
-            if (snaps.size() == want && msg.contains("Count are not equal")) {
-                res.addProperty("leftover", msg.length() > 300 ? msg.substring(0, 300) : msg);
-            } else {
-                res.addProperty("harness", msg.length() > 800 ? msg.substring(0, 800) : msg);
+            if (msg != null) {
+                if (!xmageName.isEmpty()) {
+                    // Name the card the way the scenario (and gorge) does.
+                    msg = msg.replace(xmageName, gorgeName);
+                }
+                int want = stepCount + 1;
+                if (snaps.size() == want && msg.contains("Count are not equal")) {
+                    res.addProperty("leftover", msg.length() > 300 ? msg.substring(0, 300) : msg);
+                } else {
+                    res.addProperty("harness", msg.length() > 800 ? msg.substring(0, 800) : msg);
+                }
             }
         }
         JsonArray arr = new JsonArray();
@@ -363,6 +409,82 @@ public class ScenarioReplay extends CardTestPlayerBase {
         }
         res.add("snapshots", arr);
         return res;
+    }
+
+    private boolean skippedActionsMatch(int first, List<List<PlayerAction>> queuedA,
+                                        List<List<PlayerAction>> queuedB) {
+        if (queuedA.size() != queuedB.size() || first >= queuedA.size()) {
+            return false;
+        }
+        List<PlayerAction> remainingA = new ArrayList<>();
+        List<PlayerAction> remainingB = new ArrayList<>();
+        for (int i = first; i < queuedA.size(); i++) {
+            remainingA.addAll(queuedA.get(i));
+            remainingB.addAll(queuedB.get(i));
+        }
+        // XMage may copy TestPlayer, but its copy retains the same PlayerAction
+        // objects. Match the entire queue on both seats, not just its length.
+        return ((TestPlayer) currentGame.getPlayer(playerA.getId())).getActions().equals(remainingA)
+                && ((TestPlayer) currentGame.getPlayer(playerB.getId())).getActions().equals(remainingB);
+    }
+
+    private boolean skippedAnswersMatch(int first, List<List<String>> choicesA, List<List<String>> choicesB,
+                                        List<List<String>> targetsA, List<List<String>> targetsB) {
+        TestPlayer actualA = (TestPlayer) currentGame.getPlayer(playerA.getId());
+        TestPlayer actualB = (TestPlayer) currentGame.getPlayer(playerB.getId());
+        // assertAllCommandsUsed checks actions first. Do not hide its failure
+        // if a completed step also left an unused choice or target behind.
+        return remainingIsSkipped(actualA.getChoices(), choicesA, first)
+                && remainingIsSkipped(actualB.getChoices(), choicesB, first)
+                && remainingIsSkipped(actualA.getTargets(), targetsA, first)
+                && remainingIsSkipped(actualB.getTargets(), targetsB, first);
+    }
+
+    private static <T> boolean remainingIsSkipped(List<T> actual, List<List<T>> queued, int first) {
+        if (first < 0 || first >= queued.size()) {
+            return false;
+        }
+        List<T> expected = new ArrayList<>();
+        for (int i = first; i < queued.size(); i++) {
+            expected.addAll(queued.get(i));
+        }
+        return actual.equals(expected);
+    }
+
+    private static int unusedActionCount(String message) {
+        String marker = "must have 0 actions but found ";
+        if (message == null || !message.contains(marker)) {
+            return -1;
+        }
+        try {
+            return Integer.parseInt(message.substring(message.indexOf(marker) + marker.length()).trim());
+        } catch (NumberFormatException ignored) {
+            return -1;
+        }
+    }
+
+    private static boolean hasEndTurnEffect(String name) {
+        if (name == null || name.isEmpty()) {
+            return false;
+        }
+        CardInfo info = CardRepository.instance.findCard(name);
+        if (info == null) {
+            return false;
+        }
+        Card card = info.createCard();
+        return card.getSpellAbility() != null && abilityHasEndTurnEffect(card.getSpellAbility());
+    }
+
+    private static boolean abilityHasEndTurnEffect(Ability ability) {
+        if (ability.getEffects().stream().anyMatch(EndTurnEffect.class::isInstance)) {
+            return true;
+        }
+        for (Ability sub : ability.getSubAbilities()) {
+            if (abilityHasEndTurnEffect(sub)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // ---- setup -----------------------------------------------------------

@@ -26,7 +26,7 @@ import (
 // battlefield through moveSeededCard (the seeded harness, a real logged
 // MoveZone), so every event in the log is engine-produced and replayCheck
 // stays honest.
-func conspireEngine(t *testing.T, hero string) (*Engine, Config, *cards.Registry) {
+func conspireEngine(t *testing.T, hero string, opponentCards ...string) (*Engine, Config, *cards.Registry) {
 	t.Helper()
 	reg := searchTestRegistry(t)
 	mountain := searchCorpusCard(t, reg, "Mountain")
@@ -51,7 +51,13 @@ func conspireEngine(t *testing.T, hero string) (*Engine, Config, *cards.Registry
 	for i := range opp {
 		opp[i] = mountain
 	}
-	if hero == "Go Nuts!" {
+	for i, name := range opponentCards {
+		if i >= len(opp) {
+			break
+		}
+		opp[i] = searchCorpusCard(t, reg, name)
+	}
+	if hero == "Go Nuts!" && len(opponentCards) == 0 {
 		opp[0] = bear // Its Teamwork fight mode requires an opponent creature.
 	}
 	cfg := seatZeroStart(Config{Seed: 44207, Names: []string{"consp", "opp"},

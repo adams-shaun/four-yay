@@ -136,9 +136,12 @@ const (
 	// compiled cache stays valid.
 	APIWinsGame    APICode = 79
 	APIDigMultiple APICode = 80
+	// Meld's compiled operand record is bound before its handler is registered.
+	// Append only: existing catalog opcodes are unchanged.
+	APIMeld APICode = 81
 
 	// APICodeCount includes the zero/unknown slot and sizes dense dispatch.
-	APICodeCount = 81
+	APICodeCount = 82
 )
 
 // APICodeForName returns the stable opcode for an engine-owned effect API.
@@ -235,6 +238,8 @@ func APICodeForName(api string) APICode {
 		return APIMana
 	case "ManaReflected":
 		return APIManaReflected
+	case "Meld":
+		return APIMeld
 	case "Mill":
 		return APIMill
 	case "Myriad":

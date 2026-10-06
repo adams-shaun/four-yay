@@ -77,7 +77,13 @@ type oracleSeat struct {
 	// for "from outside the game" effects. They are genesis configuration,
 	// not dealt from the deck, and are bound as "pN:Name" refs like the rest.
 	Sideboard []string `json:"sideboard,omitempty"`
-	Life      *int32   `json:"life,omitempty"`
+	// Mana seeds these symbols (WUBRGC) into the seat's pool once the setup
+	// drive reaches turn 1's first main phase, before any decision there is
+	// answered -- the outside effect that funds a first-main-phase trigger's
+	// cost (Vanille's {3}{B}{G}). It is emitted as ordinary ManaAdd events,
+	// so the scenario still replays from its log like every other setup op.
+	Mana string `json:"mana,omitempty"`
+	Life *int32 `json:"life,omitempty"`
 }
 
 type oracleStep struct {
@@ -287,7 +293,7 @@ func (r *oracleRun) resolve(ref string) (state.ObjID, error) {
 				!strings.Contains(strings.ToLower(o.Face().Name), strings.ToLower(name)) {
 				continue
 			}
-		} else if o.Owner != seat || o.Face().Name != name {
+		} else if o.Owner != seat || (o.Face().Name != name && oracleAltFaceMode(o, name) == "") {
 			continue
 		}
 		seen++
@@ -493,10 +499,23 @@ func (r *oracleRun) build(sc oracleScenario) error {
 		}
 	}
 	r.answers = append([]oracleAnswer(nil), sc.SetupAnswers...)
+	// A setup mana seed lands the moment the drive enters turn 1's first main
+	// phase (before the trigger it funds is answered) and never earlier: a
+	// pool added during an earlier step would empty at that step's end
+	// (CR 500.4), and the first-main-phase trigger is posed in main1.
+	seededMana := false
 	// Drive to seat 0's first main phase. Triggers that setup placements
 	// caused resolve here under the fallback answers; the transcript names
 	// every one.
 	for i := 0; i < 400; i++ {
+		if !seededMana && e.G.Turn == 1 && e.G.Step == state.StepMain1 {
+			seededMana = true
+			for p := 0; p < 2; p++ {
+				for _, c := range sc.Setup[fmt.Sprintf("p%d", p)].Mana {
+					e.emit(events.Event{Kind: events.ManaAdd, Player: state.PlayerID(p), Counter: string(c), Amount: 1})
+				}
+			}
+		}
 		d := e.Pending()
 		if d == nil || e.G.Over {
 			return harnessf("game stopped during setup")
@@ -921,14 +940,12 @@ func (r *oracleRun) do(st oracleStep) error {
 			return err
 		}
 		// A cast picks the option whose Mode matches: "kicked" for a kicked
-		// cast, an explicit cast_mode (flashback, evoke, ...) when given, and
-		// otherwise the plain cast -- or, when the card offers only a
+		// cast, an explicit cast_mode (flashback, evoke, ...) when given, the
+		// Adventure offer for a ref naming an Adventure face, and otherwise
+		// the plain cast -- or, when the card offers only a
 		// permission-mode cast (a graveyard "mayplay"), that one.
 		idx, fallback, manaFallback := -1, -1, -1
-		wantMode := st.CastMode
-		if st.Kicked {
-			wantMode = "kicked"
-		}
+		wantMode := oracleCastWantMode(st, e.G.Obj(id))
 		// A named mana ability lives behind the generic "Activate <card> for
 		// mana" priority option: the engine asks a second-stage KChoose over
 		// the source's available mana abilities (or, when exactly one is

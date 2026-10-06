@@ -1122,10 +1122,25 @@ const (
 	// per-card Mill events. Appended after ClassLevelChange to preserve all
 	// existing event ordinals and replay hashes.
 	MillProposal
+	// Meld records one CR 701.42 meld pairing. Obj is the RESULT card -- the
+	// meld card whose Card carries the meld-result face -- and IDs[0] its
+	// PARTNER card; Player is the melding player, under whose control the
+	// melded permanent enters, and Amount the result face index. Both cards
+	// must already be in exile (the meld's own exile MoveZones precede it).
+	// The fold turns the result to its meld face, parks the partner in
+	// ZCeased and links the pair (state.Object.MeldedWith); the ordinary
+	// exile->battlefield MoveZone that follows is the melded permanent's
+	// entry, so ETB triggers, entry counters and replacements see a normal
+	// entry. The split when the melded permanent moves anywhere but the
+	// battlefield (its departure, or an entry an "instead" replacement sent
+	// elsewhere) is events.Move's, not this event's. Appended after
+	// MillProposal so every earlier ordinal, hash chain and golden replay is
+	// unchanged.
+	Meld
 	// NumKinds is the explicit upper bound for the append-only event kind
 	// registry below. New kinds must be appended above this line: inserting or
 	// reordering a kind renumbers the hash-chained event stream and breaks replay.
-	NumKinds = int(MillProposal) + 1
+	NumKinds = int(Meld) + 1
 )
 
 // PlanarWalkDontPlaneswalkAway is PlanarWalk's Amount flag: the resolving

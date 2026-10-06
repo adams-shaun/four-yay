@@ -64,6 +64,12 @@ type PumpParams struct {
 	PumpZoneOK  bool
 	// RememberPumped$ True.
 	RememberPumped bool
+	// RememberObjects$, trimmed and compiled as a Defined$-grammar reference
+	// (Forge's PumpEffect adds getDefinedObjects of it to the host's
+	// remembered list): Stolen Uniform's ThisTargetedCard names the chosen
+	// creature its chain's Defined$ Remembered Attach reads. Unset when the
+	// key is absent.
+	RememberObjects Ref
 	// NumAtt$ / NumDef$ (numForObjectText: "Double" reads the object's own
 	// power/toughness).
 	NumAtt ParamText
@@ -132,6 +138,9 @@ func compilePump(sa *cards.SA, dp *DefinedParams) *PumpParams {
 		p.PumpZones, p.PumpZoneAll, p.PumpZoneOK = ParseZones(p.PumpZone)
 	}
 	p.RememberPumped = isTrue(sa.ParamStr(cards.PKRememberPumped))
+	if ro := strings.TrimSpace(sa.ParamStr(cards.PKRememberObjects)); ro != "" {
+		p.RememberObjects = RefOf(ro)
+	}
 	na, naOK := sa.Param(cards.PKNumAtt)
 	p.NumAtt = ParamText{Text: na, Present: naOK}
 	nd, ndOK := sa.Param(cards.PKNumDef)

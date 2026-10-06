@@ -230,6 +230,7 @@ var auraEntryCensusEffects = map[string]string{
 	"explore.go:exploreOnce":                    "noentry: hand/graveyard",
 	"incubate.go:incubateLoop":                  "token: Incubator mint",
 	"investigate.go:investigateFor":             "token: Clue mint",
+	"meld.go:Meld":                              "gate: the melded permanent's exile->battlefield entry (a meld result is never an Aura)",
 	"misc.go:effWard":                           "noentry: counters to graveyard",
 	"myriad.go:myriadCreate":                    "token: CopyToken attacking copies",
 	"recruit.go:effRecruit":                     "noentry: library to hand",
