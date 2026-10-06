@@ -82,7 +82,7 @@ var wantTriggerCensus = map[string]map[string]int{
 		"served:trigger.noncombat-damage":                    3,
 		"served:trigger.phase":                               11,
 		"served:trigger.scry":                                5,
-		"served:trigger.spell-cast":                          17,
+		"served:trigger.spell-cast":                          18, // Ruric Thar, Biomagus: both prowess instances are served.
 		"served:trigger.spell-cast-opponent":                 1,
 		"served:trigger.surveil":                             5,
 		"skip:trigger.attacks: trigger did not fire":         0,

@@ -163,7 +163,7 @@ var wantCensus = map[string]map[string]int{
 		"trigger.noncombat-damage":                     3,
 		"trigger.phase":                                17,
 		"trigger.scry":                                 5,
-		"trigger.spell-cast":                           19,
+		"trigger.spell-cast":                           20, // Ruric Thar, Biomagus: main now expands both prowess instances.
 		"trigger.surveil":                              5,
 	},
 }

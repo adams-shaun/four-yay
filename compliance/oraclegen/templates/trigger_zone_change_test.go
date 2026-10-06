@@ -22,7 +22,7 @@ func stackedAfterCause(t *testing.T, reg *cards.Registry, sc oraclegen.Scenario,
 	passes := []oraclegen.Step{{Op: "pass", Seat: 0}, {Op: "pass", Seat: 1}}
 	for _, try := range [][]oraclegen.Step{steps, append(append([]oraclegen.Step(nil), steps...), passes...)} {
 		sc.Steps = try
-		if _, res, ok := oraclegen.Settle(reg, sc); ok && abilityOnStack(res.Snapshots, name, slot) {
+		if _, res, ok := oraclegen.Settle(reg, sc); ok && abilityOnStack(res.Snapshots, name, name, slot) {
 			return true
 		}
 	}
