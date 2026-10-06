@@ -576,12 +576,25 @@ func (r *oracleRun) build(sc oracleScenario) error {
 		}
 	}
 	if sc.xmageFixture {
-		// A generated scenario's setup is its starting position in both
-		// engines: XMage's addCard places a permanent without entering it, so
-		// the triggers gorge's placements queued (an ETB discard or token
-		// maker) never fire. Hand-authored scenarios keep them.
-		clear(e.pendingTriggers)
-		e.pendingTriggers, e.orderedTriggers = e.pendingTriggers[:0], 0
+		// Generated scenarios start from a position XMage creates with
+		// addCard, which does not fire enters-the-battlefield triggers. Other
+		// setup triggers (for example, CounterAddedOnce from loyalty setup)
+		// do fire there and must remain queued.
+		kept := e.pendingTriggers[:0]
+		ordered := 0
+		for i, pt := range e.pendingTriggers {
+			tr, ok := e.triggerOf(pt)
+			destination, hasDestination := tr.ParamCode(cards.PKDestination)
+			if ok && tr.ModeKind() == cards.TriggerChangesZone && hasDestination &&
+				effects.Destination(destination).Zone() == state.ZBattlefield {
+				continue
+			}
+			kept = append(kept, pt)
+			if i < e.orderedTriggers {
+				ordered++
+			}
+		}
+		e.pendingTriggers, e.orderedTriggers = kept, ordered
 	}
 	e.Advance()
 	r.answers = append([]oracleAnswer(nil), sc.SetupAnswers...)
