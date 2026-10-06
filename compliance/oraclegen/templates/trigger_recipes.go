@@ -88,6 +88,11 @@ func baseTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards
 		}
 		attack := oraclegen.Step{Op: "attack", Seat: 0, Defender: "p1", Attackers: []string{attacker}}
 		c := triggerCause{battlefield: extra, steps: []oraclegen.Step{attack}}
+		if !combatDamage {
+			if prepared, ok := attackActivationCause(reg, f, name, t); ok {
+				c = prepared
+			}
+		}
 		if combatDamage {
 			// The trigger resolves inside the pass to main2, so the emitted
 			// item shows no stack; the probe stops in end-combat, where the
@@ -163,6 +168,50 @@ func baseTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards
 		return nil, "probe not in corpus"
 	}
 	return out, ""
+}
+
+// attackActivationCause builds the activation-and-attack cause for saddled
+// creatures, Vehicles and self-animating lands. The existing activate cost
+// fixture machinery supplies Crew/Saddle's tapped creatures and XMage answers.
+func attackActivationCause(reg *cards.Registry, f *cards.Face, name string, t *cards.Trigger) (triggerCause, bool) {
+	needsSaddle := strings.Contains(strings.ToLower(t.ParamStr(cards.PKValidCard)), "issaddled")
+	abilityIndex := -1
+	for i, sa := range f.Abilities {
+		if !sa.IsActivated() {
+			continue
+		}
+		keyword := strings.ToLower(sa.Params["Keyword"])
+		defined := strings.EqualFold(sa.Params["Defined"], "Self")
+		animatesCreature := strings.Contains(strings.ToLower(sa.Params["Types"]), "creature") && sa.Params["Power"] != ""
+		if (needsSaddle && strings.HasPrefix(keyword, "saddle")) || (!needsSaddle && strings.HasPrefix(keyword, "crew")) || (!needsSaddle && defined && animatesCreature && f.IsLand()) {
+			abilityIndex = i
+			break
+		}
+	}
+	if abilityIndex < 0 {
+		return triggerCause{}, false
+	}
+	sa := f.Abilities[abilityIndex]
+	cost := sa.ParamStr(cards.PKCost)
+	mana, gap := activationCostIn(cost, "battlefield")
+	if gap != "" {
+		return triggerCause{}, false
+	}
+	prefixes, why := oraclegen.XMageAbility(f)
+	if why != "" {
+		return triggerCause{}, false
+	}
+	prefix, ok := prefixes[abilityIndex]
+	if !ok {
+		return triggerCause{}, false
+	}
+	idx := abilityIndex
+	activate := oraclegen.Step{Op: "activate", Seat: 0, Card: "p0:" + name, Mana: mana, AbilityIndex: &idx, Answers: activationXAnswers(cost)}
+	setup := oraclegen.Seat{}
+	addActivationCostFixtures(&setup, cost)
+	battlefield := append([]string(nil), setup.Battlefield...)
+	attack := oraclegen.Step{Op: "attack", Seat: 0, Defender: "p1", Attackers: []string{"p0:" + name}}
+	return triggerCause{battlefield: battlefield, steps: []oraclegen.Step{activate, {Op: "resolve"}, attack}, xability: []string{prefix}}, true
 }
 
 // phaseStep maps the Phase$ vocabulary admitted by levelb to ParseStep's
