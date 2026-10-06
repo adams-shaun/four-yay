@@ -10,13 +10,17 @@ import (
 // triggerCause is one candidate way of making a trigger's cause happen on
 // turn 1 with ops the XMage driver already has (cast, attack, pass_to).
 type triggerCause struct {
-	hand        []string         // probe cards added to p0's hand
-	battlefield []string         // extra p0 permanents (an attacker for a non-creature card)
-	steps       []oraclegen.Step // the cause steps emitted into the item
-	probeSteps  []oraclegen.Step // steps whose snapshots show the trigger on the stack; nil means steps
-	selfInHand  bool             // the card starts in p0's hand (a "when you discard this card" trigger), not on the battlefield
-	xability    []string         // XMage rule-text prefix per step (an activate step); nil when no step activates
-	castSelfX   bool             // the card is cast from hand with X first (an X creature that setup would leave 0/0)
+	hand        []string                  // probe cards added to p0's hand
+	battlefield []string                  // extra p0 permanents (an attacker for a non-creature card)
+	tapped      []string                  // extra p0 permanents that start tapped
+	graveyard   []string                  // extra p0 graveyard cards
+	counters    map[string]map[string]int // counters on setup permanents
+	prelude     []oraclegen.Step          // steps before the actual trigger cause
+	steps       []oraclegen.Step          // the cause steps emitted into the item
+	probeSteps  []oraclegen.Step          // steps whose snapshots show the trigger on the stack; nil means steps
+	selfInHand  bool                      // the card starts in p0's hand (a "when you discard this card" trigger), not on the battlefield
+	xability    []string                  // XMage rule-text prefix per step (an activate step); nil when no step activates
+	castSelfX   bool                      // the card is cast from hand with X first (an X creature that setup would leave 0/0)
 }
 
 // Probe cards, each named with why. Spec hypothesis H4: the probe exists in
@@ -130,7 +134,18 @@ func triggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards.Tri
 			// in at once: leave it first, then wait for p0's next main1.
 			steps = append([]oraclegen.Step{{Op: "pass_to", Step: "main2"}}, steps...)
 		}
-		out = append(out, triggerCause{steps: steps})
+		base := triggerCause{steps: steps}
+		out = append(out, base)
+		for _, condition := range conditionPreludes(reg, t.Params, f.SVars) {
+			candidate := base
+			candidate.hand = append(append([]string(nil), base.hand...), condition.hand...)
+			candidate.battlefield = append(append([]string(nil), base.battlefield...), condition.battlefield...)
+			candidate.tapped = append([]string(nil), condition.tapped...)
+			candidate.graveyard = append([]string(nil), condition.graveyard...)
+			candidate.counters = condition.counters
+			candidate.prelude = append([]oraclegen.Step(nil), condition.steps...)
+			out = append(out, candidate)
+		}
 	default:
 		if causes, why, ok := eventTriggerRecipe(reg, f, name, t, sub); ok {
 			return causes, why

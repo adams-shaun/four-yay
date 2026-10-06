@@ -31,11 +31,17 @@ func mergedFixtureSeats(fx *oraclegen.Fixture) (p0, p1 oraclegen.Seat) {
 
 func copySeat(s oraclegen.Seat) oraclegen.Seat {
 	dup := func(xs []string) []string { return append([]string(nil), xs...) }
-	return oraclegen.Seat{
+	out := oraclegen.Seat{
 		Battlefield: dup(s.Battlefield), Tapped: dup(s.Tapped), Hand: dup(s.Hand),
 		Graveyard: dup(s.Graveyard), Exile: dup(s.Exile), Library: dup(s.Library),
 		LibraryTop: dup(s.LibraryTop),
 	}
+	for card, kinds := range s.Counters {
+		for kind, count := range kinds {
+			out = oraclegen.WithCounters(out, card, kind, count)
+		}
+	}
+	return out
 }
 
 // removeString drops the first occurrence of name.

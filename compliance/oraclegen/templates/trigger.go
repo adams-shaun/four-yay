@@ -97,6 +97,9 @@ func triggerFires(reg *cards.Registry, f *cards.Face, name string, req levelb.Re
 				return skip(reason)
 			}
 		}
+		if f.Triggers[idx].ParamStr(cards.PKClassBand) != "" {
+			return skip("condition: class level")
+		}
 		if triggerFromGraveyard(f, req) {
 			// The card sat in the graveyard, where the trigger functions,
 			// and its own condition (a threshold, an event count) still
@@ -126,10 +129,32 @@ func triggerScenario(f *cards.Face, name string, c triggerCause, req levelb.Requ
 	for _, b := range c.battlefield {
 		p0.Battlefield = appendFixtureUnique(p0.Battlefield, b)
 	}
+	for _, card := range c.graveyard {
+		p0.Graveyard = appendFixtureUnique(p0.Graveyard, card)
+	}
+	for _, card := range c.tapped {
+		if card == "__SOURCE__" {
+			card = name
+		}
+		p0.Battlefield = appendFixtureUnique(p0.Battlefield, card)
+		p0.Tapped = appendFixtureUnique(p0.Tapped, card)
+	}
+	for card, kinds := range c.counters {
+		if card == "__SOURCE__" {
+			card = name
+		}
+		for kind, count := range kinds {
+			p0 = oraclegen.WithCounters(p0, card, kind, count)
+		}
+	}
+	scenarioSteps := triggerSteps(f, name, c, steps, fx)
+	if len(c.prelude) > 0 {
+		scenarioSteps = append(append([]oraclegen.Step(nil), c.prelude...), scenarioSteps...)
+	}
 	sc := oraclegen.Scenario{
 		Setup:        map[string]oraclegen.Seat{"p0": p0, "p1": p1},
 		SetupAnswers: oraclegen.OpeningHandAnswers(f),
-		Steps:        triggerSteps(f, name, c, steps, fx),
+		Steps:        scenarioSteps,
 	}
 	if c.castSelfX {
 		sc.Setup["p0"] = oraclegen.WithHand(sc.Setup["p0"], name)
