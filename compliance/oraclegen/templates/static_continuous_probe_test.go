@@ -281,7 +281,7 @@ func TestStaticProbeTableIsInert(t *testing.T) {
 			}
 			f := c.Faces[0]
 			if mana, why := oraclegen.PoolFor(f.ManaCost); why == "" {
-				if it, sk := castResolveWith(reg, f, row.card, mana, nil); sk == nil {
+				if it, sk := castResolveWith(reg, f, row.card, mana, nil, nil); sk == nil {
 					res, err := rules.RunOracleScenarioJSON(reg, it.Raw())
 					if err != nil || len(res.Fails) != 0 || len(res.Snapshots) == 0 {
 						t.Fatalf("cast-alone scenario does not replay: err=%v fails=%v", err, res.Fails)

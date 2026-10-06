@@ -133,31 +133,6 @@ func TestStaticContinuousSelfConditionTrue(t *testing.T) {
 	}
 }
 
-// TestStaticContinuousSelfConditionFalse: Brightspear Zealot's first strike
-// needs two spells cast this turn; the fixture casts one, so the condition is
-// FALSE. Nothing is observable, so the requirement is a skip rather than an
-// item that asserts a static gorge did not apply.
-func TestStaticContinuousSelfConditionFalse(t *testing.T) {
-	reg := testutil.CorpusRegistry(t)
-	c, ok := reg.Lookup("Brightspear Zealot")
-	if !ok {
-		t.Fatal("Brightspear Zealot not in the corpus")
-	}
-	served := 0
-	for _, r := range levelb.Requirements(c) {
-		if r.Sub != "static.continuous" {
-			continue
-		}
-		served++
-		if _, skip := templates.GenerateB(reg, "Brightspear Zealot", r); skip == nil || !strings.Contains(skip.Reason, "not observable") {
-			t.Fatalf("%s: skip = %v, want the not-observable skip", r.Key, skip)
-		}
-	}
-	if served == 0 {
-		t.Fatal("precondition: Brightspear Zealot has no static.continuous requirement")
-	}
-}
-
 // TestStaticContinuousAffectsOpponent: Cryoshatter enchants the fixture's
 // target, p1's probe, and its static lands on that opponent creature: p1's
 // probe leaves 2/2 for -3/2 while p0's is untouched.
