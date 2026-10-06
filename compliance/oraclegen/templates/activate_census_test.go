@@ -48,6 +48,12 @@ var activateCensusSets = []string{"BIG", "EOE", "FDN", "FRA"}
 // as "xmage text ambiguous" (planeswalkers, the shared-cost Chandras, the
 // Theorist's Sanctum intrinsic mana) are now served; FRA gains one
 // SubCounter<...> cost gap from a newly served planeswalker row.
+//
+// Re-measured for the zone-moving activation-cost ticket
+// (cli-20261006T071710Z-a60af507): ExileFromGrave (and the other
+// zone-moving Exile/CollectEvidence costs) are now served from the
+// activation-cost fixture table, so the EOE ExileFromGrave<...> skip
+// becomes a served battlefield requirement (EOE battlefield +1).
 var wantActivateCensus = map[string]map[string]int{
 	"BIG": {
 		"served:activate.battlefield":             10,
@@ -58,21 +64,19 @@ var wantActivateCensus = map[string]map[string]int{
 		"skip:activate no fixture":                1,
 	},
 	"EOE": {
-		"served:activate.battlefield":                 35,
-		"served:activate.mana":                        16,
-		"skip:activate cost gap: ExileFromGrave<...>": 1,
-		"skip:activate cost gap: Sac<token>":          1,
-		"skip:activate cost gap: SubCounter<...>":     1,
-		"skip:activate cost gap: tapXType<X>":         1,
-		"skip:activate no fixture":                    1,
-		"skip:activate xmage text ambiguous":          6,
+		"served:activate.battlefield":             36,
+		"served:activate.mana":                    16,
+		"skip:activate cost gap: Sac<token>":      1,
+		"skip:activate cost gap: SubCounter<...>": 1,
+		"skip:activate cost gap: tapXType<X>":     1,
+		"skip:activate no fixture":                1,
+		"skip:activate xmage text ambiguous":      6,
 	},
 	"FDN": {
-		"served:activate.battlefield":                          78,
+		"served:activate.battlefield":                          79,
 		"served:activate.graveyard":                            2,
 		"served:activate.mana":                                 52,
 		"skip:activate cost gap: AddCounter<...>":              2,
-		"skip:activate cost gap: Return<...>":                  1,
 		"skip:activate cost gap: SubCounter<...>":              4,
 		"skip:activate cost gap: tapXType<unsupported-filter>": 1,
 		"skip:activate no fixture":                             6,
