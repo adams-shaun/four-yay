@@ -84,7 +84,7 @@ func TestXMageOptionalTargetSkipControls(t *testing.T) {
 		}
 		// The engine still reads Rise's real abilities and can cast it;
 		// only the fixture-to-XMage correspondence is now unproven.
-		if _, ok := castWithProbes(reg, card.Faces[0], it.Card, cast.Mana, ambiguous, nil, nil); ok {
+		if _, ok := castWithProbes(reg, card.Faces[0], it.Card, cast.Mana, ambiguous, nil, nil, nil); ok {
 			t.Fatal("an omitted object with unproven correspondence fell back to the legacy queue")
 		}
 	})
