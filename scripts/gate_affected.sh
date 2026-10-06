@@ -28,12 +28,13 @@ pkgs=$(git diff --name-only "$mb" HEAD | while read -r f; do
   if [ -d "$d" ] && compgen -G "$d/*.go" >/dev/null; then echo "./$d"; fi
 done | sort -u | /usr/bin/grep -v -x -E '\./rules' || true)
 others=$(printf '%s\n' $pkgs ./internal/codeshape ./view | sort -u)
-# A generator or harness change moves compliance verdicts without touching
-# compliance/gate or compliance/adopt, the two tests that notice (a407ddeff
-# staled FDN:A that way, 2026-10-05). Any compliance/ change runs them all.
-if printf '%s\n' $pkgs | /usr/bin/grep -q '^\./compliance/'; then
-  others=$(printf '%s\n' $others ./compliance/gate ./compliance/adopt | sort -u)
-fi
+# Any change can move compliance verdicts: generator/harness edits did
+# (a407ddeff, FDN:A) and so did rules edits that reshape target asks
+# (40c7823d7/c97355932 staled FRA:A). compliance/gate and compliance/adopt
+# are the two tests that notice; they run on every ticket, in parallel with
+# ./rules, so a stale verdict parks the ticket for a host replay instead of
+# turning main red.
+others=$(printf '%s\n' $others ./compliance/gate ./compliance/adopt | sort -u)
 echo "gate_affected: rules + $(echo $others)"
 
 go vet $others ./rules
