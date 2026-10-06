@@ -64,23 +64,22 @@ func TestGeneratedTargetsAreGorgeChoices(t *testing.T) {
 	reg := loadGenRegistry(t)
 	carriers := targetAuditCards(t, reg)
 	checked := 0
-	for _, name := range carriers {
-		it, skip := Generate(reg, name)
-		if skip != nil {
+	for _, c := range targetAuditCases(t, reg, carriers) {
+		if c.skip != nil {
 			continue // Census still pins skipped carriers; no scenario was emitted.
 		}
 		checked++
-		res, err := rules.RunOracleScenarioJSON(reg, it.Raw())
-		if err != nil {
-			t.Errorf("%s: replay: %v", name, err)
+		if c.err != nil {
+			t.Errorf("%s: replay: %v", c.name, c.err)
 			continue
 		}
-		for _, f := range res.Fails {
+		for _, f := range c.fails {
 			if strings.Contains(f, rules.OracleUnusedTargetMarker) {
-				t.Errorf("%s emitted a scenario with a target gorge did not choose: %s", name, f)
+				t.Errorf("%s emitted a scenario with a target gorge did not choose: %s", c.name, f)
 			}
 		}
 	}
+	t.Logf("target audit: %d carriers, %d scenarios replayed", len(carriers), checked)
 	if len(carriers) == 0 || checked == 0 {
 		t.Fatalf("precondition: corpus has %d target carriers, generator emitted %d scenarios", len(carriers), checked)
 	}

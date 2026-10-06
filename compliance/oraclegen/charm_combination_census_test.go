@@ -25,7 +25,7 @@ func TestCharmCombinationFixtureCensus(t *testing.T) {
 		if len(slots) != 6 {
 			t.Fatalf("synthetic non-Charm precondition: got %d target slots, want 6", len(slots))
 		}
-		if len(candidatesFor(reg, slots[0].Filter)) == 0 {
+		if len(candidatesFor(reg, slots[0].Filter, "")) == 0 {
 			t.Fatalf("synthetic precondition: %q has no individual candidates", slots[0].Filter)
 		}
 		if len(fixtures(reg, slots)) != 0 {

@@ -488,6 +488,20 @@ func TestTotalityUnderArbitraryMinMax(t *testing.T) {
 		d := decision.Decision{Seq: uint64(i), Player: state.PlayerID(next(4)),
 			Kind: kinds[next(len(kinds))], Min: min, Max: max, Options: opts}
 		board := Board{IsMain: next(2) == 0}
+		// Since 858182dc8 a blocker may fill at most one pairing (outside
+		// BlockAllDefined), so a random KBlockers ask whose Min exceeds its
+		// distinct blockers has NO valid answer. The engine never poses one;
+		// skip it rather than demand the impossible. Feasible blocker asks
+		// (case 14's shape) stay covered.
+		if d.Kind == decision.KBlockers {
+			distinct := map[state.ObjID]bool{}
+			for _, o := range opts {
+				distinct[o.Obj] = true
+			}
+			if len(distinct) < min {
+				continue
+			}
+		}
 
 		var in decision.Intent
 		func() {

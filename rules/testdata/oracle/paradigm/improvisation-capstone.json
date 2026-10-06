@@ -1,0 +1,50 @@
+{
+  "card": "Improvisation Capstone",
+  "family": "paradigm",
+  "oracle_sha": "5ca5e13c91d0",
+  "author": "cli-20261006T024353Z-98038af0 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "exiles-from-top-until-total-mana-value-four-then-casts-free-and-exiles-itself",
+      "cr": ["608.2", "121.3", "118.9", "702.168a"],
+      "why": "The top card (Craw Wurm, mana value 6) already reaches total mana value 4 or greater, so only it is exiled and the Forest below it is never revealed. That exiled card may then be cast without paying its mana cost, so the 6/4 enters the battlefield with no mana spent, and the Paradigm rider exiles the resolved Capstone.",
+      "setup": {
+        "p0": {"hand": ["Improvisation Capstone"], "library_top": ["Craw Wurm", "Forest"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Improvisation Capstone", "mana": "RRRRRRR"},
+        {"op": "resolve", "answers": [{"kind": "modes", "pick": ["Play Craw Wurm"]}]}
+      ],
+      "expect": [
+        {"card": "p0:Craw Wurm", "zone": "battlefield", "pt": "6/4"},
+        {"card": "p0:Forest", "zone": "library"},
+        {"card": "p0:Improvisation Capstone", "zone": "exile"},
+        {"pool": {"p0": ""}}
+      ]
+    },
+    {
+      "name": "paradigm-free-copy-at-the-next-first-main-phase",
+      "cr": ["702.168a", "702.168b", "601.2h"],
+      "why": "The exiled Capstone is a free castable copy at the beginning of its owner's next first main phase (702.168b): the offer appears with no mana in the pool, and casting it costs nothing. It resolves the same way (exiling down to total mana value 4 or greater; the top card at that point is a land, so no spell is castable) and its own Paradigm rider returns it to exile.",
+      "setup": {
+        "p0": {"hand": ["Improvisation Capstone"], "library_top": ["Craw Wurm", "Forest"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Improvisation Capstone", "mana": "RRRRRRR"},
+        {"op": "resolve", "answers": [{"kind": "modes", "pick": ["Play Craw Wurm"]}]},
+        {"op": "pass_to", "step": "upkeep", "active": "p1"},
+        {"op": "pass_to", "step": "main1", "active": "p0",
+          "expect": [{"offered": {"seat": 0, "kind": "cast", "card": "p0:Improvisation Capstone"}, "want": true}]},
+        {"op": "cast", "seat": 0, "card": "p0:Improvisation Capstone"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Craw Wurm", "zone": "battlefield"},
+        {"card": "p0:Improvisation Capstone", "zone": "exile"},
+        {"pool": {"p0": ""}}
+      ]
+    }
+  ]
+}

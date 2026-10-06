@@ -49,7 +49,11 @@ func playLandForbidden(e landRestrictionReader, p state.PlayerID, from state.Zon
 			return true
 		}
 	}
-	for _, ce := range e.active() {
+	// Index, not range-copy: restrictionApplies takes the address through an
+	// interface, so a range copy escapes and allocates per effect per offer.
+	active := e.active()
+	for i := range active {
+		ce := &active[i]
 		if cards.StaticModeOf(ce.Restriction) != cards.StaticCantPlayLand || !effects.CantPlayLandParamsReadable(ce.RestrictParams) {
 			continue
 		}
@@ -73,7 +77,7 @@ func playLandForbidden(e landRestrictionReader, p state.PlayerID, from state.Zon
 		if objSpec == "" {
 			objSpec = strings.TrimSpace(ce.RestrictParam(cards.PKValidCards))
 		}
-		if objSpec == "" || e.restrictionApplies(&ce, land) {
+		if objSpec == "" || e.restrictionApplies(ce, land) {
 			return true
 		}
 	}

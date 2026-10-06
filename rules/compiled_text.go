@@ -69,14 +69,27 @@ var compiledTextCache = struct {
 func newCompiledText(cfg Config) *compiledText {
 	key := firstConfiguredCard(cfg)
 	compiledTextCache.Lock()
+	for _, entry := range compiledTextCache.entries[key] {
+		if entry.config.matchesConfig(cfg) {
+			compiledTextCache.Unlock()
+			return entry.text
+		}
+	}
+	compiledTextCache.Unlock()
+	// Build outside the lock: a build walks every configured card and token
+	// script, and holding the process-wide lock through it serialised every
+	// concurrent engine construction (the compliance audit's worker pool).
+	// Two racing builds of one configuration are the same pure function of
+	// the same immutable card text; the first to insert wins below.
+	config := snapshotCompiledTextConfig(cfg)
+	text := buildCompiledText(cfg)
+	compiledTextCache.Lock()
 	defer compiledTextCache.Unlock()
 	for _, entry := range compiledTextCache.entries[key] {
 		if entry.config.matchesConfig(cfg) {
 			return entry.text
 		}
 	}
-	config := snapshotCompiledTextConfig(cfg)
-	text := buildCompiledText(cfg)
 	if compiledTextCache.n >= compiledTextCacheLimit {
 		oldest := compiledTextCache.order[0]
 		compiledTextCache.order[0] = nil
@@ -391,6 +404,13 @@ func buildCompiledText(cfg Config) *compiledText {
 	// own ability, so the order the map is filled in cannot matter.
 	saFacts := make(map[*cards.SA]*saFacts, len(seen))
 	for sa := range seen {
+		// The record already published on the ability (its own: f.SA ==
+		// sa) is what factsOf serves for sa ahead of any table, so reuse it
+		// instead of rebuilding an identical one per configuration.
+		if f := effects.LoadSAFacts(sa); f != nil && f.SA == sa {
+			saFacts[sa] = f
+			continue
+		}
 		f := buildSAFacts(sa, costOf)
 		saFacts[sa] = f
 		publishSAFacts(f)

@@ -199,3 +199,90 @@ func TestChangeZoneDurationDoesNotReturnAToken(t *testing.T) {
 		t.Fatalf("a ceased token must stay dead, zone=%v", got)
 	}
 }
+
+// An Aura an Oblivion Ring style exiler holds comes back when the exiler
+// leaves, and it chooses what it enchants as it enters (CR 303.4f) inside
+// the removal spell's resolution. The removal text alone is ask-free, so the
+// resolution kernel's predicate must see the held Aura through its board
+// gate (tapeBoardCompetes); before it did, the exempted resolution hit
+// the ask and panicked ("the ask-free predicate missed an ask: choose/etb",
+// enginebench random pair B seed 349: Mischievous Pup bouncing a Banishing
+// Light holding Imprisoned in the Moon).
+func TestChangeZoneDurationReturnedAuraAsksInsideRemoval(t *testing.T) {
+	t.Parallel()
+	light := card(t, "Name:Banishing Light\nManaCost:2 W\nTypes:Enchantment\n"+
+		"T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigExile | TriggerDescription$ When CARDNAME enters, exile target nonland permanent an opponent controls until CARDNAME leaves the battlefield.\n"+
+		"SVar:TrigExile:DB$ ChangeZone | Origin$ Battlefield | Destination$ Exile | ValidTgts$ Permanent.nonLand+OppCtrl | Duration$ UntilHostLeavesPlay\n"+
+		"Oracle:x\n")
+	removal := card(t, "Name:Vindicate\nManaCost:1 B W\nTypes:Instant\n"+
+		"A:SP$ Destroy | ValidTgts$ Permanent | TgtPrompt$ Select target permanent\nOracle:x\n")
+	e := handEngine(t, light, removal)
+	bear := onBoard(t, e, 1, "Name:Runeclaw Bear\nManaCost:1 G U\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
+	onBoard(t, e, 1, "Name:Grizzly Bears\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
+	aura := onBoard(t, e, 1, "Name:Pacifism\nManaCost:1 W\nTypes:Enchantment Aura\nK:Enchant creature\n"+
+		"A:SP$ Attach | Cost$ 1 W | ValidTgts$ Creature | AILogic$ Curse\nOracle:x\n")
+	e.G.Obj(aura).AttachedTo = bear
+
+	e.G.Players[0].Pool[state.MW] = 1
+	e.G.Players[0].Pool[state.MC] = 2
+	e.askPriority(0)
+	castFirst(t, e, "cast")
+	d := passToTargetAsk(t, e)
+	idx := -1
+	for _, o := range d.Options {
+		if o.Obj == aura {
+			idx = o.Index
+		}
+	}
+	if idx < 0 {
+		t.Fatalf("the Aura not offered as exile target: %+v", d.Options)
+	}
+	submitChoices(t, e, idx)
+	passUntilStackEmpty(t, e, 8)
+	if got := e.G.Obj(aura).Zone; got != state.ZExile {
+		t.Fatalf("the Aura should be exiled, zone=%v", got)
+	}
+	exiler := e.G.Zone(state.ZBattlefield, 0)[0]
+
+	e.G.Players[0].Pool[state.MB] = 1
+	e.G.Players[0].Pool[state.MW] = 1
+	e.G.Players[0].Pool[state.MC] = 1
+	e.askPriority(0)
+	castFirst(t, e, "cast")
+	d = e.Pending()
+	if d == nil || d.Kind != decision.KTarget {
+		t.Fatalf("expected Vindicate's target ask, got %+v", d)
+	}
+	idx = -1
+	for _, o := range d.Options {
+		if o.Obj == exiler {
+			idx = o.Index
+		}
+	}
+	if idx < 0 {
+		t.Fatalf("exiler not offered as Vindicate target: %+v", d.Options)
+	}
+	submitChoices(t, e, idx)
+	asked := false
+	for i := 0; i < 16; i++ {
+		d = e.Pending()
+		if d == nil {
+			break
+		}
+		if d.Kind == decision.KChoose && d.ResumeKind == "etb" {
+			asked = true
+			submitChoices(t, e, 0)
+			continue
+		}
+		if d.Kind != decision.KPriority || len(e.G.Stack) == 0 {
+			break
+		}
+		submitChoices(t, e, passIndex(t, d))
+	}
+	if !asked {
+		t.Fatal("the returning Aura never asked what it enchants")
+	}
+	if o := e.G.Obj(aura); o.Zone != state.ZBattlefield || o.AttachedTo == 0 {
+		t.Fatalf("the Aura should be back on the battlefield attached, zone=%v attached=%d", o.Zone, o.AttachedTo)
+	}
+}

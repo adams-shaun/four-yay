@@ -200,6 +200,7 @@ const (
 	// carriers: Avenging Arrow, Executioner's Swing, Restore the Peace, Red
 	// Guardian, Super Soldier and Treacherous Greed's sacrifice cost.
 	wordSourceDealtDamageThisTurn
+	wordDealtExcessDamageThisTurn
 	wordDamagedBy
 	wordImprinted
 	wordDefenderCtrl
@@ -434,6 +435,8 @@ func wordPredicate(p string) (wordKind, string) {
 		return wordDealtDamageThisTurn, ""
 	case wordPredicateWordDealtDamageThisTurn:
 		return wordSourceDealtDamageThisTurn, ""
+	case wordPredicateWordWasDealtExcessDamageThisTurn:
+		return wordDealtExcessDamageThisTurn, ""
 	case wordPredicateWordWasDealtDamageByThisGame:
 		return wordDealtDamageByThisGame, ""
 	case wordPredicateWordIsImprinted:
@@ -893,6 +896,8 @@ func wordMatches(kind wordKind, key string, g *state.Game, o *state.Object, sc S
 		return o.WasDealtDamageThisTurn
 	case wordSourceDealtDamageThisTurn:
 		return sourceDealtDamageThisTurn(o)
+	case wordDealtExcessDamageThisTurn:
+		return o.WasDealtExcessDamageThisTurn
 	case wordDealtDamageByThisGame:
 		// Forge's wasDealtDamageByThisGame (bare, source-anchored): the
 		// candidate object's game-long damage record names the bound
@@ -1287,6 +1292,7 @@ const (
 	wordPredicateWordSuspended
 	wordPredicateWordWasDealtDamageThisTurn
 	wordPredicateWordDealtDamageThisTurn
+	wordPredicateWordWasDealtExcessDamageThisTurn
 	wordPredicateWordWasDealtDamageByThisGame
 	wordPredicateWordIsImprinted
 	wordPredicateWordDefenderCtrl
@@ -1338,6 +1344,7 @@ var wordPredicateWordCodes = state.NewStrCodes(
 	state.StrEntry[wordPredicateWordCode]{Key: "suspended", Val: wordPredicateWordSuspended},
 	state.StrEntry[wordPredicateWordCode]{Key: "wasDealtDamageThisTurn", Val: wordPredicateWordWasDealtDamageThisTurn},
 	state.StrEntry[wordPredicateWordCode]{Key: "dealtDamageThisTurn", Val: wordPredicateWordDealtDamageThisTurn},
+	state.StrEntry[wordPredicateWordCode]{Key: "wasDealtExcessDamageThisTurn", Val: wordPredicateWordWasDealtExcessDamageThisTurn},
 	state.StrEntry[wordPredicateWordCode]{Key: "wasDealtDamageByThisGame", Val: wordPredicateWordWasDealtDamageByThisGame},
 	state.StrEntry[wordPredicateWordCode]{Key: "IsImprinted", Val: wordPredicateWordIsImprinted},
 	state.StrEntry[wordPredicateWordCode]{Key: "DefenderCtrl", Val: wordPredicateWordDefenderCtrl},

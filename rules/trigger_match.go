@@ -2051,6 +2051,7 @@ func (e *Engine) closeDamageBatch() {
 	e.damageBatchIdx = nil
 	e.damageBatchLog = nil
 	e.excessDamageBaseline = nil
+	flushExcessBatch(&e.excessBatch, e.emit)
 }
 
 // batchAppendSource appends id to a DamageAll entry's deduplicated source

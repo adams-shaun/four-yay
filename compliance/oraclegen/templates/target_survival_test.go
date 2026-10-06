@@ -3,8 +3,6 @@ package templates
 import (
 	"reflect"
 	"testing"
-
-	"github.com/adams-shaun/gorge/rules"
 )
 
 // TestGeneratedMandatoryCastTargetsSurvive checks both directions of the
@@ -15,33 +13,33 @@ import (
 func TestGeneratedMandatoryCastTargetsSurvive(t *testing.T) {
 	reg := loadGenRegistry(t)
 	carriers := targetAuditCards(t, reg)
-	mandatory := 0
+	mandatory, replayed := 0, 0
 	// These two corpus cards require a cast-time creature target. A broken
 	// rewrite can silently turn a generated card into a skip, so checking
 	// only scenarios that survived generation would be vacuous.
 	required := map[string]bool{"Conduct Electricity": false, "Repulsive Mutation": false}
-	for _, name := range carriers {
-		it, skip := Generate(reg, name)
-		if skip != nil {
+	for _, c := range targetAuditCases(t, reg, carriers) {
+		name := c.name
+		if c.skip != nil {
 			if _, ok := required[name]; ok {
-				t.Errorf("mandatory-target card %s was skipped: %s", name, skip.Reason)
+				t.Errorf("mandatory-target card %s was skipped: %s", name, c.skip.Reason)
 			}
 			continue
 		}
 		if _, ok := required[name]; ok {
 			required[name] = true
 		}
-		res, err := rules.RunOracleScenarioJSON(reg, it.Raw())
-		if err != nil || len(res.Fails) != 0 {
-			t.Errorf("%s: replay err=%v fails=%v", name, err, res.Fails)
+		replayed++
+		if c.err != nil || len(c.fails) != 0 {
+			t.Errorf("%s: replay err=%v fails=%v", name, c.err, c.fails)
 			continue
 		}
-		for i, st := range it.Scenario.Steps {
-			if st.Op != "cast" {
+		for i, st := range c.steps {
+			if st.op != "cast" {
 				continue
 			}
 			var picks []string
-			for _, d := range res.Decisions {
+			for _, d := range c.decisions {
 				if d.Step != i || d.Via != "target" {
 					continue
 				}
@@ -53,14 +51,15 @@ func TestGeneratedMandatoryCastTargetsSurvive(t *testing.T) {
 				}
 				picks = append(picks, d.PickRefs...)
 			}
-			if len(picks) == 0 && len(st.Targets) == 0 {
+			if len(picks) == 0 && len(st.targets) == 0 {
 				continue
 			}
-			if !reflect.DeepEqual(st.Targets, picks) {
-				t.Errorf("%s cast step %d: scenario targets %v, gorge picked %v", name, i, st.Targets, picks)
+			if !reflect.DeepEqual(st.targets, picks) {
+				t.Errorf("%s cast step %d: scenario targets %v, gorge picked %v", name, i, st.targets, picks)
 			}
 		}
 	}
+	t.Logf("target survival: %d carriers, %d scenarios replayed, %d mandatory target decisions", len(carriers), replayed, mandatory)
 	if mandatory == 0 {
 		t.Fatal("precondition: corpus generated no mandatory target decisions")
 	}

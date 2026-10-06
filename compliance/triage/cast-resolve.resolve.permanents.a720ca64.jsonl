@@ -1,2 +1,0 @@
-{"shape":{"template":"cast-resolve","op":"resolve","field":"permanents","diff":"Grizzly Bears types gorge+[allcreaturetypes] xmage+[bear]"},"key":"cast-resolve | resolve | permanents | Grizzly Bears types gorge+[allcreaturetypes] xmage+[bear]","cards":1}
-{"card":"Glamer Gifter","template":"cast-resolve","status":"diverge","api":"ChangesZone:Animate","sets":["ECL"],"detail":"step 1 (resolve) permanents: gorge \"c1 o1 Grizzly Bears [allcreaturetypes creature] {G} 4/4\", xmage \"c1 o1 Grizzly Bears [bear creature] {G} 4/4\""}
