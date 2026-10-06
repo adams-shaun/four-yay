@@ -99,13 +99,9 @@ func etbProbeCauses(reg *cards.Registry, name string, t *cards.Trigger) ([]trigg
 	if bad := etbUnservableFilter(filter); bad != "" {
 		return nil, "etb filter " + bad + " (" + filter + ")"
 	}
-	// The vanilla 2/2 Bear the etb cause always was goes first, so a filter it
-	// satisfies keeps the exact scenario (and verdict) it already had; every
-	// other probe only serves a filter the Bear does not.
+	// Try the specific land and spell probes before the generic fallback. The
+	// old vanilla Bear remains last so it can still serve broad creature filters.
 	var out []triggerCause
-	if c, ok := castCause(reg, name, bearsProbe); ok {
-		out = append(out, c)
-	}
 	for _, p := range etbLandProbes {
 		if p == name {
 			continue
@@ -136,6 +132,9 @@ func etbProbeCauses(reg *cards.Registry, name string, t *cards.Trigger) ([]trigg
 		if c, ok := castCause(reg, name, p); ok {
 			out = append(out, c)
 		}
+	}
+	if c, ok := castCause(reg, name, bearsProbe); ok {
+		out = append(out, c)
 	}
 	if len(out) == 0 {
 		return nil, "probe not in corpus"
