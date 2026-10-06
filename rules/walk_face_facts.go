@@ -332,6 +332,19 @@ func buildWalkFaceTable(faces []*cards.Face) walkFaceTable {
 			i = (i + 1) & t.mask
 		}
 		if t.slots[i].face == nil {
+			// A fully current entry another configuration already published
+			// on the face IS this compute (a pure function of the face's
+			// lists, which fullyCurrent pins), and is what walkFaceFactsOf
+			// serves for f anyway: copy it rather than recompute. Every
+			// configuration lists the whole token corpus, so the compliance
+			// generator's one-configuration-per-scenario builds recomputed
+			// ~a thousand faces per scenario without this.
+			if p := f.ExtSlot().Load(); p != nil {
+				if ff := (*walkFaceFacts)(p); ff.fullyCurrent(f) {
+					t.slots[i] = *ff
+					continue
+				}
+			}
 			t.slots[i] = computeWalkFaceFacts(f)
 		}
 	}
