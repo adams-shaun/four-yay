@@ -12,6 +12,11 @@ import (
 // creature (pumped by its Aura) plus the other chosen creature each deal damage
 // to it, enough to destroy it (Oracle text; CR 120.3e, then CR 704.5g moves the
 // lethal-damaged creature to its owner's graveyard).
+//
+// Graceful Takedown was already fixed by the merged parent ticket 6e2b4f0cb
+// (its frozen WOE verdict is status "agree"); this branch changes no generator
+// code, so the test is a regression guard for the parent's fixture plus an
+// end-to-end resolution assertion the parent's shape-only test did not make.
 func TestGracefulTakedownFixtureAndResolution(t *testing.T) {
 	reg := loadGenRegistry(t)
 	it, skip := Generate(reg, "Graceful Takedown")
@@ -44,6 +49,11 @@ func TestGracefulTakedownFixtureAndResolution(t *testing.T) {
 
 // TestSorceressSchemesMixedZoneFixture proves the OR-zone selector produces
 // a castable card matching one of the spell's supported graveyard or exile alternatives.
+//
+// Sorceress's Schemes was already fixed by the merged parent ticket 6e2b4f0cb
+// (its frozen FIN verdict is status "agree"); this branch changes no generator
+// code, so the test is a regression guard for the parent's mixed-zone selector
+// plus an end-to-end resolution assertion the parent's candidate test did not make.
 func TestSorceressSchemesMixedZoneFixture(t *testing.T) {
 	reg := loadGenRegistry(t)
 	it, skip := Generate(reg, "Sorceress's Schemes")

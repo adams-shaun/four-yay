@@ -126,7 +126,20 @@ public final class ScenarioReplayDriverContractTest {
             threw = true;
         }
         check(threw, "precondition: Zone.valueOf(\"exile\") should not resolve");
-        System.out.println("PASS move destination mapping (exile->EXILED and other zones)");
+
+        // The `move` op must find its source card in any Card-bearing zone, not
+        // only the hand: the next generator shape that moves a card already in
+        // a graveyard/library/exile must not throw. Hand stays first so today's
+        // generated hand -> zone move is unchanged, and a battlefield permanent
+        // (a Permanent, not a Card) is deliberately absent.
+        List<Zone> sources = ScenarioReplay.moveSourceZones();
+        check(sources.get(0) == Zone.HAND, "move must search the hand first; got " + sources);
+        for (Zone expected : Arrays.asList(Zone.HAND, Zone.GRAVEYARD, Zone.LIBRARY, Zone.EXILED)) {
+            check(sources.contains(expected), "move source zones omit " + expected + ": " + sources);
+        }
+        check(!sources.contains(Zone.BATTLEFIELD),
+                "a battlefield permanent is not a Card move source; got " + sources);
+        System.out.println("PASS move destination mapping (exile->EXILED) and multi-zone source search");
     }
 
     private static CardSetInfo info(String name) {

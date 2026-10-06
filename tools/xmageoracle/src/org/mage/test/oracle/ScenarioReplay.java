@@ -53,6 +53,7 @@ import java.io.FileReader;
 import java.io.PrintWriter;
 import java.io.FileWriter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -1127,6 +1128,52 @@ public class ScenarioReplay extends CardTestPlayerBase {
         return to.equals("exile") ? Zone.EXILED : Zone.valueOf(to.toUpperCase(java.util.Locale.ROOT));
     }
 
+    /** The Card-bearing zones a `move` step's source card may start in, in
+     * search order. gorge's generator currently stages every moved card in
+     * hand (candidates.go emits hand -> destination), but the op is not
+     * hand-specific: a future shape that moves a card already in a graveyard,
+     * library or exile must not fall into a hand-only search and throw. A
+     * battlefield permanent is a Permanent, not a Card, so it is not a move
+     * source (XMage moves those with Permanent.moveToZone). Package-private
+     * and pure so the driver contract test can pin the coverage. */
+    static List<Zone> moveSourceZones() {
+        return Arrays.asList(Zone.HAND, Zone.GRAVEYARD, Zone.LIBRARY, Zone.EXILED);
+    }
+
+    /** The first card named {@code name} in any of {@link #moveSourceZones()},
+     * or null. Hand is searched first, so today's generated hand -> zone move
+     * is unchanged. */
+    private static Card findMoveCard(Player player, Game game, String name) {
+        for (Zone zone : moveSourceZones()) {
+            if (zone == Zone.HAND) {
+                for (Card c : player.getHand().getCards(game)) {
+                    if (c.getName().equals(name)) {
+                        return c;
+                    }
+                }
+            } else if (zone == Zone.GRAVEYARD) {
+                for (Card c : player.getGraveyard().getCards(game)) {
+                    if (c.getName().equals(name)) {
+                        return c;
+                    }
+                }
+            } else if (zone == Zone.LIBRARY) {
+                for (Card c : player.getLibrary().getCards(game)) {
+                    if (c.getName().equals(name)) {
+                        return c;
+                    }
+                }
+            } else if (zone == Zone.EXILED) {
+                for (Card c : game.getExile().getCardsOwned(game, player.getId())) {
+                    if (c.getName().equals(name)) {
+                        return c;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
     /**
      * Whether a modal spell's first target lives in a later mode: the card's
      * first mode (the one XMage's up-front {@code $target=} check reads, since
@@ -1563,15 +1610,10 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 String to = str(st, "to");
                 Zone destination = moveDestination(to);
                 runCode("move " + ref + " to " + destination, turn, phase, p, (info, pl, g) -> {
-                    Card moving = null;
-                    for (Card candidate : pl.getHand().getCards(g)) {
-                        if (candidate.getName().equals(name)) {
-                            moving = candidate;
-                            break;
-                        }
-                    }
+                    Card moving = findMoveCard(pl, g, name);
                     if (moving == null) {
-                        throw new IllegalArgumentException("move card " + ref + " is not in " + pl.getName() + "'s hand");
+                        throw new IllegalArgumentException("move card " + ref + " is not in "
+                                + pl.getName() + "'s " + moveSourceZones());
                     }
                     if (!pl.moveCards(moving, destination, null, g)) {
                         throw new IllegalStateException("move " + ref + " to " + destination + " refused");
