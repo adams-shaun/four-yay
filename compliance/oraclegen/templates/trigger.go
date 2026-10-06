@@ -107,6 +107,11 @@ func triggerFires(reg *cards.Registry, f *cards.Face, name string, req levelb.Re
 				return skip(reason)
 			}
 		}
+		if req.Sub == "trigger.dies-other" {
+			if reason := diesVictimSkip(&f.Triggers[idx]); reason != "" {
+				return skip(reason)
+			}
+		}
 		if f.Triggers[idx].ParamStr(cards.PKClassBand) != "" {
 			return skip("condition: class level")
 		}
