@@ -18,6 +18,7 @@
 package oraclegen
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -39,7 +40,7 @@ func XMageAbility(f *cards.Face) (map[int]string, string) {
 	lines := abilityLines(f.Oracle)
 	var nonKeyword []int
 	for i, sa := range f.Abilities {
-		if sa.IsActivated() && sa.ParamStr(cards.PKKeyword) == "" {
+		if sa.IsActivated() && sa.ParamStr(cards.PKKeyword) == "" && !intrinsicLandMana(f, sa) {
 			nonKeyword = append(nonKeyword, i)
 		}
 	}
@@ -47,14 +48,46 @@ func XMageAbility(f *cards.Face) (map[int]string, string) {
 		return nil, "activate xmage text ambiguous"
 	}
 	out := make(map[int]string, len(f.Abilities))
-	seen := map[string]bool{}
+	seen := make(map[string]bool)
+	full := make([]string, len(nonKeyword))
+	base := make([]string, len(nonKeyword))
 	for k, i := range nonKeyword {
-		prefix := linePrefix(lines[k], f.Name)
-		if prefix == "" || seen[prefix] {
+		full[k] = lines[k]
+		base[k] = linePrefix(lines[k], f.Name)
+		if loyalty := loyaltyCost(f.Abilities[i].ParamStr(cards.PKCost)); loyalty != "" {
+			colon := strings.Index(lines[k], ": ")
+			if colon < 0 {
+				return nil, "activate xmage text ambiguous"
+			}
+			full[k] = loyalty + ": " + strings.TrimSpace(lines[k][colon+2:])
+			base[k] = loyalty
+		}
+	}
+	for k, i := range nonKeyword {
+		prefix := base[k]
+		for len(prefix) < len(full[k]) && conflictsWithOtherLine(prefix, k, full) {
+			end := len(prefix)
+			for end < len(full[k]) {
+				end++
+				if full[k][end-1] == ' ' {
+					for end < len(full[k]) && full[k][end] != ' ' {
+						end++
+					}
+					break
+				}
+			}
+			prefix = full[k][:end]
+		}
+		if prefix == "" || conflictsWithOtherLine(prefix, k, full) {
 			return nil, "activate xmage text ambiguous"
 		}
-		seen[prefix] = true
 		out[i] = prefix
+		seen[prefix] = true
+	}
+	for i, sa := range f.Abilities {
+		if sa.IsActivated() && intrinsicLandMana(f, sa) {
+			out[i] = intrinsicManaText(sa)
+		}
 	}
 	for i, sa := range f.Abilities {
 		if !sa.IsActivated() || sa.ParamStr(cards.PKKeyword) == "" {
@@ -68,6 +101,62 @@ func XMageAbility(f *cards.Face) (map[int]string, string) {
 		out[i] = prefix
 	}
 	return out, ""
+}
+
+// loyaltyCost renders Forge's bracketed loyalty counter cost as XMage's
+// printed cost. Empty means this is not a loyalty cost.
+func loyaltyCost(cost string) string {
+	for _, part := range strings.Split(cost, ",") {
+		part = strings.TrimSpace(part)
+		for _, spec := range []struct{ prefix, sign string }{{"AddCounter<", "+"}, {"SubCounter<", "-"}} {
+			if !strings.HasPrefix(part, spec.prefix) || !strings.HasSuffix(part, "/LOYALTY>") {
+				continue
+			}
+			n := strings.TrimSuffix(strings.TrimPrefix(part, spec.prefix), "/LOYALTY>")
+			if n == "X" {
+				return "-X"
+			}
+			if n == "0" {
+				return "0"
+			}
+			if spec.sign == "-" {
+				return "-" + n
+			}
+			return "+" + n
+		}
+	}
+	return ""
+}
+
+// conflictsWithOtherLine reports whether prefix would select another ability
+// line under XMage's startsWith matching rule.
+func conflictsWithOtherLine(prefix string, own int, lines []string) bool {
+	for i, line := range lines {
+		if i != own && strings.HasPrefix(line, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+// intrinsicLandMana identifies a mana ability generated from a land subtype,
+// rather than a printed activated ability. Such an ability has no Oracle line.
+func intrinsicLandMana(f *cards.Face, sa *cards.SA) bool {
+	if !f.IsLand() || sa.API != "Mana" || strings.TrimSpace(sa.ParamStr(cards.PKCost)) != "T" {
+		return false
+	}
+	produced := strings.TrimSpace(sa.ParamStr(cards.PKProduced))
+	for _, typ := range f.Types {
+		color := map[string]string{"Plains": "W", "Island": "U", "Swamp": "B", "Mountain": "R", "Forest": "G"}[typ]
+		if color != "" && produced == color {
+			return true
+		}
+	}
+	return false
+}
+
+func intrinsicManaText(sa *cards.SA) string {
+	return fmt.Sprintf("{T}: Add {%s}.", strings.TrimSpace(sa.ParamStr(cards.PKProduced)))
 }
 
 // oracleLines splits a face's Oracle text into its printed lines. The corpus
