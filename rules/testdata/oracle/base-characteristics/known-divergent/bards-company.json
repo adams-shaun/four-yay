@@ -1,0 +1,6 @@
+{
+  "card": "Bard's Company",
+  "rows": {
+    "resolves-as-a-two-three-and-pumps-other-creatures": "The printed card (Scryfall HOB 146) is a 2/3 Human Citizen; the pinned Forge script states PT:4/3. gorge faithfully implements the script, so Bard's Company resolves at 4/3 (observed P/T 4/3, want 2/3) while its 'Other creatures you control get +1/+1' static correctly leaves it alone and pumps another controlled creature to 3/3 -- the engine excludes the source exactly as CR 611.3a/613.4c require. Upstream Forge script/corpus defect (the pinned corpus at FORGE_REF fb4d809 carries PT:4/3): cannot be fixed by committing a script (GPL-3.0); report upstream or bump FORGE_REF. This row is the same class as activated-ability/known-divergent/wooded-foothills.json. Ticket cli-20261006T024353Z-c6ff08b6. Compliance record: Bard's Company/cast-resolve/v1 in compliance/verdicts/b.jsonl (diverge, gorge 4/3 vs xmage 2/3)."
+  }
+}

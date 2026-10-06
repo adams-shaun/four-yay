@@ -117,6 +117,13 @@ type walkFaceFacts struct {
 // while their own guards (keywordsCurrent, triggersCurrent, the name test)
 // pass, since every reader of a guarded half checks its guard first, and
 // the list-identity guards themselves are not facts.
+//
+// It runs on EVERY facts read in the rules test binary (tens of millions of
+// reads per suite run), so it compares without allocating: the recompute
+// leaves the three option labels unbuilt and they are checked against f.Name
+// in place (labelIs), and walkFaceFactsEqual is a typed field-by-field
+// compare rather than reflect.DeepEqual over two boxed copies, which cost a
+// third of the whole suite's allocation and a third of its CPU.
 func (ff *walkFaceFacts) verifyFresh(f *cards.Face) {
 	fresh := computeWalkFaceFactsForVerify(f)
 	got := *ff
@@ -129,9 +136,14 @@ func (ff *walkFaceFacts) verifyFresh(f *cards.Face) {
 		got.trigZones, got.trigSig, got.trigSigOther, got.trigLookBack = fresh.trigZones, fresh.trigSig, fresh.trigSigOther, fresh.trigLookBack
 		got.grantsTrig, got.trigFirst, got.trigLen = fresh.grantsTrig, fresh.trigFirst, fresh.trigLen
 	}
+	labelsOK := true
 	if ff.name != f.Name {
-		got.name, got.castLabel, got.playLabel, got.manaLabel = fresh.name, fresh.castLabel, fresh.playLabel, fresh.manaLabel
+		got.name = fresh.name
+	} else {
+		labelsOK = labelIs(ff.castLabel, "Cast ", f.Name, "") && labelIs(ff.playLabel, "Play ", f.Name, "") &&
+			labelIs(ff.manaLabel, "Activate ", f.Name, " for mana")
 	}
+	got.castLabel, got.playLabel, got.manaLabel = fresh.castLabel, fresh.playLabel, fresh.manaLabel
 	if !ff.fullyCurrent(f) {
 		got.staticOn, got.staticOff, got.mayPlay = fresh.staticOn, fresh.staticOff, fresh.mayPlay
 	}
@@ -140,12 +152,51 @@ func (ff *walkFaceFacts) verifyFresh(f *cards.Face) {
 	// check; this verifier still compares every other field.
 	got.statFirst, got.statLen, got.replFirst, got.replLen = fresh.statFirst, fresh.statLen, fresh.replFirst, fresh.replLen
 	got.svars, got.svarsLen = fresh.svars, fresh.svarsLen
-	// DeepEqual, not ==: altCosts holds Cost slices, which are not
-	// comparable. This verify path runs only in the rules test binary.
 	fresh.scan = ff.scan
-	if !reflect.DeepEqual(got, fresh) {
+	if !labelsOK || !walkFaceFactsEqual(&got, &fresh) {
 		panic(fmt.Sprintf("rules: walk face facts for %q are stale (%+v vs %+v)", f.Name, *ff, fresh))
 	}
+}
+
+// labelIs reports whether l == prefix+name+suffix without building the
+// concatenation.
+func labelIs(l, prefix, name, suffix string) bool {
+	return len(l) == len(prefix)+len(name)+len(suffix) && l[:len(prefix)] == prefix &&
+		l[len(prefix):len(prefix)+len(name)] == name && l[len(prefix)+len(name):] == suffix
+}
+
+// walkFaceFactsEqual is reflect.DeepEqual(a, b) for walkFaceFacts, typed:
+// every field but altCosts is compared with ==, and altCosts row by row
+// (DeepEqual on each frozen Cost, through pointers so nothing is boxed). The
+// pointer-valued fields compare by identity, which is DeepEqual's answer
+// here: each is a list-identity guard or the face itself, and verifyFresh
+// either checked it current (so both sides hold the same address) or copied
+// fresh's value over it. TestWalkFaceFactsEqualCoversEveryField holds this
+// field list to the struct's.
+func walkFaceFactsEqual(a, b *walkFaceFacts) bool {
+	if a.face != b.face || a.abFirst != b.abFirst || a.abLen != b.abLen ||
+		a.abZones != b.abZones || a.abZonesActivator != b.abZonesActivator ||
+		a.mana != b.mana || a.manaReflected != b.manaReflected || a.manaAllTap != b.manaAllTap ||
+		a.manaControllerOnly != b.manaControllerOnly ||
+		a.kwGranted != b.kwGranted || a.kwFirst != b.kwFirst || a.kwLen != b.kwLen || a.ph != b.ph ||
+		a.altCostMask != b.altCostMask || a.impendingCount != b.impendingCount ||
+		a.name != b.name || a.castLabel != b.castLabel || a.playLabel != b.playLabel || a.manaLabel != b.manaLabel ||
+		a.scan != b.scan || a.trigZones != b.trigZones || a.trigSig != b.trigSig || a.trigSigOther != b.trigSigOther ||
+		a.trigLookBack != b.trigLookBack || a.grantsTrig != b.grantsTrig || a.trigFirst != b.trigFirst || a.trigLen != b.trigLen ||
+		a.statFirst != b.statFirst || a.statLen != b.statLen || a.replFirst != b.replFirst || a.replLen != b.replLen ||
+		a.svars != b.svars || a.svarsLen != b.svarsLen ||
+		a.staticOn != b.staticOn || a.staticOff != b.staticOff || a.mayPlay != b.mayPlay {
+		return false
+	}
+	if (a.altCosts == nil) != (b.altCosts == nil) || len(a.altCosts) != len(b.altCosts) {
+		return false
+	}
+	for i := range a.altCosts {
+		if a.altCosts[i].ok != b.altCosts[i].ok || !reflect.DeepEqual(&a.altCosts[i].cost, &b.altCosts[i].cost) {
+			return false
+		}
+	}
+	return true
 }
 
 // svarsIdentity is the identity of f's SVar map (its runtime header).
@@ -178,18 +229,21 @@ func computeWalkFaceFacts(f *cards.Face) walkFaceFacts {
 }
 
 // computeWalkFaceFactsForVerify omits scan facts because faceScanHas owns
-// their independent verification on every scan read.
+// their independent verification on every scan read, and the option labels,
+// which verifyFresh checks against the face's name without building them.
 func computeWalkFaceFactsForVerify(f *cards.Face) walkFaceFacts {
 	return computeWalkFaceFactsMode(f, false)
 }
 
 func computeWalkFaceFactsMode(f *cards.Face, includeScan bool) walkFaceFacts {
-	ff := walkFaceFacts{face: f, abLen: len(f.Abilities), kwLen: len(f.Keywords), name: f.Name,
-		castLabel: "Cast " + f.Name, playLabel: "Play " + f.Name, manaLabel: "Activate " + f.Name + " for mana"}
+	ff := walkFaceFacts{face: f, abLen: len(f.Abilities), kwLen: len(f.Keywords), name: f.Name}
 	if len(f.Abilities) > 0 {
 		ff.abFirst = &f.Abilities[0]
 	}
 	if includeScan {
+		// The verify recompute leaves the labels unbuilt: verifyFresh
+		// checks the cached ones against f.Name in place.
+		ff.castLabel, ff.playLabel, ff.manaLabel = "Cast "+f.Name, "Play "+f.Name, "Activate "+f.Name+" for mana"
 		ff.scan = computeFaceScan(f)
 	}
 	ff.trigZones, ff.trigLen = computeFaceTriggerZones(f, phaseSpecValid), len(f.Triggers)
@@ -210,6 +264,13 @@ func computeWalkFaceFactsMode(f *cards.Face, includeScan bool) walkFaceFacts {
 	ff.ph = printedHeadsOf(f)
 	ff.impendingCount = impendingCount(f)
 	for i := range altCastModes {
+		// Every row keys on its K: head (faceCostRaw answers false without
+		// it); testing presence first skips building and copying an
+		// 824-byte zero Cost per absent row, i.e. per row on almost every
+		// face.
+		if _, ok := f.KeywordParam(altCastModes[i].head); !ok {
+			continue
+		}
 		c, ok := altCastModes[i].faceCostRaw(f)
 		if !ok {
 			continue
@@ -332,6 +393,19 @@ func buildWalkFaceTable(faces []*cards.Face) walkFaceTable {
 			i = (i + 1) & t.mask
 		}
 		if t.slots[i].face == nil {
+			// A fully current entry another configuration already published
+			// on the face IS this compute (a pure function of the face's
+			// lists, which fullyCurrent pins), and is what walkFaceFactsOf
+			// serves for f anyway: copy it rather than recompute. Every
+			// configuration lists the whole token corpus, so the compliance
+			// generator's one-configuration-per-scenario builds recomputed
+			// ~a thousand faces per scenario without this.
+			if p := f.ExtSlot().Load(); p != nil {
+				if ff := (*walkFaceFacts)(p); ff.fullyCurrent(f) {
+					t.slots[i] = *ff
+					continue
+				}
+			}
 			t.slots[i] = computeWalkFaceFacts(f)
 		}
 	}

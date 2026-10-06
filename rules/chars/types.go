@@ -32,9 +32,17 @@ var faceDownBasis = &cards.Face{Types: []string{"Creature"}}
 // that proof, and rules' layer4PrecheckVerify compares every such fast build
 // against the full walk.
 func Types(b Board, act []state.ContinuousEffect, id state.ObjID, atStack state.Zone) []string {
+	ty, _ := TypesAndAllCreatureTypes(b, act, id, atStack)
+	return ty
+}
+
+// TypesAndAllCreatureTypes is the layer-4 walk and its semantic all-types
+// marker. The marker is captured at the same point as the expansion so
+// snapshots need not infer rules state from today's subtype vocabulary.
+func TypesAndAllCreatureTypes(b Board, act []state.ContinuousEffect, id state.ObjID, atStack state.Zone) ([]string, bool) {
 	o := b.Game().Obj(id)
 	if o == nil || o.Face() == nil {
-		return nil
+		return nil, false
 	}
 	// CR 708.5: a face-down battlefield permanent's type set is exactly
 	// {Creature} -- its printed types do not exist while it is face down
@@ -45,7 +53,8 @@ func Types(b Board, act []state.ContinuousEffect, id state.ObjID, atStack state.
 	// 2/2 exactly as it reaches a face-up creature, while the printed face
 	// stays hidden (no printed word reappears merely from a type grant).
 	base := o.Face().Types
-	if o.FaceDown && o.Zone == state.ZBattlefield {
+	faceDown := o.FaceDown && o.Zone == state.ZBattlefield
+	if faceDown {
 		base = o.FaceDownTypeWords()
 	}
 	if o.CopyNonLegendary {
@@ -83,7 +92,7 @@ func Types(b Board, act []state.ContinuousEffect, id state.ObjID, atStack state.
 		}
 	}
 	if !anyLType {
-		return impendingTypeSwitch(o, reconfigureTypeSwitch(o, bestowedTypeSwitch(o, base)))
+		return impendingTypeSwitch(o, reconfigureTypeSwitch(o, bestowedTypeSwitch(o, base))), !faceDown && !o.ImpendingDormant() && o.Face().AllCreatureTypesCDA()
 	}
 	// Copy-on-write: the printed list is copied only once an effect actually
 	// applies to this object (most objects are untouched by the layer-4
@@ -91,6 +100,7 @@ func Types(b Board, act []state.ContinuousEffect, id state.ObjID, atStack state.
 	// and the appends -- runs on the owned copy, never on the face's array.
 	ty := base
 	owned := false
+	allCreatureTypes := !faceDown && o.Face().AllCreatureTypesCDA()
 	for i := range act {
 		ce := &act[i]
 		if ce.Layer != state.LType || !matchesWithTypes(b, ce, id, ty, atStack) {
@@ -111,6 +121,7 @@ func Types(b Board, act []state.ContinuousEffect, id state.ObjID, atStack state.
 			// its subtypes, and the flat type list cannot attribute a subtype
 			// word to a surviving type. Both flags together are therefore
 			// "everything but supertypes" -- Darksteel Mutation's oracle.
+			allCreatureTypes = false
 			kept := ty[:0]
 			for _, t := range ty {
 				if IsSupertype(t) {
@@ -120,6 +131,11 @@ func Types(b Board, act []state.ContinuousEffect, id state.ObjID, atStack state.
 			ty = kept
 		}
 		if ce.RemoveCreatureTypes || ce.RemoveSubTypes || ce.SetCreatureTypes {
+			// The semantic marker follows the same timestamp-ordered type
+			// changes as the materialized list. A later strip invalidates an
+			// earlier all-types grant; a subsequent AddAllCreatureTypes below
+			// can establish it again.
+			allCreatureTypes = false
 			kept := ty[:0]
 			for _, t := range ty {
 				if ce.RemoveSubTypes {
@@ -137,6 +153,13 @@ func Types(b Board, act []state.ContinuousEffect, id state.ObjID, atStack state.
 			ty = kept
 		}
 		if len(ce.RemoveTypes) > 0 {
+			if allCreatureTypes && slices.ContainsFunc(ce.RemoveTypes, func(remove string) bool {
+				return slices.ContainsFunc(ty, func(typ string) bool {
+					return effects.CreatureTypeWords(typ) && strings.EqualFold(typ, remove)
+				})
+			}) {
+				allCreatureTypes = false
+			}
 			kept := ty[:0]
 			for _, t := range ty {
 				if !slices.ContainsFunc(ce.RemoveTypes, func(remove string) bool { return strings.EqualFold(t, remove) }) {
@@ -161,13 +184,19 @@ func Types(b Board, act []state.ContinuousEffect, id state.ObjID, atStack state.
 		ty = appendLandTypes(ty, ce.AddTypes, b.LandTypeWords())
 		if ce.AddAllCreatureTypes {
 			ty = appendAllCreatureTypes(ty)
+			allCreatureTypes = true
 		}
 	}
 	if !owned && len(ty) == 0 {
 		// The copy of an empty list was nil; keep that exact value.
 		ty = nil
 	}
-	return impendingTypeSwitch(o, reconfigureTypeSwitch(o, bestowedTypeSwitch(o, ty)))
+	if o.ImpendingDormant() {
+		// The impending switch removes every creature subtype along with
+		// Creature, so it also invalidates the semantic all-types marker.
+		allCreatureTypes = false
+	}
+	return impendingTypeSwitch(o, reconfigureTypeSwitch(o, bestowedTypeSwitch(o, ty))), allCreatureTypes
 }
 
 // landTypeWordsCache memoises CorpusLandTypeWords per universe, keyed by the

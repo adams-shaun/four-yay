@@ -44,7 +44,7 @@ import (
 // moves the same cast from seq 9979 to 9983: foundations-calling-all-angels
 // runs Oblivion Ring, whose leave-the-battlefield trigger now returns the card
 // it exiled, changing the trajectory. The spell-copy cessation fix adds the
-// replay-visible cease event and moves this cast to seq 9985; the verdict is
+// replay-visible cease event and moves this cast to seq 9987; the verdict is
 // unchanged.
 // cli-20261004T233422Z-38455ebd (ConditionZone$ now filters a battlefield
 // zone too: a Defined$ object that left the battlefield no longer satisfies
@@ -67,7 +67,7 @@ func TestRoundSevenFindingsMirror(t *testing.T) {
 	}{
 		{4038, []string{"ulalek-eldrazi", "rakdos-muscle-scam-exe", "vivi-ornitier-cedh", "foundations-calling-all-angels"}, true, 0, ""},
 		{6085, []string{"vivi-ornitier-cedh", "ulalek-eldrazi", "deadly-disguise", "rakdos-muscle-scam-exe"}, true, 173, "expected:float_then_cast:float_removed_every_target"},
-		{6191, []string{"foundations-wretched-ranks", "avengers-assemble", "ulalek-eldrazi", "hearthhull-worldseed-landfall"}, true, 9985, "expected:float_then_cast:float_trigger_precedes_cast"},
+		{6191, []string{"foundations-wretched-ranks", "avengers-assemble", "ulalek-eldrazi", "hearthhull-worldseed-landfall"}, true, 9987, "expected:float_then_cast:float_trigger_precedes_cast"},
 		{5108, []string{"eldrazi-stompy", "mono-red-prowess"}, false, 675, "expected:float_then_cast:float_removed_every_target"},
 	} {
 		reports := round6Game(t, d, GameSpec{Seed: tc.seed, Decks: tc.decks, Commander: tc.commander, Policy: "bot"})
