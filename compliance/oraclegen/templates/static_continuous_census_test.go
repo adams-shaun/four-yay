@@ -37,13 +37,16 @@ var wantStaticContinuousCensus = map[string]map[string]int{
 		"skip:static counts cards exiled with the source": 1,
 	},
 	"EOE": {
-		"served": 37,
-		"skip:static effect not observable on a probe or the card":                      1,
-		"skip:static adds an SVar a granted trigger reads (needs that trigger's cause)": 1,
-		"skip:static look-at not observable":                                            1,
-		"skip:static changes a player rule (hand size, land plays), not a permanent":    1,
-		"skip:static needs counters on the affected permanent":                          10,
-		"skip:static grants an ability, which waits for levelb-static-granted-ability":  13,
+		"served": 40,
+		"skip:static effect not observable on a probe or the card":                                                         1,
+		"skip:static adds an SVar a granted trigger reads (needs that trigger's cause)":                                    1,
+		"skip:static look-at not observable":                                                                               1,
+		"skip:static changes a player rule (hand size, land plays), not a permanent":                                       1,
+		"skip:static needs counters on the affected permanent":                                                             10,
+		"skip:static grants a mana ability to a recipient the fixture cannot give it (a token or a chosen-name recipient)": 2,
+		"skip:static grants a static ability (observed only through its own effect)":                                       1,
+		"skip:static grants a triggered ability (needs a probe-sourced trigger cause)":                                     5,
+		"skip:static grants an activated ability (needs the driver's activate on a granted ability)":                       2,
 	},
 	"FDN": {
 		"served": 64,
@@ -68,21 +71,22 @@ var wantStaticContinuousCensus = map[string]map[string]int{
 		"skip:static needs a token (setup places none)":                                                   1,
 		"skip:static needs counters on the affected permanent":                                            2,
 	},
-	// DFT carries the Surveyor cycle's graveyard AddAbility$ grant, so the
-	// engine-gap skip is pinned here as its own key (levelb-static-zone-
-	// permissions named it, so the census tells it apart from the MaxSpeed
-	// setup gap).
+	// DFT includes the Surveyor cycle's graveyard AddAbility$ grant, whose
+	// engine-gap skip remains pinned separately.
 	"DFT": {
 		"served": 25,
-		"skip:static amount is a computed count the fixture does not make observable":            1,
-		"skip:static characteristic-defining P/T of a non-creature (the snapshot omits its P/T)": 1,
-		"skip:static effect not observable on a probe or the card":                               2,
-		"skip:static grants a triggered ability (needs a probe-sourced trigger cause)":           1,
-		"skip:static grants only keywords outside the compared evergreen set":                    1,
-		"skip:static hand size is not observable in the permanent snapshot":                      1,
-		"skip:static removes the abilities of a permanent the fixture gives none":                1,
-		"skip:static grants an ability, which waits for levelb-static-granted-ability":           28,
-		"skip:static granted ability in Graveyard is not offered by the engine":                  4,
+		"skip:static amount is a computed count the fixture does not make observable":                                      1,
+		"skip:static characteristic-defining P/T of a non-creature (the snapshot omits its P/T)":                           1,
+		"skip:static effect not observable on a probe or the card":                                                         2,
+		"skip:static grants a triggered ability (needs a probe-sourced trigger cause)":                                     8,
+		"skip:static grants only keywords outside the compared evergreen set":                                              1,
+		"skip:static hand size is not observable in the permanent snapshot":                                                1,
+		"skip:static removes the abilities of a permanent the fixture gives none":                                          1,
+		"skip:static grants a mana ability to a recipient the fixture cannot give it (a token or a chosen-name recipient)": 3,
+		"skip:static grants a static ability (observed only through its own effect)":                                       8,
+		"skip:static grants an activated ability (needs the driver's activate on a granted ability)":                       8,
+		"skip:static grants a replacement effect (needs an event the replacement can change)":                              2,
+		"skip:static granted ability in Graveyard is not offered by the engine":                                            4,
 	},
 }
 
