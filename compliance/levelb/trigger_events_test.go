@@ -35,6 +35,8 @@ func TestEventTriggerSubFamilies(t *testing.T) {
 		{"Gideon the Oathless", "AbilityCast", map[string]string{"ValidSA": "Activated.Loyalty+OppCtrl"}, "trigger.gap:AbilityCast", true, false},
 		{"Way of the Mind Sculptor", "AbilityCast", map[string]string{"ValidActivatingPlayer": "You", "ValidSA": "Activated.Loyalty+CountersRemovedToPayGE2"}, "trigger.gap:AbilityCast", true, false},
 		{"Inspired Tethermage", "CounterAddedOnce", map[string]string{"CounterType": "LOYALTY", "ValidCard": "Planeswalker", "ValidSource": "You"}, "trigger.loyalty-activated", false, false},
+		{"Stormchaser's Talent", "ClassLevelGained", map[string]string{"ClassLevel": "2", "ValidCard": "Card.Self", "TriggerZones": "Battlefield"}, "trigger.class-level-gained", false, false},
+		{"not my Class", "ClassLevelGained", map[string]string{"ClassLevel": "2", "ValidCard": "Card.Other"}, "trigger.gap:ClassLevelGained", true, false},
 		{"other counters", "CounterAddedOnce", map[string]string{"CounterType": "P1P1", "ValidSource": "You"}, "trigger.gap:CounterAddedOnce", true, false},
 		{"Titanbones", "Discarded", map[string]string{"ValidCard": "Card.Self"}, "trigger.discarded", false, false},
 		{"Tinybones", "DiscardedAll", map[string]string{"ValidPlayer": "Player"}, "trigger.discarded", false, false},

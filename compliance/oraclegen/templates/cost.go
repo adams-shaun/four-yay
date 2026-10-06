@@ -26,6 +26,9 @@ type costProbe struct {
 	first       *oraclegen.Step
 	// pre are setup-time steps (an attach) run before the probe step.
 	pre []oraclegen.Step
+	// preXAbility is parallel to pre: the XMage rule-text prefix of a prelude
+	// activate step (a Class level-up), "" on every other prelude step.
+	preXAbility []string
 	// seat adjusts p0's setup after the permanents are placed (a counter).
 	seat func(*oraclegen.Seat)
 	// activate makes the probe step an activation of one of the probe
