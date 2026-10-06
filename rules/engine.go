@@ -305,7 +305,7 @@ func submitCommit(e *Engine, d *decision.Decision, in decision.Intent) {
 		// cast transaction with no witness: the caster pays in the announced
 		// CR 601.2g window (announce_pay.go).
 		e.emit(events.Event{Kind: events.Priority, Player: e.G.Priority, Amount: 0})
-		e.beginCastAnnounced(in.Player, decision.Option{Kind: "cast", Obj: action.Cast.Object})
+		e.beginCastAnnounced(in.Player, plannedCastOption(action.Cast))
 	} else if in.Payment != nil {
 		e.PaymentStats.RecordPlannedSubmission()
 		action, _ := pay.ActionFor(d, in.Payment.ActionID)
@@ -313,7 +313,7 @@ func submitCommit(e *Engine, d *decision.Decision, in decision.Intent) {
 		// cast transaction.  The plan is only an immutable payment continuation;
 		// it never represents a second casting implementation.
 		e.emit(events.Event{Kind: events.Priority, Player: e.G.Priority, Amount: 0})
-		e.beginCastWithPayment(in.Player, decision.Option{Kind: "cast", Obj: action.Cast.Object}, in.Payment)
+		e.beginCastWithPayment(in.Player, plannedCastOption(action.Cast), in.Payment)
 	} else {
 		e.handle(d, in)
 	}
