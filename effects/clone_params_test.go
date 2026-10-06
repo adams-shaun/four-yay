@@ -88,9 +88,12 @@ func TestCompileClone(t *testing.T) {
 // TestCloneOfIsAllocationFree: a configured record or a front-cache hit
 // allocates nothing.
 func TestCloneOfIsAllocationFree(t *testing.T) {
-	bound := &cards.SA{API: "Clone", Params: map[string]string{"Defined": "Targeted", "Duration": "UntilEndOfTurn"}}
+	bound := slottedSA(t, "Clone", map[string]string{"Defined": "Targeted", "Duration": "UntilEndOfTurn"})
 	f := NewSAFacts(bound)
 	f.Publish()
+	if LoadSAFacts(bound) != f {
+		t.Fatal("precondition: the configured record is not published on bound's facts slot")
+	}
 	cached := &cards.SA{API: "Clone", Params: map[string]string{"Choices": "Creature.Other"}}
 	if n := allocsPerRun(100, func() { _ = CloneOf(bound) }); n != 0 {
 		t.Fatalf("configured CloneOf allocated %v objects per run; want 0", n)

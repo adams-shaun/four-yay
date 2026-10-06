@@ -68,9 +68,12 @@ func TestCompileRemoveCounter(t *testing.T) {
 // TestRemoveCounterOfIsAllocationFree: a configured record or a front-cache
 // hit allocates nothing.
 func TestRemoveCounterOfIsAllocationFree(t *testing.T) {
-	bound := &cards.SA{API: "RemoveCounter", Params: map[string]string{"CounterType": "TIME", "CounterNum": "1"}}
+	bound := slottedSA(t, "RemoveCounter", map[string]string{"CounterType": "TIME", "CounterNum": "1"})
 	f := NewSAFacts(bound)
 	f.Publish()
+	if LoadSAFacts(bound) != f {
+		t.Fatal("precondition: the configured record is not published on bound's facts slot")
+	}
 	cached := &cards.SA{API: "RemoveCounter", Params: map[string]string{"CounterType": "P1P1"}}
 	RemoveCounterOf(cached)
 	if n := allocsPerRun(100, func() {

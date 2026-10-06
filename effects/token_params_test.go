@@ -54,9 +54,12 @@ func TestCompileToken(t *testing.T) {
 // TestTokenOfIsAllocationFree: a configured record or a front-cache hit
 // allocates nothing.
 func TestTokenOfIsAllocationFree(t *testing.T) {
-	bound := &cards.SA{API: "Token", Params: map[string]string{"TokenScript": "c_a_treasure_sac", "TokenAmount": "2"}}
+	bound := slottedSA(t, "Token", map[string]string{"TokenScript": "c_a_treasure_sac", "TokenAmount": "2"})
 	f := NewSAFacts(bound)
 	f.Publish()
+	if LoadSAFacts(bound) != f {
+		t.Fatal("precondition: the configured record is not published on bound's facts slot")
+	}
 	cached := &cards.SA{API: "Token", Params: map[string]string{"TokenScript": "w_1_1_soldier"}}
 	TokenOf(cached)
 	if n := allocsPerRun(100, func() {
