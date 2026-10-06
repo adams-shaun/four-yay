@@ -298,7 +298,7 @@
 "ONS": {"outstanding":320},
 "ORI": {"outstanding":242},
 "OTC": {"outstanding":255},
-"OTJ": {"outstanding":11},
+"OTJ": {"level":"A","outstanding":0},
 "OTP": {"outstanding":58},
 "OVNT": {"outstanding":10},
 "P02": {"outstanding":144},

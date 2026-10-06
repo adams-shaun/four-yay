@@ -73,6 +73,11 @@ public class ScenarioReplay extends CardTestPlayerBase {
     private int turn = 1;
     private int activeSeat = 0;
     private static final PhaseStep MAIN = PhaseStep.PRECOMBAT_MAIN;
+    private static final Set<String> SPREE_CARDS = Set.of(
+            "Dance of the Tumbleweeds", "Getaway Glamer", "Great Train Heist",
+            "Insatiable Avarice", "Jailbreak Scheme", "Lively Dirge",
+            "Metamorphic Blast", "Rush of Dread", "Shifting Grift",
+            "Smuggler's Surprise", "Unfortunate Accident");
 
     private final List<JsonObject> snaps = new ArrayList<>();
     // The step a cast/resolve/checkpoint is registered at. MAIN until an
@@ -497,6 +502,9 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 int beforeTargetsA = playerA.getTargets().size();
                 int beforeTargetsB = playerB.getTargets().size();
                 if (i < xans.size() && xans.get(i).isJsonArray()) {
+                    // Queue answers by their recorded seat before registering
+                    // actions. XMage consumes these queues while executing the
+                    // cast; the action registration itself is deferred.
                     scripted(xans.get(i).getAsJsonArray());
                 }
                 int beforeA = playerA.getActions().size();
@@ -1103,6 +1111,12 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 }
                 if (!sc0.has("xmage_answers")) {
                     answers(st, p);
+                }
+                // Spree permits choosing further modes after the first. Its
+                // generated answer records the chosen mode, not the decision
+                // to stop, so close XMage's repeated mode prompt explicitly.
+                if (SPREE_CARDS.contains(xmageName.isEmpty() ? refName(str(st, "card")) : xmageName)) {
+                    setModeChoice(p, TestPlayer.MODE_SKIP);
                 }
                 castCostPicks = new ArrayList<>();
                 if (st.has("answers")) {
