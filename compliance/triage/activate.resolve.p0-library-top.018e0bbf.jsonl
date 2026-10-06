@@ -1,2 +1,2 @@
 {"shape":{"template":"activate","op":"resolve","field":"p0.library_top","diff":"gorge+[Forest] xmage+[Shock]"},"key":"activate | resolve | p0.library_top | gorge+[Forest] xmage+[Shock]","cards":1}
-{"card":"Tezzeret, Cruel Captain","template":"activate#0.1","status":"diverge","api":"ChangesZone:PutCounter","sets":["EOE"],"detail":"step 1 (resolve) p0.library_top: gorge \"[Wastes, Wastes, Jace Beleren, Forest, Wastes]\", xmage \"[Shock, Wastes, Jace Beleren, Wastes, Wastes]\""}
+{"card":"Malboro","template":"activate#0.0","status":"diverge","api":"ChangesZone:Discard","sets":["FIN"],"detail":"step 1 (resolve) p0.library_top: gorge \"[Wastes, Jace Beleren, Wastes, Wastes, Forest]\", xmage \"[Wastes, Shock, Wastes, Wastes, Jace Beleren]\""}
