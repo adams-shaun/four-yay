@@ -300,7 +300,7 @@ func linePrefix(line, sourceName string) string {
 	if i < 0 {
 		return ""
 	}
-	return xmageCostText(selfRef(strings.TrimSpace(line[:i]), sourceName))
+	return xmageCostText(selfRef(strings.TrimSpace(line[:i]), sourceName), sourceName)
 }
 
 // selfRef rewrites every mention of the card's name in text to {this}:
