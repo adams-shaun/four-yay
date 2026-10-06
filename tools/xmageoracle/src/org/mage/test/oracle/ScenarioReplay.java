@@ -922,7 +922,15 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     setChoiceAmount(p, Integer.parseInt(v));
                     break;
                 case "mode":
-                    setModeChoice(p, v);
+                    // Some GenericChoice effects are recorded as a gorge
+                    // mode decision but XMage asks the player through
+                    // chooseUse. Route their boolean answer to the player's
+                    // CHOICE queue, not the numeric mode queue.
+                    if (v.equalsIgnoreCase("yes") || v.equalsIgnoreCase("no")) {
+                        setChoice(p, v.equalsIgnoreCase("yes"));
+                    } else {
+                        setModeChoice(p, v);
+                    }
                     break;
                 case "choice":
                     if (v.equals("yes") || v.equals("no")) {

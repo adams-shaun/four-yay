@@ -179,6 +179,9 @@ func castWithProbes(reg *cards.Registry, f *cards.Face, name, mana string, slots
 					fx.P0().Battlefield = appendFixtureUnique(fx.P0().Battlefield, probe)
 				}
 				sc := buildStackScenario(f, name, physicalName(reg, name), mana, pre, fx, slots, stackIdx, answers)
+				if oraclegen.ShufflesBackAndDraws(f) {
+					oraclegen.UniformShuffleSetup(&sc, name)
+				}
 				if n, res, ok := oraclegen.Settle(reg, sc); ok {
 					for i := 0; i < n; i++ {
 						sc.Steps = append(sc.Steps, oraclegen.Step{Op: "resolve"})
