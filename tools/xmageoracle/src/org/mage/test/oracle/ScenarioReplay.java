@@ -742,57 +742,6 @@ public class ScenarioReplay extends CardTestPlayerBase {
         return ns.size();
     }
 
-    /** Puts each seat's setup "counters" (card name -> gorge counter kind ->
-     * n) on every battlefield permanent of that name the seat controls,
-     * added to what it entered with, exactly as gorge's runner does at setup
-     * (a planeswalker's loyalty headroom, a +1/+1-counter target fixture). */
-    private void addSetupCounters(Game g) {
-        JsonObject setup = sc0.has("setup") ? sc0.getAsJsonObject("setup") : new JsonObject();
-        for (int i = 0; i < 2; i++) {
-            JsonObject s = setup.has("p" + i) ? setup.getAsJsonObject("p" + i) : new JsonObject();
-            if (!s.has("counters")) {
-                continue;
-            }
-            TestPlayer pl = seat(i);
-            for (Map.Entry<String, JsonElement> card : s.getAsJsonObject("counters").entrySet()) {
-                String name = xmageSpelling(card.getKey());
-                boolean placed = false;
-                for (Permanent perm : g.getBattlefield().getAllPermanents()) {
-                    if (!pl.getId().equals(perm.getControllerId()) || !perm.getName().equals(name)) {
-                        continue;
-                    }
-                    placed = true;
-                    for (Map.Entry<String, JsonElement> c : card.getValue().getAsJsonObject().entrySet()) {
-                        perm.addCounters(xmageCounter(c.getKey()).createInstance(c.getValue().getAsInt()), pl.getId(), null, g);
-                    }
-                }
-                if (!placed) {
-                    throw new IllegalArgumentException("setup counters: p" + i + " controls no " + name);
-                }
-            }
-        }
-    }
-
-    /** Maps a gorge counter kind (P1P1, M1M1, LOYALTY) to XMage's type. */
-    private static CounterType xmageCounter(String kind) {
-        String n;
-        switch (kind) {
-            case "P1P1":
-                n = "+1/+1";
-                break;
-            case "M1M1":
-                n = "-1/-1";
-                break;
-            default:
-                n = kind.toLowerCase();
-        }
-        CounterType t = CounterType.findByName(n);
-        if (t == null) {
-            throw new IllegalArgumentException("setup counters: unknown counter kind " + kind);
-        }
-        return t;
-    }
-
     /** Binds one XMage alias per setup ref (the string build() recorded) to
      * the setup object itself, so a target ref naming two same-name cards
      * ("p0:Grizzly Bears#2") reaches exactly one of them. Counts follow the
