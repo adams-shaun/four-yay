@@ -14,6 +14,39 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
+// TestKeywordActionModesDoNotRejectHighKinds pins the eligibility shape for
+// the three marker modes: their marker Kinds are at or past
+// triggerMaskKindBits, so they must go through the fail-open full-matcher
+// path, never a modeRejectsHighKindsTab entry. Re-adding one of those entries
+// (the shape the prior round shipped) is the latent trap this test guards:
+// modeTrigKinds would then mask off every high kind, including the marker's
+// own, and the mode's trigger would never fire. modeRejectsHighKinds is read
+// directly by name so the assertion cannot pass through the k>=128 fail-open
+// that hides the entry's effect at the current ordinals.
+func TestKeywordActionModesDoNotRejectHighKinds(t *testing.T) {
+	t.Parallel()
+	if events.ForageAction < 128 || events.ManifestDreadAction < 128 || events.CollectEvidenceAction < 128 {
+		t.Fatalf("precondition: the marker Kinds (forage=%d manifest=%d collect=%d) are no longer high kinds, so this test no longer exercises the tab path",
+			events.ForageAction, events.ManifestDreadAction, events.CollectEvidenceAction)
+	}
+	cases := []struct {
+		mode cards.TriggerMode
+		kind events.Kind
+	}{
+		{cards.TriggerForage, events.ForageAction},
+		{cards.TriggerManifestDread, events.ManifestDreadAction},
+		{cards.TriggerCollectEvidence, events.CollectEvidenceAction},
+	}
+	for _, c := range cases {
+		if modeRejectsHighKinds(c.mode) {
+			t.Errorf("mode %s is in modeRejectsHighKindsTab: its own high marker kind would be masked off", c.mode)
+		}
+		if !modeTrigKinds(c.mode).has(c.kind) {
+			t.Errorf("mode %s does not admit its own marker kind %s", c.mode, c.kind)
+		}
+	}
+}
+
 func drainKeywordAction(t *testing.T, e *Engine) {
 	t.Helper()
 	e.pending = nil

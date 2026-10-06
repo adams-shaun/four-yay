@@ -407,19 +407,6 @@ var triggerModeEventRows = [...]struct {
 	// admitted through the same fail-open path and gated by
 	// trigmatch.caseSolvedMatches.
 	{cards.TriggerCaseSolved, 0},
-	// cli-20261006T024353Z-ce4a0d59: Forage, ManifestDread and
-	// CollectEvidence read marker Kinds past triggerMaskKindBits (the
-	// SurvEil/Evolved shape), so a mask bit is not encodable and allows()
-	// fails open for every high kind; the full matcher
-	// (trigmatch.forageMatches / manifestDreadMatches /
-	// collectEvidenceMatches) gates them. Naming them here keeps a
-	// Forage-only face's mask narrow for every other kind, and -- unlike
-	// a modeRejectsHighKindsTab entry -- a mask of 0 does NOT reject the
-	// marker's own high kind (modeTrigKinds returns allTrigKinds when the
-	// mask is 0, so the trigger still fires on its own event).
-	{cards.TriggerForage, 0},
-	{cards.TriggerManifestDread, 0},
-	{cards.TriggerCollectEvidence, 0},
 	// The Evolved marker's ordinal is past the 64-bit mask's reach, the
 	// GiveGift/Surveil shape: a mask bit is not encodable and allows()
 	// fails open for every kind at or past triggerMaskKindBits, so the
