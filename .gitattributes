@@ -1,12 +1,3 @@
-# TEST_HISTORY.md and ALLOC_HISTORY.md are append-only measurement tables that
-# every branch writes a row to, so they conflict on essentially every parallel
-# merge -- four times in one afternoon during the M3 Commander round, always
-# with the same trivial "keep both sides" resolution. A union merge takes both
-# sides' lines automatically. Row order within a merge is not meaningful (each
-# row carries its own timestamp), and cmd/testtime and cmd/allocgate only ever
-# append, so there is no resolution a union can get wrong here.
-*_HISTORY.md merge=union
-
 # deck.list is the same shape: census input sections that every deck-census
 # branch appends one of, so parallel census merges all conflicted on it and
 # each needed a merge-resolver seat (7 at once on 2026-09-19). Sections are

@@ -68,7 +68,7 @@ so most of these hurt someone other than you.
   seed-sweep test starts with `//go:build fuzz` and runs via `make fuzz` or
   `go test -tags fuzz`; the default suite and the pipeline gates skip it.
   Regression tests pinning a fixed fuzz finding stay untagged.
-- **Don't raise a `budget_s`** without a `Test-Budget-Approved:` trailer.
+- **Don't add a row to `wall_exceptions.txt` / `rss_exceptions.txt`** (`internal/testutil/testdata/`): they only shrink. Split the over-budget test instead.
 - **Don't write or run a test outside the budget** (2 GB RSS, 2 vCPU, 1 min
   wall; operator 2026-10-05). Don't call `cards.LoadRegistry` in a test (use
   `internal/testutil.CorpusRegistry`), don't pass `-count=1`, don't run

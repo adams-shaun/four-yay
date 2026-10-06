@@ -17,9 +17,8 @@ import (
 // the runtime's 100 Hz per-thread default. The heap profile is written once,
 // after every game has finished: a forced GC first, so the inuse_space sample
 // is live heap only, not heap that died mid-run; pprof reads BOTH alloc_space
-// (cumulative allocation over the whole run, the garbage-creation signal
-// cmd/allocgate's ALLOC_HISTORY budgets track) and inuse_space (live heap at
-// end) from this one file, so a single -memprofile flag serves both views.
+// (cumulative allocation over the whole run, the garbage-creation signal) and
+// inuse_space (live heap at end) from this one file, so a single -memprofile flag serves both views.
 // Sampling is the runtime's default 512 KiB rate, the same rate every
 // -test.memprofile in this repo samples at, so magnitudes are comparable to
 // those runs.
