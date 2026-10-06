@@ -176,6 +176,10 @@ func staticBackFaceScenario(f *cards.Face, name string, req levelb.Requirement, 
 	sc := oraclegen.Scenario{
 		Setup:        map[string]oraclegen.Seat{"p0": p0, "p1": {}},
 		SetupAnswers: oraclegen.OpeningHandAnswers(f),
+		// Observed from genesis, so no steps -- but an empty array, not
+		// JSON null: the XMage driver reads "steps" as an array, and a null
+		// crashed whole-set replays (LCI, TLA, 2026-10-06).
+		Steps: []oraclegen.Step{},
 	}
 	oraclegen.Baseline(sc.Setup, f)
 	return StaticApplies.item(f, name, sc)
