@@ -8,7 +8,8 @@
 # Mage.Tests on first use and whenever its source changes.
 #
 # XMAGE_ORACLE_MEM caps the JVM's systemd scope (default 12G) and
-# XMAGE_ORACLE_HEAP its heap (default 10g).
+# XMAGE_ORACLE_HEAP its heap (default: 1G under the scope, so a smaller
+# scope never carries a heap the kernel would OOM-kill instead of GC).
 set -euo pipefail
 
 in=${1:?usage: xmage-oracle-run.sh IN.jsonl OUT.jsonl}
@@ -34,13 +35,34 @@ cp="$tests/target/test-classes:$tests/target/classes:$(cat "$cpfile")"
 classes="$root/driver"
 stamp="$classes/.src.sha"
 sum=$(sha256sum "$src" | cut -d' ' -f1)
+# full-replay.sh starts several of these at once: without the lock each saw
+# a stale stamp and rm -rf'd the classes another was compiling or loading.
+# The stamp is re-read under the lock so only the first job compiles.
+exec 9>"$root/driver.lock"
+flock 9
 if [ ! -f "$stamp" ] || [ "$(cat "$stamp")" != "$sum" ]; then
   rm -rf "$classes" && mkdir -p "$classes"
-  javac -nowarn -d "$classes" -cp "$cp" "$src"
+  javac -nowarn -d "$classes" -cp "$cp" "$src" || exit 1
   echo "$sum" > "$stamp"
 fi
+flock -u 9; exec 9>&-
 
-cd "$tests"
-exec systemd-run --user --scope --quiet -p MemoryMax="${XMAGE_ORACLE_MEM:-12G}" -- \
-  java -Xmx"${XMAGE_ORACLE_HEAP:-10g}" -Dlog4j.configuration=file:/dev/null -cp "$classes:$cp" \
+mem=${XMAGE_ORACLE_MEM:-12G}; mem_g=${mem%[Gg]}
+heap=${XMAGE_ORACLE_HEAP:-$(( mem_g > 2 ? mem_g - 1 : 1 ))g}
+# Parallel replays (validation/oracle/full-replay.sh, FULL_REPLAY_JOBS) must
+# not share XMage's H2 card DB at ./db/cards.h2: H2's auto-server handoff
+# fails a JVM at start-up ("Locked by another process", or "Connection
+# refused" once the owning JVM exits). XMAGE_ORACLE_PRIVATE_DB=1 runs the
+# JVM in a scratch cwd beside OUT whose db/ is a private copy (~300 MB) and
+# whose other entries link back to Mage.Tests.
+run_dir=$tests
+if [ "${XMAGE_ORACLE_PRIVATE_DB:-0}" = 1 ]; then
+  run_dir="$out.cwd"; rm -rf "$run_dir"; mkdir -p "$run_dir/db"
+  trap 'rm -rf "$run_dir"' EXIT
+  for e in "$tests"/*; do [ "$(basename "$e")" = db ] || ln -s "$e" "$run_dir/"; done
+  cp --reflink=auto "$tests/db/cards.h2.mv.db" "$run_dir/db/"
+fi
+cd "$run_dir"
+systemd-run --user --scope --quiet -p MemoryMax="$mem" -- \
+  java -Xmx"$heap" -Dlog4j.configuration=file:/dev/null -cp "$classes:$cp" \
   org.mage.test.oracle.ScenarioReplay "$in" "$out" >"$out.log" 2>&1

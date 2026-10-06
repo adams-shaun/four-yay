@@ -40,6 +40,7 @@ import mage.game.permanent.Permanent;
 import mage.game.stack.Spell;
 import mage.game.stack.StackObject;
 import mage.players.ManaPool;
+import mage.util.RandomUtil;
 import mage.players.Player;
 import mage.filter.FilterCard;
 import mage.target.TargetCard;
@@ -559,10 +560,17 @@ public class ScenarioReplay extends CardTestPlayerBase {
             JsonObject sc = JsonParser.parseString(line).getAsJsonObject();
             long t0 = System.nanoTime();
             JsonObject res;
+            // XMage shuffles and picks "at random" from one static Random.
+            // Seed it from the scenario id so a rerun replays the same luck
+            // and a verdict cannot flip between identical runs.
+            RandomUtil.setSeed(scenarioSeed(sc));
             try {
                 res = r.replay(sc);
             } catch (Throwable t) {
                 res = harnessRow(sc, true, t);
+            }
+            if (res.has("harness") && res.get("harness").isJsonPrimitive()) {
+                res.addProperty("harness", stableMessage(res.get("harness").getAsString()));
             }
             res.addProperty("ms", (System.nanoTime() - t0) / 1_000_000);
             out.println(GSON.toJson(res));
@@ -570,6 +578,24 @@ public class ScenarioReplay extends CardTestPlayerBase {
             n++;
         }
         return n;
+    }
+
+    /** The per-scenario RNG seed: the id's (or, without one, the name's)
+     * String.hashCode, which the JLS fixes, so it is the same on every JVM. */
+    static long scenarioSeed(JsonObject sc) {
+        String key = sc.has("id") && sc.get("id").isJsonPrimitive() ? sc.get("id").getAsString() : str(sc, "name");
+        return key == null ? 0L : key.hashCode();
+    }
+
+    private static final java.util.regex.Pattern OBJECT_ID = java.util.regex.Pattern.compile(" object_id='[0-9a-f-]+'");
+    private static final java.util.regex.Pattern SHORT_ID = java.util.regex.Pattern.compile(" \\[[0-9a-f]{3}\\]");
+
+    /** A harness message with XMage's per-run object ids (UUIDs from
+     * UUID.randomUUID, which no seed reaches) removed: the full object_id
+     * attribute and the three-hex short id XMage prints after a name. The
+     * message is otherwise unchanged, so a rerun writes the same verdict. */
+    static String stableMessage(String msg) {
+        return SHORT_ID.matcher(OBJECT_ID.matcher(msg).replaceAll("")).replaceAll("");
     }
 
     /** Null-safe read of a scenario's "steps". A missing key, an explicit

@@ -19,6 +19,7 @@ func TestSelfLTBRecipes(t *testing.T) {
 		{"Greed's Gambit", "trigger#0.2", "p0:Disenchant"},
 		{"Syr Vondam, Sunstar Exemplar", "trigger#0.1", "p0:Murder"},
 		{"Molten Man, Inferno Incarnate", "trigger#0.1", "p0:Unsummon"},
+		{"Three Tree Scribe", "trigger#0.0", "p0:Swords to Plowshares"}, // Destination$ list: exile
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			it := triggerRequirement(t, reg, tc.name, tc.key, ltbSelfSub)

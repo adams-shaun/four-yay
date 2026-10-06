@@ -1,4 +1,4 @@
-{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Found wrong choice command (invalid target or miss skip command):"},"key":"activate | harness | xmage | AssertionError: Found wrong choice command (invalid target or miss skip command):","cards":15}
+{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Found wrong choice command (invalid target or miss skip command):"},"key":"activate | harness | xmage | AssertionError: Found wrong choice command (invalid target or miss skip command):","cards":14}
 {"card":"Aang, Swift Savior","template":"activate#0.0","status":"harness","api":"ChangesZone:Airbend","sets":["TLA"],"detail":"xmage: AssertionError: Found wrong choice command (invalid target or miss skip command):"}
 {"card":"Flexible Waterbender","template":"activate#0.0","status":"harness","api":"-","sets":["TLA"],"detail":"xmage: AssertionError: Found wrong choice command (invalid target or miss skip command):"}
 {"card":"Foggy Swamp Vinebender","template":"activate#0.0","status":"harness","api":"-","sets":["TLA"],"detail":"xmage: AssertionError: Found wrong choice command (invalid target or miss skip command):"}
@@ -6,7 +6,6 @@
 {"card":"Giant Koi","template":"activate#0.0","status":"harness","api":"-","sets":["TLA"],"detail":"xmage: AssertionError: Found wrong choice command (invalid target or miss skip command):"}
 {"card":"Intruding Soulrager","template":"activate#0.0","status":"harness","api":"-","sets":["DSK"],"detail":"xmage: AssertionError: Found wrong choice command (invalid target or miss skip command):"}
 {"card":"Invasion Submersible","template":"activate#0.0","status":"harness","api":"ChangesZone:ChangeZone","sets":["TLA"],"detail":"xmage: AssertionError: Found wrong choice command (invalid target or miss skip command):"}
-{"card":"Izoni, Center of the Web","template":"activate#0.0","status":"harness","api":"ChangesZone:Token+Attacks:Token","sets":["MKM"],"detail":"xmage: AssertionError: Found wrong choice command (invalid target or miss skip command):"}
 {"card":"Katara, Bending Prodigy","template":"activate#0.0","status":"harness","api":"Phase:PutCounter","sets":["TLA"],"detail":"xmage: AssertionError: Found wrong choice command (invalid target or miss skip command):"}
 {"card":"Katara, Water Tribe's Hope","template":"activate#0.0","status":"harness","api":"ChangesZone:Token","sets":["TLA"],"detail":"xmage: AssertionError: Found wrong choice command (invalid target or miss skip command):"}
 {"card":"North Pole Patrol","template":"activate#0.1","status":"harness","api":"-","sets":["TLA"],"detail":"xmage: AssertionError: Found wrong choice command (invalid target or miss skip command):"}

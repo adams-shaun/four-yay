@@ -29,7 +29,14 @@ import (
 // levelb-static-granted-abilities, which observes a granted mana ability or
 // loyalty ability and an extra land drop as an offered option and gives every
 // other grant shape (activated, triggered and static abilities, abilities
-// gained from another card, an SVar) a named skip instead of the generic one.
+// gained from another card, an SVar) a named skip instead of the generic one,
+// and by levelb-static-not-observable-shapes, which serves the rows the
+// scenario itself broke (a prelude casting the probe card, a counter-gated base
+// without the filter's probes, an Aura whose effect lands on a non-probe host,
+// a back-face Equipment never attached): FRA Puppet Crafting moves from skip to
+// served. This table pins only BIG, EOE, FDN, FRA and DFT; the rows the same
+// ticket newly serves in the other sets (WOE, ECL, MSH, LCI, FIN, TLA, OTJ) are
+// pinned by TestStaticNotObservableShapes instead.
 // It fails in both directions.
 var wantStaticContinuousCensus = map[string]map[string]int{
 	"BIG": {
@@ -37,10 +44,8 @@ var wantStaticContinuousCensus = map[string]map[string]int{
 		"skip:static counts cards exiled with the source": 1,
 	},
 	"EOE": {
-		"served": 42,
+		"served": 43,
 		"skip:static effect not observable on a probe or the card":                      1,
-		"skip:static adds an SVar a granted trigger reads (needs that trigger's cause)": 1,
-		"skip:static look-at not observable":                                            1,
 		"skip:static changes a player rule (hand size, land plays), not a permanent":    1,
 		"skip:static needs counters on the affected permanent":                          10,
 		"skip:static grants a static ability (observed only through its own effect)":    1,
@@ -49,19 +54,17 @@ var wantStaticContinuousCensus = map[string]map[string]int{
 		"skip:static gated self grant is not offered in the gate-on fixture":            1,
 	},
 	"FDN": {
-		"served": 64,
+		"served": 65,
 		"skip:static effect not observable on a probe or the card":                                   3,
-		"skip:static adds an SVar a granted trigger reads (needs that trigger's cause)":              1,
 		"skip:static grants an activated ability (needs the driver's activate on a granted ability)": 1,
-		"skip:static look-at not observable":                                                         1,
 		"skip:static amount is a computed count the fixture does not make observable":                1,
 		"skip:static removes the abilities of a permanent the fixture gives none":                    1,
 		"skip:static hand size is not observable in the permanent snapshot":                          1,
 		"skip:static needs counters on the affected permanent":                                       2,
 	},
 	"FRA": {
-		"served": 26,
-		"skip:static effect not observable on a probe or the card":                                        3,
+		"served": 27,
+		"skip:static effect not observable on a probe or the card":                                        2,
 		"skip:static grants a loyalty ability that adds mana (its offered label names no text to assert)": 1,
 		"skip:static grants a loyalty ability the probe planeswalkers cannot pay for":                     2,
 		"skip:static grants a static ability (observed only through its own effect)":                      1,

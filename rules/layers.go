@@ -9,7 +9,6 @@ package rules
 
 import (
 	"fmt"
-	"reflect"
 	"slices"
 	"strings"
 
@@ -62,7 +61,7 @@ func (e *Engine) staticEffects(dst []ContinuousEffect) []ContinuousEffect {
 	out := e.staticEffectsWalk(dst, true)
 	if staticZoneSkipVerify {
 		full := e.staticEffectsWalk(nil, false)
-		if len(full) != len(out) || (len(out) > 0 && !reflect.DeepEqual(full, out)) {
+		if len(full) != len(out) || (len(out) > 0 && !continuousEffectsEqual(full, out)) {
 			panic(fmt.Sprintf("rules: static zone skip changed staticEffects at log %d (%d vs %d effects)", len(e.L.Events), len(out), len(full)))
 		}
 	}

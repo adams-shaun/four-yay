@@ -2,7 +2,6 @@ package pay
 
 import (
 	"fmt"
-	"reflect"
 	"slices"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -28,7 +27,7 @@ func PlanPaymentCost(e Engine, p state.PlayerID, cast decision.PlannedCast, cost
 		if q.Plans[i].Key == Key {
 			out := q.Plans[i].Out
 			if e.Verify() {
-				if want := planPaymentCostWithDemand(e, p, Demand, cost, nil, nil, nil); !reflect.DeepEqual(want, out) {
+				if want := planPaymentCostWithDemand(e, p, Demand, cost, nil, nil, nil); !PlanOutcomeEqual(want, out) {
 					panic(fmt.Sprintf("payment plan query: cost memo for %+v served %+v, planned %+v", Key, out, want))
 				}
 			}
@@ -64,7 +63,7 @@ func plainManaCost(c costvocab.Cost, verify bool) bool {
 		len(c.DamageYou) == 0 && len(c.GainLife) == 0 && len(c.Return) == 0 && len(c.PutToLib) == 0 &&
 		len(c.MoveToGrave) == 0 && len(c.Mill) == 0 && len(c.Evidence) == 0 && len(c.RollDice) == 0 &&
 		len(c.Unknown) == 0 && len(c.Withheld) == 0
-	if verify && ok != reflect.DeepEqual(c, costvocab.Cost{Colored: c.Colored, Generic: c.Generic}) {
+	if verify && ok != c.Equal(&costvocab.Cost{Colored: c.Colored, Generic: c.Generic}) {
 		panic(fmt.Sprintf("payment plan: plainManaCost(%+v) = %v disagrees with the struct", c, ok))
 	}
 	return ok
@@ -241,7 +240,7 @@ func paymentPlanQueryClasses(e Engine, p state.PlayerID, minTier Tier, choices [
 	}
 	key := PlanClassesKey{Payer: p, MinTier: minTier}
 	if classes, ok := q.Classes[key]; ok {
-		if e.Verify() && !reflect.DeepEqual(PlanClassMembers(classes), PlanClassMembers(Classes(choices))) {
+		if e.Verify() && !intSlicesEqual(PlanClassMembers(classes), PlanClassMembers(Classes(choices))) {
 			panic(fmt.Sprintf("payment plan query: cached classes for player %d are stale", p))
 		}
 		return classes

@@ -71,7 +71,11 @@ func sameNameBucketRank(bucket string) int {
 // pick whose ref is rank-derived (an anonymous library/hand card) has no
 // sound answer and is counted Unproven, never Alias: the driver would bind a
 // different physical card. Re-measured as ITEMS rather than picks (multi-pick
-// decisions previously inflated these counts).
+// decisions previously inflated these counts). Re-measured once more at the
+// 2026-10-06 merge with main: main's cost-static generator now serves Focus
+// the Mind's ReduceCost static, adding one TDM unproven item (its pick ref is
+// a rank-derived library card, so no exact answer exists); TDM's unproven pin
+// moved 5 to 6, unresolved stayed 0.
 var wantSameNameCensus = map[string]string{
 	"BIG": `{"alias":0,"copy":0,"unresolved":0,"unproven":1,"items":null}`,
 	"BLB": `{"alias":3,"copy":0,"unresolved":0,"unproven":4,"items":null}`,
@@ -89,7 +93,7 @@ var wantSameNameCensus = map[string]string{
 	"OTJ": `{"alias":2,"copy":1,"unresolved":0,"unproven":1,"items":null}`,
 	"SOS": `{"alias":0,"copy":0,"unresolved":0,"unproven":5,"items":null}`,
 	"SPM": `{"alias":1,"copy":0,"unresolved":0,"unproven":2,"items":null}`,
-	"TDM": `{"alias":1,"copy":0,"unresolved":0,"unproven":5,"items":null}`,
+	"TDM": `{"alias":1,"copy":0,"unresolved":0,"unproven":6,"items":null}`,
 	"TLA": `{"alias":1,"copy":1,"unresolved":0,"unproven":2,"items":null}`,
 	"TMT": `{"alias":3,"copy":0,"unresolved":0,"unproven":2,"items":null}`,
 	"WOE": `{"alias":0,"copy":0,"unresolved":0,"unproven":3,"items":null}`,

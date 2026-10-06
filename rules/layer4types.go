@@ -2,7 +2,6 @@ package rules
 
 import (
 	"fmt"
-	"reflect"
 	"slices"
 	"strings"
 
@@ -1103,7 +1102,7 @@ func (e *Engine) verifyLayer4Active(want bool) {
 // storage and panics unless the fast path's table is identical.
 func (e *Engine) verifySelfOnlyDerivedTypes(got []effects.ObjectTypes) {
 	full := e.buildDerivedTypesWalk(nil, nil, false)
-	if len(got) != len(full) || (len(got) > 0 && !reflect.DeepEqual(got, full)) {
+	if len(got) != len(full) || (len(got) > 0 && !objectTypesListEqual(got, full)) {
 		panic(fmt.Sprintf("rules: self-only layer-4 table at log %d disagrees with the full walk (%d vs %d entries)", len(e.L.Events), len(got), len(full)))
 	}
 }
@@ -1113,7 +1112,7 @@ func (e *Engine) verifySelfOnlyDerivedTypes(got []effects.ObjectTypes) {
 func (e *Engine) verifyInertDerivedTypes() {
 	cached := e.layer4Types
 	fresh := e.buildDerivedTypes(nil)
-	if len(cached) != len(fresh) || (len(cached) > 0 && !reflect.DeepEqual(cached, fresh)) {
+	if len(cached) != len(fresh) || (len(cached) > 0 && !objectTypesListEqual(cached, fresh)) {
 		panic(fmt.Sprintf("rules: layer-inert derived-type table reuse at log %d disagrees with a rebuild (%d vs %d entries)", len(e.L.Events), len(cached), len(fresh)))
 	}
 }

@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"resolve","field":"p0.library_top","diff":"gorge+[Forest, Jace Beleren] xmage+[Grizzly Bears, Ornithopter]"},"key":"activate | resolve | p0.library_top | gorge+[Forest, Jace Beleren] xmage+[Grizzly Bears, Ornithopter]","cards":1}
-{"card":"Daggermaw Megalodon","template":"activate#0.0","status":"diverge","api":"-","sets":["DSK"],"detail":"step 1 (resolve) p0.library_top: gorge \"[Wastes, Jace Beleren, Wastes, Wastes, Forest]\", xmage \"[Wastes, Grizzly Bears, Wastes, Wastes, Ornithopter]\""}

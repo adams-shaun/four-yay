@@ -144,7 +144,7 @@ func presentFixtures(reg *cards.Registry, typ string, n int) []string {
 func costStaticReduction(source *cards.Face, st cards.Static, p *costProbe) (int, string) {
 	amount := st.Params["Amount"]
 	if strings.Contains(amount, "Speed") {
-		return 0, "speed fixture unavailable"
+		return costSpeedFixture(p), ""
 	}
 	if n, err := strconv.Atoi(amount); err == nil {
 		if n < 1 {
@@ -157,7 +157,7 @@ func costStaticReduction(source *cards.Face, st cards.Static, p *costProbe) (int
 	case amount != "X" && amount != "Y":
 		return 0, "reduction amount unsupported"
 	case strings.Contains(desc, "your speed"):
-		return 0, "speed fixture unavailable"
+		return costSpeedFixture(p), ""
 	case strings.Contains(desc, "equipped creature's power"):
 		// Grizzly Bears is a 2/2: the equipped creature's power is 2.
 		p.battlefield = appendUnique(p.battlefield, "Grizzly Bears")
@@ -177,6 +177,22 @@ func costStaticReduction(source *cards.Face, st cards.Static, p *costProbe) (int
 		return 1, ""
 	}
 	return 0, "count-scaled reduction unsupported"
+}
+
+// costSpeedFixture starts p0 at speed 2 and returns the generic mana a "where X
+// is your speed" reduction then removes. Speed 1 would not do: a seat that
+// controls a permanent with Start your engines! starts at 1 anyway (CR
+// 702.179a), so a setup speed of 1 could not tell the count from the keyword.
+func costSpeedFixture(p *costProbe) int {
+	const speed = 2
+	prev := p.seat
+	p.seat = func(s *oraclegen.Seat) {
+		if prev != nil {
+			prev(s)
+		}
+		s.Speed = speed
+	}
+	return speed
 }
 
 // preferredCostProbes are mainstream cards ranked ahead of the complexity

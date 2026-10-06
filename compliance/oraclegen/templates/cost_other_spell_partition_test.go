@@ -5,10 +5,11 @@ import (
 )
 
 // TestCostStaticOtherSpellAppendixPartition pins the exact disposition of the
-// brief's 45 "cost static probe not supported" rows: 37 produce a generated
-// scenario and the remaining eight are narrower named skips. Artist's Talent
+// brief's 45 "cost static probe not supported" rows: 38 produce a generated
+// scenario and the remaining seven are narrower named skips. Artist's Talent
 // moved from the named-skip column to served when the shared Class level-up
-// prelude landed (its ReduceCost static is live from level 2 on). The sibling
+// prelude landed (its ReduceCost static is live from level 2 on), and Samut,
+// the Driving Force when the probe learned to set p0's speed. The sibling
 // TestCostStaticOtherSpellAppendixRows asserts only the aggregate (>= 30); a
 // regression that turned a served row back into a skip, or changed a named
 // skip's reason to the bare form, would still satisfy that aggregate, so this
@@ -55,11 +56,11 @@ func TestCostStaticOtherSpellAppendixPartition(t *testing.T) {
 		"Blossoming Tortoise":            true,
 		"Raging Battle Mouse":            true,
 		"Artist's Talent":                true, // ClassBand$ 2 ReduceCost, served by the Class-level prelude
+		"Samut, the Driving Force":       true, // Amount$ Count$YourSpeed, served by a setup speed of 2
 	}
 	// skipped is keyed by "<name>/<key>" because two cards have a served face
 	// and a skipped face.
 	skipped := map[string]string{
-		"Samut, the Driving Force/static#0.1":     "speed fixture unavailable",
 		"Inquisitive Glimmer/static#0.1":          "static-ability cost probe unsupported",
 		"Doc Aurlock, Grizzled Genius/static#0.0": "cast-provenance probe unsupported",
 		"Doc Aurlock, Grizzled Genius/static#0.1": "static-ability cost probe unsupported",
@@ -119,7 +120,7 @@ func TestCostStaticOtherSpellAppendixPartition(t *testing.T) {
 		}
 		scenarios++
 	}
-	if scenarios != 37 || named != 8 {
-		t.Errorf("partition = %d scenarios + %d named skips, want 37 + 8", scenarios, named)
+	if scenarios != 38 || named != 7 {
+		t.Errorf("partition = %d scenarios + %d named skips, want 38 + 7", scenarios, named)
 	}
 }
