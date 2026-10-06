@@ -50,8 +50,26 @@ func TestParamCodesMatchTextReads(t *testing.T) {
 		if d, ok := param(cards.PKDestination); ok {
 			c, _ := code(cards.PKDestination)
 			dc := effects.Destination(c)
-			if dc.IsAny() != (d == "Any") || dc.IsEmpty() != (d == "") || dc.Zone() != effects.ParseZone(d) {
+			if dc.IsAny() != (d == "Any") || dc.IsEmpty() != (d == "") {
 				t.Errorf("%s Destination$ %q: code %+v", name, d, dc)
+			}
+			// Each zone is named iff some comma word reads as it; a text
+			// naming no modelled zone degrades to the graveyard.
+			for _, z := range zones {
+				want := false
+				named := false
+				for p := range strings.SplitSeq(d, ",") {
+					if pz, ok := effects.ParseZoneWord(p); ok {
+						named = true
+						want = want || pz == z
+					}
+				}
+				if !named {
+					want = z == state.ZGraveyard
+				}
+				if got := dc.Has(z); got != want {
+					t.Errorf("%s Destination$ %q zone %v: code %v, text %v", name, d, z, got, want)
+				}
 			}
 		}
 	}

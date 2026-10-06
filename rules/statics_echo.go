@@ -125,7 +125,7 @@ func (e *Engine) panharmoniconEchoes(observer *Engine, src state.ObjID, ev event
 		if o, ok := sv.ParamCode(cards.PKOrigin); ok && sv.ParamStr(cards.PKOrigin) != "" && !effects.ZoneList(o).Admits(ev.From) {
 			continue
 		}
-		if d, ok := sv.ParamCode(cards.PKDestination); ok && !effects.Destination(d).IsEmpty() && effects.Destination(d).Zone() != ev.To {
+		if d, ok := sv.ParamCode(cards.PKDestination); ok && !effects.Destination(d).IsEmpty() && !effects.Destination(d).Has(ev.To) {
 			continue
 		}
 		if spec := sv.ParamStr(cards.PKValidSource); spec != "" {

@@ -80,19 +80,31 @@ func ZoneWordsOf(s string) ZoneWords {
 // Has reports that z is named.
 func (c ZoneWords) Has(z state.Zone) bool { return z < 16 && c&(1<<z) != 0 }
 
-// Destination is a Destination$ value compiled once: ParseZone's zone (an
-// unknown word degrades to the graveyard), plus whether the text is exactly
-// "Any" (the matchers' wildcard spelling) or empty.
+// Destination is a Destination$ value compiled once: a bit per named zone
+// (Destination$ is a comma list in the corpus: "Graveyard,Exile", "Ante,
+// Command,Exile,Hand,Library"), plus whether the text is exactly "Any" (the
+// matchers' wildcard spelling) or empty. A word ParseZone does not know
+// (Ante, PlanarDeck, TopOfLibrary...) names no zone this engine models, so it
+// contributes no bit; a text that names no modelled zone at all keeps ParseZone's
+// legacy degrade to the graveyard.
 type Destination uint16
 
 const (
-	destinationAny   Destination = 1 << 8
-	destinationEmpty Destination = 1 << 9
+	destinationAny   Destination = 1 << 14
+	destinationEmpty Destination = 1 << 15
 )
 
 // DestinationOf compiles s.
 func DestinationOf(s string) Destination {
-	d := Destination(ParseZone(s))
+	var d Destination
+	for part := range strings.SplitSeq(s, ",") {
+		if z, ok := parseZone(part); ok {
+			d |= 1 << z
+		}
+	}
+	if d == 0 {
+		d = 1 << state.ZGraveyard
+	}
 	if s == "Any" {
 		d |= destinationAny
 	}
@@ -102,8 +114,15 @@ func DestinationOf(s string) Destination {
 	return d
 }
 
-// Zone is ParseZone(s).
-func (d Destination) Zone() state.Zone { return state.Zone(d & 0xff) }
+// Has reports that z is a named destination.
+func (d Destination) Has(z state.Zone) bool { return z < 14 && d&(1<<z) != 0 }
+
+// Zones is the named destinations as a bitmask over state.Zone values.
+func (d Destination) Zones() uint32 { return uint32(d &^ (destinationAny | destinationEmpty)) }
+
+// Admits reports that a move into z satisfies the Destination$ gate: the
+// text is exactly "Any", or z is named.
+func (d Destination) Admits(z state.Zone) bool { return d.IsAny() || d.Has(z) }
 
 // IsAny reports the text is exactly "Any".
 func (d Destination) IsAny() bool { return d&destinationAny != 0 }
