@@ -140,7 +140,14 @@ func (e *Engine) applicablePhaseReplacements(ev events.Event, candidates []replM
 // guard (all applicable replacements have already had their opportunity).
 func (e *Engine) finishParkedPhase(rc replChoice, selected int) {
 	if rc.boundary {
-		e.finishStepBoundary(rc.leaving, rc.ev.Step)
+		e.finishStepBoundary(rc.leaving, rc.ev.Step, 0)
+		if e.pending != nil {
+			// The boundary's mana choice must settle before the phase body.
+			rc.boundary = false
+			e.replChoices[len(e.replChoices)-1].manaBoundary.phase = &parkedPhaseFinish{ev: rc.ev, cands: rc.cands}
+			e.replChoices[len(e.replChoices)-1].manaBoundary.phaseSelected = selected
+			return
+		}
 	}
 	if selected >= 0 {
 		e.applyBeginPhaseReplacement(rc.ev, rc.cands[selected])
@@ -153,6 +160,21 @@ func (e *Engine) finishParkedPhase(rc replChoice, selected int) {
 	if e.pending == nil {
 		e.finishEnteredStep()
 	}
+}
+
+// answerParkedOptionalPhase settles the elected skip or resumes the original
+// step after a decline. An invalid parked selection must not enter either path.
+func answerParkedOptionalPhase(rc replChoice, apply bool, finish func(replChoice, int), resume func(replChoice)) bool {
+	if rc.selected < 0 || rc.selected >= len(rc.cands) {
+		return false
+	}
+	if apply {
+		finish(rc, rc.selected)
+	} else {
+		rc.applied[rc.selected] = true
+		resume(rc)
+	}
+	return true
 }
 
 // resumeParkedPhase continues after an optional replacement was declined.

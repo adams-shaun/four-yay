@@ -55,6 +55,7 @@ var replEventGates = [cards.ReplEventCount]replEventGate{
 	cards.ReplRollPlanarDice: {unreachable: "planar dice are a special action, never a resolution"},
 	cards.ReplScry:           {unreachable: "Scry is not allowlisted"},
 	cards.ReplTurnFaceUp:     {unreachable: "a turn-up is a special action; its tape boundary is turnup_tape.go"},
+	cards.ReplLoseMana:       {unreachable: "turn-structure ManaClear is not proposed by an allowlisted resolution"},
 }
 
 // tapeMovedReplMayAsk is the Moved gate of an otherwise ask-free resolution
