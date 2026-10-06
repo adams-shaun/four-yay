@@ -39,9 +39,12 @@ var censusSets = []string{
 // deliberately.
 var fixtureCensus = map[string][]string{}
 
+// censusRegistry is the process-shared registry (cards.SharedCorpus): a
+// registry is read-only after open, and a fresh load per test cost ~600 MB
+// and ~1 s and re-derived every card-keyed memo.
 func censusRegistry(t *testing.T) *cards.Registry {
 	t.Helper()
-	reg, err := cards.LoadRegistry(cards.CachePath(filepath.Join("..", "..", ".cards")))
+	reg, err := cards.SharedCorpus(filepath.Join("..", "..", ".cards"))
 	if err != nil {
 		t.Fatalf("census needs the corpus (make fetch-cards compile-cards): %v", err)
 	}

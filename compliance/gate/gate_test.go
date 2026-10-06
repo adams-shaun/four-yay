@@ -33,7 +33,9 @@ func TestDeclaredSetsCompliant(t *testing.T) {
 	// gate runs this package in parallel with ./rules, the only other
 	// writer: that raced the cache into existence and failed the gate
 	// (cli-20261006T024354Z-e5dc4abb). A genuinely missing corpus still
-	// errors and fails the test.
+	// errors and fails the test. It is also the process-shared registry: a
+	// registry is read-only after open, and a fresh load per test cost
+	// ~600 MB and ~1 s.
 	reg, err := cards.SharedCorpus(filepath.Join(root, ".cards"))
 	if err != nil {
 		t.Fatalf("declared sets need the corpus (make fetch-cards compile-cards): %v", err)
