@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: {N}{W}{W}, Sacrifice this creature"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: {N}{W}{W}, Sacrifice this creature","cards":1}
+{"card":"Honored Knight-Captain","template":"activate#0.0","status":"harness","api":"ChangesZone:Token","sets":["EOE"],"detail":"xmage: AssertionError: Can't find ability to activate command: {4}{W}{W}, Sacrifice this creature"}

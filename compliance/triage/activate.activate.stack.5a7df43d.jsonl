@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"activate","field":"stack","diff":"gorge=[ability:$CARD@p0] xmage=[ability:Temple of the Dead@p0]"},"key":"activate | activate | stack | gorge=[ability:$CARD@p0] xmage=[ability:Temple of the Dead@p0]","cards":1}
+{"card":"Aclazotz, Deepest Betrayal","template":"activate#1.1","status":"diverge","api":"Attacks:Discard+Discarded:Token+ChangesZone:ChangeZone","sets":["LCI"],"detail":"step 0 (activate) stack: gorge \"[ability:Aclazotz, Deepest Betrayal@p0]\", xmage \"[ability:Temple of the Dead@p0]\""}

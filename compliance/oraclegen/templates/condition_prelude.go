@@ -64,6 +64,21 @@ func conditionPreludes(reg *cards.Registry, params, svars map[string]string) []c
 		}
 		if contains("land.youctrl") {
 			add(conditionPrelude{battlefield: []string{"Plains", "Island", "Swamp", "Mountain", "Forest"}})
+			if contains("presentcompare ge8") {
+				add(conditionPrelude{battlefield: existingCards(reg, manyLands)})
+			}
+		}
+		if contains("token+youctrl", "permanent.token") {
+			if steps := resolvedCast("Raise the Alarm"); len(steps) > 0 {
+				add(conditionPrelude{hand: []string{"Raise the Alarm"}, steps: steps})
+			}
+		}
+		for _, tp := range typedBoardProbes {
+			if contains(tp.word + ".youctrl") {
+				for _, probe := range existingCards(reg, tp.probes) {
+					add(conditionPrelude{battlefield: []string{probe}})
+				}
+			}
 		}
 		if contains("creature.youctrl") {
 			add(conditionPrelude{battlefield: []string{"Grizzly Bears", "Llanowar Elves", "Nessian Asp", "Elvish Mystic"}})
@@ -71,8 +86,16 @@ func conditionPreludes(reg *cards.Registry, params, svars map[string]string) []c
 	}
 	// Graveyard and delirium gates are offered a nonempty graveyard; broad
 	// card type requirements are covered by a creature card fixture.
-	if contains("validgraveyard", "presentzone$ graveyard", "delirium") {
+	if contains("validgraveyard", "presentzone$ graveyard", "delirium", "threshold") {
 		add(conditionPrelude{graveyard: []string{"Llanowar Elves", "Island", "Shock", "Sol Ring"}})
+	}
+	// Four card types (delirium), seven cards (threshold) and eight permanent
+	// cards (descend 8) in one graveyard, distinct so that setup keeps each.
+	if contains("delirium", "threshold", "permanent.youown", "validgraveyard") {
+		add(conditionPrelude{graveyard: bigGraveyard})
+	}
+	if contains("lesson.youown") {
+		add(conditionPrelude{graveyard: []string{"Environmental Sciences"}})
 	}
 	// Turn-history gates. Each line is a real cast/resolve prelude, before
 	// the phase checkpoint; a failed candidate is simply discarded.
@@ -120,6 +143,11 @@ func conditionPreludes(reg *cards.Registry, params, svars map[string]string) []c
 			}
 		}
 	}
+	if contains("thisturncast_card.cmcge4") {
+		if steps := resolvedCast("Angel's Mercy"); len(steps) > 0 {
+			add(conditionPrelude{hand: []string{"Angel's Mercy"}, steps: steps})
+		}
+	}
 	if contains("count$thisturncast", "count$void") {
 		if steps := resolvedCast("Grizzly Bears"); len(steps) > 0 {
 			add(conditionPrelude{hand: []string{"Grizzly Bears"}, steps: steps})
@@ -142,7 +170,7 @@ func conditionPreludes(reg *cards.Registry, params, svars map[string]string) []c
 	if contains("count$attackersdeclared") {
 		add(conditionPrelude{battlefield: []string{"Grizzly Bears"}, steps: []oraclegen.Step{{Op: "attack", Seat: 0, Defender: "p1", Attackers: []string{"p0:Grizzly Bears"}}, {Op: "pass_to", Step: "main2"}}})
 	}
-	if contains("revolt", "sacrificedthisturn", "thisturnentered_graveyard_from_battlefield_creature", "morbid") {
+	if contains("revolt", "sacrificedthisturn", "thisturnentered_graveyard_from_battlefield_creature", "morbid", "count$void") {
 		steps := resolvedCast("Grizzly Bears")
 		if len(steps) > 0 {
 			if destroy, ok := castProbe(reg, "Murder", "p0:Grizzly Bears"); ok {
@@ -194,10 +222,10 @@ func conditionPreludes(reg *cards.Registry, params, svars map[string]string) []c
 	return out
 }
 
-// phaseConditionSkip names the known gate class when no offered fixture made
+// triggerConditionSkip names the known gate class when no offered fixture made
 // it true. This keeps an unavailable setup condition distinct from a trigger
 // that had no recognized condition at all.
-func phaseConditionSkip(t *cards.Trigger, svars map[string]string) string {
+func triggerConditionSkip(t *cards.Trigger, svars map[string]string) string {
 	check := t.ParamStr(cards.PKCheckSVar)
 	if check != "" {
 		body := strings.ToLower(svars[check])
@@ -215,6 +243,15 @@ func phaseConditionSkip(t *cards.Trigger, svars map[string]string) string {
 	if t.ParamStr(cards.PKRevolt) != "" {
 		return "condition: revolt history"
 	}
+	if t.ParamStr(cards.PKDelirium) != "" || t.ParamStr(cards.PKThreshold) != "" {
+		return "condition: graveyard contents"
+	}
+	if t.ParamStr(cards.PKValidAttackersAmount) != "" {
+		return "condition: attacker count"
+	}
+	if t.ParamStr(cards.PKNumber) != "" {
+		return "condition: nth draw"
+	}
 	present := t.ParamStr(cards.PKIsPresent)
 	if present == "" {
 		present = t.ParamStr(cards.PKIsPresent2)
@@ -224,6 +261,11 @@ func phaseConditionSkip(t *cards.Trigger, svars map[string]string) string {
 			return "condition: self state"
 		}
 		return "condition: board presence"
+	}
+	if valid := strings.ToLower(t.ParamStr(cards.PKValidCard) + " " + t.ParamStr(cards.PKValidAttackers)); strings.Contains(valid, "counters_") || strings.Contains(valid, "hascounters") {
+		return "condition: counters"
+	} else if strings.Contains(valid, "equipped") || strings.Contains(valid, "issuspected") || strings.Contains(valid, "powerge") || strings.Contains(valid, "withmenace") {
+		return "condition: attacker property"
 	}
 	return ""
 }

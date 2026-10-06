@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"attack","field":"stack","diff":"gorge=[ability:$CARD@p0] xmage=[ability:Oteclan Levitator@p0]"},"key":"trigger | attack | stack | gorge=[ability:$CARD@p0] xmage=[ability:Oteclan Levitator@p0]","cards":1}
+{"card":"Oteclan Landmark","template":"trigger#1.0","status":"diverge","api":"ChangesZone:Scry","sets":["LCI"],"detail":"step 0 (attack) stack: gorge \"[ability:Oteclan Landmark@p0]\", xmage \"[ability:Oteclan Levitator@p0]\""}

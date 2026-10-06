@@ -1,0 +1,7 @@
+{"shape":{"template":"activate","op":"setup","field":"p1.graveyard","diff":"gorge+[Grizzly Bears] xmage+[]"},"key":"activate | setup | p1.graveyard | gorge+[Grizzly Bears] xmage+[]","cards":6}
+{"card":"Crude Bent Blade","template":"activate#0.0","status":"diverge","api":"ChangesZone:Sacrifice","sets":["HOB"],"detail":"setup p1.graveyard: gorge \"[Grizzly Bears]\", xmage \"[]\""}
+{"card":"Magmatic Galleon","template":"activate#0.0","status":"diverge","api":"ChangesZone:DealDamage+ExcessDamageAll:Token","sets":["LCI"],"detail":"setup p1.graveyard: gorge \"[Grizzly Bears]\", xmage \"[]\""}
+{"card":"The Fire Nation Drill","template":"activate#0.0","status":"diverge","api":"ChangesZone:ImmediateTrigger","sets":["TLA"],"detail":"setup p1.graveyard: gorge \"[Grizzly Bears]\", xmage \"[]\""}
+{"card":"The Fire Nation Drill","template":"activate#0.1","status":"diverge","api":"ChangesZone:ImmediateTrigger","sets":["TLA"],"detail":"setup p1.graveyard: gorge \"[Grizzly Bears]\", xmage \"[]\""}
+{"card":"Thundering Broodwagon","template":"activate#0.0","status":"diverge","api":"ChangesZone:Destroy","sets":["DFT"],"detail":"setup p1.graveyard: gorge \"[Grizzly Bears]\", xmage \"[]\""}
+{"card":"Tithing Blade","template":"activate#0.0","status":"diverge","api":"ChangesZone:Sacrifice","sets":["LCI"],"detail":"setup p1.graveyard: gorge \"[Grizzly Bears]\", xmage \"[]\""}

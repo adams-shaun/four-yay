@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"resolve","field":"p0.hand","diff":"gorge+[Gandalf, Wandering Wizard] xmage+[$LIB]"},"key":"activate | resolve | p0.hand | gorge+[Gandalf, Wandering Wizard] xmage+[$LIB]","cards":1}
+{"card":"Gandalf, Wandering Wizard","template":"activate#0.0","status":"diverge","api":"BecomesTarget:Ward","sets":["HOB"],"detail":"step 1 (resolve) p0.hand: gorge \"[Gandalf, Wandering Wizard, Wastes, Wastes]\", xmage \"[Wastes, Wastes, Wastes]\""}

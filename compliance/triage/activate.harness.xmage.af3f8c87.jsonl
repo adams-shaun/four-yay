@@ -1,0 +1,5 @@
+{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: {N}, {T}, Sacrifice this creature"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: {N}, {T}, Sacrifice this creature","cards":4}
+{"card":"Aetherjacket","template":"activate#0.0","status":"harness","api":"-","sets":["DFT"],"detail":"xmage: AssertionError: Can't find ability to activate command: {2}, {T}, Sacrifice this creature"}
+{"card":"Ice Cream Kitty","template":"activate#0.1","status":"harness","api":"-","sets":["TMT"],"detail":"xmage: AssertionError: Can't find ability to activate command: {2}, {T}, Sacrifice this creature"}
+{"card":"Qiqirn Merchant","template":"activate#0.1","status":"harness","api":"-","sets":["FIN"],"detail":"xmage: AssertionError: Can't find ability to activate command: {7}, {T}, Sacrifice this creature"}
+{"card":"Troop of Ponies","template":"activate#0.0","status":"harness","api":"-","sets":["HOB"],"detail":"xmage: AssertionError: Can't find ability to activate command: {2}, {T}, Sacrifice this creature"}

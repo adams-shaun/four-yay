@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"setup","field":"permanents","diff":"$CARD gorge+[on=Robot Token] xmage+[]; gorge+token"},"key":"activate | setup | permanents | $CARD gorge+[on=Robot Token] xmage+[]; gorge+token","cards":1}
+{"card":"Auxiliary Boosters","template":"activate#0.0","status":"diverge","api":"ChangesZone:Token","sets":["EOE"],"detail":"setup permanents: gorge \"c0 o0 Auxiliary Boosters [artifact equipment] {W} on=Robot Token; c0 o0 token [artifact creature robot] {} 3/4\", xmage \"c0 o0 Auxiliary Boosters [artifact equipment] {W}\""}

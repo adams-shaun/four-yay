@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: {N}, {T}, Sacrifice this artifact: Target"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: {N}, {T}, Sacrifice this artifact: Target","cards":1}
+{"card":"Dubious Delicacy","template":"activate#0.1","status":"harness","api":"ChangesZone:Pump","sets":["EOE"],"detail":"xmage: AssertionError: Can't find ability to activate command: {2}, {T}, Sacrifice this artifact: Target"}

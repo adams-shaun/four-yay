@@ -101,8 +101,9 @@ func triggerFires(reg *cards.Registry, f *cards.Face, name string, req levelb.Re
 		if f.Triggers[idx].ParamStr(cards.PKClassBand) != "" {
 			return skip("condition: class level")
 		}
-		if req.Sub == "trigger.phase" {
-			if reason := phaseConditionSkip(&f.Triggers[idx], f.SVars); reason != "" {
+		// A graveyard-source trigger keeps its own, narrower reason below.
+		if req.Sub == "trigger.phase" || (conditionTriggerSub(req.Sub) && !triggerFromGraveyard(f, req)) {
+			if reason := triggerConditionSkip(&f.Triggers[idx], f.SVars); reason != "" {
 				return skip(reason)
 			}
 		}
@@ -126,6 +127,9 @@ func triggerScenario(f *cards.Face, name string, c triggerCause, req levelb.Requ
 		p0.Battlefield = appendFixtureUnique(p0.Battlefield, name)
 	}
 	p0.Hand = append(p0.Hand, c.hand...)
+	if filler := etbDiscardFiller(f); filler != "" && !grave && !c.selfInHand && !c.castSelfX {
+		p0.Hand = append([]string{filler}, p0.Hand...)
+	}
 	if c.selfInHand || c.castSelfX {
 		p0.Battlefield = removeString(p0.Battlefield, name)
 		p0.Graveyard = removeString(p0.Graveyard, name)

@@ -58,10 +58,9 @@ type oracleScenario struct {
 	Steps        []oracleStep   `json:"steps"`
 	Expect       []oracleExpect `json:"expect"`
 	// xmageFixture marks a generated compliance scenario
-	// (RunOracleScenarioJSON): XMage's fixture puts the setup battlefield
-	// into play during turn 1, so those cards count as having entered this
-	// turn. A hand-authored Oracle scenario keeps them present from before
-	// the turn (rules/testdata/oracle). Never decoded from JSON.
+	// (RunOracleScenarioJSON). Setup permanents are present before turn 1 in
+	// both engines; the driver clears XMage's seeded entry history. Never
+	// decoded from JSON.
 	xmageFixture bool
 }
 
@@ -389,7 +388,6 @@ func (r *oracleRun) build(sc oracleScenario) error {
 	sideboards := make([][]*cards.Card, seats)
 	commanders := make([][]int, seats)
 	places := make([][]placement, seats)
-	var setupBattlefield []state.ObjID
 	for key := range sc.Setup {
 		if p, ok := parseSeatRef(key); !ok || int(p) >= seats {
 			return harnessf("setup key %q (want p0 or p1)", key)
@@ -511,7 +509,6 @@ func (r *oracleRun) build(sc oracleScenario) error {
 				e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: from, To: pl.zone})
 			}
 			if pl.zone == state.ZBattlefield {
-				setupBattlefield = append(setupBattlefield, id)
 				// A back-face battlefield card starts transformed: FlipFace's
 				// Amount is the destination face index (1), applied through
 				// events.Apply like every other setup op, so the replay
@@ -591,20 +588,7 @@ func (r *oracleRun) build(sc oracleScenario) error {
 	// Drive to the requested turn's first main phase. Triggers that setup
 	// placements caused resolve here under the fallback answers; the transcript names
 	// every one.
-	setupEntered := false
 	for i := 0; i < 400*turn; i++ {
-		// SetupEntered restores the pre-TurnChange entry history the setup
-		// placements lost; events.Apply only folds it at turn 1, where XMage's
-		// seeded battlefield likewise counts as entered. At a requested later
-		// turn neither side marks the setup permanents entered THIS turn (they
-		// entered long before), so emitting it there would log provenance the
-		// fold drops: only emit when the checkpoint is turn 1.
-		if sc.xmageFixture && !setupEntered && targetTurn == 1 && e.G.Turn == targetTurn && e.G.Step == state.StepMain1 {
-			for _, id := range setupBattlefield {
-				e.emit(events.Event{Kind: events.SetupEntered, Obj: id})
-			}
-			setupEntered = true
-		}
 		if !seededMana && e.G.Turn == targetTurn && e.G.Step == state.StepMain1 {
 			seededMana = true
 			for p := 0; p < 2; p++ {

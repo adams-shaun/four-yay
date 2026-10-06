@@ -1,2 +1,0 @@
-{"shape":{"template":"cast-resolve","op":"resolve","field":"p0.hand","diff":"gorge+[Jace Beleren] xmage+[]"},"key":"cast-resolve | resolve | p0.hand | gorge+[Jace Beleren] xmage+[]","cards":1}
-{"card":"Hit the Mother Lode","template":"cast-resolve","status":"diverge","api":"Discover+Token+Cleanup","sets":["LCI"],"detail":"step 1 (resolve) p0.hand: gorge \"[Jace Beleren]\", xmage \"[]\""}

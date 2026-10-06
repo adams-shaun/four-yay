@@ -1,0 +1,2 @@
+{"shape":{"template":"combat","op":"pass_to","field":"p0.life","diff":"gorge-xmage=1"},"key":"combat | pass_to | p0.life | gorge-xmage=1","cards":1}
+{"card":"Sephiroth, Fabled SOLDIER","template":"combat#1.block","status":"diverge","api":"ChangesZone:Draw+Attacks:Draw+ChangesZone:LoseLife","sets":["FIN"],"detail":"step 2 (pass_to) p0.life: gorge \"21\", xmage \"20\""}

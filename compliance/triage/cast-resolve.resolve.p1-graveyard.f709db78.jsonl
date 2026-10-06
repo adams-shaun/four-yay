@@ -1,2 +1,0 @@
-{"shape":{"template":"cast-resolve","op":"resolve","field":"p1.graveyard","diff":"gorge+[] xmage+[Serra Angel]"},"key":"cast-resolve | resolve | p1.graveyard | gorge+[] xmage+[Serra Angel]","cards":1}
-{"card":"Trial of Agony","template":"cast-resolve","status":"diverge","api":"Pump+ChooseCard+DealDamage","sets":["DSK"],"detail":"step 1 (resolve) p1.graveyard: gorge \"[]\", xmage \"[Serra Angel]\""}

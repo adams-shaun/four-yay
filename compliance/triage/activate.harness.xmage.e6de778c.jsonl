@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: Discard a card, Sacrifice this creature"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: Discard a card, Sacrifice this creature","cards":1}
+{"card":"Masked Meower","template":"activate#0.0","status":"harness","api":"-","sets":["SPM"],"detail":"xmage: AssertionError: Can't find ability to activate command: Discard a card, Sacrifice this creature"}

@@ -1,0 +1,2 @@
+{"shape":{"template":"static","op":"resolve","field":"permanents","diff":"$CARD gorge+[kw=double, strike,first] xmage+[kw=first]"},"key":"static | resolve | permanents | $CARD gorge+[kw=double, strike,first] xmage+[kw=first]","cards":1}
+{"card":"Gallant Pie-Wielder","template":"static#0.0","status":"diverge","api":"-","sets":["WOE"],"detail":"step 1 (resolve) permanents: gorge \"c0 o0 Gallant Pie-Wielder [creature dwarf knight] {W} 2/3 kw=double strike,first strike\", xmage \"c0 o0 Gallant Pie-Wielder [creature dwarf knight] {W} 2/3 kw=first strike\""}

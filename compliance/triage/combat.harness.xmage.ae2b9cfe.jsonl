@@ -1,0 +1,2 @@
+{"shape":{"template":"combat","op":"harness","field":"xmage","diff":"AssertionError: PlayerA - Targets list was setup by addTarget with […], but not used"},"key":"combat | harness | xmage | AssertionError: PlayerA - Targets list was setup by addTarget with […], but not used","cards":1}
+{"card":"Don & Leo, Problem Solvers","template":"combat#0.block","status":"harness","api":"Phase:Pump","sets":["TMT"],"detail":"xmage: AssertionError: PlayerA - Targets list was setup by addTarget with [Don & Leo, Problem Solvers], but not used"}

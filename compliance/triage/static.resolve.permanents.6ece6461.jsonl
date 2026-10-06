@@ -1,0 +1,2 @@
+{"shape":{"template":"static","op":"resolve","field":"permanents","diff":"$CARD gorge+[3/3, kw=trample] xmage+[2/2]"},"key":"static | resolve | permanents | $CARD gorge+[3/3, kw=trample] xmage+[2/2]","cards":1}
+{"card":"Grand Ball Guest","template":"static#0.0","status":"diverge","api":"-","sets":["WOE"],"detail":"step 1 (resolve) permanents: gorge \"c0 o0 Grand Ball Guest [creature human peasant] {R} 3/3 kw=trample\", xmage \"c0 o0 Grand Ball Guest [creature human peasant] {R} 2/2\""}

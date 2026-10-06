@@ -190,6 +190,14 @@ type Item struct {
 	// because rules' runner decodes steps with DisallowUnknownFields and
 	// would reject an unknown per-step field. Empty for every level-A item.
 	XAbility []string `json:"xmage_ability,omitempty"`
+	// XTargetSkips is parallel to Scenario.Steps: entry i lists the cast
+	// step's completely omitted optional XMage target objects, each with the
+	// offset in Targets where the driver queues its "[target_skip]" (see
+	// XTargetSkip). Like XAbility it is an Item field, never a Step one, so
+	// Raw() and gorge's runner never see it. Nil for every item that is not
+	// the supported independent-0..1 shape, which keeps those bytes unchanged
+	// and the driver on its legacy trailing skip.
+	XTargetSkips [][]XTargetSkip `json:"xmage_target_skips,omitempty"`
 	// Ignore names snapshot fields the comparison leaves out for this
 	// scenario: library_top after the card shuffles a library.
 	Ignore []string `json:"ignore,omitempty"`
@@ -783,7 +791,7 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSt
 			any = true
 			continue
 		}
-		if forcedSingleOption(d) {
+		if forcedSingleOption(d) && !forcedChoicePosed(ds, i) {
 			// A forced one-option ask: XMage does not pose it. A forced
 			// target-kind pick is the exception -- one legal opponent is still
 			// a chooseTarget XMage asks for -- and so is a mode ask, which
@@ -802,6 +810,14 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSt
 			}
 			as = targetDecisionAnswers(routing, i)
 		case "mode":
+			if d.Resume == "play" {
+				// Optional Play effects (Discover, Cascade, and other carriers)
+				// are XMage chooseUse asks, not numeric mode choices. Gorge's
+				// recorded pick means cast; no pick means decline to hand.
+				yes := len(d.Picks) > 0
+				as = append(as, XAnswer{d.Seat, "choice", map[bool]string{true: "yes", false: "no"}[yes]})
+				break
+			}
 			if (d.Resume == "unless_pay" || d.Resume == "unless_decline") && unlessPolarity(d) == "no" {
 				// An unless-pay (UnlessCost$) is XMage's boolean chooseUse,
 				// not a mode ask; the engine models it as a one-option mode
@@ -1049,6 +1065,33 @@ func forcedSingleOption(d rules.OracleDecision) bool {
 	return d.Options == 1 && d.Min == 1 && d.Max == 1
 }
 
+// forcedChoicePosed reports whether a forced one-option choose_n ask is still
+// posed by XMage's makeChoose (Unstable Glyphbridge's "choose a creature").
+// A ChangeTargets redirect shares the same decision shape (Resume "choice")
+// but is not a choice ask: XMage retargets through chooseTarget, which
+// auto-selects a sole candidate in non-strict mode and reads the target queue
+// otherwise, so a scripted choice would never be consumed. The redirect is
+// told apart by the earlier cast that targeted a stack object (Bolt Bend,
+// Redirect Lightning).
+func forcedChoicePosed(ds []rules.OracleDecision, i int) bool {
+	d := ds[i]
+	if d.Kind != "choose_n" || d.Resume != "choice" {
+		return false
+	}
+	for _, e := range ds[:i] {
+		if e.Kind != "target" || e.Step >= d.Step {
+			continue
+		}
+		for k := range e.Picks {
+			switch pickKind(e, k) {
+			case "spell", "ability", "trigger":
+				return false
+			}
+		}
+	}
+	return true
+}
+
 // unlessPolarity is the yes/no answer to an unless-pay boolean ask: the
 // picked option's label says whether the cost was paid. A decline wording
 // ("Don't pay", "Decline") is "no"; a payment wording is "yes".
@@ -1171,8 +1214,8 @@ func targetDecisionAnswers(r *answerRouting, i int) []XAnswer {
 		as = perPlayerTargetAnswers(d)
 	case d.Divided > 0 && len(d.PickRefs) > 0:
 		// A TargetAmount slot (distribute counters, divided damage): XMage's
-		// chooseTargetAmount takes one "<ref>^X=<share>" per target and is
-		// complete once the shares reach the total, so no skip follows.
+		// chooseTargetAmount takes one "<ref>^X=<share>" per target and
+		// completes when the allocation is answered.
 		as = dividedTargetAnswers(r, i)
 	default:
 		for _, ref := range d.PickRefs {

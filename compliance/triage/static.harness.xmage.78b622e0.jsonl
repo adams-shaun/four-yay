@@ -1,0 +1,2 @@
+{"shape":{"template":"static","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: Exhaust — {N}"},"key":"static | harness | xmage | AssertionError: Can't find ability to activate command: Exhaust — {N}","cards":1}
+{"card":"Boom Scholar","template":"static#0.0","status":"harness","api":"-","sets":["DFT"],"detail":"xmage: AssertionError: Can't find ability to activate command: Exhaust — {3}"}

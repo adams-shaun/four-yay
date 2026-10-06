@@ -1,0 +1,3 @@
+{"shape":{"template":"trigger","op":"setup","field":"p1.graveyard","diff":"gorge+[Grizzly Bears] xmage+[]"},"key":"trigger | setup | p1.graveyard | gorge+[Grizzly Bears] xmage+[]","cards":2}
+{"card":"Dragonback Assault","template":"trigger#0.1","status":"diverge","api":"ChangesZone:DamageAll+ChangesZone:Token","sets":["TDM"],"detail":"setup p1.graveyard: gorge \"[Grizzly Bears]\", xmage \"[]\""}
+{"card":"Rottenmouth Viper","template":"trigger#0.1","status":"diverge","api":"PermanentCreature","sets":["BLB"],"detail":"setup p1.graveyard: gorge \"[Grizzly Bears]\", xmage \"[]\""}

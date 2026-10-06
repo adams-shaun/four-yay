@@ -1,0 +1,3 @@
+{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: Power-up — {N}{U}"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: Power-up — {N}{U}","cards":2}
+{"card":"Aerial Doombot","template":"activate#0.0","status":"harness","api":"-","sets":["MSH"],"detail":"xmage: AssertionError: Can't find ability to activate command: Power-up — {5}{U}"}
+{"card":"Bold Biochemist","template":"activate#0.0","status":"harness","api":"-","sets":["MSH"],"detail":"xmage: AssertionError: Can't find ability to activate command: Power-up — {5}{U}"}

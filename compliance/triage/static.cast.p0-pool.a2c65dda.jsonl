@@ -1,0 +1,3 @@
+{"shape":{"template":"static","op":"cast","field":"p0.pool","diff":"gorge= xmage=CC"},"key":"static | cast | p0.pool | gorge= xmage=CC","cards":2}
+{"card":"Serah Farron","template":"static#0.0","status":"diverge","api":"Phase:SetState","sets":["FIN"],"detail":"step 0 (cast) p0.pool: gorge \"\", xmage \"CC\""}
+{"card":"Serah Farron","template":"static#1.0","status":"diverge","api":"Phase:SetState","sets":["FIN"],"detail":"step 0 (cast) p0.pool: gorge \"\", xmage \"CC\""}

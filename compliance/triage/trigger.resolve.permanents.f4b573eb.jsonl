@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"resolve","field":"permanents","diff":"Forest types gorge+[forest] xmage+[]"},"key":"trigger | resolve | permanents | Forest types gorge+[forest] xmage+[]","cards":1}
+{"card":"Ultima, Origin of Oblivion","template":"trigger#0.0","status":"diverge","api":"Attacks:PutCounter+TapsForMana:Mana","sets":["FIN"],"detail":"step 1 (resolve) permanents: gorge \"c1 o1 Forest [basic forest land] {} counters=BLIGHT=1\", xmage \"c1 o1 Forest [basic land] {} counters=BLIGHT=1\""}

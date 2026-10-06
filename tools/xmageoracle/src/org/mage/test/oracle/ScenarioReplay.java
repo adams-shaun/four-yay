@@ -10,6 +10,7 @@ import com.google.gson.JsonPrimitive;
 import mage.ConditionalMana;
 import mage.Mana;
 import mage.abilities.Ability;
+import mage.abilities.Mode;
 import mage.abilities.common.SimpleStaticAbility;
 import mage.abilities.mana.ActivatedManaAbilityImpl;
 import mage.abilities.costs.AlternativeSourceCosts;
@@ -41,6 +42,7 @@ import mage.players.Player;
 import mage.filter.FilterCard;
 import mage.target.TargetCard;
 import mage.util.CardUtil;
+import mage.watchers.common.PermanentsEnteredBattlefieldWatcher;
 import org.mage.test.player.PlayerAction;
 import org.mage.test.player.TestPlayer;
 import org.mage.test.serverside.base.CardTestPlayerBase;
@@ -350,6 +352,35 @@ public class ScenarioReplay extends CardTestPlayerBase {
          */
         @Override
         public boolean chooseTarget(Outcome outcome, mage.target.Target target, Ability source, Game game) {
+            // TestPlayer.chooseTarget runs its zone matcher over every queued
+            // answer and rejects a "[target_skip]" that is not at the queue
+            // front (checkTargetDefinitionMarksSupport), so a skip queued for
+            // a LATER target object (Rise from the Wreck's empty Mount slot)
+            // is hidden from this ask and restored, in order, afterwards.
+            List<String> later = hideAfterNextSkip(getTargets());
+            try {
+                return chooseTargetInSegment(outcome, target, source, game);
+            } finally {
+                getTargets().addAll(later);
+            }
+        }
+
+        /** Detaches and returns the queue's suffix that starts at its next
+         * "[target_skip]" so only the contiguous segment that precedes it is
+         * visible. A skip at the front (consumed by this ask) or no skip at all
+         * detaches nothing. */
+        static List<String> hideAfterNextSkip(List<String> queue) {
+            int next = queue.indexOf(TestPlayer.TARGET_SKIP);
+            if (next <= 0) {
+                return new ArrayList<>();
+            }
+            List<String> tail = queue.subList(next, queue.size());
+            List<String> hidden = new ArrayList<>(tail);
+            tail.clear();
+            return hidden;
+        }
+
+        private boolean chooseTargetInSegment(Outcome outcome, mage.target.Target target, Ability source, Game game) {
             // An adjusted spell's open slot is closed only when XMage asks
             // again after the scenario's answers: a slot whose candidates are
             // exhausted never asks, so a skip queued up front would be left
@@ -494,6 +525,14 @@ public class ScenarioReplay extends CardTestPlayerBase {
             activeSeat = (TURN - 1) % 2;
             attackAdvancedTurn = false;
             build(sc);
+            if (TURN == 1) {
+                // Turn 1's first priority is in upkeep, before any gameplay
+                // entry (Bitterblossom's token is still on the stack). Age
+                // only the seeded setup permanents recorded by build().
+                java.util.Map<String, Integer> seeded = new java.util.HashMap<>(setupBattlefield);
+                runCode("setup entry history", TURN, PhaseStep.UPKEEP, playerA,
+                        (info, p, g) -> clearSetupEntryHistory(g, seeded));
+            }
             runCode("setup", TURN, MAIN, playerA, (info, p, g) -> {
                 applySetupState(g);
                 registerAliases(g);
@@ -505,6 +544,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
             splitScripted = xans.toString().contains("^X=");
             xabilities = sc.has("xmage_ability") && sc.get("xmage_ability").isJsonArray()
                     ? sc.getAsJsonArray("xmage_ability") : new JsonArray();
+            xtargetSkips = readTargetSkips(sc, steps);
             for (int i = 0; i < steps.size(); i++) {
                 JsonObject st = steps.get(i).getAsJsonObject();
                 String op = str(st, "op");
@@ -653,12 +693,72 @@ public class ScenarioReplay extends CardTestPlayerBase {
 
     // ---- setup -----------------------------------------------------------
 
+    /**
+     * CardTestPlayerAPIImpl cheats setup permanents onto the battlefield
+     * before the game starts, but XMage leaves their turnsOnBattlefield at
+     * zero (so EnteredThisTurnPredicate matches them) and the ETB watcher
+     * shifts them into its last-turn history. Run only at turn 1's first
+     * priority, before any gameplay entry: age the seeded permanents and
+     * drop their last-turn history. Both passes match the recorded
+     * (controller id, XMage name) multiset, so a permanent that genuinely
+     * entered this turn -- an upkeep token -- keeps its zero age and its
+     * watcher entry. At a later requested turn the setup permanents age
+     * naturally, so this is not called.
+     */
+    private static void clearSetupEntryHistory(Game game, java.util.Map<String, Integer> seeded) {
+        try {
+            // Remaining seeded (controller|name) counts, decremented as
+            // permanents are matched so duplicate names each age exactly once.
+            java.util.Map<String, Integer> remaining = new java.util.HashMap<>(seeded);
+            java.lang.reflect.Field turns = mage.game.permanent.PermanentImpl.class
+                    .getDeclaredField("turnsOnBattlefield");
+            turns.setAccessible(true);
+            for (Permanent permanent : game.getBattlefield().getAllPermanents()) {
+                String key = permanent.getControllerId() + "|" + permanent.getName();
+                Integer left = remaining.get(key);
+                if (left == null || left <= 0) {
+                    continue; // genuinely entered this turn, or not a setup card
+                }
+                remaining.put(key, left - 1);
+                turns.setInt(permanent, Math.max(1, permanent.getTurnsOnBattlefield()));
+            }
+            PermanentsEnteredBattlefieldWatcher watcher = game.getState()
+                    .getWatcher(PermanentsEnteredBattlefieldWatcher.class);
+            if (watcher != null) {
+                java.lang.reflect.Field last = PermanentsEnteredBattlefieldWatcher.class
+                        .getDeclaredField("enteringBattlefieldLastTurn");
+                last.setAccessible(true);
+                @SuppressWarnings("unchecked")
+                java.util.Map<java.util.UUID, java.util.List<Permanent>> lastTurn =
+                        (java.util.Map<java.util.UUID, java.util.List<Permanent>>) last.get(watcher);
+                // Drop only the seeded setup entries recorded pre-game; any
+                // other last-turn entry is left for its owning card.
+                java.util.Map<String, Integer> watcherRemaining = new java.util.HashMap<>(seeded);
+                for (java.util.List<Permanent> list : lastTurn.values()) {
+                    java.util.Iterator<Permanent> it = list.iterator();
+                    while (it.hasNext()) {
+                        Permanent entry = it.next();
+                        String key = entry.getControllerId() + "|" + entry.getName();
+                        Integer left = watcherRemaining.get(key);
+                        if (left != null && left > 0) {
+                            watcherRemaining.put(key, left - 1);
+                            it.remove();
+                        }
+                    }
+                }
+            }
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("cannot normalize setup entry history", e);
+        }
+    }
+
     private TestPlayer seat(int i) {
         return i == 0 ? playerA : playerB;
     }
 
     private void build(JsonObject sc) {
         buildCounts.clear();
+        setupBattlefield.clear();
         setupNames.clear();
         backFaceNames.clear();
         String format = str(sc, "format");
@@ -760,9 +860,17 @@ public class ScenarioReplay extends CardTestPlayerBase {
             int k = buildCounts.merge(i + "|" + n, 1, Integer::sum);
             String ref = "p" + i + ":" + n + (k > 1 ? "#" + k : "");
             refAlias.put(ref, "@" + ref);
-            addCard(zone, p, xmageSpelling(n), 1, tapped.contains(n));
+            String xmageName = xmageSpelling(n);
+            addCard(zone, p, xmageName, 1, tapped.contains(n));
             if (backFace.contains(n)) {
                 stageBackFace(p, n);
+                xmageName = backFaceNames.get("p" + i + ":" + xmageName);
+            }
+            if (zone == Zone.BATTLEFIELD) {
+                // Record the seeded permanents by (controller id, current XMage
+                // name), including staged back faces, so the entry-history
+                // normalizer ages exactly these, never a genuine turn-1 entry.
+                setupBattlefield.merge(p.getId() + "|" + xmageName, 1, Integer::sum);
             }
         }
         return ns.size();
@@ -912,26 +1020,53 @@ public class ScenarioReplay extends CardTestPlayerBase {
         return hasTargetAdjuster(ability) && ability.getAllSelectedTargets().isEmpty();
     }
 
-    /** Whether the card's spell ability is targetless until its adjuster runs. */
-    private static boolean spellNeedsQueuedCastTargets(String name) {
+    /** The card's spell ability, or null when the name does not resolve. */
+    private static Ability spellAbility(String name) {
         CardInfo info = CardRepository.instance.findCard(name);
         Card c = info == null ? null : info.createCard();
-        return c != null && needsQueuedCastTargets(c.getSpellAbility());
+        return c == null ? null : c.getSpellAbility();
     }
 
-    /** Whether the card's spell ability has a divided-amount target. */
-    private static boolean spellTargetsDivided(String name) {
-        CardInfo info = CardRepository.instance.findCard(name);
-        Card c = info == null ? null : info.createCard();
-        if (c == null) {
+    /**
+     * Whether a modal spell's first target lives in a later mode: the card's
+     * first mode (the one XMage's up-front {@code $target=} check reads, since
+     * the scenario's chosen modes are not selected yet) has no target, but
+     * another mode does. Inline {@code $target=} then throws "Ability has no
+     * targets" (Cosmium Confluence: modes 1 and 2 are targetless, mode 3
+     * destroys target enchantment). The target is queued instead and consumed
+     * when the chosen mode's target is asked for. A card whose first mode has a
+     * target already validates inline, and a targetless card has no later mode
+     * target, so neither is rerouted.
+     */
+    static boolean firstTargetInLaterMode(Ability ability) {
+        if (ability == null || ability.getModes().size() < 2 || ability.getModes().getMode() == null
+                || !ability.getModes().getMode().getTargets().isEmpty()) {
             return false;
         }
-        for (mage.target.Target t : c.getSpellAbility().getAllSelectedTargets()) {
+        for (Mode m : ability.getModes().values()) {
+            if (!m.getTargets().isEmpty()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Whether an ability has a divided-amount target (TargetAmount). */
+    static boolean targetsDivided(Ability ability) {
+        if (ability == null) {
+            return false;
+        }
+        for (mage.target.Target t : ability.getAllSelectedTargets()) {
             if (t instanceof mage.target.TargetAmount) {
                 return true;
             }
         }
         return false;
+    }
+
+    /** Whether the card's spell ability has a divided-amount target. */
+    private static boolean spellTargetsDivided(String name) {
+        return targetsDivided(spellAbility(name));
     }
 
     /** Whether the card's spell ability has exactly one target object and
@@ -1046,6 +1181,8 @@ public class ScenarioReplay extends CardTestPlayerBase {
     // ("p0:Grizzly Bears", "p0:Grizzly Bears#2") in the same order XMage
     // adds the cards, so registerAliases can bind each to its object.
     private final java.util.Map<String, Integer> buildCounts = new java.util.HashMap<>();
+    // Seeded setup permanents keyed "controllerId|xmageName" -> count (build()).
+    private final java.util.Map<String, Integer> setupBattlefield = new java.util.HashMap<>();
     private final Map<UUID, String> setupNames = new HashMap<>();
     private final Map<String, String> backFaceNames = new HashMap<>();
     // The card under test's two spellings: the scenario's (gorge/corpus) name
@@ -1119,6 +1256,103 @@ public class ScenarioReplay extends CardTestPlayerBase {
             return xabilities.get(i).getAsString();
         }
         return "";
+    }
+
+    // The item's xmage_target_skips: parallel to the steps, entry i lists the
+    // empty optional target objects of step i's cast as {"at": n, "slot": k}.
+    // "at" is the number of filled targets that precede the object, so the
+    // skip is queued before target n (consecutive empty objects repeat n, a
+    // trailing one has n == the target count). "slot" identifies the XMage
+    // object too: both engines must have the same independent 0..1 shape.
+    private JsonArray xtargetSkips = new JsonArray();
+
+    /** The queue offsets of step i's explicit target skips, validated against
+     * the cast's target count; empty when the item carries none. A malformed
+     * plan fails the replay rather than queueing a speculative skip. */
+    static JsonArray readTargetSkips(JsonObject sc, JsonArray steps) {
+        if (!sc.has("xmage_target_skips")) {
+            return new JsonArray();
+        }
+        JsonElement raw = sc.get("xmage_target_skips");
+        if (!raw.isJsonArray() || raw.getAsJsonArray().size() != steps.size()) {
+            throw new IllegalArgumentException("xmage_target_skips must be parallel to steps");
+        }
+        JsonArray plan = raw.getAsJsonArray();
+        for (int i = 0; i < plan.size(); i++) {
+            JsonElement entry = plan.get(i);
+            if (!entry.isJsonNull() && (!entry.isJsonArray()
+                    || (entry.getAsJsonArray().size() > 0 && !str(steps.get(i).getAsJsonObject(), "op").equals("cast")))) {
+                throw new IllegalArgumentException("step " + i + " has invalid xmage_target_skips");
+            }
+        }
+        return plan;
+    }
+
+    private List<Integer> castTargetSkipsAt(int i, String card, int targetCount) {
+        if (i >= xtargetSkips.size() || xtargetSkips.get(i).isJsonNull()
+                || xtargetSkips.get(i).getAsJsonArray().size() == 0) {
+            return new ArrayList<>();
+        }
+        CardInfo info = CardRepository.instance.findCard(card);
+        Card c = info == null ? null : info.createCard();
+        if (c == null || hasTargetAdjuster(c.getSpellAbility())) {
+            throw new IllegalArgumentException("cannot establish explicit target objects for " + card);
+        }
+        return validateTargetSkips(xtargetSkips.get(i).getAsJsonArray(),
+                c.getSpellAbility().getAllSelectedTargets(), targetCount);
+    }
+
+    /** Check correspondence against XMage itself before closing an object. */
+    static List<Integer> validateTargetSkips(JsonArray plan, List<mage.target.Target> targets, int targetCount) {
+        if (targetCount < 0 || targets.size() != targetCount + plan.size()) {
+            throw new IllegalArgumentException("explicit target plan does not account for every object");
+        }
+        for (mage.target.Target t : targets) {
+            if (t.getMinNumberOfTargets() != 0 || t.getMaxNumberOfTargets() != 1 || t instanceof mage.target.TargetAmount) {
+                throw new IllegalArgumentException("explicit target plan requires independent optional 0..1 objects");
+            }
+        }
+        List<Integer> out = new ArrayList<>();
+        int prev = 0;
+        for (JsonElement e : plan) {
+            if (!e.isJsonObject()) {
+                throw new IllegalArgumentException("invalid target skip: " + e);
+            }
+            int at = targetSkipIndex(e.getAsJsonObject(), "at");
+            int slot = targetSkipIndex(e.getAsJsonObject(), "slot");
+            if (at < prev || at > targetCount || slot != at + out.size()) {
+                throw new IllegalArgumentException("target skip is out of order or beyond its objects: " + e);
+            }
+            prev = at;
+            out.add(at);
+        }
+        return out;
+    }
+
+    private static int targetSkipIndex(JsonObject skip, String key) {
+        JsonElement value = skip.get(key);
+        if (value == null || !value.isJsonPrimitive() || !value.getAsJsonPrimitive().isNumber()) {
+            throw new IllegalArgumentException("target skip requires integer " + key);
+        }
+        try {
+            return value.getAsBigDecimal().intValueExact();
+        } catch (ArithmeticException ex) {
+            throw new IllegalArgumentException("target skip requires integer " + key, ex);
+        }
+    }
+
+    /** Queue the cast's targets with one "[target_skip]" before each offset. */
+    private void queueCastTargetsWithSkips(TestPlayer p, List<String> tg, List<Integer> skips) {
+        int next = 0;
+        for (int k = 0; k <= tg.size(); k++) {
+            while (next < skips.size() && skips.get(next) == k) {
+                addTarget(p, TestPlayer.TARGET_SKIP);
+                next++;
+            }
+            if (k < tg.size()) {
+                queueCastTarget(p, tg.get(k));
+            }
+        }
     }
 
     /** Whether the named card has an activated mana ability whose rule text
@@ -1277,7 +1511,8 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     // cost" choice, rather than leave it to the AI.
                     setChoice(p, "Cast with no alternative cost");
                 }
-                if (splitScripted && spellTargetsDivided(card)) {
+                List<Integer> skips = castTargetSkipsAt(stepIdx, card, tg.size());
+                if (splitScripted && spellTargetsDivided(card) && skips.isEmpty()) {
                     // The scripted "<ref>^X=<share>" answers name the targets
                     // and gorge's split; a target string here would be a
                     // second, unconsumed set.
@@ -1285,16 +1520,21 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     cast.add(card);
                     return;
                 }
-                if (!tg.isEmpty() && queueAdjustedCastTargets(spellNeedsQueuedCastTargets(card), spellTargetsDivided(card), tg.size())) {
-                    // An adjuster may add the SpellAbility's target slots only
-                    // after cast setup. Inline $target is validated too early
-                    // (against the unadjusted, targetless ability), so queue
-                    // scenario targets for the chooser that runs during casting.
-                    for (String t : tg) {
-                        queueCastTarget(p, t);
+                Ability castAbility = spellAbility(card);
+                if (!skips.isEmpty()) {
+                    // The generator named every empty optional target object
+                    // and where it falls between the filled ones, so the queue
+                    // is exactly the plan: no blind trailing skip.
+                    boolean queued = castAbility != null
+                            && (needsQueuedCastTargets(castAbility) || firstTargetInLaterMode(castAbility));
+                    if (spellTargetsDivided(card) || queueAdjustedCastTargets(queued, false, tg.size())) {
+                        throw new IllegalArgumentException("cast step " + stepIdx + " carries xmage_target_skips for " + card
+                                + ", a divided, adjusted or later-mode-target spell the explicit skip plan does not cover");
                     }
-                    adjustedCasts.add(card);
+                    queueCastTargetsWithSkips(p, tg, skips);
                     castSpell(turn, phase, p, card);
+                } else if (!tg.isEmpty() && castQueuedTargets(turn, phase, p, card, tg, castAbility)) {
+                    // Cast with its targets queued: see castQueuedTargets.
                 } else if (tg.size() == 1 && isSeatRef(tg.get(0)) && !hasGift(card)) {
                     castSpell(turn, phase, p, card, seat(seatOf(tg.get(0))));
                 } else if (tg.size() == 1 && isSeatRef(tg.get(0))) {
@@ -1318,7 +1558,12 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 } else if (tg.size() == 1) {
                     // A single target goes through XMage's own string form, so
                     // a divided-damage target (TargetAmount) still lets XMage
-                    // pick the split as it always did.
+                    // pick the split as it always did. TargetAnyTargetAmount
+                    // may still offer another optional target (Twin Bolt); the
+                    // scenario's short target list must close that slot.
+                    if ("Twin Bolt".equals(card) && spellTargetsDivided(card) && !singleTargetFilled(card, tg.size())) {
+                        addTarget(p, TestPlayer.TARGET_SKIP);
+                    }
                     castSpell(turn, phase, p, card, targetName(tg.get(0)));
                 } else {
                     // Two or more targets: queue each through addTarget and
@@ -1484,6 +1729,37 @@ public class ScenarioReplay extends CardTestPlayerBase {
 
     private static int seatOf(String s) {
         return Integer.parseInt(s.substring(1));
+    }
+
+    /**
+     * Cast through the target queue when the inline {@code $target=} form
+     * cannot work: an adjuster may add the SpellAbility's target slots only
+     * after cast setup, and a modal spell's first target may live in a mode
+     * after the first. Inline $target is validated too early (against the
+     * unadjusted ability's first mode, which has no target), so the scenario
+     * targets are queued for the chooser that runs during casting and the
+     * cast carries none. Returns false, doing nothing, for every other cast.
+     */
+    boolean castQueuedTargets(int turn, PhaseStep phase, TestPlayer p, String card, List<String> tg,
+            Ability ability) {
+        // Derive every routing flag HERE, from the one ability, so a caller
+        // cannot drop the modal-first-target-in-a-later-mode term: the test
+        // drives this method with a real card's spell ability, and a routing
+        // term removed anywhere in it makes that test fail.
+        boolean adjusted = needsQueuedCastTargets(ability);
+        boolean firstTargetInLaterMode = firstTargetInLaterMode(ability);
+        boolean divided = targetsDivided(ability);
+        if (!queueAdjustedCastTargets(adjusted || firstTargetInLaterMode, divided, tg.size())) {
+            return false;
+        }
+        for (String t : tg) {
+            queueCastTarget(p, t);
+        }
+        if (adjusted) {
+            adjustedCasts.add(card);
+        }
+        castSpell(turn, phase, p, card);
+        return true;
     }
 
     /** Queue one cast target ref on the target queue. */

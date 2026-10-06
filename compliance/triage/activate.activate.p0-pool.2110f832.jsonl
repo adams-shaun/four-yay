@@ -1,0 +1,3 @@
+{"shape":{"template":"activate","op":"activate","field":"p0.pool","diff":"gorge=R xmage=W"},"key":"activate | activate | p0.pool | gorge=R xmage=W","cards":2}
+{"card":"Boros Guildgate","template":"activate#0.0","status":"diverge","api":"-","sets":["FDN"],"detail":"step 0 (activate) p0.pool: gorge \"R\", xmage \"W\""}
+{"card":"Mardu Devotee","template":"activate#0.0","status":"diverge","api":"ChangesZone:Scry","sets":["TDM"],"detail":"step 0 (activate) p0.pool: gorge \"R\", xmage \"W\""}

@@ -1,0 +1,2 @@
+{"shape":{"template":"static","op":"harness","field":"xmage","diff":"IllegalArgumentException: activate step N has no xmage_ability"},"key":"static | harness | xmage | IllegalArgumentException: activate step N has no xmage_ability","cards":1}
+{"card":"Surveillance Phantasm","template":"static#0.0","status":"harness","api":"-","sets":["FRA"],"detail":"xmage: IllegalArgumentException: activate step 0 has no xmage_ability"}

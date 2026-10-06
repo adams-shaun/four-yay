@@ -1,0 +1,2 @@
+{"shape":{"template":"combat","op":"pass_to","field":"p0.library_top","diff":"gorge+[Jace Beleren] xmage+[Grizzly Bears]"},"key":"combat | pass_to | p0.library_top | gorge+[Jace Beleren] xmage+[Grizzly Bears]","cards":1}
+{"card":"Tempest Hawk","template":"combat#0.attack","status":"diverge","api":"DamageDone:ChangeZone","sets":["TDM"],"detail":"step 1 (pass_to) p0.library_top: gorge \"[Wastes, Jace Beleren, Wastes, Wastes, Forest]\", xmage \"[Wastes, Wastes, Forest, Wastes, Grizzly Bears]\""}

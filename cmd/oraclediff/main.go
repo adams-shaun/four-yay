@@ -314,6 +314,7 @@ func genManifest(reg *cards.Registry, m compliance.Manifest, out, level string) 
 				skipped++
 				continue
 			}
+			stampXMageNames(reg, &bit)
 			bb, _ := json.Marshal(bit)
 			fmt.Fprintln(ow, string(bb))
 			n++
@@ -704,6 +705,15 @@ func runShow(dir, scen, card string) error {
 		}
 		return nil
 	})
+}
+
+// stampXMageNames records XMage's spelling for the scenario subject only.
+// The shared scenario's fixture references must retain corpus spelling so
+// gorge's runner can resolve them; the XMage driver translates its subject.
+func stampXMageNames(reg *cards.Registry, it *oraclegen.Item) {
+	if xm, ok := xmageSpelling(reg, it.Card); ok && xm != it.Card {
+		it.XMageName = xm
+	}
 }
 
 // xmageSpelling returns XMage's own spelling of the printed card that card

@@ -1,0 +1,2 @@
+{"shape":{"template":"combat","op":"attack","field":"stack","diff":"gorge=[] xmage=[ability:$CARD@p0]"},"key":"combat | attack | stack | gorge=[] xmage=[ability:$CARD@p0]","cards":1}
+{"card":"Rot-Curse Rakshasa","template":"combat#0.attack","status":"diverge","api":"-","sets":["TDM"],"detail":"step 0 (attack) stack: gorge \"[]\", xmage \"[ability:Rot-Curse Rakshasa@p0]\""}

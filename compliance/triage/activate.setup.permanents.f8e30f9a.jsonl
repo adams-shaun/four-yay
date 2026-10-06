@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"setup","field":"permanents","diff":"Skullcap Snail gorge+[2/2, counters=P1P1=1] xmage+[1/1]"},"key":"activate | setup | permanents | Skullcap Snail gorge+[2/2, counters=P1P1=1] xmage+[1/1]","cards":1}
+{"card":"Wick, the Whorled Mind","template":"activate#0.0","status":"diverge","api":"ChangesZone:Branch","sets":["BLB"],"detail":"setup permanents: gorge \"c0 o0 Skullcap Snail [creature fungus snail] {B} 2/2 counters=P1P1=1\", xmage \"c0 o0 Skullcap Snail [creature fungus snail] {B} 1/1\""}

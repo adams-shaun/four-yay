@@ -1,0 +1,11 @@
+{"shape":{"template":"trigger","op":"setup","field":"stack","diff":"gorge=[] xmage=[ability:$CARD@p0]"},"key":"trigger | setup | stack | gorge=[] xmage=[ability:$CARD@p0]","cards":10}
+{"card":"Absorbing Man","template":"trigger#0.0","status":"diverge","api":"Phase:Clone","sets":["MSH"],"detail":"setup stack: gorge \"[]\", xmage \"[ability:Absorbing Man@p0]\""}
+{"card":"Ashling, Rekindled","template":"trigger#0.2","status":"diverge","api":"ChangesZone:Draw+Transformed:Draw+Phase:SetState","sets":["ECL"],"detail":"setup stack: gorge \"[]\", xmage \"[ability:Ashling, Rekindled@p0]\""}
+{"card":"Eirdu, Carrier of Dawn","template":"trigger#0.0","status":"diverge","api":"Phase:SetState","sets":["ECL"],"detail":"setup stack: gorge \"[]\", xmage \"[ability:Eirdu, Carrier of Dawn@p0]\""}
+{"card":"Gardenize","template":"trigger#0.0","status":"diverge","api":"ChangesZone:PutCounter+Phase:Mana","sets":["FRA"],"detail":"setup stack: gorge \"[]\", xmage \"[ability:Gardenize@p0]\""}
+{"card":"Gardenize","template":"trigger#0.1","status":"diverge","api":"ChangesZone:PutCounter+Phase:Mana","sets":["FRA"],"detail":"setup stack: gorge \"[]\", xmage \"[ability:Gardenize@p0]\""}
+{"card":"Grub, Storied Matriarch","template":"trigger#0.2","status":"diverge","api":"ChangesZone:ChangeZone+Transformed:ChangeZone+Phase:SetState","sets":["ECL"],"detail":"setup stack: gorge \"[]\", xmage \"[ability:Grub, Storied Matriarch@p0]\""}
+{"card":"Oko, Lorwyn Liege","template":"trigger#0.0","status":"diverge","api":"Phase:SetState","sets":["ECL"],"detail":"setup stack: gorge \"[]\", xmage \"[ability:Oko, Lorwyn Liege@p0]\""}
+{"card":"Shadow of the Goblin","template":"trigger#0.0","status":"diverge","api":"Phase:Discard+LandPlayed:DealDamage+SpellCast:DealDamage","sets":["SPM"],"detail":"setup stack: gorge \"[]\", xmage \"[ability:Shadow of the Goblin@p0]\""}
+{"card":"Shriek, Treblemaker","template":"trigger#0.0","status":"diverge","api":"Phase:ImmediateTrigger+ChangesZone:DealDamage","sets":["SPM"],"detail":"setup stack: gorge \"[]\", xmage \"[ability:Shriek, Treblemaker@p0]\""}
+{"card":"Sygg, Wanderwine Wisdom","template":"trigger#0.2","status":"diverge","api":"ChangesZone:Animate+Transformed:Animate+Phase:SetState","sets":["ECL"],"detail":"setup stack: gorge \"[]\", xmage \"[ability:Sygg, Wanderwine Wisdom@p0]\""}

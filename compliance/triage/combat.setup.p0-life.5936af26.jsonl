@@ -1,0 +1,3 @@
+{"shape":{"template":"combat","op":"setup","field":"p0.life","diff":"gorge-xmage=7"},"key":"combat | setup | p0.life | gorge-xmage=7","cards":2}
+{"card":"Pelakka Wurm","template":"combat#0.attack","status":"diverge","api":"ChangesZone:GainLife+ChangesZone:Draw","sets":["FDN"],"detail":"setup p0.life: gorge \"27\", xmage \"20\""}
+{"card":"Pelakka Wurm","template":"combat#0.block","status":"diverge","api":"ChangesZone:GainLife+ChangesZone:Draw","sets":["FDN"],"detail":"setup p0.life: gorge \"27\", xmage \"20\""}

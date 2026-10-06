@@ -1,0 +1,17 @@
+{"shape":{"template":"combat","op":"setup","field":"p0.life","diff":"gorge-xmage=3"},"key":"combat | setup | p0.life | gorge-xmage=3","cards":16}
+{"card":"Balamb T-Rexaur","template":"combat#0.attack","status":"diverge","api":"ChangesZone:GainLife","sets":["FIN"],"detail":"setup p0.life: gorge \"23\", xmage \"20\""}
+{"card":"Balamb T-Rexaur","template":"combat#0.block","status":"diverge","api":"ChangesZone:GainLife","sets":["FIN"],"detail":"setup p0.life: gorge \"23\", xmage \"20\""}
+{"card":"Bloomvine Regent","template":"combat#0.attack","status":"diverge","api":"ChangesZone:GainLife","sets":["TDM"],"detail":"setup p0.life: gorge \"23\", xmage \"20\""}
+{"card":"Bloomvine Regent","template":"combat#0.block","status":"diverge","api":"ChangesZone:GainLife","sets":["TDM"],"detail":"setup p0.life: gorge \"23\", xmage \"20\""}
+{"card":"Hamlet Glutton","template":"combat#0.attack","status":"diverge","api":"ChangesZone:GainLife","sets":["WOE"],"detail":"setup p0.life: gorge \"23\", xmage \"20\""}
+{"card":"Hamlet Glutton","template":"combat#0.block","status":"diverge","api":"ChangesZone:GainLife","sets":["WOE"],"detail":"setup p0.life: gorge \"23\", xmage \"20\""}
+{"card":"Rooftop Percher","template":"combat#0.attack","status":"diverge","api":"ChangesZone:ChangeZone","sets":["ECL"],"detail":"setup p0.life: gorge \"23\", xmage \"20\""}
+{"card":"Rooftop Percher","template":"combat#0.block","status":"diverge","api":"ChangesZone:ChangeZone","sets":["ECL"],"detail":"setup p0.life: gorge \"23\", xmage \"20\""}
+{"card":"Sagu Wildling","template":"combat#0.attack","status":"diverge","api":"ChangesZone:GainLife","sets":["TDM"],"detail":"setup p0.life: gorge \"23\", xmage \"20\""}
+{"card":"Sagu Wildling","template":"combat#0.block","status":"diverge","api":"ChangesZone:GainLife","sets":["TDM"],"detail":"setup p0.life: gorge \"23\", xmage \"20\""}
+{"card":"Soaring Sandwing","template":"combat#0.attack","status":"diverge","api":"ChangesZone:GainLife","sets":["LCI"],"detail":"setup p0.life: gorge \"23\", xmage \"20\""}
+{"card":"Soaring Sandwing","template":"combat#0.block","status":"diverge","api":"ChangesZone:GainLife","sets":["LCI"],"detail":"setup p0.life: gorge \"23\", xmage \"20\""}
+{"card":"Spinewoods Paladin","template":"combat#0.attack","status":"diverge","api":"ChangesZone:GainLife","sets":["OTJ"],"detail":"setup p0.life: gorge \"23\", xmage \"20\""}
+{"card":"Spinewoods Paladin","template":"combat#0.block","status":"diverge","api":"ChangesZone:GainLife","sets":["OTJ"],"detail":"setup p0.life: gorge \"23\", xmage \"20\""}
+{"card":"Vaultborn Tyrant","template":"combat#0.attack","status":"diverge","api":"ChangesZone:GainLife+ChangesZone:CopyPermanent","sets":["BIG"],"detail":"setup p0.life: gorge \"23\", xmage \"20\""}
+{"card":"Vaultborn Tyrant","template":"combat#0.block","status":"diverge","api":"ChangesZone:GainLife+ChangesZone:CopyPermanent","sets":["BIG"],"detail":"setup p0.life: gorge \"23\", xmage \"20\""}

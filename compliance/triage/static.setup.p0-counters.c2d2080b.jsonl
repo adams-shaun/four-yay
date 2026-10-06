@@ -1,0 +1,2 @@
+{"shape":{"template":"static","op":"setup","field":"p0.counters","diff":"gorge=ENERGY=3 xmage="},"key":"static | setup | p0.counters | gorge=ENERGY=3 xmage=","cards":1}
+{"card":"Scales of Shale","template":"static#0.0","status":"diverge","api":"Pump","sets":["BLB"],"detail":"setup p0.counters: gorge \"ENERGY=3\", xmage \"\""}

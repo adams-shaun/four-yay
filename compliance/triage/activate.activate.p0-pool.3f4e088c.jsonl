@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"activate","field":"p0.pool","diff":"gorge=U xmage=G"},"key":"activate | activate | p0.pool | gorge=U xmage=G","cards":1}
+{"card":"Temple of Mystery","template":"activate#0.0","status":"diverge","api":"ChangesZone:Scry","sets":["FDN"],"detail":"step 0 (activate) p0.pool: gorge \"U\", xmage \"G\""}

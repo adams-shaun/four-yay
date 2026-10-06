@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"resolve","field":"p0.pool","diff":"gorge=G xmage="},"key":"trigger | resolve | p0.pool | gorge=G xmage=","cards":1}
+{"card":"Flamewake Phoenix","template":"trigger#0.0","status":"diverge","api":"Phase:ChangeZone","sets":["FDN"],"detail":"step 1 (resolve) p0.pool: gorge \"G\", xmage \"\""}
