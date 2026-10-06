@@ -45,7 +45,31 @@ func TestStolenUniformCastFixture(t *testing.T) {
 	if !reflect.DeepEqual(cast.Targets, wantTargets) {
 		t.Fatalf("Stolen Uniform cast targets = %v, want %v", cast.Targets, wantTargets)
 	}
-	if _, ok := oraclegen.PlaysThrough(reg, item.Scenario); !ok {
+	res, ok := oraclegen.PlaysThrough(reg, item.Scenario)
+	if !ok {
 		t.Fatalf("generated Stolen Uniform scenario does not play through gorge: %+v", item.Scenario)
+	}
+	// The fixture must really exercise the attach: after the resolve step the
+	// stolen Equipment is on p0's creature (the root Pump's RememberObjects$
+	// hands that creature to the chain's Defined$ Remembered Attach).
+	if len(res.Snapshots) == 0 {
+		t.Fatalf("generated Stolen Uniform scenario recorded no snapshots")
+	}
+	final := res.Snapshots[len(res.Snapshots)-1]
+	if !strings.Contains(final.Checkpoint, "resolve") {
+		t.Fatalf("last snapshot %q is not the post-resolution checkpoint", final.Checkpoint)
+	}
+	attached := false
+	for _, p := range final.Permanents {
+		if p.Name == "Accorder's Shield" {
+			if p.Controller != 0 || p.AttachedTo != "p0:Grizzly Bears" {
+				t.Fatalf("after resolve: Accorder's Shield = %+v, want controlled by p0 and attached to p0:Grizzly Bears\n%s",
+					p, strings.Join(res.Transcript, "\n"))
+			}
+			attached = true
+		}
+	}
+	if !attached {
+		t.Fatalf("after resolve: Accorder's Shield is not on the battlefield: %+v", final.Permanents)
 	}
 }
