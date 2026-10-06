@@ -32,7 +32,7 @@ func TestEqualMatchesDeepEqual(t *testing.T) {
 		return &Face{Name: "F", Types: []string{"Creature"}, Abilities: []*SA{sa},
 			Triggers: []Trigger{{Mode: "ChangesZone", Params: map[string]string{"A": "b"}, Effect: eff}},
 			Statics:  []Static{{Mode: "Continuous"}}, Repls: []Repl{{Event: "Moved", With: eff}},
-			SVars:    map[string]string{"X": "1"}}
+			SVars: map[string]string{"X": "1"}}
 	}
 	muts := []func(f *Face){
 		func(f *Face) {},
