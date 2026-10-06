@@ -138,7 +138,10 @@ func TestKr8ConvertArrange(t *testing.T) {
 					if d.Kind == decision.KArrange {
 						arranges++
 					}
-					return tapePick(d)
+					// An optional scry's election must be answered yes to
+					// reach the arrange (the parity of tapePick's answer
+					// moves with the turn structure's decision count).
+					return tapePickYes(d)
 				})
 			}, src)
 			if arranges == 0 {
