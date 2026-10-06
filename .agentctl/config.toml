@@ -216,12 +216,12 @@ feedback_dir = "feedback"
 agentctl = "/home/sadams/projects/agentctl"
 
 # git_ops.py:27-37 (create_worktree), :58-67 (triage), :80-86 (node_modules),
-# :231-237 (TEST_HISTORY.md).
+# :231-237.
 [worktree]
 copy = [".ds4/ledger.json", ".ds4/MagicCompRules-20260807.txt"]
 link = [".cards", ".superpowers"]
 hardlink = ["web/node_modules"]
-ignore_uncommitted = ["TEST_HISTORY.md"]
+ignore_uncommitted = []
 
 # gates.py:114-148, in order; each gate's argv/timeout/env/cwd is gates.py:34-103.
 
@@ -469,7 +469,7 @@ deploy_cmd = []
 # (scripts/heavy_lock.sh) and is SKIPPED (-s: logged, exit 0) rather than
 # stalling the merge path behind a multi-hour lease or a full suite.
 post_merge = [["scripts/heavy_lock.sh", "run", "-w", "300", "-s", "--", "make", "ledger"]]
-carry_trailers = ["Test-Budget-Approved:"]
+carry_trailers = []
 
 # config.py:35, 138-163.
 [harness]

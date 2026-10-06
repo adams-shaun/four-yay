@@ -671,7 +671,7 @@ func TestAHumanPlaysAMatchToCompletion(t *testing.T) {
 // newServeArtCache seam is only ever swapped by the sequential prewarm
 // test) — so the eight of them that drive a served server directly run in
 // parallel. That is not decoration: the package's wall-time budget
-// (TEST_HISTORY.md, budget_s) was already at zero headroom before the
+// (the per-test 1-minute limit enforced by cmd/testbudget) was already at zero headroom before the
 // serve-level prewarm test was added, and serializing these buys nothing.
 func TestHumanSeatRefusesTheOtherSeat(t *testing.T) {
 	t.Parallel()

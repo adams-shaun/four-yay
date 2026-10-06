@@ -59,13 +59,9 @@ func set(s string) map[string]bool {
 // only clocks in the system. Every other package must be a pure function
 // of its inputs.
 //
-// cmd/testtime is exempt because it is a build-time developer tool, not part
-// of the engine or the server: it stamps each TEST_HISTORY.md row with the
-// UTC time the measurement was taken. Nothing it produces reaches a game, an
-// event, a view or a replay, so D16's determinism argument does not apply.
-// cmd/botbench is exempt for the same class of reason: its grind mode reads
-// the wall clock only to bound its own run window (deadline) and report per-
-// deck elapsed time — how long the BENCH chose to run, not anything a game,
+// cmd/botbench is exempt because it is a build-time developer tool, not part
+// of the engine or the server: its grind mode reads the wall clock only to
+// bound its own run window (deadline) and report per-deck elapsed time — how long the BENCH chose to run, not anything a game,
 // event, view or replay depends on. cmd/ledger is exempt likewise: it stamps
 // the ledger document's Generated: field for the dashboard, a docs tool
 // output, never engine state.
@@ -120,7 +116,6 @@ func TestTimeIsImportedOnlyByTheHost(t *testing.T) {
 		module + "/host":              true,
 		module + "/host/httpapi":      true,
 		module + "/cmd/gorged":        true,
-		module + "/cmd/testtime":      true,
 		module + "/cmd/botbench":      true,
 		module + "/cmd/ledger":        true,
 		module + "/cmd/searchprobe":   true,

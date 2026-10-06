@@ -15,7 +15,7 @@ Part of the [repo map](repo-map.md) index. The engine chain is in
 | `repro` | Replays a player feedback snapshot; `-emit-test` writes a failing test. |
 | `headdiff` | Plays the `TestHeads` acceptance games; `-dump` records their event streams, `-against` names the first divergent event between two builds. |
 | `cardfuzz` | Random mono-colour decks over the supported corpus; hunts panics, livelocks, divergences. |
-| `testtime` / `gcgate` / `allocgate` | Test wall-time, GC-share and allocation/RSS budgets (`TEST_HISTORY.md`, `ALLOC_HISTORY.md`). |
+| `testbudget` / `gcgate` | Per-test wall and peak-RSS budget check (post-merge, `scripts/postmerge_full.sh`); by-hand GC-share check. |
 | `gentypes` | Regenerates `web/src/protocol.ts` (`make gentypes`; `-check` in lint). |
 | `deckimport` | Plain-text decklist → repo deck JSON. |
 | `ledger` | Rebuilds the derived issue ledger (`.ds4/ledger.json`). |
@@ -35,7 +35,7 @@ Part of the [repo map](repo-map.md) index. The engine chain is in
 | `.githooks/` | pre-commit, commit-msg, pre-push (`core.hooksPath=.githooks`). |
 | `scripts/` | `agent-worktree.sh` (the only sanctioned worktree creator), `fleet.sh` (port allocation), `smoke.sh`, `cleanup.sh`, `deploy-demo.sh` (operator only). |
 | `.github/workflows/coverage.yml` | On push to main: runs `make coverage` and publishes `.coverage/summary.md` as the job summary and `.coverage/` as the `card-coverage` artifact. Commits nothing. |
-| `TEST_HISTORY.md`, `ALLOC_HISTORY.md` (per package) | Test-time and allocation budgets. |
+| `internal/testutil/testdata/wall_exceptions.txt`, `rss_exceptions.txt` | Shrink-only inventories of tests over the per-test wall / RSS budget. |
 
 ## Untracked but load-bearing
 

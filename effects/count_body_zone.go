@@ -110,9 +110,8 @@ func evalCountBodyZone(h Host, c *Ctx, g *state.Game, head, arg string, depth in
 		// The fold scans candidates IN PLACE -- no materialised candidate
 		// slice: Count$Valid is on the hottest condition path
 		// (effects.CheckSVarHolds intervening-ifs, static gates, SVarCompare)
-		// and the single-zone scan must stay allocation-free (the alloc-gate
-		// budget and TestEvalCountValidZoneScanIsAllocationFree hold the
-		// line). ValidAll (6 corpus Count$ValidAll carriers: Cactus Preserve
+		// and the single-zone scan must stay allocation-free
+		// (TestEvalCountValidZoneScanIsAllocationFree holds the line). ValidAll (6 corpus Count$ValidAll carriers: Cactus Preserve
 		// and Tangleweave Armor's greatest-commander-mana-value, Kefka's
 		// imprinted card, Mangara/Tomik's attacking-LKI count, You Will Know
 		// True Suffering's commander mana value) extends the scan to EVERY
@@ -134,7 +133,7 @@ func evalCountBodyZone(h Host, c *Ctx, g *state.Game, head, arg string, depth in
 		// struct escapes through the pointer receiver), which heap-
 		// allocated EVERY caller-built Ctx on the hot layer-walk path
 		// (rules/layers.go's cdaSetPT Ctx) -- exactly the allocation class
-		// the alloc-gate budget and rules' Derived pin hold the line on.
+		// rules' Derived pin holds the line on.
 		// Built once here and passed to visit as a parameter instead.
 		specCtx := c.SpecContext(c.Controller)
 		f := zoneCountFold{h: h, g: g, spec: spec,

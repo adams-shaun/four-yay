@@ -14,21 +14,4 @@ if grep -Eiq '^Ref:|[j]ira' "$1"; then
 	exit 1
 fi
 
-# Test-time budget approval (Task TT): if the staged diff raises a package's
-# budget_s line (new value greater than the old), the message must carry a
-# Test-Budget-Approved trailer. New files and decreases never need approval.
-# Each changed TEST_HISTORY.md is examined independently so an increase in one
-# file cannot hide behind a decrease in another.
-for f in $(git diff --cached --name-only -- '*/TEST_HISTORY.md' TEST_HISTORY.md); do
-	diff=$(git diff --cached -U0 -- "$f")
-	old=$(printf '%s\n' "$diff" | sed -n 's/^-budget_s:[[:space:]]*//p' | head -1)
-	new=$(printf '%s\n' "$diff" | sed -n 's/^+budget_s:[[:space:]]*//p' | head -1)
-	if [ -n "$old" ] && [ -n "$new" ] && [ "$new" -gt "$old" ] 2>/dev/null; then
-		if ! grep -q '^Test-Budget-Approved:' "$1"; then
-			echo "commit-msg: budget_s raised from $old to $new in $f but no Test-Budget-Approved: <who> — <why> trailer in the message" >&2
-			echo "commit-msg: add a line like: Test-Budget-Approved: sadams — host tests grew to 61s" >&2
-			exit 1
-		fi
-	fi
-done
 exit 0

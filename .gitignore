@@ -45,7 +45,6 @@ __pycache__/
 # stray 11 MB botbench (2026-09-21) can block merges until someone notices.
 # One line per command in cmd/, anchored to the root so a real package of the
 # same name is unaffected.
-/allocgate
 /botbench
 /deckimport
 /forgec
@@ -61,7 +60,7 @@ __pycache__/
 /searchprobe
 /searchteacher
 /searchbench
-/testtime
+/testbudget
 
 # The generated compliance status page (make compliance-status). Never
 # committed: it moves with every engine change (spec 2026-10-03 section 6).
