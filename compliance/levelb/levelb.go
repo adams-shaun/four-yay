@@ -48,11 +48,8 @@ var combatKeywords = []string{
 	"Melee", "Rampage", "Provoke", "Toxic", "Infect", "Wither",
 }
 
-// servableStaticModes are static modes a v1 template serves directly (they
-// need no "offered" observation): DisableTriggers is observed through the
-// stack and CombatDamageToughness through combat damage. Every other combat
-// mode stays static.combat (a legality gap). The table is the single home for
-// the mapping so a second mode of the same shape is one row.
+// servableStaticModes maps modes whose supported parameter shape does not
+// need additional classification to its v1 template family.
 var servableStaticModes = []struct{ mode, sub string }{
 	{"DisableTriggers", "static.disable-triggers"},
 	{"CombatDamageToughness", "static.combat-damage-toughness"},
@@ -88,7 +85,7 @@ func Requirements(c *cards.Card) []Requirement {
 			out = append(out, newReq("trigger", fi, strconv.Itoa(ti), sub, gap, covered))
 		}
 		for si := range f.Statics {
-			sub, gap := classifyStatic(&f.Statics[si])
+			sub, gap := classifyStatic(f, &f.Statics[si])
 			out = append(out, newReq("static", fi, strconv.Itoa(si), sub, gap, false))
 		}
 	}
@@ -244,7 +241,7 @@ func classifyTrigger(f *cards.Face, t *cards.Trigger) (sub, gap string, covered 
 }
 
 // classifyStatic returns the static's sub-family and its gap.
-func classifyStatic(st *cards.Static) (sub, gap string) {
+func classifyStatic(f *cards.Face, st *cards.Static) (sub, gap string) {
 	switch st.ModeKind() {
 	case cards.StaticContinuous:
 		return "static.continuous", ""
@@ -260,10 +257,46 @@ func classifyStatic(st *cards.Static) (sub, gap string) {
 			return s.sub, ""
 		}
 	}
+	if sub, ok := supportedLegalityStatic(f, st); ok {
+		return sub, ""
+	}
 	if isCombatStaticMode(st.Mode) {
 		return "static.combat", "legality static"
 	}
 	return "static.gap:" + st.Mode, "static mode " + st.Mode
+}
+
+// supportedLegalityStatic recognizes only the legality shapes for which a
+// v1 template has a validated control. Other instances remain visible gaps.
+func supportedLegalityStatic(f *cards.Face, st *cards.Static) (string, bool) {
+	switch strings.ToLower(st.Mode) {
+	case "canattackdefender":
+		valid := st.ParamStr(cards.PKValidCard)
+		if strings.EqualFold(valid, "Creature.YouCtrl") && !st.HasParam(cards.PKCheckSVar) && !st.HasParam(cards.PKIsPresent) && !st.HasParam(cards.PKValidAttacked) && !st.HasParam(cards.PKPhases) && !st.HasParam(cards.PKCondition) {
+			return "static.can-attack-defender", true
+		}
+		if strings.EqualFold(valid, "Card.Self") && strings.EqualFold(st.ParamStr(cards.PKCheckSVar), "X") && !st.HasParam(cards.PKIsPresent) && !st.HasParam(cards.PKPhases) &&
+			strings.EqualFold(f.SVars["X"], "Count$YouScryThisTurn/Plus.Y") &&
+			strings.EqualFold(f.SVars["Y"], "Count$YouSurveilThisTurn") {
+			return "static.can-attack-defender-svar", true
+		}
+	case "cantblockby":
+		if strings.EqualFold(st.ParamStr(cards.PKValidAttacker), "Creature.YouCtrl+powerLE1,Creature.YouCtrl+toughnessLE1") && !st.HasParam(cards.PKValidBlocker) && !st.HasParam(cards.PKIsPresent) && !st.HasParam(cards.PKCondition) {
+			return "static.cant-block-by", true
+		}
+	case "cantbecast":
+		if strings.EqualFold(st.ParamStr(cards.PKValidCard), "Card.Self") && strings.EqualFold(st.ParamStr(cards.PKCheckSVar), "X") && strings.EqualFold(st.ParamStr(cards.PKSVarCompare), "LT7") && strings.EqualFold(st.ParamStr(cards.PKEffectZone), "All") && !st.HasParam(cards.PKPhases) && !st.HasParam(cards.PKCondition) && !st.HasParam(cards.PKCaster) {
+			return "static.cant-be-cast-threshold", true
+		}
+		if strings.EqualFold(st.ParamStr(cards.PKValidCard), "Card") && strings.EqualFold(st.ParamStr(cards.PKPhases), "BeginCombat->EndCombat") && !st.HasParam(cards.PKCaster) && !st.HasParam(cards.PKCondition) && !st.HasParam(cards.PKIsPresent) {
+			return "static.cant-be-cast-combat", true
+		}
+	case "cantbeactivated":
+		if strings.EqualFold(st.ParamStr(cards.PKValidCard), "Card") && strings.EqualFold(st.ParamStr(cards.PKValidSA), "Activated.!ManaAbility") && strings.EqualFold(st.ParamStr(cards.PKPhases), "BeginCombat->EndCombat") && !st.HasParam(cards.PKActivator) && !st.HasParam(cards.PKAffectedZone) && !st.HasParam(cards.PKCondition) {
+			return "static.cant-be-activated-combat", true
+		}
+	}
+	return "", false
 }
 
 // isCombatStaticMode reports whether mode names a combat-legality static.

@@ -83,10 +83,24 @@ type Step struct {
 // TriggerOnStack names a source ref whose trigger must (Want true, the
 // default) or must not (Want false) be a stack entry; StackSize pins the
 // stack length. Both read as rules/oracle_run.go's oracleExpect fields do.
+type Offered struct {
+	Seat  int    `json:"seat"`
+	Kind  string `json:"kind"`
+	Card  string `json:"card"`
+	Label string `json:"label,omitempty"`
+}
+
+type CanBlock struct {
+	Blocker  string `json:"blocker"`
+	Attacker string `json:"attacker"`
+}
+
 type Expect struct {
-	TriggerOnStack string `json:"trigger_on_stack,omitempty"`
-	StackSize      *int   `json:"stack_size,omitempty"`
-	Want           *bool  `json:"want,omitempty"`
+	TriggerOnStack string    `json:"trigger_on_stack,omitempty"`
+	StackSize      *int      `json:"stack_size,omitempty"`
+	Offered        *Offered  `json:"offered,omitempty"`
+	CanBlock       *CanBlock `json:"can_block,omitempty"`
+	Want           *bool     `json:"want,omitempty"`
 }
 
 // Answer is a queued answer for gorge's runner (kind = decision kind).
