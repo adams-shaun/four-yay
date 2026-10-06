@@ -17,6 +17,7 @@ import mage.abilities.costs.AlternativeSourceCosts;
 import mage.abilities.costs.OptionalAdditionalSourceCosts;
 import mage.abilities.costs.OrCost;
 import mage.abilities.keyword.LeylineAbility;
+import mage.abilities.keyword.SpreeAbility;
 import mage.cards.repository.CardInfo;
 import mage.cards.repository.CardRepository;
 import mage.abilities.effects.common.EndTurnEffect;
@@ -79,11 +80,6 @@ public class ScenarioReplay extends CardTestPlayerBase {
     private int activeSeat = 0;
     private boolean attackAdvancedTurn = false;
     private static final PhaseStep MAIN = PhaseStep.PRECOMBAT_MAIN;
-    private static final Set<String> SPREE_CARDS = Set.of(
-            "Dance of the Tumbleweeds", "Getaway Glamer", "Great Train Heist",
-            "Insatiable Avarice", "Jailbreak Scheme", "Lively Dirge",
-            "Metamorphic Blast", "Rush of Dread", "Shifting Grift",
-            "Smuggler's Surprise", "Unfortunate Accident");
 
     private final List<JsonObject> snaps = new ArrayList<>();
     // The step a cast/resolve/checkpoint is registered at. MAIN until an
@@ -1073,6 +1069,21 @@ public class ScenarioReplay extends CardTestPlayerBase {
     }
 
     /**
+     * Whether the named spell is a Spree card. XMage models Spree as a
+     * SpreeAbility on the card (it sets the spell's modes to 1..unbounded), so
+     * this is exact and structural: every Spree card is covered, including one
+     * printed after this driver. The old hardcoded name set listed 11 of the
+     * 21 Spree cards the corpus carries (One Last Job among the missing), so
+     * its cast never got the closing mode skip and XMage failed the scenario
+     * with "Missing MODE def".
+     */
+    private static boolean isSpreeSpell(String name) {
+        CardInfo info = CardRepository.instance.findCard(name);
+        Card c = info == null ? null : info.createCard();
+        return c != null && c.getAbilities().containsClass(SpreeAbility.class);
+    }
+
+    /**
      * Whether a modal spell's first target lives in a later mode: the card's
      * first mode (the one XMage's up-front {@code $target=} check reads, since
      * the scenario's chosen modes are not selected yet) has no target, but
@@ -1555,7 +1566,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 // Spree permits choosing further modes after the first. Its
                 // generated answer records the chosen mode, not the decision
                 // to stop, so close XMage's repeated mode prompt explicitly.
-                if (SPREE_CARDS.contains(xmageName.isEmpty() ? refName(str(st, "card")) : xmageName)) {
+                if (isSpreeSpell(xmageName.isEmpty() ? refName(str(st, "card")) : xmageName)) {
                     setModeChoice(p, TestPlayer.MODE_SKIP);
                 }
                 castCostPicks = new ArrayList<>();
