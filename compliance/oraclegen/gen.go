@@ -607,7 +607,11 @@ func NewItem(f *cards.Face, card, template string, version int, sc Scenario) Ite
 	sc.Name = fmt.Sprintf("gen%d-%s", version, template)
 	sc.CR = []string{"601.2"}
 	sc.Why = "generated level-A scenario"
-	return Item{ID: fmt.Sprintf("%s/%s/v%d", card, template, version), Card: card, Template: template, Scenario: sc}
+	it := Item{ID: fmt.Sprintf("%s/%s/v%d", card, template, version), Card: card, Template: template, Scenario: sc}
+	if CanShuffleLibrary(f) {
+		it.Compare = []string{CompareNoLibraryOrder}
+	}
+	return it
 }
 
 // baseline gives every cast scenario something for "up to one target"
