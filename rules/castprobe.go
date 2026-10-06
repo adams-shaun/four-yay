@@ -23,8 +23,8 @@ import (
 // aborted with no legal target. The payment-plan offer (paymentActionsForPriority)
 // offered that cast as a one-click plan, which then reversed (CR 733.1).
 //
-// offerAsSpellOnStack answers fn with id moved from its hand to the top of
-// the stack and puts it back before returning. Like offerAsFace
+// offerAsSpellOnStack answers fn with id moved from its hand (or, for a
+// may-play cast, its exile or graveyard zone) to the top of the stack and puts it back before returning. Like offerAsFace
 // (faceprobe.go) it is a scoped READ: no event is emitted, the hand list is
 // restored to the identical slice (the probe writes only fresh copies), the
 // stack to its own slice, and the object's zone to its value -- so the log,
@@ -38,10 +38,11 @@ import (
 // summary of the other.
 func (e *Engine) offerAsSpellOnStack(id state.ObjID, fn func() bool) bool {
 	o := e.G.Obj(id)
-	if o == nil || o.Zone != state.ZHand {
+	if o == nil || (o.Zone != state.ZHand && !plannedMayPlayZone(o.Zone)) {
 		return fn()
 	}
-	hand := e.G.Zone(state.ZHand, o.Owner)
+	srcZone := o.Zone
+	hand := e.G.Zone(srcZone, o.Owner)
 	i := slices.Index(hand, id)
 	if i < 0 {
 		return fn()
@@ -52,7 +53,7 @@ func (e *Engine) offerAsSpellOnStack(id state.ObjID, fn func() bool) bool {
 	probeHand = append(append(probeHand, hand[:i]...), hand[i+1:]...)
 	prevStack, prevZone := e.G.Stack, o.Zone
 	prevDepth, prevGen := e.derivedMemoDepth, e.derivedMemoGen
-	e.G.SetZone(state.ZHand, o.Owner, probeHand)
+	e.G.SetZone(srcZone, o.Owner, probeHand)
 	e.G.Stack = append(slices.Clip(prevStack), id)
 	o.Zone = state.ZStack
 	e.derivedMemoDepth = 0
@@ -64,7 +65,7 @@ func (e *Engine) offerAsSpellOnStack(id state.ObjID, fn func() bool) bool {
 		e.offerProbeDepth--
 		o.Zone = prevZone
 		e.G.Stack = prevStack
-		e.G.SetZone(state.ZHand, o.Owner, hand)
+		e.G.SetZone(srcZone, o.Owner, hand)
 		e.derivedMemoDepth = prevDepth
 		e.retireCrossWalkMemo()
 		if e.derivedMemoGen != prevGen {

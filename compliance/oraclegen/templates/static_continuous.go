@@ -116,11 +116,27 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 			}
 		}
 	}
+	// A static that acts on cards outside the battlefield changes nothing a
+	// snapshot shows; it is observed as an offered option instead
+	// (static_offer.go). A look-at permission shows in neither engine's
+	// snapshot, so it carries its own named skip.
+	if it, ok := staticOfferItem(reg, c, f, name, req, st); ok {
+		return it, nil
+	}
+	if st.HasParam(cards.PKMayLookAt) {
+		return skip(staticLookAtReason)
+	}
+	if it, ok := staticSpellLifelinkItem(reg, c, f, name, req, st); ok {
+		return it, nil
+	}
 	if gap := staticProbeCapGap(probePlan); gap != "" {
 		return skip(gap)
 	}
 	if st.HasParam(cards.PKClassBand) {
 		return skip(staticClassReason)
+	}
+	if gap := staticOffBattlefieldGrantGap(st); gap != "" {
+		return skip(gap)
 	}
 	if gap := staticObserveGap(f, st); gap != "" {
 		return skip(gap)

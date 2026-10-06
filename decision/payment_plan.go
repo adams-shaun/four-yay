@@ -194,6 +194,10 @@ type PaymentPlan struct {
 }
 
 // PlannedCast is the exact cast identity a payment action authorizes.
+//
+// Origin is the zone the cast begins from: "hand", "command_zone" (the plain
+// taxed commander cast), or "exile" / "graveyard" (the plain cast an untyped
+// may-play permission grants a card there).
 type PlannedCast struct {
 	Object state.ObjID `json:"object"`
 	Face   int         `json:"face"`

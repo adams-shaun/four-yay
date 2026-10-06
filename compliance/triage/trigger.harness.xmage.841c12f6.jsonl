@@ -1,0 +1,16 @@
+{"shape":{"template":"trigger","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: Crew N"},"key":"trigger | harness | xmage | AssertionError: Can't find ability to activate command: Crew N","cards":15}
+{"card":"Adventurer's Airship","template":"trigger#0.0","status":"harness","api":"Attacks:Draw","sets":["FIN"],"detail":"xmage: AssertionError: Can't find ability to activate command: Crew 2"}
+{"card":"Balamb Garden, SeeD Academy","template":"trigger#1.0","status":"harness","api":"-","sets":["FIN"],"detail":"xmage: AssertionError: Can't find ability to activate command: Crew 1"}
+{"card":"Boosted Sloop","template":"trigger#0.0","status":"harness","api":"AttackersDeclared:Draw","sets":["DFT"],"detail":"xmage: AssertionError: Can't find ability to activate command: Crew 1"}
+{"card":"Careening Mine Cart","template":"trigger#0.0","status":"harness","api":"Attacks:Token","sets":["LCI"],"detail":"xmage: AssertionError: Can't find ability to activate command: Crew 1"}
+{"card":"Great Gilded Boat","template":"trigger#0.0","status":"harness","api":"AttackersDeclared:Recruit","sets":["HOB"],"detail":"xmage: AssertionError: Can't find ability to activate command: Crew 2"}
+{"card":"Haunted Hellride","template":"trigger#0.0","status":"harness","api":"AttackersDeclared:Pump","sets":["DFT"],"detail":"xmage: AssertionError: Can't find ability to activate command: Crew 1"}
+{"card":"Passenger Ferry","template":"trigger#0.0","status":"harness","api":"Attacks:ImmediateTrigger","sets":["SPM"],"detail":"xmage: AssertionError: Can't find ability to activate command: Crew 2"}
+{"card":"Rocketeer Boostbuggy","template":"trigger#0.0","status":"harness","api":"Attacks:Token","sets":["DFT"],"detail":"xmage: AssertionError: Can't find ability to activate command: Crew 1"}
+{"card":"Salvation Engine","template":"trigger#0.0","status":"harness","api":"Attacks:ChangeZone","sets":["DFT"],"detail":"xmage: AssertionError: Can't find ability to activate command: Crew 6"}
+{"card":"Spider-Mobile","template":"trigger#0.0","status":"harness","api":"Attacks:Pump+Blocks:Pump","sets":["SPM"],"detail":"xmage: AssertionError: Can't find ability to activate command: Crew 2"}
+{"card":"Subterranean Schooner","template":"trigger#0.0","status":"harness","api":"Attacks:Explore","sets":["LCI"],"detail":"xmage: AssertionError: Can't find ability to activate command: Crew 1"}
+{"card":"The Belligerent","template":"trigger#0.0","status":"harness","api":"Attacks:Token","sets":["LCI"],"detail":"xmage: AssertionError: Can't find ability to activate command: Crew 3"}
+{"card":"The Regalia","template":"trigger#0.0","status":"harness","api":"Attacks:DigUntil","sets":["FIN"],"detail":"xmage: AssertionError: Can't find ability to activate command: Crew 1"}
+{"card":"Tundra Tank","template":"trigger#0.1","status":"harness","api":"ChangesZone:Pump+Attacks:Mana","sets":["TLA"],"detail":"xmage: AssertionError: Can't find ability to activate command: Crew 1"}
+{"card":"Turtle Van","template":"trigger#0.0","status":"harness","api":"Attacks:PutCounter","sets":["TMT"],"detail":"xmage: AssertionError: Can't find ability to activate command: Crew 1"}

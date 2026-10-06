@@ -26,6 +26,22 @@
 #      rest land after a fresh full replay. A row no single branch clears lands
 #      NOTHING and every ticket stays parked with the findings.
 #
+# DRIFT pass: a change to the scenario generator (compliance/oraclegen,
+# cmd/oraclediff, compliance/manifests) changes what XMage is asked, but is never
+# replayed on its own, so its breakage would surface as unattributable
+# "regressions" in an unrelated driver batch. When NO ticket is parked, the gates
+# hold (no pause, GREEN) and those paths differ between the main sha the last full
+# replay ran on (.ds4/driver-replay-last-main; else the last LANDED sha in the
+# log; else main is recorded and nothing runs) and main, the script replays MAIN
+# ITSELF on a fresh integration worktree (no branches merged), classifies FLAKY as
+# for a batch, logs each stable regressed row as
+#   DRIFT <row> <detail> commits=<h1,h2,..>
+# (also appended to .ds4/driver-drift.log, keyed by the driver+generator trees),
+# lands the refreshed verdicts, records the new last-main, and files one agentctl
+# ticket per regressed template class. In a normal batch a stable regressed row
+# that the drift log holds for the same driver+generator trees is DRIFT-KNOWN:
+# main's row is kept and no branch is blamed.
+#
 # Landing = `git merge --no-ff` into the main checkout's main (NO push: the
 # gorge-postmerge-batch unit pushes), then each included ticket is marked
 # merged through agentctl's IssueStore lock and its worktree removed.
@@ -40,7 +56,7 @@
 #     -p WorkingDirectory=/home/sadams/projects/gorge --setenv=PATH=$PATH --setenv=HOME=$HOME \
 #     bash scripts/driver_replay_batch.sh
 #
-# Log (timestamped; START MERGED-INTO-BATCH SKIP-CONFLICT REPLAY FLAKY CULPRIT
+# Log (timestamped; START DRIFT-START DRIFT DRIFT-KNOWN MERGED-INTO-BATCH SKIP-CONFLICT REPLAY FLAKY CULPRIT
 # LANDED ...): .ds4/driver-replay-batch.log. Flakes: .ds4/driver-flakes.log.
 # Run dirs: $DRB_RUNS/driver-batch-<stamp> (the newest 3 are kept).
 #
@@ -52,7 +68,8 @@
 # Test seams (scripts/tests/driver_replay_batch_smoke.sh): DRB_REPO DRB_MAIN
 # DRB_LOG DRB_FLAKE_LOG DRB_POSTMERGE_LOG DRB_ISSUES DRB_RUNS DRB_POLL DRB_ONCE
 # DRB_COOLDOWN DRB_LOCKRUN DRB_WORKTREE_CMD DRB_REPLAY_CMD DRB_COMPARE_CMD
-# DRB_SCENARIO_CMD DRB_GEN_CMD DRB_DIFF_CMD DRB_CHECK_CMD DRB_RATCHET_CMD DRB_ISSUE_TOOL.
+# DRB_SCENARIO_CMD DRB_GEN_CMD DRB_DIFF_CMD DRB_CHECK_CMD DRB_RATCHET_CMD DRB_ISSUE_TOOL
+# DRB_LASTMAIN DRB_DRIFT_LOG DRB_TICKET_TOOL (called: <title> <brief>).
 set -uo pipefail
 repo=${DRB_REPO:-$(git rev-parse --show-toplevel)}
 cd "$repo" || exit 1
@@ -65,6 +82,9 @@ ISSUES=${DRB_ISSUES:-$repo/.ds4/issues}
 RUNS=${DRB_RUNS:-/mnt/sata/gorge-training/xmageoracle/runs}
 POLL=${DRB_POLL:-120}
 COOLDOWN=${DRB_COOLDOWN:-1800}
+LASTMAIN=${DRB_LASTMAIN:-$repo/.ds4/driver-replay-last-main}
+DRIFTLOG=${DRB_DRIFT_LOG:-$repo/.ds4/driver-drift.log}
+GEN_PATHS=(compliance/oraclegen cmd/oraclediff compliance/manifests)
 FLAKE_RUNS=4
 KEEP_RUNS=3
 
@@ -108,15 +128,25 @@ PYHELP=$(
   cat <<'PY'
 import json, re, sys, glob, os
 
+def normalize_ids(x):
+    if isinstance(x, dict):
+        return {k: normalize_ids(v) for k, v in x.items()}
+    if isinstance(x, list):
+        return [normalize_ids(v) for v in x]
+    if isinstance(x, str):
+        x = re.sub(r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b", "<uuid>", x)
+        return re.sub(r"\[[0-9a-f]{3}\]", "[<id>]", x)
+    return x
+
 def canon(path):
-    """One xmage.jsonl snapshot with the per-run timing fields dropped."""
+    """One xmage.jsonl snapshot with per-run timings and object IDs dropped."""
     out = []
     for line in open(path):
         if line.strip():
             r = json.loads(line)
             for k in ("ms", "xmage_ms"):
                 r.pop(k, None)
-            out.append(r)
+            out.append(normalize_ids(r))
     return out
 
 def leaves(x, p=""):
@@ -213,6 +243,28 @@ elif cmd == "agrees":
                 st = r.get("status") or (r.get("verdict") or {}).get("status", "")
                 sys.exit(0 if str(st).lower() == "agree" else 1)
     sys.exit(1)
+elif cmd == "scenariochanged":
+    # scenariochanged WT MAINSHA ID: true iff both verdict rows have different scenario hashes.
+    wt, ref, rid = args
+    import subprocess
+    current = None
+    for f in sorted(glob.glob(os.path.join(wt, "compliance/verdicts/*.jsonl"))):
+        for line in open(f):
+            if line.strip() and json.loads(line).get("id") == rid:
+                current = json.loads(line).get("scenario_sha")
+                break
+        if current is not None:
+            break
+    if current is None:
+        sys.exit(1)
+    for f in sorted(glob.glob(os.path.join(wt, "compliance/verdicts/*.jsonl"))):
+        rel = "compliance/verdicts/" + os.path.basename(f)
+        show = subprocess.run(["git", "-C", wt, "show", ref + ":" + rel], capture_output=True, text=True, check=True).stdout
+        for line in show.split("\n"):
+            if line.strip() and json.loads(line).get("id") == rid:
+                original = json.loads(line).get("scenario_sha")
+                sys.exit(0 if current and original and current != original else 1)
+    sys.exit(1)
 elif cmd == "keepmain":
     # keepmain WT MAINSHA ID: put main's verdict row for ID back in WT's file
     wt, ref, rid = args
@@ -265,12 +317,34 @@ with s.locked():
 PY
 }
 
+# file_ticket <title> <brief>: queue one new agentctl ticket.
+file_ticket() {
+  if [ -n "${DRB_TICKET_TOOL:-}" ]; then "$DRB_TICKET_TOOL" "$@"; return; fi
+  (cd "$repo" && PYTHONPATH=$HOME/.agentctl/pins/current python3 -m agentctl issue add "$repo" --title "$1" --brief "$2" --priority 2)
+}
+
 # ---- gate conditions ---------------------------------------------------------
 main_green() {
   [ -e "$PMLOG" ] || return 1
   [ "$(/usr/bin/grep -E '^[0-9-]+ [0-9:]+ (GREEN|RED|STILL) ' "$PMLOG" | tail -n1 | awk '{print $3}')" = GREEN ]
 }
 sha12() { git rev-parse --verify -q "$1" | cut -c1-12; }
+
+# last_main: the main sha the last full replay ran on ("" if unknown).
+last_main() {
+  local s=""
+  [ -s "$LASTMAIN" ] && s=$(head -n1 "$LASTMAIN")
+  if [ -z "$s" ] && [ -e "$LOG" ]; then s=$(/usr/bin/grep -oE ' LANDED [0-9a-f]{7,}' "$LOG" | tail -n1 | awk '{print $2}'); fi
+  [ -n "$s" ] && git rev-parse --verify -q "$s^{commit}"
+}
+record_last_main() { git rev-parse --verify -q "$1^{commit}" >"$LASTMAIN.tmp" && mv -f "$LASTMAIN.tmp" "$LASTMAIN"; }
+# gen_key <ref>: identifies the driver + generator at <ref> (their tree ids).
+gen_key() { git ls-tree -d "$1" -- tools/xmageoracle compliance/oraclegen cmd/oraclediff compliance/manifests | sha1sum | cut -c1-12; }
+# drift_known <row>: 0 iff a DRIFT replay of this driver+generator regressed the row.
+drift_known() {
+  [ -e "$DRIFTLOG" ] || return 1
+  /usr/bin/grep -qF -- " $(gen_key "$MAIN") $1 | " "$DRIFTLOG"
+}
 
 # ---- per-pass state ----------------------------------------------------------
 declare -A BR       # ticket id -> branch
@@ -456,17 +530,61 @@ select_parked() {
   done < <(py parked "$ISSUES")
 }
 
+# classify <rdir> <use drift log 0|1>: sort the regressed rows of <rdir>.regressed
+# into FLAKY (varies on the same driver, or listed in driver-flakes.log), DRIFTED
+# (the drift log holds it for this driver+generator) and STABLE; main's row is put
+# back for the first two. Returns 1 with CLASSIFY_ERR set on an infra failure.
+STABLE=(); FLAKY=(); DRIFTED=(); CLASSIFY_ERR=""
+declare -A DET=()
+classify() {
+  local id status detail rc
+  STABLE=(); FLAKY=(); DRIFTED=(); DET=(); CLASSIFY_ERR=""
+  while IFS=$'\t' read -r id status detail; do
+    DET[$id]="$status $detail"
+    if known_flaky "$id"; then
+      say "FLAKY $id (listed in $(basename "$FLAKES")): known flake, not re-tested; keeping main's row"
+      FLAKY+=("$id")
+      continue
+    fi
+    if [ "$2" = 1 ] && drift_known "$id"; then
+      say "DRIFT-KNOWN $id: ${DET[$id]} -- regressed on the DRIFT replay of this driver+generator; not blamed on the batch, keeping main's row"
+      DRIFTED+=("$id")
+      continue
+    fi
+    flaky_check "$id"; rc=$?
+    if [ "$rc" -eq 2 ]; then CLASSIFY_ERR="could not replay single scenario $id"; return 1; fi
+    if [ "$rc" -eq 0 ] && py scenariochanged "$wt" "$MAIN" "$id"; then
+      say "STABLE $id ($FLAKE_FIELD): scenario differs from main; attributing instead of keeping main's stale row"
+      STABLE+=("$id")
+    elif [ "$rc" -eq 0 ]; then
+      say "FLAKY $id ($FLAKE_FIELD): $FLAKE_RUNS replays on the batch driver differ; keeping main's row"
+      echo "$(date '+%F %T') $bid ${id%%/*} $id varies: $FLAKE_FIELD" >>"$FLAKES"
+      FLAKY+=("$id")
+    else
+      STABLE+=("$id")
+    fi
+  done < <(tail -n +2 "$1.regressed")
+  for id in "${FLAKY[@]}" "${DRIFTED[@]}"; do
+    py keepmain "$wt" "$MAIN" "$id" || { CLASSIFY_ERR="could not restore main's row for $id"; return 1; }
+  done
+}
+
 land() { # land <regressed count> <flaky count>; returns 0 landed, 1 aborted/held, 2 redo
-  local id sha
+  local id sha lbl=${MERGED[*]:-drift-refresh}
   (cd "$wt" && "${RATCHET_CMD[@]}") >"$run.ratchet.log" 2>&1 || { infra_fail "ratchet command failed (see $run.ratchet.log)"; return 1; }
   git -C "$wt" add -A -- compliance/verdicts compliance/triage compliance/ratchet.json
   if ! git -C "$wt" diff --cached --quiet; then
-    git -C "$wt" commit -q -m "compliance: driver batch replay $bid ($(echo "${MERGED[*]}" | tr ' ' ','))" || { infra_fail "commit failed"; return 1; }
+    git -C "$wt" commit -q -m "compliance: driver batch replay $bid ($(echo "$lbl" | tr ' ' ','))" || { infra_fail "commit failed"; return 1; }
   fi
   if ! git -C "$wt" merge -q --no-edit "$MAIN" >/dev/null 2>&1; then
     git -C "$wt" merge --abort >/dev/null 2>&1
     say "REDO main moved and conflicts with the batch; the replay is stale, redoing next loop"
     return 2
+  fi
+  if [ "${#MERGED[@]}" -eq 0 ] && [ "$(git -C "$wt" rev-list --count "$MAIN..HEAD")" = 0 ]; then
+    say "DRIFT-REFRESH $bid: the replay changed no verdict; nothing to land"
+    record_last_main "$M0"
+    return 0
   fi
   if ! checks post "$run.checks-post.log"; then
     infra_fail "post-replay compliance gates red (see $run.checks-post.log)"
@@ -480,13 +598,15 @@ land() { # land <regressed count> <flaky count>; returns 0 landed, 1 aborted/hel
     infra_fail "main checkout is not on $MAIN"
     return 1
   fi
-  if ! git merge -q --no-ff -m "merge($bid): ${MERGED[*]}" "$bbranch" >/dev/null 2>&1; then
+  if ! git merge -q --no-ff -m "merge($bid): $lbl" "$bbranch" >/dev/null 2>&1; then
     git merge --abort >/dev/null 2>&1
     infra_fail "merge into $MAIN failed"
     return 1
   fi
   sha=$(git rev-parse --short=9 HEAD)
-  say "LANDED $sha ${MERGED[*]}"
+  say "LANDED $sha $lbl"
+  # A generator change that reached main after M0 was not replayed: keep M0.
+  if git diff --quiet "$M0" HEAD^1 -- "${GEN_PATHS[@]}" 2>/dev/null; then record_last_main HEAD; else record_last_main "$M0"; fi
   for id in "${MERGED[@]}"; do
     issue_tool merged "$id" "driver_replay_batch: landed in $sha (replay $run, $1 regressed, $2 flaky kept as main)"
     git worktree remove --force "${WT_OF[$id]}" >/dev/null 2>&1
@@ -498,7 +618,7 @@ land() { # land <regressed count> <flaky count>; returns 0 landed, 1 aborted/hel
 pass() {
   local ids rc n r id status detail i attempt landed=0
   select_parked
-  [ "${#PIDS[@]}" -ge 1 ] || return 0
+  [ "${#PIDS[@]}" -ge 1 ] || { drift_pass; return 0; }
   if [ -e "$PAUSE" ]; then say "IDLE pipeline paused (${#PIDS[@]} parked)"; return 0; fi
   if ! main_green; then say "IDLE main is not GREEN in $PMLOG (${#PIDS[@]} parked)"; return 0; fi
   if [ "$INFRA_FAIL_AT" -gt 0 ] && [ $(($(date +%s) - INFRA_FAIL_AT)) -lt "$COOLDOWN" ]; then return 0; fi
@@ -593,37 +713,17 @@ pass() {
       cleanup_pass "$landed"; return 0
     fi
 
-    # Classify every regressed row: FLAKY (varies on the same driver) or stable.
-    local -a stable=() flaky=()
-    local -A DET=()
-    while IFS=$'\t' read -r id status detail; do
-      DET[$id]="$status $detail"
-      if known_flaky "$id"; then
-        say "FLAKY $id (listed in $(basename "$FLAKES")): known flake, not re-tested; keeping main's row"
-        flaky+=("$id")
-        continue
-      fi
-      flaky_check "$id"; rc=$?
-      if [ "$rc" -eq 2 ]; then infra_fail "could not replay single scenario $id"; cleanup_pass 0; return 0; fi
-      if [ "$rc" -eq 0 ]; then
-        say "FLAKY $id ($FLAKE_FIELD): $FLAKE_RUNS replays on the batch driver differ; keeping main's row"
-        echo "$(date '+%F %T') $bid ${id%%/*} $id varies: $FLAKE_FIELD" >>"$FLAKES"
-        flaky+=("$id")
-      else
-        stable+=("$id")
-      fi
-    done < <(tail -n +2 "$rdir.regressed")
-    for id in "${flaky[@]}"; do py keepmain "$wt" "$MAIN" "$id" || { infra_fail "could not restore main's row for $id"; cleanup_pass 0; return 0; }; done
+    classify "$rdir" 1 || { infra_fail "$CLASSIFY_ERR"; cleanup_pass 0; return 0; }
 
-    if [ "${#stable[@]}" -eq 0 ]; then
-      land 0 "${#flaky[@]}"; rc=$?
+    if [ "${#STABLE[@]}" -eq 0 ]; then
+      land 0 $((${#FLAKY[@]} + ${#DRIFTED[@]})); rc=$?
       [ "$rc" -eq 0 ] && landed=1
       cleanup_pass "$landed"; return 0
     fi
 
-    attribute "${stable[@]}" || { infra_fail "could not set up the attribution worktree"; cleanup_pass 0; return 0; }
+    attribute "${STABLE[@]}" || { infra_fail "could not set up the attribution worktree"; cleanup_pass 0; return 0; }
     local unattributed=0 drop=()
-    for r in "${stable[@]}"; do
+    for r in "${STABLE[@]}"; do
       if [ -n "${CULPRIT[$r]:-}" ]; then
         say "CULPRIT ${CULPRIT[$r]} row $r: ${DET[$r]} (clears when that branch is removed)"
         local mrow
@@ -651,6 +751,87 @@ pass() {
     say "REPLAY-AGAIN without ${drop[*]}"
   done
   infra_fail "gave up after $attempt replays"; cleanup_pass 0
+}
+
+# drift_pass: no ticket is parked. When the scenario generator changed on main
+# since the last replayed main, replay main itself (see the header), land the
+# refreshed verdicts and file one ticket per regressed template class.
+drift_pass() {
+  local last cur rdir rc n id r commits cls key landed=0
+  [ -e "$PAUSE" ] && return 0
+  main_green || return 0
+  if [ "$INFRA_FAIL_AT" -gt 0 ] && [ $(($(date +%s) - INFRA_FAIL_AT)) -lt "$COOLDOWN" ]; then return 0; fi
+  cur=$(git rev-parse --verify -q "$MAIN^{commit}") || return 0
+  last=$(last_main)
+  if [ -z "$last" ]; then
+    record_last_main "$cur"
+    say "DRIFT-INIT no replayed main on record; recorded ${cur:0:12}, no pass"
+    return 0
+  fi
+  git diff --quiet "$last" "$cur" -- "${GEN_PATHS[@]}" && return 0
+
+  stamp=$(date -u +%Y%m%dT%H%M%SZ); bid=driver-batch-$stamp; bbranch=wt/$bid
+  wt=$repo/.worktrees/$bid; probe=$repo/.worktrees/$bid-probe; run=$RUNS/$bid
+  M0=$(sha12 "$MAIN"); MERGED=()
+  commits=$(git log --format=%h "$last..$cur" -- "${GEN_PATHS[@]}" | tr '\n' ',' | sed 's/,$//')
+  mkdir -p "$run"
+  say "DRIFT-START $bid main=$M0 last=${last:0:12} generator commits=$commits"
+  if ! "${WORKTREE_CMD[@]}" "$bid" "$MAIN" >"$run.worktree.log" 2>&1; then
+    infra_fail "could not create the integration worktree (see $run.worktree.log)"
+    cleanup_pass 0; return 0
+  fi
+  rdir=$run/replay0
+  rm -rf -- "$rdir" && mkdir -p "$rdir"
+  (cd "$wt" && GOFLAGS="-p=2 -trimpath" XMAGE_ORACLE_MEM=6G "${LOCKRUN[@]}" "${REPLAY_CMD[@]}" "$rdir" >"$rdir.log" 2>&1)
+  rc=$?
+  say "REPLAY rc=$rc run=$rdir ids=drift-main"
+  if [ "$rc" -ne 0 ] || /usr/bin/grep -qE ' (gen|xmage|diff) FAILED' "$rdir.log"; then
+    infra_fail "full replay failed (see $rdir.log)"; cleanup_pass 0; return 0
+  fi
+  SCEN_ROOT=$rdir
+  (cd "$wt" && "${COMPARE_CMD[@]}" "$repo" "$wt") >"$rdir.compare" 2>&1
+  if ! py regressed "$rdir.compare" >"$rdir.regressed"; then
+    infra_fail "unparseable verdict-compare output (see $rdir.compare)"; cleanup_pass 0; return 0
+  fi
+  n=$(head -n1 "$rdir.regressed")
+  say "COMPARE regressed=$n ($rdir.compare)"
+  if [ "$n" -gt 0 ]; then
+    classify "$rdir" 0 || { infra_fail "$CLASSIFY_ERR"; cleanup_pass 0; return 0; }
+  else
+    STABLE=(); FLAKY=()
+  fi
+  for r in "${STABLE[@]}"; do
+    say "DRIFT $r ${DET[$r]} commits=$commits"
+  done
+  land "${#STABLE[@]}" "${#FLAKY[@]}"; rc=$?
+  if [ "$rc" -ne 0 ]; then cleanup_pass 0; return 0; fi
+  landed=1
+  # Recorded only after the landing: a failed landing replays again next loop.
+  key=$(gen_key "$MAIN")
+  for r in "${STABLE[@]}"; do
+    echo "$(date '+%F %T') $key $r | ${DET[$r]}" >>"$DRIFTLOG"
+  done
+  local -a classes=()
+  for r in "${STABLE[@]}"; do
+    cls=${r%/*}; cls=${cls##*/}; cls=${cls%%#*}
+    case " ${classes[*]:-} " in *" $cls "*) ;; *) classes+=("$cls") ;; esac
+  done
+  for cls in "${classes[@]}"; do
+    local rows=""
+    for r in "${STABLE[@]}"; do
+      id=${r%/*}; id=${id##*/}; id=${id%%#*}
+      [ "$id" = "$cls" ] && rows+="- \`$r\`: ${DET[$r]}"$'\n'
+    done
+    file_ticket "XMage drift: $cls scenarios regressed after a generator change" "A DRIFT replay of main (driver_replay_batch, $bid) regressed these \`$cls\` rows against main's recorded verdicts. The XMage driver was not changed; the scenario generator was.
+
+$rows
+Candidate commits (compliance/oraclegen, cmd/oraclediff since the last replayed main ${last:0:12}): $commits
+
+The refreshed verdicts are landed on main; this ticket fixes the generator or the driver so the rows agree again. Log: .ds4/driver-replay-batch.log (DRIFT lines), run $rdir." >/dev/null 2>&1 &&
+      say "DRIFT-TICKET filed for class $cls" ||
+      say "DRIFT-TICKET could not file the ticket for class $cls"
+  done
+  cleanup_pass "$landed"
 }
 
 sweep_stale() {

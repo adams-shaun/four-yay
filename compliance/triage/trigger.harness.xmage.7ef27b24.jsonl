@@ -1,0 +1,95 @@
+{"shape":{"template":"trigger","op":"harness","field":"xmage","diff":"IllegalArgumentException: op pass unsupported"},"key":"trigger | harness | xmage | IllegalArgumentException: op pass unsupported","cards":94}
+{"card":"Abuelo, Ancestral Echo","template":"trigger#0.0","status":"harness","api":"BecomesTarget:Ward","sets":["LCI"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Aegis Sculptor","template":"trigger#0.1","status":"harness","api":"Phase:PutCounter+BecomesTarget:Ward","sets":["TDM"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Alpharael, Stonechosen","template":"trigger#0.1","status":"harness","api":"Attacks:LoseLife+BecomesTarget:Ward","sets":["EOE"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Altanak, the Thrice-Called","template":"trigger#0.0","status":"harness","api":"BecomesTarget:Draw","sets":["DSK"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Amalia Benavides Aguirre","template":"trigger#0.1","status":"harness","api":"LifeGained:Explore+BecomesTarget:Ward","sets":["LCI"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Ambling Stormshell","template":"trigger#0.2","status":"harness","api":"Attacks:PutCounter+SpellCast:Untap+BecomesTarget:Ward","sets":["TDM"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Ancient Adamantoise","template":"trigger#0.1","status":"harness","api":"ChangesZone:ChangeZone+BecomesTarget:Ward","sets":["FIN"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Archive Dragon","template":"trigger#0.1","status":"harness","api":"ChangesZone:Scry+BecomesTarget:Ward","sets":["WOE"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Armored Armadillo","template":"trigger#0.0","status":"harness","api":"BecomesTarget:Ward","sets":["OTJ"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Aurelia's Vindicator","template":"trigger#0.2","status":"harness","api":"TurnFaceUp:ChangeZone+ChangesZone:ChangeZoneAll+BecomesTarget:Ward","sets":["MKM"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Axebane Ferox","template":"trigger#0.0","status":"harness","api":"BecomesTarget:Ward","sets":["MKM"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Benevolent River Spirit","template":"trigger#0.1","status":"harness","api":"ChangesZone:Scry+BecomesTarget:Ward","sets":["TLA"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Bristlebane Battler","template":"trigger#0.1","status":"harness","api":"ChangesZone:RemoveCounter+BecomesTarget:Ward","sets":["ECL"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Cackling Prowler","template":"trigger#0.1","status":"harness","api":"Phase:PutCounter+BecomesTarget:Ward","sets":["FDN"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Cactarantula","template":"trigger#0.0","status":"harness","api":"BecomesTarget:Draw","sets":["OTJ"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Cactusfolk Sureshot","template":"trigger#0.1","status":"harness","api":"Phase:PumpAll+BecomesTarget:Ward","sets":["OTJ"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Campus Composer","template":"trigger#0.0","status":"harness","api":"BecomesTarget:Ward","sets":["SOS"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Captain America, Wings of Freedom","template":"trigger#0.1","status":"harness","api":"Attacks:PumpAll+BecomesTarget:Ward","sets":["MSH"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Captain Howler, Sea Scourge","template":"trigger#0.1","status":"harness","api":"DiscardedAll:Pump+BecomesTarget:Ward","sets":["DFT"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Colorstorm Stallion","template":"trigger#0.1","status":"harness","api":"SpellCast:Pump+BecomesTarget:Ward","sets":["SOS"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Dirgur Island Dragon","template":"trigger#0.0","status":"harness","api":"BecomesTarget:Ward","sets":["TDM"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Dragonfly Swarm","template":"trigger#0.1","status":"harness","api":"ChangesZone:Draw+BecomesTarget:Ward","sets":["TLA"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Emeritus of Ideation","template":"trigger#0.1","status":"harness","api":"Attacks:AlterAttribute+BecomesTarget:Ward","sets":["SOS"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Emrakul, the Exigent Doom","template":"trigger#0.1","status":"harness","api":"SpellCast:UntapAll+BecomesTarget:Ward","sets":["FRA"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Eshki Dragonclaw","template":"trigger#0.1","status":"harness","api":"Phase:Draw+BecomesTarget:Ward","sets":["TDM"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Fblthp, Lost on the Range","template":"trigger#0.0","status":"harness","api":"BecomesTarget:Ward","sets":["OTJ"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Forum Necroscribe","template":"trigger#0.1","status":"harness","api":"SpellCast:ChangeZone+BecomesTarget:Ward","sets":["SOS"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Fractal Tender","template":"trigger#0.1","status":"harness","api":"Phase:Token+BecomesTarget:Ward+SpellCast:PutCounter","sets":["SOS"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Gandalf, Wandering Wizard","template":"trigger#0.0","status":"harness","api":"BecomesTarget:Ward","sets":["HOB"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Gev, Scaled Scorch","template":"trigger#0.1","status":"harness","api":"SpellCast:DealDamage+BecomesTarget:Ward","sets":["BLB"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Gideon the Oathless","template":"trigger#0.2","status":"harness","api":"ChangesZone:DealDamage+AbilityCast:DealDamage+BecomesTarget:Ward","sets":["FRA"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Gisa, the Hellraiser","template":"trigger#0.1","status":"harness","api":"CommitCrime:Token+BecomesTarget:Ward","sets":["OTJ"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Guardian Sunmare","template":"trigger#0.1","status":"harness","api":"Attacks:ChangeZone+BecomesTarget:Ward","sets":["DFT"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Harmonious Grovestrider","template":"trigger#0.0","status":"harness","api":"BecomesTarget:Ward","sets":["EOE"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Hexing Squelcher","template":"trigger#0.0","status":"harness","api":"BecomesTarget:Ward","sets":["ECL"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Horned Loch-Whale","template":"trigger#0.0","status":"harness","api":"BecomesTarget:Ward","sets":["WOE"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Hoverstone Pilgrim","template":"trigger#0.0","status":"harness","api":"BecomesTarget:Ward","sets":["LCI"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Hulking Raptor","template":"trigger#0.1","status":"harness","api":"Phase:Mana+BecomesTarget:Ward","sets":["LCI"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Inkshape Demonstrator","template":"trigger#0.1","status":"harness","api":"SpellCast:Pump+BecomesTarget:Ward","sets":["SOS"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Kitesail Larcenist","template":"trigger#0.1","status":"harness","api":"ChangesZone:Animate+BecomesTarget:Ward","sets":["LCI"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Koma, World-Eater","template":"trigger#0.1","status":"harness","api":"DamageDone:Token+BecomesTarget:Ward","sets":["FDN"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Kwia Vigorbloom","template":"trigger#0.1","status":"harness","api":"LifeGained:Token+BecomesTarget:Ward","sets":["FRA"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Kylox, Visionary Inventor","template":"trigger#0.1","status":"harness","api":"Attacks:Sacrifice+BecomesTarget:Ward","sets":["MKM"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Lake-town Mariners","template":"trigger#0.0","status":"harness","api":"BecomesTarget:Ward","sets":["HOB"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Lionheart Glimmer","template":"trigger#0.1","status":"harness","api":"AttackersDeclared:PumpAll+BecomesTarget:Ward","sets":["DSK"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Long River Lurker","template":"trigger#0.1","status":"harness","api":"ChangesZone:Effect+BecomesTarget:Ward","sets":["BLB"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Loot, the Key to Everything","template":"trigger#0.1","status":"harness","api":"Phase:Dig+BecomesTarget:Ward","sets":["BIG"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Maha, Its Feathers Night","template":"trigger#0.0","status":"harness","api":"BecomesTarget:Ward","sets":["BLB"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Marauding Brinefang","template":"trigger#0.0","status":"harness","api":"BecomesTarget:Ward","sets":["LCI"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Marauding Sphinx","template":"trigger#0.1","status":"harness","api":"CommitCrime:Surveil+BecomesTarget:Ward","sets":["OTJ"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Mica, Reader of Ruins","template":"trigger#0.1","status":"harness","api":"SpellCast:CopySpellAbility+BecomesTarget:Ward","sets":["SOS"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Mikey & Don, Party Planners","template":"trigger#0.1","status":"harness","api":"SpellCast:Effect+BecomesTarget:Ward","sets":["TMT"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Mouth of the Storm","template":"trigger#0.1","status":"harness","api":"ChangesZone:PumpAll+BecomesTarget:Ward","sets":["EOE"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Oildeep Gearhulk","template":"trigger#0.1","status":"harness","api":"ChangesZone:Discard+BecomesTarget:Ward","sets":["DFT"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Old Fat Spider","template":"trigger#0.0","status":"harness","api":"BecomesTarget:Draw","sets":["HOB"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Ovika, Enigma Goliath","template":"trigger#0.1","status":"harness","api":"SpellCast:Token+BecomesTarget:Ward","sets":["FDN"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Prismari, the Inspiration","template":"trigger#0.0","status":"harness","api":"BecomesTarget:Ward","sets":["SOS"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Pummeler for Hire","template":"trigger#0.1","status":"harness","api":"ChangesZone:GainLife+BecomesTarget:Ward","sets":["ECL"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Punk Frogs","template":"trigger#0.0","status":"harness","api":"BecomesTarget:Ward","sets":["TMT"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Purging Stormbrood","template":"trigger#0.1","status":"harness","api":"ChangesZone:RemoveCounter+BecomesTarget:Ward","sets":["TDM"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Raubahn, Bull of Ala Mhigo","template":"trigger#0.1","status":"harness","api":"Attacks:Pump+BecomesTarget:Ward","sets":["FIN"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Roaming Throne","template":"trigger#0.0","status":"harness","api":"BecomesTarget:Ward","sets":["LCI"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Ruric Thar, Biomagus","template":"trigger#0.0","status":"harness","api":"BecomesTarget:Draw+SpellCast:Pump","sets":["FRA"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Scavenger Regent","template":"trigger#0.0","status":"harness","api":"BecomesTarget:Ward","sets":["TDM"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Sire of Seven Deaths","template":"trigger#0.0","status":"harness","api":"BecomesTarget:Ward","sets":["FDN"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Skyward Spider","template":"trigger#0.0","status":"harness","api":"BecomesTarget:Ward","sets":["SPM"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Sleep-Cursed Faerie","template":"trigger#0.0","status":"harness","api":"BecomesTarget:Ward","sets":["WOE"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Sovereign Okinec Ahau","template":"trigger#0.1","status":"harness","api":"Attacks:PutCounter+BecomesTarget:Ward","sets":["LCI"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Spectral Snatcher","template":"trigger#0.0","status":"harness","api":"BecomesTarget:Ward","sets":["DSK"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Spider-Rex, Daring Dino","template":"trigger#0.0","status":"harness","api":"BecomesTarget:Ward","sets":["SPM"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Spinewoods Armadillo","template":"trigger#0.0","status":"harness","api":"BecomesTarget:Ward","sets":["OTJ"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Strife Scholar","template":"trigger#0.0","status":"harness","api":"BecomesTarget:Ward","sets":["SOS"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Summon: Leviathan","template":"trigger#0.0","status":"harness","api":"BecomesTarget:Ward","sets":["FIN"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Sunset Saboteur","template":"trigger#0.1","status":"harness","api":"Attacks:PutCounter+BecomesTarget:Ward","sets":["EOE"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Surrak, Elusive Hunter","template":"trigger#0.0","status":"harness","api":"BecomesTarget:Draw","sets":["TDM"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Tenured Concocter","template":"trigger#0.0","status":"harness","api":"BecomesTarget:Draw","sets":["SOS"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"The Serpent Society","template":"trigger#0.1","status":"harness","api":"ChangesZone:Sacrifice+BecomesTarget:Ward","sets":["MSH"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"The Unagi of Kyoshi Island","template":"trigger#0.1","status":"harness","api":"Drawn:Draw+BecomesTarget:Ward","sets":["TLA"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Thornfist Striker","template":"trigger#0.0","status":"harness","api":"BecomesTarget:Ward","sets":["SOS"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Titania, Rugged Rumbler","template":"trigger#0.0","status":"harness","api":"BecomesTarget:Ward","sets":["MSH"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Toadstool Admirer","template":"trigger#0.0","status":"harness","api":"BecomesTarget:Ward","sets":["WOE"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Tolarian Terror","template":"trigger#0.0","status":"harness","api":"BecomesTarget:Ward","sets":["FDN"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Tragedy Feaster","template":"trigger#0.1","status":"harness","api":"Phase:Sacrifice+BecomesTarget:Ward","sets":["SOS"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Twining Twins","template":"trigger#0.0","status":"harness","api":"BecomesTarget:Ward","sets":["WOE"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Unflinching Hortimancer","template":"trigger#0.1","status":"harness","api":"LifeGained:PutCounter+BecomesTarget:Ward","sets":["FRA"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Valgavoth, Terror Eater","template":"trigger#0.0","status":"harness","api":"BecomesTarget:Ward","sets":["DSK"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Vein Ripper","template":"trigger#0.1","status":"harness","api":"ChangesZone:LoseLife+BecomesTarget:Ward","sets":["MKM"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Voja, Jaws of the Conclave","template":"trigger#0.1","status":"harness","api":"Attacks:PutCounterAll+BecomesTarget:Ward","sets":["MKM"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Vren, the Relentless","template":"trigger#0.1","status":"harness","api":"Phase:Token+BecomesTarget:Ward","sets":["BLB"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Winter, Cursed Rider","template":"trigger#0.0","status":"harness","api":"BecomesTarget:Ward","sets":["DFT"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Winter, Misanthropic Guide","template":"trigger#0.1","status":"harness","api":"Phase:Draw+BecomesTarget:Ward","sets":["DSK"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Wrecking Gecko","template":"trigger#0.0","status":"harness","api":"BecomesTarget:Ward","sets":["FRA"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Ygra, Eater of All","template":"trigger#0.1","status":"harness","api":"ChangesZone:PutCounter+BecomesTarget:Ward","sets":["BLB"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
+{"card":"Zul Ashur, Lich Lord","template":"trigger#0.0","status":"harness","api":"BecomesTarget:Ward","sets":["FDN"],"detail":"xmage: IllegalArgumentException: op pass unsupported"}
