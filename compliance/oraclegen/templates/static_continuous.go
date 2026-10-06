@@ -70,6 +70,11 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 		if sk != nil {
 			return skip(sk.Reason)
 		}
+		if oraclegen.HasType(f, "Equipment") {
+			it.Steps = append(it.Steps, oraclegen.Step{
+				Op: "attach", Seat: 0, Card: "p0:" + name, AttachedTo: "p0:" + staticProbe,
+			})
+		}
 		base = it
 	}
 	res, err := rules.RunOracleScenarioJSON(reg, base.Raw())
