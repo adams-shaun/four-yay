@@ -4,7 +4,7 @@
 # Every heavy runner serialises on the same flock file: scripts/heavy.sh,
 # scripts/postmerge_batch.sh (the full suite and every bisect step),
 # scripts/sb-gauntlet.sh, scripts/m1b-distill.sh, the agentctl "go test
-# (affected)" gate and the post-merge `make ledger` hook. Seats stay unlocked
+# (affected)" gate. (`make ledger` has its own lock, scripts/ledger-lane.sh.) Seats stay unlocked
 # (they are capped separately). The path is <main checkout>/.ds4/heavy.lock,
 # derived from the shared git dir so a worktree copy of a script resolves to the
 # same file as the main one. GORGE_HEAVY_LOCK overrides it (tests do). This file

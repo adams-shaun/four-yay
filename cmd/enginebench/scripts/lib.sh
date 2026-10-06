@@ -10,6 +10,12 @@
 #   MEM_MAX     systemd scope MemoryMax (default 24G)
 #   BENCH_GOMEMLIMIT  GOMEMLIMIT inside the scope (default 16GiB)
 #   NO_SCOPE    set to run without a systemd scope (flock only)
+#   BUDGET      wall seconds for ONE script's whole measured phase -- every row
+#               and rep together, builds excluded (default 60, operator
+#               2026-10-06). Each run's -secs is derived from it (budget_secs),
+#               and a run that would start past the deadline is skipped.
+#   LOAD_S      per-run startup estimate (corpus load) budget_secs reserves
+#               (default 3)
 #   GATE_FLAG   the broker's gate-active flag (default: the main checkout's
 #               .ds4/reward/gate-active); heavy() never runs while it is set
 
@@ -48,6 +54,25 @@ heavy() {
 		rc=$?
 		[ "$rc" -ne 75 ] && return "$rc"
 	done
+}
+
+BUDGET=${BUDGET:-60}
+LOAD_S=${LOAD_S:-3}
+
+# budget_secs RUNS: the -secs each of RUNS runs gets so all of them, plus
+# LOAD_S of startup apiece, fit in BUDGET (at least 1 s each).
+budget_secs() {
+	awk -v b="$BUDGET" -v l="$LOAD_S" -v n="$1" 'BEGIN { s = (b - n * l) / n; if (s < 1) s = 1; printf "%.1f", s }'
+}
+
+# budget_start: start the BUDGET clock (call after the builds).
+budget_start() { BUDGET_DEADLINE=$(($(date +%s) + BUDGET)); }
+
+# budget_left: true while the BUDGET clock has time left; otherwise it says so.
+budget_left() {
+	[ "$(date +%s)" -lt "${BUDGET_DEADLINE:?budget_start not called}" ] && return 0
+	echo "BUDGET ${BUDGET}s spent: skipping the remaining runs" >&2
+	return 1
 }
 
 # workload_args: the flags every run passes explicitly, so a binary built at an

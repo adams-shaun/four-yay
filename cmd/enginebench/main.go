@@ -28,6 +28,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"runtime/metrics"
 	"runtime/pprof"
 	"strings"
 	"syscall"
@@ -45,13 +46,18 @@ type result struct {
 	Load1 float64 `json:"load1"`
 	Procs int     `json:"gomaxprocs"`
 	// HeapMB is the live heap after the corpus is loaded (a forced GC): the
-	// floor every GC cycle of the run marks.
-	HeapMB float64 `json:"heap_live_mb"`
-	Corpus string  `json:"corpus"`   // "full" or "subset"
-	Secs   float64 `json:"secs"`     // wall seconds of the timed region
-	CPU    float64 `json:"cpu_secs"` // process CPU seconds (user+sys) of the timed region
-	Err    string  `json:"err,omitempty"`
-	Detail any     `json:"detail,omitempty"`
+	// floor every GC cycle of the run marks. ScanHeapMB is the pointer-bearing
+	// part of it (/gc/scan/heap:bytes) -- the bytes a GC actually re-marks --
+	// and HeapObjects is the object count, both read by the same census the
+	// internal/corpusheap ratchet pins.
+	HeapMB      float64 `json:"heap_live_mb"`
+	ScanHeapMB  float64 `json:"scan_heap_mb"`
+	HeapObjects int64   `json:"heap_objects"`
+	Corpus      string  `json:"corpus"`   // "full" or "subset"
+	Secs        float64 `json:"secs"`     // wall seconds of the timed region
+	CPU         float64 `json:"cpu_secs"` // process CPU seconds (user+sys) of the timed region
+	Err         string  `json:"err,omitempty"`
+	Detail      any     `json:"detail,omitempty"`
 
 	Games     int     `json:"games,omitempty"`
 	Turns     int     `json:"turns,omitempty"`
@@ -142,6 +148,10 @@ func main() {
 		var ms runtime.MemStats
 		runtime.ReadMemStats(&ms)
 		r.HeapMB = float64(ms.HeapAlloc) / (1 << 20)
+		samples := []metrics.Sample{{Name: "/gc/scan/heap:bytes"}}
+		metrics.Read(samples)
+		r.ScanHeapMB = float64(samples[0].Value.Uint64()) / (1 << 20)
+		r.HeapObjects = int64(ms.HeapObjects)
 		r.Corpus = corpusMode
 		startProfiles()
 		switch *row {
