@@ -166,7 +166,7 @@ func castSubAskLinks(e *Engine, pc *pendingCast, root *cards.SA) []*cards.SA {
 	if !pc.isAbility() {
 		if o := e.G.Obj(pc.card); o != nil && o.Face() != nil {
 			charm = o.Face().SpellAbility()
-			if effects.CharmOf(charm).HasChoices && len(o.ChosenModes) >= 2 {
+			if effects.CharmOf(charm).HasChoices && len(o.ChosenModes) > 0 {
 				for _, name := range o.ChosenModes {
 					if mode := cards.ResolveSVar(o.Face().SVars, name); mode != nil {
 						roots = append(roots, mode)
