@@ -240,12 +240,13 @@ ignore_uncommitted = ["TEST_HISTORY.md"]
 # the pipeline. Seats cannot run XMage, and 7883f6b25 merged a driver change
 # that turned every Standard scenario into a harness failure (4944 rows) until
 # a host full replay caught it. A branch touching tools/xmageoracle/ fails here
-# and parks; the operator runs validation/oracle/full-replay.sh,
-# compares verdicts against main, and lands it by hand
-# (.ds4/operator-compliance-refresh.md).
+# and parks; scripts/driver_replay_batch.sh (unit gorge-driver-replay-batch)
+# batches every parked ticket, runs ONE validation/oracle/full-replay.sh,
+# compares verdicts against main and lands them (2026-10-06; before that an
+# operator did this by hand, .ds4/operator-compliance-refresh.md).
 [[gates]]
 name = "xmage driver needs host replay"
-cmd = ["bash", "-c", "set -o pipefail; changed=$(git diff --name-only $(git merge-base {base} HEAD) HEAD -- tools/xmageoracle/); if [ -n \"$changed\" ]; then echo \"XMAGE DRIVER CHANGED -- a host operator must run full-replay.sh and land this by hand:\"; echo \"$changed\"; exit 1; fi; echo 'xmage driver untouched'"]
+cmd = ["bash", "-c", "set -o pipefail; changed=$(git diff --name-only $(git merge-base {base} HEAD) HEAD -- tools/xmageoracle/); if [ -n \"$changed\" ]; then echo \"XMAGE DRIVER CHANGED -- parked for scripts/driver_replay_batch.sh (gorge-driver-replay-batch):\"; echo \"$changed\"; exit 1; fi; echo 'xmage driver untouched'"]
 timeout = 60
 # Only an operator host full replay + hand landing clears this gate; a seat
 # fix round cannot (2026-10-05: four tickets looped 8-10 paid sol rounds on it).
