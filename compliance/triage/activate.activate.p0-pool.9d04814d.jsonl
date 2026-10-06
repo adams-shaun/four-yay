@@ -1,0 +1,3 @@
+{"shape":{"template":"activate","op":"activate","field":"p0.pool","diff":"gorge=WW xmage=GG"},"key":"activate | activate | p0.pool | gorge=WW xmage=GG","cards":2}
+{"card":"Ronin, Shadow Stalker","template":"activate#0.0","status":"diverge","api":"-","sets":["MSH"],"detail":"step 0 (activate) p0.pool: gorge \"WW\", xmage \"GG\""}
+{"card":"Sunken Citadel","template":"activate#0.1","status":"diverge","api":"-","sets":["LCI"],"detail":"step 0 (activate) p0.pool: gorge \"WW\", xmage \"GG\""}

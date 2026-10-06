@@ -1,5 +1,12 @@
-{"shape":{"template":"activate","op":"activate","field":"p0.pool","diff":"gorge=W xmage=R"},"key":"activate | activate | p0.pool | gorge=W xmage=R","cards":4}
+{"shape":{"template":"activate","op":"activate","field":"p0.pool","diff":"gorge=W xmage=R"},"key":"activate | activate | p0.pool | gorge=W xmage=R","cards":11}
+{"card":"Buried Treasure","template":"activate#0.0","status":"diverge","api":"-","sets":["LCI"],"detail":"step 0 (activate) p0.pool: gorge \"W\", xmage \"R\""}
+{"card":"Captivating Cave","template":"activate#0.1","status":"diverge","api":"-","sets":["LCI"],"detail":"step 0 (activate) p0.pool: gorge \"W\", xmage \"R\""}
+{"card":"Dragonbroods' Relic","template":"activate#0.0","status":"diverge","api":"-","sets":["TDM"],"detail":"step 0 (activate) p0.pool: gorge \"W\", xmage \"R\""}
 {"card":"Gene Pollinator","template":"activate#0.0","status":"diverge","api":"-","sets":["EOE"],"detail":"step 0 (activate) p0.pool: gorge \"W\", xmage \"R\""}
+{"card":"Heraldic Banner","template":"activate#0.0","status":"diverge","api":"-","sets":["FDN"],"detail":"step 0 (activate) p0.pool: gorge \"W\", xmage \"R\""}
 {"card":"Molt Tender","template":"activate#0.1","status":"diverge","api":"-","sets":["DFT"],"detail":"step 0 (activate) p0.pool: gorge \"W\", xmage \"R\""}
-{"card":"Rumble Arena","template":"activate#0.1","status":"diverge","api":"ChangesZone:Scry","sets":["TLA"],"detail":"step 0 (activate) p0.pool: gorge \"W\", xmage \"R\""}
+{"card":"Night Market","template":"activate#0.0","status":"diverge","api":"-","sets":["DFT"],"detail":"step 0 (activate) p0.pool: gorge \"W\", xmage \"R\""}
 {"card":"Starting Town","template":"activate#0.1","status":"diverge","api":"-","sets":["FIN"],"detail":"step 0 (activate) p0.pool: gorge \"W\", xmage \"R\""}
+{"card":"Three Tree Mascot","template":"activate#0.0","status":"diverge","api":"-","sets":["BLB","FDN"],"detail":"step 0 (activate) p0.pool: gorge \"W\", xmage \"R\""}
+{"card":"Uncharted Haven","template":"activate#0.0","status":"diverge","api":"-","sets":["BLB","FDN"],"detail":"step 0 (activate) p0.pool: gorge \"W\", xmage \"R\""}
+{"card":"White Lotus Hideout","template":"activate#0.2","status":"diverge","api":"-","sets":["TLA"],"detail":"step 0 (activate) p0.pool: gorge \"W\", xmage \"R\""}
