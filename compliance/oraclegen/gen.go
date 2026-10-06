@@ -138,12 +138,19 @@ type CanBlock struct {
 	Attacker string `json:"attacker"`
 }
 
+// CanAttack asserts whether Attacker is among the attackers the pending
+// declare-attackers decision offers (rules/oracle_can_attack.go).
+type CanAttack struct {
+	Attacker string `json:"attacker"`
+}
+
 type Expect struct {
-	TriggerOnStack string    `json:"trigger_on_stack,omitempty"`
-	StackSize      *int      `json:"stack_size,omitempty"`
-	Offered        *Offered  `json:"offered,omitempty"`
-	CanBlock       *CanBlock `json:"can_block,omitempty"`
-	Want           *bool     `json:"want,omitempty"`
+	TriggerOnStack string     `json:"trigger_on_stack,omitempty"`
+	StackSize      *int       `json:"stack_size,omitempty"`
+	Offered        *Offered   `json:"offered,omitempty"`
+	CanBlock       *CanBlock  `json:"can_block,omitempty"`
+	CanAttack      *CanAttack `json:"can_attack,omitempty"`
+	Want           *bool      `json:"want,omitempty"`
 }
 
 // Answer is a queued answer for gorge's runner (kind = decision kind).
