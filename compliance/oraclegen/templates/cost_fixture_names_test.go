@@ -1,46 +1,12 @@
 package templates
 
 import (
-	"sort"
-	"strings"
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/compliance/oraclegen"
 	"github.com/adams-shaun/gorge/internal/testutil"
 )
-
-func TestCostFixtureNamesResolve(t *testing.T) {
-	reg := testutil.CorpusRegistry(t)
-	if len(costPresentFixtures) == 0 || len(costColourFixtures) != 3 {
-		t.Fatal("precondition: cost fixture collections are empty or incomplete")
-	}
-	keys := make([]string, 0, len(costPresentFixtures))
-	for typ := range costPresentFixtures {
-		keys = append(keys, typ)
-	}
-	sort.Strings(keys)
-	for _, typ := range keys {
-		name := costPresentFixtures[typ]
-		card, ok := reg.Lookup(name)
-		if !ok || len(card.Faces) == 0 {
-			t.Errorf("%s fixture %q does not resolve in corpus", typ, name)
-			continue
-		}
-		matched := false
-		for _, cardType := range card.Faces[0].Types {
-			matched = matched || strings.EqualFold(cardType, typ)
-		}
-		if !matched {
-			t.Errorf("%s fixture %q has types %v", typ, name, card.Faces[0].Types)
-		}
-	}
-	for _, name := range costColourFixtures {
-		if _, ok := reg.Lookup(name); !ok {
-			t.Errorf("colour fixture %q does not resolve in corpus", name)
-		}
-	}
-}
 
 func TestCostFixtureFrogPresent(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
@@ -49,36 +15,45 @@ func TestCostFixtureFrogPresent(t *testing.T) {
 			"ValidCard": "Card.Self", "Type": "Spell", "Amount": "1", "IsPresent": "Frog.YouCtrl",
 		},
 	}}}
-	probe, ok := parameterCostProbe(reg, face, "Frog condition probe", 0)
-	if !ok {
-		t.Fatal("precondition: Frog IsPresent shape not handled")
+	probes, gap, handled := parameterCostProbes(reg, face, "Frog condition probe", 0)
+	if !handled || len(probes) == 0 {
+		t.Fatalf("precondition: Frog IsPresent shape not handled (gap %q)", gap)
 	}
-	if !containsString(probe.battlefield, "Yargle, Glutton of Urborg") {
-		t.Fatalf("Frog condition board = %v", probe.battlefield)
+	probe := probes[0]
+	if len(probe.battlefield) == 0 {
+		t.Fatalf("Frog condition board is empty: %+v", probe)
 	}
 	for _, name := range probe.battlefield {
-		if _, ok := reg.Lookup(name); !ok {
+		card, ok := reg.Lookup(name)
+		if !ok {
 			t.Fatalf("Frog condition fixture %q does not resolve", name)
+		}
+		isFrog := false
+		for _, typ := range card.Faces[0].Types {
+			isFrog = isFrog || typ == "Frog"
+		}
+		if !isFrog {
+			t.Fatalf("Frog condition fixture %q has types %v", name, card.Faces[0].Types)
 		}
 	}
 }
 
+// TestCostFixtureCardsGenerate: the IsPresent / count fixtures come from the
+// shared condition helpers, not from a table of card names, so the test pins
+// what the fixture must do rather than which card it is: the board is
+// non-empty, the reduced-price cast replays, and it fails with the static gone.
 func TestCostFixtureCardsGenerate(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
-	for _, tc := range []struct{ name, fixture string }{
-		{"Pearl of Wisdom", "Thieving Otter"},
-		{"Rime Chill", "Thieving Otter"},
-		{"Wildvine Pummeler", "Thieving Otter"},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			item := staticCostItem(t, reg, tc.name)
-			if !containsString(item.Scenario.Setup["p0"].Battlefield, tc.fixture) {
-				t.Fatalf("precondition: %s absent from cost fixture board: %+v", tc.fixture, item.Scenario.Setup["p0"])
+	for _, name := range []string{"Pearl of Wisdom", "Rime Chill", "Wildvine Pummeler"} {
+		t.Run(name, func(t *testing.T) {
+			item := staticCostItem(t, reg, name)
+			if len(item.Scenario.Setup["p0"].Battlefield) == 0 {
+				t.Fatalf("precondition: no fixture on the cost fixture board: %+v", item.Scenario.Setup["p0"])
 			}
 			if _, ok := oraclegen.PlaysThrough(reg, item.Scenario); !ok {
 				t.Fatal("reduced-price fixture scenario does not play through")
 			}
-			if _, ok := oraclegen.PlaysThrough(withoutStatics(reg, tc.name), item.Scenario); ok {
+			if _, ok := oraclegen.PlaysThrough(withoutStatics(reg, name), item.Scenario); ok {
 				t.Fatal("reduced-price cast still plays through without the reduction")
 			}
 		})
