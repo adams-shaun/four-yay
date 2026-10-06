@@ -28,8 +28,8 @@ func costStaticGap(st cards.Static, gap string) string {
 func costProbeItem(reg *cards.Registry, f *cards.Face, name string, req levelb.Requirement, idx int, p costProbe, fx oraclegen.Fixture) oraclegen.Item {
 	p0 := *fx.P0()
 	p1 := *fx.P1()
-	p0.Battlefield = appendUnique(p0.Battlefield, p.battlefield...)
-	p0.Graveyard = appendUnique(p0.Graveyard, p.graveyard...)
+	p0.Battlefield = appendFixtureCounts(p0.Battlefield, p.battlefield)
+	p0.Graveyard = appendFixtureCounts(p0.Graveyard, p.graveyard)
 	p0.Exile = appendUnique(p0.Exile, p.exile...)
 	p0.Hand = append(p0.Hand, p.hand...)
 	if p.activate == nil {
