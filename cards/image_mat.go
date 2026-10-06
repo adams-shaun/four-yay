@@ -74,7 +74,7 @@ func (im *Image) rawRecord(r CardRec) *Card {
 		if fr.Nil != 0 {
 			continue
 		}
-		f := &Face{SpecializeColor: im.str(fr.SpecializeColor), CopyFaceFrom: im.str(fr.CopyFaceFrom), Name: im.str(fr.Name), ManaCost: im.str(fr.ManaCost), PT: im.str(fr.PT), Loyalty: im.str(fr.Loyalty), Defense: im.str(fr.Defense), Colors: im.str(fr.Colors), Oracle: im.str(fr.Oracle), Types: im.words(fr.Types), Keywords: im.words(fr.Keywords), Aliases: im.words(fr.Aliases), SVars: make(map[string]string)}
+		f := &Face{SpecializeColor: im.str(fr.SpecializeColor), CopyFaceFrom: im.str(fr.CopyFaceFrom), Name: im.str(fr.Name), ManaCost: im.str(fr.ManaCost), PT: im.str(fr.PT), Loyalty: im.str(fr.Loyalty), Defense: im.str(fr.Defense), Colors: im.str(fr.Colors), Oracle: im.str(fr.Oracle), Types: im.words(fr.Types), Keywords: im.words(fr.Keywords), Aliases: im.words(fr.Aliases)}
 		x, y := im.slice(fr.Abilities, len(im.FaceSAs))
 		if x != y {
 			f.Abilities = make([]*SA, y-x)
@@ -104,11 +104,10 @@ func (im *Image) rawRecord(r CardRec) *Card {
 			}
 		}
 		x, y = im.slice(fr.SVars, len(im.SVars))
-		if fr.SVars.Start == ^uint32(0) {
-			f.SVars = make(map[string]string)
+		if fr.SVars.Start == ^uint32(0) || x != y {
+			f.SVars = make(map[string]string, y-x)
 		}
 		if x != y {
-			f.SVars = make(map[string]string, y-x)
 			for _, v := range im.SVars[x:y] {
 				f.SVars[im.str(v.Name)] = im.str(v.Body)
 			}

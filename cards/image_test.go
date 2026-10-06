@@ -9,6 +9,26 @@ import (
 	"time"
 )
 
+func TestImageSVarsNilAndEmpty(t *testing.T) {
+	cards := []*Card{
+		{Faces: []*Face{{Name: "NilSVars"}}},
+		{Faces: []*Face{{Name: "EmptySVars", SVars: map[string]string{}}}},
+	}
+	img, err := buildImage(cards, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(img.rawCard(1).Faces[0].SVars, cards[1].Faces[0].SVars) {
+		t.Fatalf("explicit empty SVars map differs: got %#v, want %#v", img.rawCard(1).Faces[0].SVars, cards[1].Faces[0].SVars)
+	}
+	if img.rawCard(0).Faces[0].SVars != nil {
+		t.Fatal("nil SVars map materialized as non-nil")
+	}
+	if img.rawCard(1).Faces[0].SVars == nil {
+		t.Fatal("explicit empty SVars map materialized as nil")
+	}
+}
+
 func TestImageCorpusOracle(t *testing.T) {
 	full := compiledCorpus(t)
 	dir := t.TempDir()
