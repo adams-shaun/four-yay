@@ -286,7 +286,7 @@ func (r *oracleRun) resolve(ref string) (state.ObjID, error) {
 				!strings.Contains(strings.ToLower(o.Face().Name), strings.ToLower(name)) {
 				continue
 			}
-		} else if o.Owner != seat || o.Face().Name != name {
+		} else if o.Owner != seat || (o.Face().Name != name && oracleAltFaceMode(o, name) == "") {
 			continue
 		}
 		seen++
@@ -908,6 +908,9 @@ func (r *oracleRun) do(st oracleStep) error {
 		wantMode := st.CastMode
 		if st.Kicked {
 			wantMode = "kicked"
+		}
+		if wantMode == "" && st.Op == "cast" {
+			wantMode = r.faceCastMode(st.Card, id) // an Adventure face ref
 		}
 		// A named mana ability lives behind the generic "Activate <card> for
 		// mana" priority option: the engine asks a second-stage KChoose over
