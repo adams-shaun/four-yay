@@ -50,6 +50,10 @@ func init() {
 		"repl:GainLife", "repl:LifeReduced", "repl:DamageDone", "repl:Counter",
 		"repl:CreateToken", "repl:RollPlanarDice", "repl:Explore", "repl:Attached", "repl:Scry", "api:ReplaceToken",
 		"repl:AddCounter", "api:ReplaceCounter",
+		// repl:Connive (Leader, Super-Genius) and repl:LoseMana (Ozai, Horizon
+		// Stone, Kruphix, Omnath) are applied by rules/replacement_connive.go and
+		// rules/replacement_lose_mana.go; this makes the coverage ratchet see them.
+		"repl:Connive", "repl:LoseMana",
 		// repl:GameLoss / repl:GameWin (task fdn-repl-cant-lose) are the
 		// "you can't lose the game" / "your opponents can't win the game"
 		// CantHappen class (Herald of Eternal Dawn, the Platinum Angel family,
