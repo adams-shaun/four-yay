@@ -91,12 +91,29 @@ func TestSetupCreatureTypeChoiceLeadsSiblingRows(t *testing.T) {
 
 // wantSetupTypeCensus pins, per declared set, the number of generated
 // scenarios whose setup places a permanent with an as-enters type ask and how
-// many have the answer queued before setup placement (want all).
+// many have the answer queued before setup placement (want all). The level-A
+// sets come from activateCensusSets; BLB, ECL and DFT are the level-B sets
+// that carry this brief's measured rows (Patchwork Banner, Eclipsed Realms,
+// Gathering Stone, Lifecraft Engine), so the census counts the class the fix
+// actually targets rather than only the level-A universe. Measured 2026-10-06
+// with this ticket's generator; a template, predicate or generator change
+// that moves a count shows up as a diff, and so does a stale pin.
 var wantSetupTypeCensus = map[string][2]int{
 	"BIG": {0, 0},
 	"EOE": {0, 0},
 	"FDN": {2, 2},
 	"FRA": {0, 0},
+	// level-B sets carrying the measured rows.
+	"BLB": {3, 3},
+	"ECL": {6, 6},
+	"DFT": {1, 1},
+}
+
+// setupTypeCensusSets is the level-A census list plus the level-B sets whose
+// as-enters type permanents this brief measured. Kept separate from
+// activateCensusSets, which the activate/combat/colour censuses share.
+func setupTypeCensusSets() []string {
+	return append(append([]string{}, activateCensusSets...), "BLB", "ECL", "DFT")
 }
 
 // The printed lists are frozen copies under testdata/printed so the test reads
@@ -106,7 +123,8 @@ func TestSetupCreatureTypeCensus(t *testing.T) {
 	has := func(n string) bool { _, ok := reg.Lookup(n); return ok }
 	folded := compliance.FoldedNames(reg)
 	got := map[string][2]int{}
-	for _, set := range activateCensusSets {
+	sets := setupTypeCensusSets()
+	for _, set := range sets {
 		printed, err := compliance.LoadPrinted(filepath.Join("testdata", "printed"), set)
 		if err != nil {
 			t.Fatalf("%s: %v", set, err)
@@ -155,7 +173,7 @@ func TestSetupCreatureTypeCensus(t *testing.T) {
 		got[set] = counts
 		t.Logf("%s setup creature-type scenarios=%d scripted=%d", set, counts[0], counts[1])
 	}
-	for _, set := range activateCensusSets {
+	for _, set := range sets {
 		if got[set] != wantSetupTypeCensus[set] {
 			t.Errorf("%s setup type census = %s, want %v", set, fmt.Sprint(got[set]), wantSetupTypeCensus[set])
 		}
