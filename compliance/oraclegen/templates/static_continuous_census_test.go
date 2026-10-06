@@ -29,7 +29,12 @@ import (
 // levelb-static-granted-abilities, which observes a granted mana ability or
 // loyalty ability and an extra land drop as an offered option and gives every
 // other grant shape (activated, triggered and static abilities, abilities
-// gained from another card, an SVar) a named skip instead of the generic one.
+// gained from another card, an SVar) a named skip instead of the generic one,
+// and by levelb-static-not-observable-shapes, which serves the rows the
+// scenario itself broke (a prelude casting the probe card, a counter-gated base
+// without the filter's probes, an Aura whose effect lands on a non-probe host,
+// a back-face Equipment never attached): FRA Puppet Crafting moves from skip to
+// served.
 // It fails in both directions.
 var wantStaticContinuousCensus = map[string]map[string]int{
 	"BIG": {
@@ -56,8 +61,8 @@ var wantStaticContinuousCensus = map[string]map[string]int{
 		"skip:static needs counters on the affected permanent":                                       2,
 	},
 	"FRA": {
-		"served": 26,
-		"skip:static effect not observable on a probe or the card":                                        3,
+		"served": 27,
+		"skip:static effect not observable on a probe or the card":                                        2,
 		"skip:static grants a loyalty ability that adds mana (its offered label names no text to assert)": 1,
 		"skip:static grants a loyalty ability the probe planeswalkers cannot pay for":                     2,
 		"skip:static grants a static ability (observed only through its own effect)":                      1,

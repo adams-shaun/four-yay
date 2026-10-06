@@ -95,6 +95,7 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 	// served is the item for a scenario that replays and shows an effect.
 	served := func(base oraclegen.Item, res rules.OracleResult, plan staticProbePlan) (oraclegen.Item, bool) {
 		specs := staticProbeSpecs(reg, append([]string{staticProbe}, plan.probes...))
+		specs = staticWithAttachHost(reg, res.Snapshots[len(res.Snapshots)-1], f.Name, specs)
 		if !staticObserved(res.Snapshots[len(res.Snapshots)-1], f, name, st, specs) {
 			return oraclegen.Item{}, false
 		}
@@ -205,7 +206,7 @@ func staticBase(reg *cards.Registry, c *cards.Card, f *cards.Face, name string, 
 		// setup-placed permanent's ETB (see staticSelfETB), so it stays on
 		// the cast path below.
 		kind, need, _ := staticCounterGate(&st)
-		base = counterGatedBase(f, name, kind, need)
+		base = counterGatedBase(f, name, kind, need, plan.probes)
 	case cond != nil && !cond.setupOnly() && (req.Face > 0 || plan.self || oraclegen.HasType(f, "Land")) && !cond.place:
 		return base, "fixture needs steps the scenario has no cast for"
 	case req.Face > 0 || plan.self || (cond != nil && cond.place):
@@ -215,6 +216,9 @@ func staticBase(reg *cards.Registry, c *cards.Card, f *cards.Face, name string, 
 		// static that needs the card attacking is placed the same way: a
 		// cast creature is summoning sick and cannot attack.
 		base = staticBackFaceScenario(f, name, req, probes, cond)
+		if req.Face > 0 {
+			staticBackFaceAttach(&base, f, name, st.ParamStr(cards.PKAffected))
+		}
 	case requestedFace(c, name) != f:
 		return base, "face is not the castable face"
 	case oraclegen.HasType(f, "Land"):
@@ -377,9 +381,13 @@ func staticObserved(s rules.OracleSnapshot, f *cards.Face, name string, st cards
 
 // counterGatedBase is the scenario for a static gated on its own counters:
 // the card and the probe on p0's battlefield, the card holding need counters
-// of kind, and no steps -- the first checkpoint already shows the effect.
-func counterGatedBase(f *cards.Face, name, kind string, need int32) oraclegen.Item {
+// of kind plus the plan's extra probes, and no steps -- the first checkpoint
+// already shows the effect.
+func counterGatedBase(f *cards.Face, name, kind string, need int32, probes []string) oraclegen.Item {
 	p0 := oraclegen.Seat{Battlefield: []string{name, staticProbe}}
+	for _, probe := range probes {
+		p0.Battlefield = appendFixtureUnique(p0.Battlefield, probe)
+	}
 	p0 = withSetupCounters(p0, name, kind, need)
 	sc := oraclegen.Scenario{
 		Setup: map[string]oraclegen.Seat{"p0": p0, "p1": {}},

@@ -352,7 +352,7 @@ func staticFixtures(reg *cards.Registry, f *cards.Face, st cards.Static) []stati
 		}
 		out = append(out, staticFixture{conditionPrelude: c})
 	}
-	return out
+	return staticAvoidProbeCollision(reg, out)
 }
 
 // staticConditionGap names why a static no fixture made observable, when the
