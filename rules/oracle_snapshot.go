@@ -137,6 +137,11 @@ type OracleDecision struct {
 	// decision, without posing them (no legal candidate). XMage still asks
 	// each such slot, so the generator closes it with a target skip.
 	UnposedSlots int `json:"unposed_slots,omitempty"`
+	// LeadingUnposed counts the "up to N" slots of a triggered ability's chain
+	// the engine settled empty BEFORE this, the chain's first posed ask (the
+	// root slot with no candidate, or a leading link). XMage asks them first,
+	// so the generator closes each with a target skip ahead of the picks.
+	LeadingUnposed int `json:"leading_unposed,omitempty"`
 	// AltPayable counts the options of an AlternateAdditionalCost either-or
 	// ask (option kind "altaddcost") the cast could pay. XMage's OrCost poses
 	// its chooseUse only when two or more of its costs can be paid, so the

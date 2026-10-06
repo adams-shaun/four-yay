@@ -38,7 +38,7 @@ func TestActivateZoneCostPayments(t *testing.T) {
 				t.Fatalf("precondition: malformed generated activation scenario: %+v", it)
 			}
 			cost := card.Faces[req.Face].Abilities[idx].ParamStr(cards.PKCost)
-			fixtures := activationCostFixturesForTest(cost)
+			fixtures, answerKind := activationCostFixturesForTest(cost)
 			if len(fixtures) == 0 {
 				t.Fatalf("precondition: no fixture selected for supported cost %q", cost)
 			}
@@ -57,26 +57,27 @@ func TestActivateZoneCostPayments(t *testing.T) {
 				answers := 0
 				for _, stepAnswers := range it.XAnswers {
 					for _, answer := range stepAnswers {
-						if answer.Kind == "choice" && strings.EqualFold(answer.Value, name) {
+						if answer.Kind == answerKind && strings.EqualFold(answer.Value, name) {
 							answers++
 						}
 					}
 				}
 				if answers == 0 {
-					t.Errorf("XMage choice answer for cost fixture %q is absent: %+v", name, it.XAnswers)
+					t.Errorf("XMage %s answer for cost fixture %q is absent: %+v", answerKind, name, it.XAnswers)
 				}
 			}
 		})
 	}
 }
 
-func activationCostFixturesForTest(cost string) []string {
+func activationCostFixturesForTest(cost string) ([]string, string) {
 	for _, tok := range costTokens(cost) {
 		if names := activationCostFixtures(tok); len(names) != 0 {
-			return names
+			head, _, _ := strings.Cut(tok, "<")
+			return names, costAnswerKind(cost, head)
 		}
 	}
-	return nil
+	return nil, ""
 }
 
 func containsFold(names []string, want string) bool {
