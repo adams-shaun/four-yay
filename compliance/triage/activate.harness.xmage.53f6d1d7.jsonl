@@ -1,3 +1,0 @@
-{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: {N}{G}, Discard {this}"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: {N}{G}, Discard {this}","cards":2}
-{"card":"Altanak, the Thrice-Called","template":"activate#0.0","status":"harness","api":"BecomesTarget:Draw","sets":["DSK"],"detail":"xmage: AssertionError: Can't find ability to activate command: {1}{G}, Discard {this}"}
-{"card":"Spinewoods Armadillo","template":"activate#0.0","status":"harness","api":"BecomesTarget:Ward","sets":["OTJ"],"detail":"xmage: AssertionError: Can't find ability to activate command: {1}{G}, Discard {this}"}

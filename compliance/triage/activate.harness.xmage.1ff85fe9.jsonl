@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: Brontosaurus — {N}"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: Brontosaurus — {N}","cards":1}
-{"card":"Reptil, Dinomorpher","template":"activate#0.0","status":"harness","api":"-","sets":["MSH"],"detail":"xmage: AssertionError: Can't find ability to activate command: Brontosaurus — {3}"}

@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"resolve","field":"p0.library_top","diff":"gorge+[Glorious Anthem, Jace Beleren] xmage+[$LIB, Shock]"},"key":"activate | resolve | p0.library_top | gorge+[Glorious Anthem, Jace Beleren] xmage+[$LIB, Shock]","cards":1}
+{"card":"Kree Sentinel","template":"activate#0.0","status":"diverge","api":"-","sets":["MSH"],"detail":"step 1 (resolve) p0.library_top: gorge \"[Wastes, Wastes, Jace Beleren, Glorious Anthem, Wastes]\", xmage \"[Wastes, Wastes, Wastes, Shock, Wastes]\""}

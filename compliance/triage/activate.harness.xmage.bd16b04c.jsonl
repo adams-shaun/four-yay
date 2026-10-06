@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: Exhaust — {W}{U}{B}{R}{G}"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: Exhaust — {W}{U}{B}{R}{G}","cards":1}
-{"card":"Marshals' Pathcruiser","template":"activate#0.0","status":"harness","api":"ChangesZone:ChangeZone","sets":["DFT"],"detail":"xmage: AssertionError: Can't find ability to activate command: Exhaust — {W}{U}{B}{R}{G}"}

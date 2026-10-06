@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"activate","field":"p0.pool","diff":"gorge=WWW xmage="},"key":"activate | activate | p0.pool | gorge=WWW xmage=","cards":1}
+{"card":"Loot, the Pathfinder","template":"activate#0.0","status":"diverge","api":"-","sets":["DFT"],"detail":"step 0 (activate) p0.pool: gorge \"WWW\", xmage \"\""}

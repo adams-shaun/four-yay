@@ -1,3 +1,0 @@
-{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: {N}{B}{B}, Exile {this} from your graveyard"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: {N}{B}{B}, Exile {this} from your graveyard","cards":2}
-{"card":"Leering Onlooker","template":"activate#0.0","status":"harness","api":"-","sets":["MKM"],"detail":"xmage: AssertionError: Can't find ability to activate command: {2}{B}{B}, Exile {this} from your graveyard"}
-{"card":"Suspicious Shambler","template":"activate#0.0","status":"harness","api":"-","sets":["FDN"],"detail":"xmage: AssertionError: Can't find ability to activate command: {4}{B}{B}, Exile {this} from your graveyard"}

@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: Exhaust - {N}{B}"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: Exhaust - {N}{B}","cards":1}
-{"card":"Liliana the Repentant","template":"activate#0.0","status":"harness","api":"ChangesZone:Mill","sets":["FRA"],"detail":"xmage: AssertionError: Can't find ability to activate command: Exhaust - {5}{B}"}

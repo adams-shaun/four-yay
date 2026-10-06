@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: Exhaust — {R}, {T}"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: Exhaust — {R}, {T}","cards":1}
-{"card":"Loot, the Pathfinder","template":"activate#0.2","status":"harness","api":"-","sets":["DFT"],"detail":"xmage: AssertionError: Can't find ability to activate command: Exhaust — {R}, {T}"}

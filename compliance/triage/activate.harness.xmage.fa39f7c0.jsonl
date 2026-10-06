@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: Tyrannosaurus Rex — {N}"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: Tyrannosaurus Rex — {N}","cards":1}
-{"card":"Reptil, Dinomorpher","template":"activate#0.1","status":"harness","api":"-","sets":["MSH"],"detail":"xmage: AssertionError: Can't find ability to activate command: Tyrannosaurus Rex — {6}"}
