@@ -1,2 +1,0 @@
-{"shape":{"template":"trigger","op":"pass_to","field":"stack","diff":"gorge=[ability:$CARD@p0] xmage=[ability:Aang, Destined Savior@p0]"},"key":"trigger | pass_to | stack | gorge=[ability:$CARD@p0] xmage=[ability:Aang, Destined Savior@p0]","cards":1}
-{"card":"Aang, at the Crossroads","template":"trigger#1.0","status":"diverge","api":"ChangesZone:Dig+ChangesZone:DelayedTrigger","sets":["TLA"],"detail":"step 0 (pass_to) stack: gorge \"[ability:Aang, at the Crossroads@p0]\", xmage \"[ability:Aang, Destined Savior@p0]\""}

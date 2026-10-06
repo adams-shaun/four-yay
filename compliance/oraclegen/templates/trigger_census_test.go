@@ -22,6 +22,7 @@ var wantTriggerCensus = map[string]map[string]int{
 		"served:trigger.becomes-target":                      1,
 		"skip:trigger.etb-other: trigger covered by level A": 12,
 		"served:trigger.etb-other":                           1,
+		"served:trigger.ltb-self":                            1,
 	},
 	"EOE": {
 		"served:trigger.attacks":                                      7,
@@ -34,6 +35,7 @@ var wantTriggerCensus = map[string]map[string]int{
 		"served:trigger.etb-land":                                     1,
 		"served:trigger.etb-other":                                    18,
 		"served:trigger.ltb-other":                                    1,
+		"served:trigger.ltb-self":                                     4,
 		"served:trigger.phase":                                        19,
 		"served:trigger.spell-cast":                                   6,
 		"skip:trigger.attacks: trigger did not fire":                  0,
@@ -51,7 +53,7 @@ var wantTriggerCensus = map[string]map[string]int{
 		"served:trigger.tapped":                                 1,
 		"served:trigger.combat-damage":                          8,
 		"served:trigger.dies":                                   14,
-		"served:trigger.dies-other":                             5,
+		"served:trigger.dies-other":                             9,
 		"served:trigger.drawn":                                  4,
 		"served:trigger.etb-land":                               20,
 		"served:trigger.etb-other":                              22,
@@ -71,8 +73,10 @@ var wantTriggerCensus = map[string]map[string]int{
 		"skip:trigger.spell-cast: trigger did not fire":                                    2,
 		"skip:trigger.spell-cast: trigger spell-cast opponent-turn condition":              1,
 		"skip:trigger.etb-other: trigger no recipe: etb filter OppCtrl (Creature.OppCtrl)": 1,
+		"skip:trigger.dies-other: trigger dies victim must be damaged by the card":         1,
 		"skip:trigger.dies: trigger condition: counters":                                   0,
 	},
+	// Both of Ruric Thar, Biomagus's prowess instances are served.
 	"FRA": {
 		"served:trigger.attacks":                             5,
 		"served:trigger.attacks-one-target":                  2,

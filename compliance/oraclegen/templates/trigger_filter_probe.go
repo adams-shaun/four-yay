@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/compliance/levelb"
 	"github.com/adams-shaun/gorge/compliance/oraclegen"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
@@ -30,6 +31,10 @@ type filterProbe struct {
 	zone    state.Zone
 	decided bool
 	p1p1    bool // zone-change recipes may supply a counter on the victim
+	// controller is the seat that controls the probe the matcher is asked
+	// about (0 unless an OppCtrl filter needs the opponent's permanent). The
+	// trigger's source is always p0's.
+	controller int
 }
 
 // newFilterProbe prepares the evaluation of spec for a probe sitting in zone
@@ -46,8 +51,8 @@ func newFilterProbe(spec string, zone state.Zone) *filterProbe {
 }
 
 // accepts reports whether the matcher takes card as the trigger's subject.
-// The probe is p0's, and the trigger's source is a different object, so
-// YouCtrl accepts it and Other does too.
+// The probe is the controller's (p0 unless set), and the trigger's source is a
+// different object of p0, so YouCtrl accepts a p0 probe and Other does too.
 func (p *filterProbe) accepts(card *cards.Card) bool {
 	if !p.decided {
 		return true
@@ -58,7 +63,7 @@ func (p *filterProbe) accepts(card *cards.Card) bool {
 	source := p.g.AddObject(card, 0)
 	source.Zone = state.ZBattlefield
 	sourceID := source.ID
-	subject := p.g.AddObject(card, 0)
+	subject := p.g.AddObject(card, state.PlayerID(p.controller))
 	subject.Zone = p.zone
 	if p.p1p1 {
 		events.Apply(p.g, events.Event{Kind: events.CounterChange, Obj: subject.ID, Counter: "P1P1", Amount: 1})
@@ -113,14 +118,27 @@ func resistsDestroy(f *cards.Face) bool {
 	return false
 }
 
-// diesVictimSkip names the dying-creature qualifier no destroy probe can
-// supply: the victim is placed by setup and destroyed in main phase, so it
-// is never attacking, blocking or face down, and never a token.
+// diesVictimSkips are the dying-victim qualifiers no destroy probe can
+// supply, each with the reason it is skipped by name. The victim is placed by
+// setup and destroyed in main phase, so it is never attacking, blocking, face
+// down or a token, was never dealt damage, and starts with toughness 1 or
+// more; a Clue is a token the setup cannot place.
+var diesVictimSkips = []struct{ qualifier, reason string }{
+	{"attacking", "dies victim must be attacking"},
+	{"blocking", "dies victim must be blocking"},
+	{"facedown", "dies victim must be facedown"},
+	{"token", "dies victim must be token"},
+	{"damagedby", "dies victim must be damaged by the card"},
+	{"toughnesslt1", "dies victim must have toughness less than 1"},
+	{"clue", "dies victim must be a Clue token"},
+}
+
+// diesVictimSkip names the dying-victim qualifier no destroy probe can supply.
 func diesVictimSkip(t *cards.Trigger) string {
-	filter := strings.ToLower(t.ParamStr(cards.PKValidCard))
-	for _, q := range []string{"attacking", "blocking", "facedown", "token"} {
-		if strings.Contains(strings.ReplaceAll(filter, "!"+q, ""), q) {
-			return "dies victim must be " + q
+	filter := strings.ToLower(levelb.ZoneChangeFilter(t))
+	for _, q := range diesVictimSkips {
+		if strings.Contains(strings.ReplaceAll(filter, "!"+q.qualifier, ""), q.qualifier) {
+			return q.reason
 		}
 	}
 	return ""

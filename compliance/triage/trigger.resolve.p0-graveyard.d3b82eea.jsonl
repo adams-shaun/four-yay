@@ -1,2 +1,0 @@
-{"shape":{"template":"trigger","op":"resolve","field":"p0.graveyard","diff":"gorge+[$CARD] xmage+[]"},"key":"trigger | resolve | p0.graveyard | gorge+[$CARD] xmage+[]","cards":1}
-{"card":"Belligerent Yearling","template":"trigger#0.0","status":"diverge","api":"ChangesZone:Animate","sets":["LCI"],"detail":"step 1 (resolve) p0.graveyard: gorge \"[Belligerent Yearling]\", xmage \"[]\""}

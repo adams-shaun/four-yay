@@ -159,7 +159,7 @@ func lineTrigSig(t *cards.Trigger, valid func(string) bool) trigSig {
 		}
 	}
 	if d, ok := t.ParamCode(cards.PKDestination); ok && !effects.Destination(d).IsAny() {
-		sig.zcTo = 1 << effects.Destination(d).Zone()
+		sig.zcTo = effects.Destination(d).Zones()
 	}
 	return sig
 }

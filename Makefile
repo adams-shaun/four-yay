@@ -54,6 +54,9 @@ FORGE_REF  ?= ab2a79bd87b87df17c32a4eef77c4a6f3fdc998e
 # docs/superpowers/specs/2026-10-02-xmage-compliance-oracle-design.md
 XMAGE_REF  ?= 6b602a1c85e8ed738a4b40b1ef44c54845b57f68
 XMAGE_ORACLE_DIR ?= /mnt/sata/gorge-training/xmageoracle
+# Forge oracle driver commit (fork, branch oracle-harness): a descendant of FORGE_REF with identical script trees.
+FORGE_ORACLE_REF ?= d23c840392784dde3fdd8a8241a4044a379b5ec2
+FORGE_ORACLE_DIR ?= /mnt/sata/gorge-training/forgeoracle
 
 .PHONY: help
 help:
@@ -179,6 +182,9 @@ compliance-manifests:
 .PHONY: xmage-oracle-setup
 xmage-oracle-setup:
 	XMAGE_REF=$(XMAGE_REF) XMAGE_ORACLE_DIR=$(XMAGE_ORACLE_DIR) scripts/xmage-oracle-setup.sh
+.PHONY: forge-oracle-setup
+forge-oracle-setup:
+	FORGE_REPO='$(FORGE_REPO)' FORGE_REF='$(FORGE_REF)' FORGE_ORACLE_REF='$(FORGE_ORACLE_REF)' FORGE_ORACLE_DIR='$(FORGE_ORACLE_DIR)' scripts/forge-oracle-setup.sh
 
 # compliance-pass runs the XMage compliance pass (gen, plan, XMage replay of
 # the stale scenarios only, diff -write into compliance/verdicts, summary)

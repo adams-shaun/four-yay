@@ -28,12 +28,17 @@ import (
 //     election and the resumed effExplore restarted its Num$ count, so it
 //     explored without end. The count now rides the election
 //     (Decision.ResumeExploreDone -> Ctx.ExploreCount).
-//   - mirror-r9 12931427917867112207 (Panther Robot, affinity for artifacts):
+//   - mirror-r9 12931427917867112279 (Panther Robot, affinity for artifacts):
 //     float_then_cast cast_not_offered_after_float. The float sacrificed the
 //     plan's artifact mana source at priority, raising the cast's price from
 //     {8} to {9}; run A's total cost was locked in (CR 601.2f) before its
 //     CR 601.2g window sacrificed the same source. Expected
-//     float_raised_cost, proven by paymirror floatRaisedCost.
+//     float_raised_cost, proven by paymirror floatRaisedCost. The recorded
+//     seed 12931427917867112207 no longer reached it once Imperial
+//     Cosmographer's "leaves the battlefield without dying" trigger (Destination$
+//     Ante,Command,Exile,Hand,Library) started firing on the opponent's Unsummon
+//     bounce (zone-change Destination$ lists are now a zone set), which changes
+//     the game; the same decks at seed 12931427917867112279 reach the verdict.
 func TestRoundTenFindings(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	f, err := os.Open("testdata/round10.jsonl")
@@ -59,7 +64,7 @@ func TestRoundTenFindings(t *testing.T) {
 	}
 	// seed -> a verdict the game must reach (beyond "no failure").
 	wantVerdict := map[uint64]string{
-		12931427917867112207: "expected:float_then_cast:float_raised_cost",
+		12931427917867112279: "expected:float_then_cast:float_raised_cost",
 	}
 	oldEnabled, oldOptions, oldPlan := autopayMirror, autopayMirrorOptions, planFailures
 	t.Cleanup(func() { autopayMirror, autopayMirrorOptions, planFailures = oldEnabled, oldOptions, oldPlan })

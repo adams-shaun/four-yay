@@ -12,6 +12,7 @@ const (
 	CompareKeywords       = "keywords"
 	CompareOffered        = "offered"
 	CompareNoLibraryOrder = "no_library_order"
+	CompareHandCount      = "hand_count"
 )
 
 // ValidateCompare rejects any Compare field outside the closed opt-in vocabulary.
@@ -19,8 +20,8 @@ const (
 // comparator's wantsCompare readers) before an item may name it.
 func ValidateCompare(compare []string) error {
 	for _, c := range compare {
-		if c != CompareKeywords && c != CompareOffered && c != CompareNoLibraryOrder {
-			return fmt.Errorf("unknown compare field %q (recognised: %q, %q, %q)", c, CompareKeywords, CompareOffered, CompareNoLibraryOrder)
+		if c != CompareKeywords && c != CompareOffered && c != CompareNoLibraryOrder && c != CompareHandCount {
+			return fmt.Errorf("unknown compare field %q (recognised: %q, %q, %q, %q)", c, CompareKeywords, CompareOffered, CompareNoLibraryOrder, CompareHandCount)
 		}
 	}
 	return nil

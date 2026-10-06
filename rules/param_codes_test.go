@@ -50,7 +50,19 @@ func TestParamCodesMatchTextReads(t *testing.T) {
 		if d, ok := param(cards.PKDestination); ok {
 			c, _ := code(cards.PKDestination)
 			dc := effects.Destination(c)
-			if dc.IsAny() != (d == "Any") || dc.IsEmpty() != (d == "") || dc.Zone() != effects.ParseZone(d) {
+			wantAny, wantWildcard, wantEmpty := d == "Any", d == "Any" || d == "All", d == ""
+			for _, z := range zones {
+				want := wantWildcard
+				for p := range strings.SplitSeq(d, ",") {
+					if zWord, known := effects.ParseZoneWord(strings.TrimSpace(p)); known && zWord == z {
+						want = true
+					}
+				}
+				if got := dc.Admits(z); got != want {
+					t.Errorf("%s Destination$ %q zone %v: code %v, text %v", name, d, z, got, want)
+				}
+			}
+			if dc.IsAny() != wantAny || dc.IsEmpty() != wantEmpty {
 				t.Errorf("%s Destination$ %q: code %+v", name, d, dc)
 			}
 		}

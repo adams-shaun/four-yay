@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"setup","field":"permanents","diff":"Avatar Roku gorge+[counters=LORE=1] xmage+[]"},"key":"activate | setup | permanents | Avatar Roku gorge+[counters=LORE=1] xmage+[]","cards":1}
+{"card":"The Legend of Roku","template":"activate#1.0","status":"diverge","api":"-","sets":["TLA"],"detail":"setup permanents: gorge \"c0 o0 Avatar Roku [avatar creature legendary] {} 4/4 counters=LORE=1\", xmage \"c0 o0 Avatar Roku [avatar creature legendary] {} 4/4\""}

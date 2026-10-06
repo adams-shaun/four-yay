@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"resolve","field":"p0.graveyard","diff":"gorge+[] xmage+[Grizzly Bears]"},"key":"trigger | resolve | p0.graveyard | gorge+[] xmage+[Grizzly Bears]","cards":1}
+{"card":"Avatar Destiny","template":"trigger#0.0","status":"diverge","api":"Attach","sets":["TLA"],"detail":"step 3 (resolve) p0.graveyard: gorge \"[Murder, Wastes, Wastes]\", xmage \"[Grizzly Bears, Murder, Wastes, Wastes]\""}

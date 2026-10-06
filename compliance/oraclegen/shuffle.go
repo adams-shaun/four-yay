@@ -12,6 +12,10 @@ import (
 // compared.
 const CompareNoLibraryOrder = "no_library_order"
 
+// CompareHandCount compares only the number of cards in hand when a
+// shuffle-then-draw fixture cannot make the draw uniform.
+const CompareHandCount = "hand_count"
+
 // intoLibraryText matches prose that moves a card into a library ("shuffle it
 // into its owner's library", "puts it into their library").
 var intoLibraryText = regexp.MustCompile(`\binto (?:\S+ ){0,3}?library`)
@@ -86,4 +90,47 @@ func (w *shuffleWalk) api(api, origin, destination, shuffle string) {
 			w.shuffles = true
 		}
 	}
+}
+
+// ShufflesSearchedLibrary reports whether an ability's effect chain can
+// shuffle a library it searched or randomises in place: a library-origin
+// ChangeZone (a search, which CR 701.23 follows with a shuffle), a Shuffle
+// effect, or a Shuffle$ True dig. Unlike CanShuffleLibrary it does not need a
+// card put INTO the library: when the fixture's library holds distinct names
+// (NamedLibrary), the order such a shuffle leaves is luck in XMage.
+func ShufflesSearchedLibrary(sa *cards.SA) bool {
+	seen := map[*cards.SA]bool{}
+	for ; sa != nil && !seen[sa]; sa = sa.Sub {
+		seen[sa] = true
+		switch strings.ToLower(sa.API) {
+		case "shuffle":
+			return true
+		case "changezone", "changezoneall":
+			for _, o := range strings.Split(sa.ParamStr(cards.PKOrigin), ",") {
+				if strings.EqualFold(strings.TrimSpace(o), "Library") {
+					return true
+				}
+			}
+		case "diguntil", "dig":
+			if strings.EqualFold(sa.ParamStr(cards.PKShuffle), "True") {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// NamedLibrary reports whether any seat's setup library holds a card other
+// than the runner's Wastes filler, so a shuffle of it is not order-neutral.
+func NamedLibrary(sc *Scenario) bool {
+	for _, s := range sc.Setup {
+		for _, zone := range [][]string{s.Library, s.LibraryTop} {
+			for _, n := range zone {
+				if n != "Wastes" {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }

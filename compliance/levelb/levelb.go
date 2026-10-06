@@ -53,6 +53,7 @@ var combatKeywords = []string{
 var servableStaticModes = []struct{ mode, sub string }{
 	{"DisableTriggers", "static.disable-triggers"},
 	{"CombatDamageToughness", "static.combat-damage-toughness"},
+	{"Panharmonicon", "static.panharmonicon"},
 }
 
 // combatStaticModes are the combat-legality statics whose presence on a face
@@ -197,6 +198,11 @@ func classifyTrigger(f *cards.Face, t *cards.Trigger) (sub, gap string, covered 
 		if strings.EqualFold(origin, "Battlefield") && strings.EqualFold(dest, "Graveyard") && self {
 			return "trigger.dies", "", false
 		}
+		if selfLeavesBattlefield(t) {
+			// classifyZoneChangeTrigger served the stack-using shape; a
+			// Static$ cleanup never uses the stack, so it is a named gap.
+			return "trigger.gap:ChangesZone", "static trigger", false
+		}
 		return gapMode()
 
 	case cards.TriggerAttacks:
@@ -305,6 +311,12 @@ func classifyStatic(f *cards.Face, st *cards.Static) (sub, gap string) {
 	}
 	if sub, ok := supportedLegalityStatic(f, st); ok {
 		return sub, ""
+	}
+	if sub, ok := cantBeShape(f, st); ok {
+		return sub, ""
+	}
+	if gap := cantBeNamedGap(st); gap != "" {
+		return "static.gap:" + st.Mode, gap
 	}
 	if isCombatStaticMode(st.Mode) {
 		return "static.combat", "legality static"

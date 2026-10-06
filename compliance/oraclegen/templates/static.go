@@ -30,7 +30,8 @@ var StaticObserved = Template{ID: "static", Version: 1}
 // staticSubs are the level-B static sub-families this template serves.
 func staticSubs(sub string) bool {
 	switch sub {
-	case "static.disable-triggers", "static.combat-damage-toughness", "static.can-attack-defender", "static.can-attack-defender-svar", "static.cant-block-by", "static.cant-be-cast-threshold", "static.cant-be-cast-combat", "static.cant-be-activated-combat", "static.cant-block-self", "static.cant-block-by-self", "static.min-blockers":
+	case "static.disable-triggers", "static.combat-damage-toughness", "static.can-attack-defender", "static.can-attack-defender-svar", "static.cant-block-by", "static.cant-be-cast-threshold", "static.cant-be-cast-combat", "static.cant-be-activated-combat", "static.cant-block-self", "static.cant-block-by-self", "static.min-blockers",
+		"static.cant-be-cast-opponent-turn", "static.cant-be-cast-first-turns", "static.cant-be-cast-limit", "static.cant-be-activated-opponent-turn", "static.cant-be-activated-all", "static.cant-be-activated-enchanted", "static.panharmonicon":
 		return true
 	}
 	return false
@@ -73,6 +74,20 @@ func staticRequirement(reg *cards.Registry, f *cards.Face, name string, req leve
 		return staticCastOffer(reg, f, name, req, true)
 	case "static.cant-be-activated-combat":
 		return cantBeActivatedItem(reg, f, name, req)
+	case "static.cant-be-cast-opponent-turn":
+		return cantBeCastOpponentTurnItem(reg, f, name, req)
+	case "static.cant-be-cast-first-turns":
+		return cantBeCastFirstTurnsItem(reg, f, name, req)
+	case "static.cant-be-cast-limit":
+		return cantBeCastLimitItem(reg, f, name, req)
+	case "static.cant-be-activated-opponent-turn":
+		return cantBeActivatedOpponentTurnItem(reg, f, name, req)
+	case "static.cant-be-activated-all":
+		return cantBeActivatedAllItem(reg, f, name, req)
+	case "static.cant-be-activated-enchanted":
+		return cantBeActivatedEnchantedItem(reg, f, name, req)
+	case "static.panharmonicon":
+		return panharmoniconItem(reg, f, name, req)
 	}
 	return skip("no observation for " + req.Sub)
 }
@@ -81,19 +96,16 @@ func staticRequirement(reg *cards.Registry, f *cards.Face, name string, req leve
 // under test on p0's battlefield, the probe cards in p0's hand and on the
 // battlefield, and p1's baseline permanent.
 func staticScenario(f *cards.Face, name string, battlefield []string, hand []string, steps []oraclegen.Step) oraclegen.Scenario {
+	// No named library: both engines pad each seat's library to 40 with the
+	// Wastes filler, which survives any turn a combat-decision checkpoint
+	// traverses. A named library of Plains made the setup library_top differ
+	// by construction: XMage stacks the filler ON TOP of named library cards
+	// (ScenarioReplay.build), gorge shuffles them in with the filler.
 	p0 := oraclegen.Seat{Hand: append([]string(nil), hand...)}
-	// Oracle scenarios need enough library to survive the full turn that a
-	// combat-decision checkpoint may traverse.
-	for i := 0; i < 20; i++ {
-		p0.Library = append(p0.Library, "Plains")
-	}
 	for _, b := range battlefield {
 		p0.Battlefield = appendFixtureUnique(p0.Battlefield, b)
 	}
 	p1 := oraclegen.Seat{}
-	for i := 0; i < 20; i++ {
-		p1.Library = append(p1.Library, "Plains")
-	}
 	sc := oraclegen.Scenario{
 		Setup:        map[string]oraclegen.Seat{"p0": p0, "p1": p1},
 		SetupAnswers: oraclegen.OpeningHandAnswers(f),

@@ -1,2 +1,2 @@
 {"shape":{"template":"activate","op":"resolve","field":"p0.library_top","diff":"gorge+[Forest] xmage+[$LIB]"},"key":"activate | resolve | p0.library_top | gorge+[Forest] xmage+[$LIB]","cards":1}
-{"card":"Rabaroo Troop","template":"activate#0.0","status":"diverge","api":"ChangesZone:Pump","sets":["TLA"],"detail":"step 1 (resolve) p0.library_top: gorge \"[Wastes, Wastes, Jace Beleren, Forest, Wastes]\", xmage \"[Wastes, Jace Beleren, Wastes, Wastes, Wastes]\""}
+{"card":"Hill Gigas","template":"activate#0.0","status":"diverge","api":"-","sets":["FIN"],"detail":"step 1 (resolve) p0.library_top: gorge \"[Wastes, Jace Beleren, Wastes, Wastes, Forest]\", xmage \"[Wastes, Wastes, Wastes, Wastes, Jace Beleren]\""}

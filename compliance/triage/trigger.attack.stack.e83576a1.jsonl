@@ -1,2 +1,0 @@
-{"shape":{"template":"trigger","op":"attack","field":"stack","diff":"gorge=[ability:$CARD@p0] xmage=[ability:The Lord Master of Hell@p0]"},"key":"trigger | attack | stack | gorge=[ability:$CARD@p0] xmage=[ability:The Lord Master of Hell@p0]","cards":1}
-{"card":"The Emperor of Palamecia","template":"trigger#1.0","status":"diverge","api":"SpellCast:PutCounter","sets":["FIN"],"detail":"step 0 (attack) stack: gorge \"[ability:The Emperor of Palamecia@p0]\", xmage \"[ability:The Lord Master of Hell@p0]\""}

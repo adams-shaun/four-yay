@@ -36,6 +36,7 @@ func TestShuffleEmittedItemCensus(t *testing.T) {
 	folded := compliance.FoldedNames(reg)
 	has := func(name string) bool { _, ok := reg.Lookup(name); return ok }
 	got := make(map[string]int, len(sets))
+	drawRoutes := make(map[string][3]int, len(sets)) // level-B shuffle-then-draw items by route
 	foundFblthp := false
 	for _, set := range sets {
 		printed, err := compliance.LoadPrinted(filepath.Join(root, "printed"), set)
@@ -43,6 +44,7 @@ func TestShuffleEmittedItemCensus(t *testing.T) {
 			t.Fatal(err)
 		}
 		got[set] = 0
+		drawRoutes[set] = [3]int{}
 		seen := map[string]bool{}
 		for _, name := range printed.Cards {
 			name, ok := compliance.CorpusNameFold(has, folded, name)
@@ -74,6 +76,17 @@ func TestShuffleEmittedItemCensus(t *testing.T) {
 				if marks != 1 {
 					t.Fatalf("%s: got %d library-order marks, want exactly one", item.ID, marks)
 				}
+				if oraclegen.ShufflesThenDraws(card.Faces[req.Face]) {
+					route := shuffleDrawRoute(item)
+					if item.ID == "Weftwalking/static#0.0/v1" && route != routeUniform {
+						t.Fatalf("Weftwalking static row must fix its shuffled zones to one card, got route %d", route)
+					}
+					routes := drawRoutes[set]
+					routes[route]++
+					drawRoutes[set] = routes
+				} else if hasCompare(item.Compare, oraclegen.CompareHandCount) {
+					t.Fatalf("%s: hand-count compare on an item that does not shuffle then draw", item.ID)
+				}
 				got[set]++
 				t.Logf("%s %s", set, item.ID)
 				if set == "FRA" && item.ID == "Fblthp, Impossibly Lost/trigger#0.0/v1" {
@@ -88,4 +101,41 @@ func TestShuffleEmittedItemCensus(t *testing.T) {
 	if !reflect.DeepEqual(got, wantShuffleItemCensus) {
 		t.Fatalf("shuffle emitted-item census changed: got %#v, want %#v", got, wantShuffleItemCensus)
 	}
+	// [uniform library fixture, hand-count compare, nothing to shuffle]
+	wantDrawRoutes := map[string][3]int{"EOE": {1, 0, 0}}
+	for _, set := range sets {
+		if _, ok := wantDrawRoutes[set]; !ok {
+			wantDrawRoutes[set] = [3]int{}
+		}
+	}
+	if !reflect.DeepEqual(drawRoutes, wantDrawRoutes) {
+		t.Fatalf("shuffle-then-draw route census changed: got %#v, want %#v", drawRoutes, wantDrawRoutes)
+	}
+}
+
+const (
+	routeUniform   = iota // a seat's library was filled with its one shuffled card
+	routeHandCount        // several shuffled names: compare the hand by size
+	routeUntouched        // nothing is shuffled back: the Wastes filler is already uniform
+)
+
+func shuffleDrawRoute(it oraclegen.Item) int {
+	if hasCompare(it.Compare, oraclegen.CompareHandCount) {
+		return routeHandCount
+	}
+	for _, seat := range it.Scenario.Setup {
+		if len(seat.Library) > 0 {
+			return routeUniform
+		}
+	}
+	return routeUntouched
+}
+
+func hasCompare(options []string, want string) bool {
+	for _, option := range options {
+		if option == want {
+			return true
+		}
+	}
+	return false
 }

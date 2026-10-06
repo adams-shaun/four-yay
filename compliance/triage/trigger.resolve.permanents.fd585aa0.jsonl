@@ -1,2 +1,0 @@
-{"shape":{"template":"trigger","op":"resolve","field":"permanents","diff":"$CARD gorge+[3/2, counters=P1P1=2] xmage+[2/1, counters=P1P1=1]"},"key":"trigger | resolve | permanents | $CARD gorge+[3/2, counters=P1P1=2] xmage+[2/1, counters=P1P1=1]","cards":1}
-{"card":"Guiding Hydra","template":"trigger#0.0","status":"diverge","api":"Phase:PutCounterAll","sets":["FRA"],"detail":"step 3 (resolve) permanents: gorge \"c0 o0 Guiding Hydra [creature horror hydra] {W} 3/2 counters=P1P1=2\", xmage \"c0 o0 Guiding Hydra [creature horror hydra] {W} 2/1 counters=P1P1=1\""}

@@ -5,7 +5,6 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/compliance/oraclegen"
-	"github.com/adams-shaun/gorge/state"
 )
 
 // Probe cards for the event recipes, each tried in order like the lists in
@@ -96,43 +95,9 @@ func eventTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *card
 			xability: []string{prefix},
 		}}, "", true
 	case "trigger.dies-other":
-		if name == bearsProbe {
-			return nil, "dies-other probe is the card", true
-		}
-		// A Grizzly Bears on p0's side dies to a destroy probe. An aura's
-		// trigger names the enchanted creature, so the aura is cast on the
-		// Bears first (setup cannot place an unattached aura).
-		var pre []oraclegen.Step
-		aura := strings.Contains(t.ParamStr(cards.PKValidCard), "AttachedBy")
-		if aura {
-			st, ok := castProbe(reg, name, "p0:"+bearsProbe)
-			if !ok {
-				return nil, "aura has no mana pool", true
-			}
-			pre = []oraclegen.Step{st, {Op: "resolve"}}
-		}
-		// The victim is the Bears unless the filter rejects them (a Goblin, a
-		// legend, a deathtouch creature): then gorge's own matcher picks the
-		// corpus creatures it accepts, the Bears only if it finds none.
-		victims := []string{bearsProbe}
-		if bears, ok := reg.Lookup(bearsProbe); ok {
-			if fp := newFilterProbe(t.ParamStr(cards.PKValidCard), state.ZBattlefield); fp.decided && !fp.accepts(bears) {
-				if found := fp.victimProbes(reg, name, 4); len(found) > 0 {
-					victims = found
-				}
-			}
-		}
-		for _, victim := range victims {
-			for _, p := range destroyProbes {
-				c, ok := castCause(reg, name, p, "p0:"+victim)
-				c.battlefield = []string{victim}
-				c.steps = append(append([]oraclegen.Step(nil), pre...), c.steps...)
-				if aura {
-					c.selfInHand = true
-					c.hand = append(c.hand, name)
-				}
-				add(c, ok)
-			}
+		var why string
+		if causes, why = diesOtherRecipe(reg, f, name, t); why != "" {
+			return nil, why, true
 		}
 	case "trigger.scry", "trigger.surveil":
 		probes := scryProbes

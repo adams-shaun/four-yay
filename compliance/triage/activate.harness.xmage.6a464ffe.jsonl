@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: <i>Grandeur</i> &mdash; Discard another card named {this}"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: <i>Grandeur</i> &mdash; Discard another card named {this}","cards":1}
+{"card":"Page, Loose Leaf","template":"activate#0.1","status":"harness","api":"-","sets":["SOS"],"detail":"xmage: AssertionError: Can't find ability to activate command: <i>Grandeur</i> &mdash; Discard another card named {this}"}

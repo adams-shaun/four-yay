@@ -44,7 +44,21 @@ func classifyZoneChangeTrigger(t *cards.Trigger) (string, bool) {
 	if strings.EqualFold(origin, "Battlefield") && !namesSelf(filter) && !strings.EqualFold(dest, "Graveyard") {
 		return "trigger.ltb-other", true
 	}
+	if selfLeavesBattlefield(t) && !strings.EqualFold(t.ParamStr(cards.PKStatic), "True") {
+		return "trigger.ltb-self", true
+	}
 	return "", false
+}
+
+// selfLeavesBattlefield reports a ChangesZone trigger on the card itself
+// leaving the battlefield for somewhere other than exactly the battlefield or
+// the graveyard (the self-dies shape trigger.dies serves).
+func selfLeavesBattlefield(t *cards.Trigger) bool {
+	dest := t.ParamStr(cards.PKDestination)
+	return t.ModeKind() == cards.TriggerChangesZone &&
+		strings.EqualFold(t.ParamStr(cards.PKOrigin), "Battlefield") &&
+		namesSelf(t.ParamStr(cards.PKValidCard)) &&
+		!strings.EqualFold(dest, "Battlefield") && !strings.EqualFold(dest, "Graveyard")
 }
 
 // ZoneChangeFilter is the card filter of a ChangesZone (ValidCard$) or

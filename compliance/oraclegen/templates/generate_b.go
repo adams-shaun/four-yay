@@ -7,6 +7,8 @@
 package templates
 
 import (
+	"strconv"
+
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/compliance/levelb"
 	"github.com/adams-shaun/gorge/compliance/oraclegen"
@@ -28,15 +30,31 @@ func GenerateB(reg *cards.Registry, name string, req levelb.Requirement) (item o
 			return
 		}
 		c, ok := reg.Lookup(name)
-		if !ok || req.Face < 0 || req.Face >= len(c.Faces) || !oraclegen.CanShuffleLibrary(c.Faces[req.Face]) {
+		if !ok || req.Face < 0 || req.Face >= len(c.Faces) {
 			return
 		}
-		for _, option := range item.Compare {
-			if option == oraclegen.CompareNoLibraryOrder {
-				return
+		if !oraclegen.CanShuffleLibrary(c.Faces[req.Face]) {
+			// A search-and-shuffle of a fixture library holding distinct
+			// names (the search pool) leaves an order XMage randomises:
+			// compare the counts, not the order.
+			if requirementShufflesSearched(c.Faces[req.Face], req) && oraclegen.NamedLibrary(&item.Scenario) &&
+				!hasCompareOption(item.Compare, oraclegen.CompareNoLibraryOrder) {
+				item.Compare = append(item.Compare, oraclegen.CompareNoLibraryOrder)
+			}
+			return
+		}
+		if !hasCompareOption(item.Compare, oraclegen.CompareNoLibraryOrder) {
+			item.Compare = append(item.Compare, oraclegen.CompareNoLibraryOrder)
+		}
+		// A shuffle-then-draw draws random cards in XMage. Make the shuffled
+		// zones uniform so the drawn hand is the same whatever the order; only
+		// a setup holding several distinct shuffled names compares the hand by
+		// size instead.
+		if oraclegen.ShufflesThenDraws(c.Faces[req.Face]) {
+			if !oraclegen.UniformShuffledZones(&item.Scenario, name) && !hasCompareOption(item.Compare, oraclegen.CompareHandCount) {
+				item.Compare = append(item.Compare, oraclegen.CompareHandCount)
 			}
 		}
-		item.Compare = append(item.Compare, oraclegen.CompareNoLibraryOrder)
 	}()
 	if req.Gap != "" {
 		return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: "level B: " + req.Gap}
@@ -84,4 +102,30 @@ func GenerateB(reg *cards.Registry, name string, req levelb.Requirement) (item o
 		return staticContinuous(reg, c.Faces[req.Face], name, req)
 	}
 	return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: "level B: no template for " + req.Sub}
+}
+
+func hasCompareOption(options []string, want string) bool {
+	for _, option := range options {
+		if option == want {
+			return true
+		}
+	}
+	return false
+}
+
+// requirementShufflesSearched reports whether the activated ability or
+// trigger a requirement exercises can search-and-shuffle a library. Statics
+// and combat never run the effect, so their scenarios keep comparing order.
+func requirementShufflesSearched(f *cards.Face, req levelb.Requirement) bool {
+	i, err := strconv.Atoi(req.Slot)
+	if err != nil || i < 0 {
+		return false
+	}
+	switch req.Family {
+	case "activate":
+		return i < len(f.Abilities) && oraclegen.ShufflesSearchedLibrary(f.Abilities[i])
+	case "trigger":
+		return i < len(f.Triggers) && oraclegen.ShufflesSearchedLibrary(f.Triggers[i].Effect)
+	}
+	return false
 }

@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"resolve","field":"p0.library_top","diff":"gorge+[Glorious Anthem] xmage+[Grizzly Bears]"},"key":"activate | resolve | p0.library_top | gorge+[Glorious Anthem] xmage+[Grizzly Bears]","cards":1}
-{"card":"Saber-Tooth Moose-Lion","template":"activate#0.0","status":"diverge","api":"-","sets":["TLA"],"detail":"step 1 (resolve) p0.library_top: gorge \"[Wastes, Wastes, Jace Beleren, Glorious Anthem, Wastes]\", xmage \"[Wastes, Wastes, Jace Beleren, Grizzly Bears, Wastes]\""}
