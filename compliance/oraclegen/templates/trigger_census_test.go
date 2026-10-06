@@ -22,6 +22,7 @@ var wantTriggerCensus = map[string]map[string]int{
 		"served:trigger.becomes-target":                      1,
 		"skip:trigger.etb-other: trigger covered by level A": 12,
 		"served:trigger.etb-other":                           1,
+		"served:trigger.ltb-self":                            1,
 	},
 	"EOE": {
 		"served:trigger.attacks":                                      7,
@@ -34,6 +35,7 @@ var wantTriggerCensus = map[string]map[string]int{
 		"served:trigger.etb-land":                                     1,
 		"served:trigger.etb-other":                                    18,
 		"served:trigger.ltb-other":                                    1,
+		"served:trigger.ltb-self":                                     4,
 		"served:trigger.phase":                                        19,
 		"served:trigger.spell-cast":                                   6,
 		"skip:trigger.attacks: trigger did not fire":                  0,

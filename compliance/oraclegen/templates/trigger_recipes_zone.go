@@ -1,6 +1,8 @@
 package templates
 
 import (
+	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -12,6 +14,9 @@ var (
 	bounceProbes    = []string{"Unsummon"}
 	exileZoneProbes = []string{"Swords to Plowshares", "Path to Exile"}
 	reanimateProbes = []string{"Raise Dead", "Disentomb"}
+	// artifactProbes and enchantmentProbes destroy a noncreature permanent.
+	artifactProbes    = []string{"Shatter"}
+	enchantmentProbes = []string{"Disenchant", "Naturalize"}
 	// tokenProbes make ONE token: a ChangesZoneAll "one or more enter"
 	// trigger fires once per token in gorge, so a two-token maker queues two
 	// triggers behind a trigger_order ask and none reaches the stack.
@@ -142,4 +147,64 @@ func zoneChangeSkip(filter string, t *cards.Trigger) string {
 		return "put into graveyard from anywhere"
 	}
 	return "zone-change filter " + filter
+}
+
+var powerGEGate = regexp.MustCompile(`(?i)\bpowerGE(\d+)`)
+
+// ltbSelfSub is the sub-family of "when this leaves the battlefield".
+const ltbSelfSub = "trigger.ltb-self"
+
+// ltbSelfRecipe removes the card itself from the battlefield on turn 1: a
+// creature is bounced, exiled or destroyed by the probe the trigger's
+// Destination$ admits, an artifact or enchantment is destroyed by the
+// matching removal spell (their destination is the graveyard). The engine
+// remains the authority: a probe the card's own gate refuses is simply tried
+// past. A "powerGE<N>" gate on a card printed lower gets the counters that
+// reach N.
+func ltbSelfRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards.Trigger) ([]triggerCause, string) {
+	dest := t.ParamStr(cards.PKDestination)
+	probes := zoneProbes(dest)
+	if !f.IsCreature() {
+		probes = nil
+		if zoneProbesReachGraveyard(dest) {
+			if f.IsArtifact() {
+				probes = append(probes, artifactProbes...)
+			}
+			if f.IsEnchantment() {
+				probes = append(probes, enchantmentProbes...)
+			}
+		}
+	}
+	if len(probes) == 0 {
+		return nil, "ltb-self cause for " + strings.Join(f.Types, " ") + " to " + dest
+	}
+	var counters map[string]map[string]int
+	if m := powerGEGate.FindStringSubmatch(levelb.ZoneChangeFilter(t)); m != nil {
+		if need, err := strconv.Atoi(m[1]); err == nil && need > f.Power() {
+			counters = map[string]map[string]int{"__SOURCE__": {"P1P1": need - f.Power()}}
+		}
+	}
+	var out []triggerCause
+	for _, probe := range probes {
+		if c, ok := castCause(reg, name, probe, "p0:"+name); ok {
+			c.counters = counters
+			out = append(out, c)
+		}
+	}
+	if len(out) == 0 {
+		return nil, "ltb-self probes for " + dest
+	}
+	return out, ""
+}
+
+// zoneProbesReachGraveyard reports whether a Destination$ admits the
+// graveyard: absent, Any, or a list naming it.
+func zoneProbesReachGraveyard(dest string) bool {
+	for _, d := range strings.Split(strings.ToLower(dest), ",") {
+		switch strings.TrimSpace(d) {
+		case "", "any", "graveyard":
+			return true
+		}
+	}
+	return false
 }
