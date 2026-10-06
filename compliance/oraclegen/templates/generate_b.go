@@ -31,12 +31,18 @@ func GenerateB(reg *cards.Registry, name string, req levelb.Requirement) (item o
 		if !ok || req.Face < 0 || req.Face >= len(c.Faces) || !oraclegen.CanShuffleLibrary(c.Faces[req.Face]) {
 			return
 		}
-		for _, option := range item.Compare {
-			if option == oraclegen.CompareNoLibraryOrder {
-				return
+		if !hasCompareOption(item.Compare, oraclegen.CompareNoLibraryOrder) {
+			item.Compare = append(item.Compare, oraclegen.CompareNoLibraryOrder)
+		}
+		// A shuffle-then-draw draws random cards in XMage. Make the shuffled
+		// zones uniform so the drawn hand is the same whatever the order; only
+		// a setup holding several distinct shuffled names compares the hand by
+		// size instead.
+		if oraclegen.ShufflesThenDraws(c.Faces[req.Face]) {
+			if !oraclegen.UniformShuffledZones(&item.Scenario, name) && !hasCompareOption(item.Compare, oraclegen.CompareHandCount) {
+				item.Compare = append(item.Compare, oraclegen.CompareHandCount)
 			}
 		}
-		item.Compare = append(item.Compare, oraclegen.CompareNoLibraryOrder)
 	}()
 	if req.Gap != "" {
 		return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: "level B: " + req.Gap}
@@ -84,4 +90,13 @@ func GenerateB(reg *cards.Registry, name string, req levelb.Requirement) (item o
 		return staticContinuous(reg, c.Faces[req.Face], name, req)
 	}
 	return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: "level B: no template for " + req.Sub}
+}
+
+func hasCompareOption(options []string, want string) bool {
+	for _, option := range options {
+		if option == want {
+			return true
+		}
+	}
+	return false
 }

@@ -30,7 +30,8 @@ var StaticObserved = Template{ID: "static", Version: 1}
 // staticSubs are the level-B static sub-families this template serves.
 func staticSubs(sub string) bool {
 	switch sub {
-	case "static.disable-triggers", "static.combat-damage-toughness", "static.can-attack-defender", "static.can-attack-defender-svar", "static.cant-block-by", "static.cant-be-cast-threshold", "static.cant-be-cast-combat", "static.cant-be-activated-combat", "static.cant-block-self", "static.cant-block-by-self", "static.min-blockers":
+	case "static.disable-triggers", "static.combat-damage-toughness", "static.can-attack-defender", "static.can-attack-defender-svar", "static.cant-block-by", "static.cant-be-cast-threshold", "static.cant-be-cast-combat", "static.cant-be-activated-combat", "static.cant-block-self", "static.cant-block-by-self", "static.min-blockers",
+		"static.cant-be-cast-opponent-turn", "static.cant-be-cast-first-turns", "static.cant-be-cast-limit", "static.cant-be-activated-opponent-turn", "static.cant-be-activated-all", "static.cant-be-activated-enchanted":
 		return true
 	}
 	return false
@@ -73,6 +74,18 @@ func staticRequirement(reg *cards.Registry, f *cards.Face, name string, req leve
 		return staticCastOffer(reg, f, name, req, true)
 	case "static.cant-be-activated-combat":
 		return cantBeActivatedItem(reg, f, name, req)
+	case "static.cant-be-cast-opponent-turn":
+		return cantBeCastOpponentTurnItem(reg, f, name, req)
+	case "static.cant-be-cast-first-turns":
+		return cantBeCastFirstTurnsItem(reg, f, name, req)
+	case "static.cant-be-cast-limit":
+		return cantBeCastLimitItem(reg, f, name, req)
+	case "static.cant-be-activated-opponent-turn":
+		return cantBeActivatedOpponentTurnItem(reg, f, name, req)
+	case "static.cant-be-activated-all":
+		return cantBeActivatedAllItem(reg, f, name, req)
+	case "static.cant-be-activated-enchanted":
+		return cantBeActivatedEnchantedItem(reg, f, name, req)
 	}
 	return skip("no observation for " + req.Sub)
 }

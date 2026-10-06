@@ -409,7 +409,11 @@ one_scenario() {
   rm -f -- "$out"
   if [ -n "$src" ]; then py row "$id" "$src" >"$in" || return 1
   else py row "$id" "$SCEN_ROOT"/*/scen.jsonl >"$in" || return 1; fi
-  (cd "$dir" && GOFLAGS="-p=2 -trimpath" XMAGE_ORACLE_MEM=6G "${LOCKRUN[@]}" "${SCEN_CMD[@]}" "$in" "$out") >/dev/null 2>&1
+  # One row is light (3.4 s wall, 2G scope, 1g heap, measured 2026-10-06): it
+  # runs inside the per-test budget and does not queue on the heavy lock
+  # behind a post-merge full suite (the flake checks of driver-batch-
+  # 20261006T165451Z waited minutes per row for a lock they did not need).
+  (cd "$dir" && GOFLAGS="-p=2 -trimpath" XMAGE_ORACLE_MEM=2G XMAGE_ORACLE_HEAP=1g "${SCEN_CMD[@]}" "$in" "$out") >/dev/null 2>&1
   [ -s "$out" ]
 }
 

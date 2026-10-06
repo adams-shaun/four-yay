@@ -36,6 +36,13 @@ type trigSubAsk struct {
 	subs       []*cards.SA
 	ans        [][]state.Target
 	stage      int
+	// posed, leading and curLeading feed the oracle record (oracle_trigchain.go):
+	// whether any of the chain's asks has been posed yet, how many Min-0 slots
+	// were settled empty before the first one, and that count as carried by
+	// the ask now pending.
+	posed      bool
+	leading    int
+	curLeading int
 }
 
 func (t *trigSubAsk) clone() *trigSubAsk {
@@ -109,6 +116,7 @@ func (e *Engine) startTriggerSubTargets(id state.ObjID, controller state.PlayerI
 		return
 	}
 	e.trigSub = &trigSubAsk{obj: id, controller: controller, subs: subs, ans: make([][]state.Target, len(subs))}
+	e.trigSub.noteRoot(root, e.Pending() != nil)
 	if e.Pending() == nil {
 		e.askTriggerSubTargets()
 	}
@@ -163,9 +171,11 @@ func (e *Engine) askTriggerSubTargets() bool {
 		}
 		if max == 0 || len(candidates) == 0 {
 			ts.ans[ts.stage] = []state.Target{}
+			ts.noteSettledEmpty(sub)
 			ts.stage++
 			continue
 		}
+		ts.notePosed()
 		d := &decision.Decision{Player: ts.controller, Kind: decision.KTarget, Min: min, Max: max,
 			Prompt: "Choose a target for " + e.targetName(ts.obj) + "'s chained ability",
 			Source: ts.obj, ResumeKind: "trig_sub", ResumeSA: sub,
