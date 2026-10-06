@@ -98,17 +98,31 @@ func runStatusAll(dir, level, out string, writeRatchet, asJSON bool, only []stri
 		}
 		fmt.Fprintf(os.Stderr, "wrote %s\n", out)
 	}
-	if child || level != "A" {
+	if child {
 		return nil
 	}
+	switch level {
+	case "A":
+		return finishRatchetA(sets, only, writeRatchet, cs)
+	case "B":
+		return finishRatchetB(sets, writeRatchet, cs)
+	}
+	return nil
+}
+
+// finishRatchetA writes or checks the level-A ratchet. A write builds fresh
+// level-A entries for the measured sets, carries every entry's existing
+// level-B floor forward, and keeps unmeasured sets' entries when only is a
+// slice.
+func finishRatchetA(sets []adopt.SetStatus, only []string, writeRatchet bool, cs *adopt.Census) error {
 	if writeRatchet {
-		rec := adopt.RatchetOf(sets)
+		old, err := loadRatchetMaybe()
+		if err != nil {
+			return err
+		}
+		rec := adopt.RatchetOf(sets, old)
 		if len(only) > 0 {
 			// A slice updates its own sets' entries and keeps the rest.
-			old, err := adopt.LoadRatchet(".")
-			if err != nil && !os.IsNotExist(err) {
-				return err
-			}
 			for k, e := range rec {
 				if old == nil {
 					old = map[string]adopt.RatchetEntry{}
@@ -117,11 +131,7 @@ func runStatusAll(dir, level, out string, writeRatchet, asJSON bool, only []stri
 			}
 			rec = old
 		}
-		if err := os.WriteFile(adopt.RatchetFile, adopt.MarshalRatchet(rec), 0o644); err != nil {
-			return err
-		}
-		fmt.Fprintf(os.Stderr, "wrote %s\n", adopt.RatchetFile)
-		return nil
+		return writeRatchetFile(rec)
 	}
 	r, err := adopt.LoadRatchet(".")
 	if err != nil {
@@ -141,6 +151,54 @@ func runStatusAll(dir, level, out string, writeRatchet, asJSON bool, only []stri
 	if len(fails) > 0 {
 		return fmt.Errorf("%d certification ratchet failures", len(fails))
 	}
+	return nil
+}
+
+// finishRatchetB writes or checks the level-B ratchet. A write updates only
+// the measured sets' outstanding_b floors and keeps every other field; a
+// check holds the measured sets to those floors, and a set with no floor is
+// outside the B claim and passes.
+func finishRatchetB(sets []adopt.SetStatus, writeRatchet bool, cs *adopt.Census) error {
+	if writeRatchet {
+		old, err := loadRatchetMaybe()
+		if err != nil {
+			return err
+		}
+		return writeRatchetFile(adopt.RatchetOfB(sets, old))
+	}
+	r, err := adopt.LoadRatchet(".")
+	if err != nil {
+		return err
+	}
+	fails, slack := adopt.CheckRatchetB(sets, r)
+	if len(slack) > 0 {
+		fmt.Printf("ratchet: %d sets improved past the level-B floor (-write-ratchet records them): %s\n", len(slack), strings.Join(slack, "; "))
+	}
+	for _, f := range fails {
+		fmt.Println("RATCHET FAIL:", f)
+	}
+	if len(fails) > 0 {
+		return fmt.Errorf("%d level-B ratchet failures", len(fails))
+	}
+	return nil
+}
+
+// loadRatchetMaybe reads the committed ratchet, treating a missing file as
+// an empty one (the first write creates it).
+func loadRatchetMaybe() (map[string]adopt.RatchetEntry, error) {
+	old, err := adopt.LoadRatchet(".")
+	if err != nil && !os.IsNotExist(err) {
+		return nil, err
+	}
+	return old, nil
+}
+
+// writeRatchetFile marshals and writes compliance/ratchet.json.
+func writeRatchetFile(rec map[string]adopt.RatchetEntry) error {
+	if err := os.WriteFile(adopt.RatchetFile, adopt.MarshalRatchet(rec), 0o644); err != nil {
+		return err
+	}
+	fmt.Fprintf(os.Stderr, "wrote %s\n", adopt.RatchetFile)
 	return nil
 }
 
