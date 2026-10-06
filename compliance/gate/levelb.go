@@ -68,6 +68,9 @@ func bProblems(reg *cards.Registry, name string, c *cards.Card, scan *setScan, b
 			bad(name, "no generated scenario (%s: %s) and no hand oracle scenario", req.Key, skip.Reason)
 			continue
 		}
+		if xm, ok := scan.xmageSpelling[compliance.FoldName(name)]; ok && xm != it.Card {
+			it.XMageName = xm
+		}
 		rowOK(reg, it, rows, bad)
 	}
 }
