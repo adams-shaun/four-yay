@@ -781,7 +781,7 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSt
 			any = true
 			continue
 		}
-		if forcedSingleOption(d) && !(d.Kind == "choose_n" && d.Resume == "choice") {
+		if forcedSingleOption(d) && !forcedChoicePosed(ds, i) {
 			// A forced one-option ask: XMage does not pose it. A forced
 			// target-kind pick is the exception -- one legal opponent is still
 			// a chooseTarget XMage asks for -- and so is a mode ask, which
@@ -1053,6 +1053,33 @@ func forcedSingleOption(d rules.OracleDecision) bool {
 		return false
 	}
 	return d.Options == 1 && d.Min == 1 && d.Max == 1
+}
+
+// forcedChoicePosed reports whether a forced one-option choose_n ask is still
+// posed by XMage's makeChoose (Unstable Glyphbridge's "choose a creature").
+// A ChangeTargets redirect shares the same decision shape (Resume "choice")
+// but is not a choice ask: XMage retargets through chooseTarget, which
+// auto-selects a sole candidate in non-strict mode and reads the target queue
+// otherwise, so a scripted choice would never be consumed. The redirect is
+// told apart by the earlier cast that targeted a stack object (Bolt Bend,
+// Redirect Lightning).
+func forcedChoicePosed(ds []rules.OracleDecision, i int) bool {
+	d := ds[i]
+	if d.Kind != "choose_n" || d.Resume != "choice" {
+		return false
+	}
+	for _, e := range ds[:i] {
+		if e.Kind != "target" || e.Step >= d.Step {
+			continue
+		}
+		for k := range e.Picks {
+			switch pickKind(e, k) {
+			case "spell", "ability", "trigger":
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // unlessPolarity is the yes/no answer to an unless-pay boolean ask: the

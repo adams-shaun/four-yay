@@ -58,3 +58,22 @@ func TestResolutionTimeChoiceAnswerShapes(t *testing.T) {
 		})
 	}
 }
+
+// A ChangeTargets redirect (Bolt Bend, Redirect Lightning) records the same
+// forced choose_n/"choice" shape as Glyphbridge's creature pick, but XMage
+// retargets through chooseTarget, so a scripted choice is never consumed.
+func TestRetargetRedirectIsNotScriptedAsChoice(t *testing.T) {
+	cast := rules.OracleDecision{Step: 1, Seat: 0, Kind: "target", Options: 1, Min: 1, Max: 1,
+		Picks: []string{"Disfigure (a)"}, PickRefs: []string{"p0:Disfigure"}, PickKinds: []string{"spell"}, Via: "target"}
+	forced := rules.OracleDecision{Step: 2, Seat: 0, Kind: "choose_n", Resume: "choice", Options: 1,
+		Picks: []string{""}, PickRefs: []string{"p1:Grizzly Bears"}, PickKinds: []string{"card"}, Min: 1, Max: 1}
+	if !forcedSingleOption(forced) {
+		t.Fatal("fixture must be a forced one-option ask")
+	}
+	if got := xanswers([]rules.OracleDecision{cast, forced}, 3, nil, map[int]bool{1: true}); len(got) > 2 && len(got[2]) != 0 {
+		t.Fatalf("redirect scripted a choice XMage never reads: %#v", got[2])
+	}
+	if got := routed(t, []rules.OracleDecision{forced}, 3); len(got) != 1 {
+		t.Fatalf("without a stack-targeting cast the ask is a real choice: %#v", got)
+	}
+}
