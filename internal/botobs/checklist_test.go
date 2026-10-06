@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
-	"runtime"
 	"sort"
 	"testing"
 
@@ -185,15 +184,18 @@ func contains(s, sub string) bool {
 
 // ---- source access ------------------------------------------------------
 
-// repoRootFromTest locates the repo root from this test file's own path, so
-// the routing probe reads the source the test binary was built from.
+// repoRootFromTest locates the repo root relative to this package's
+// directory (internal/botobs), which is the working directory `go test`
+// runs the binary in, so the routing probe reads the source the test binary
+// was built from. runtime.Caller is not used: under -trimpath it returns a
+// module-relative path that does not exist on disk.
 func repoRootFromTest(t *testing.T) string {
 	t.Helper()
-	_, file, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("runtime.Caller failed: cannot locate the repo root for the routing probe")
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatalf("cannot locate the repo root for the routing probe: %v", err)
 	}
-	return filepath.Clean(filepath.Join(filepath.Dir(file), "..", ".."))
+	return root
 }
 
 // policySources concatenates botpolicy's non-test .go sources.
