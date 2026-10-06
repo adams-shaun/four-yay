@@ -146,3 +146,40 @@ func TestCraftGraveyardPermanentMaterial(t *testing.T) {
 		t.Fatalf("material zone = %v, want exile", z)
 	}
 }
+
+// TestCraftGraveyardPermanentMaterialEnigma covers the sibling material spec:
+// The Enigma Jewel's `Permanent.Other+nonLand+hasAbility Activated` must also
+// accept graveyard permanent CARDS -- the same missing-zone bug as Sunbird's
+// bare `Permanent.Other`, but through the suffix path. permanentCardBase
+// rewrites a leading `Permanent` base with any suffix chain, so this is what
+// proves the rewrite is not special-cased to the bare spelling.
+func TestCraftGraveyardPermanentMaterialEnigma(t *testing.T) {
+	e, _, source := newFixtureDeck(t, 9305, craftDFCSource(enigmaKeyword))
+	craftOnBattlefield(t, e, source)
+	if got := e.G.Obj(source).Face().Abilities; len(got) == 0 {
+		t.Fatal("precondition: the Enigma Jewel front face must carry its Craft ability")
+	}
+	var mats []state.ObjID
+	for _, name := range []string{"Enigma Grave A", "Enigma Grave B", "Enigma Grave C", "Enigma Grave D"} {
+		mats = append(mats, putGraveyard(t, e, 0, craftTestMaterial(name, "Creature")))
+	}
+	for _, id := range mats {
+		if z := e.G.Obj(id).Zone; z != state.ZGraveyard {
+			t.Fatalf("precondition: material %d in %v, want graveyard", id, z)
+		}
+	}
+	// {8}{U} plus self-exile: float ten blue.
+	addMana(t, e, 0, "UUUUUUUUUU")
+	if _, ok := findAbilityOption(e, source, 0); !ok {
+		t.Fatalf("Craft not offered with only graveyard nonland permanent cards; options = %+v", e.Pending().Options)
+	}
+	driveCraftActivation(t, e, source, 4, mats)
+	if o := e.G.Obj(source); o.Zone != state.ZBattlefield || o.FaceIdx != 1 {
+		t.Fatalf("crafted card = zone %v face %d, want battlefield back face", o.Zone, o.FaceIdx)
+	}
+	for _, id := range mats {
+		if z := e.G.Obj(id).Zone; z != state.ZExile {
+			t.Fatalf("material %d zone = %v, want exile", id, z)
+		}
+	}
+}
