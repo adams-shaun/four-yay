@@ -84,6 +84,11 @@ var activateCensusSets = []string{"BIG", "EOE", "FDN", "FRA"}
 // (no-fixture 5 -> 2). The FRA Proctor of Potential's scry/surveil gate has no
 // setup and is now a named restriction gap instead of the generic no-fixture
 // bucket.
+//
+// Re-measured for the activate-ambiguity ticket (cli-20261006T132128Z-8c3cdc9e):
+// the six EOE Station lands' "STATION N+" sections no longer count as printed
+// ability lines, so their {T} mana ability is served instead of skipped as
+// "xmage text ambiguous" (EOE mana 17 -> 23, ambiguous 6 -> 0).
 var wantActivateCensus = map[string]map[string]int{
 	"BIG": {
 		"served:activate.battlefield":        11,
@@ -94,11 +99,10 @@ var wantActivateCensus = map[string]map[string]int{
 	},
 	"EOE": {
 		"served:activate.battlefield":             36,
-		"served:activate.mana":                    17,
+		"served:activate.mana":                    23,
 		"skip:activate cost gap: Sac<token>":      1,
 		"skip:activate cost gap: SubCounter<...>": 1,
 		"skip:activate cost gap: tapXType<X>":     1,
-		"skip:activate xmage text ambiguous":      6,
 	},
 	"FDN": {
 		"served:activate.battlefield":                          85,

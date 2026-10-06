@@ -27,6 +27,7 @@ package oraclegen
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -230,9 +231,17 @@ func oracleLines(oracle string) []string {
 // granted under ("({T}: Add {G} or {U}.)") is excluded by the leading "(".
 func abilityLines(oracle string) []string {
 	var out []string
+	gated := false
 	for _, raw := range oracleLines(oracle) {
-		line := strings.TrimSpace(raw)
+		line := spaceAfterCostColon(strings.TrimSpace(raw))
 		if line == "" || strings.HasPrefix(line, "(") {
+			continue
+		}
+		// Forge models the abilities printed under a "LEVEL N-M" / "STATION N+"
+		// header (the rest of the face) as SVar grants, and "Max speed —"
+		// lines as nothing at all, so neither has an AB to pair with.
+		gated = gated || levelHeaderRE.MatchString(line)
+		if gated || strings.HasPrefix(line, "Max speed — ") {
 			continue
 		}
 		colon := strings.Index(line, ": ")
@@ -248,6 +257,25 @@ func abilityLines(oracle string) []string {
 		out = append(out, line)
 	}
 	return out
+}
+
+// levelHeaderRE matches the "LEVEL 1-2" / "LEVEL 8+" / "STATION 12+" line
+// that opens a leveler's or Spacecraft's granted-ability sections.
+var levelHeaderRE = regexp.MustCompile(`^(LEVEL|STATION) \d+(-\d+|\+)$`)
+
+// costColonRE finds the cost/effect colon of a line printed without the
+// space after it ("{T}:Draw a card.", "[-3]:You draw"), which a braced cost or
+// a bracketed loyalty cost always precedes.
+var costColonRE = regexp.MustCompile(`([}\]]):([^ ])`)
+
+// spaceAfterCostColon restores the space after the cost colon, only on the
+// first such colon so a colon inside the effect text is left alone.
+func spaceAfterCostColon(line string) string {
+	loc := costColonRE.FindStringSubmatchIndex(line)
+	if loc == nil || strings.Contains(line[:loc[0]], ": ") {
+		return line
+	}
+	return line[:loc[1]-1] + " " + line[loc[1]-1:]
 }
 
 // stripReminder removes a line's trailing parenthetical reminder text, the
@@ -322,9 +350,51 @@ func removeKeywordAbilityLines(f *cards.Face, lines []string) []string {
 // Class, TypeCycling and job-named Equip use their distinct Oracle shapes.
 func keywordPrefix(f *cards.Face, sa *cards.SA) (string, bool) {
 	head := sa.ParamStr(cards.PKKeyword)
-	var matches []string
+	var lines []string
 	for _, raw := range oracleLines(f.Oracle) {
-		line := stripReminder(strings.TrimSpace(raw))
+		lines = append(lines, stripReminder(strings.TrimSpace(raw)))
+	}
+	var matches []string
+	if head == "TypeCycling" {
+		// One printed line lists every landcycling ("Swampcycling {2},
+		// mountaincycling {2}") and XMage prints each as its own ability.
+		matches = keywordMatches(head, sa, commaSegments(lines))
+	} else if matches = keywordMatches(head, sa, lines); len(matches) == 0 {
+		// A comma-joined keyword list ("Madness {R}, cycling {1}{R}, ...").
+		matches = keywordMatches(head, sa, commaSegments(lines))
+	}
+	// Prose that merely names the keyword ("Equip abilities you activate of
+	// other Equipment cost {1} less...") also starts with it, and a face may
+	// print the keyword twice ("Equip Detective {1}", "Equip {3}"). Only when
+	// that leaves several candidates does the printed line decide: first the
+	// line that spells this ability's leading cost symbol (or, for a cost with
+	// none, the line whose cost is a dash-led "Equip—Sacrifice ..."), then the
+	// line whose cost follows the keyword name directly. Forge's cost spelling
+	// is never required to round-trip -- it collapses hybrid, Phyrexian, tap and
+	// min-count symbols -- so a narrowing that finds nothing is skipped.
+	if len(matches) > 1 {
+		if symbol := leadingCostSymbol(sa.ParamStr(cards.PKCost)); symbol != "" {
+			matches = narrowMatches(matches, func(line string) bool { return strings.Contains(line, symbol) })
+		} else {
+			matches = narrowMatches(matches, func(line string) bool { return dashLed(keywordCandidate(line), head) })
+		}
+	}
+	if len(matches) > 1 {
+		matches = narrowMatches(matches, func(line string) bool { return costLed(keywordCandidate(line), head) })
+	}
+	if len(matches) == 0 {
+		return printedEquip(sa)
+	}
+	if len(matches) != 1 {
+		return "", false
+	}
+	return xmageKeywordText(head, sa, matches[0])
+}
+
+// keywordMatches returns the lines that print this keyword ability.
+func keywordMatches(head string, sa *cards.SA, lines []string) []string {
+	var matches []string
+	for _, line := range lines {
 		switch head {
 		case "TypeCycling":
 			// Forge's TypeCycling covers basic-landcycling and arbitrary
@@ -344,35 +414,101 @@ func keywordPrefix(f *cards.Face, sa *cards.SA) (string, bool) {
 				matches = append(matches, line)
 			}
 		default:
-			display := head
 			// Job-named equipment prints "Job — Equip {N}". Match the
 			// keyword after that printed header, while preserving the whole
 			// XMage selector text.
-			if keywordLineStartsWith(keywordCandidate(line), display) {
+			if keywordLineStartsWith(keywordCandidate(line), head) {
 				matches = append(matches, line)
 			}
 		}
 	}
-	// Prose that merely names the keyword ("Equip abilities you activate of
-	// other Equipment cost {1} less...") also starts with it, and a face may
-	// print the keyword twice ("Equip Detective {1}", "Equip {3}"). Only when
-	// that leaves several candidates does the printed line decide: first the
-	// line that spells this ability's leading cost symbol, then the line whose
-	// cost follows the keyword name directly. Forge's cost spelling is never
-	// required to round-trip -- it collapses hybrid, Phyrexian, tap and
-	// min-count symbols -- so a narrowing that finds nothing is skipped.
-	if len(matches) > 1 {
-		if symbol := leadingCostSymbol(sa.ParamStr(cards.PKCost)); symbol != "" {
-			matches = narrowMatches(matches, func(line string) bool { return strings.Contains(line, symbol) })
+	return matches
+}
+
+// commaSegments splits every line that lists several comma-separated
+// abilities into those abilities, first letter upper-cased as XMage prints it.
+func commaSegments(lines []string) []string {
+	var out []string
+	for _, line := range lines {
+		for _, seg := range strings.Split(line, ", ") {
+			if seg = strings.TrimSpace(seg); seg != "" {
+				out = append(out, strings.ToUpper(seg[:1])+seg[1:])
+			}
 		}
 	}
-	if len(matches) > 1 {
-		matches = narrowMatches(matches, func(line string) bool { return costLed(keywordCandidate(line), head) })
+	return out
+}
+
+// xmageKeywordText spells the matched printed line as XMage renders the
+// ability. A mana cost reads "Cycling {2}" in both; a non-mana cost is printed
+// "Equip—Sacrifice a creature." by EquipAbility and CyclingAbility
+// ("&mdash;"), and "Eternalize {2}{W}{W}, Discard a card" by EternalizeAbility.
+// Other keywords' dash-led shapes have no rendering this mapping knows, and a
+// mixed mana-and-other Equip/Cycling cost ("Equip—{2}, Pay 2 life.") is
+// rendered in an order the printed line does not give, so those fail closed.
+func xmageKeywordText(head string, sa *cards.SA, line string) (string, bool) {
+	candidate := keywordCandidate(line)
+	if !keywordLineStartsWith(candidate, head) {
+		// Class and TypeCycling lines do not begin with the AB's keyword name.
+		return line, true
 	}
-	if len(matches) != 1 {
+	header := flavorHeader(line[:len(line)-len(candidate)])
+	name, rest := candidate[:len(head)], candidate[len(head):]
+	switch {
+	case strings.HasPrefix(rest, ":"):
+		return header + name + " " + strings.TrimSpace(rest[1:]), true
+	case !strings.HasPrefix(rest, "—") && !strings.HasPrefix(rest, "-"):
+		return header + candidate, true
+	}
+	cost := strings.TrimLeft(rest, "—-")
+	switch head {
+	case "Equip", "Cycling":
+		if leadingCostSymbol(sa.ParamStr(cards.PKCost)) != "" {
+			return "", false
+		}
+		return header + name + "&mdash;" + cost, true
+	case "Eternalize":
+		return header + name + " " + strings.TrimSuffix(cost, "."), true
+	}
+	return "", false
+}
+
+// flavorHeader spells a printed "Job — " header as AbilityImpl.addRulePrefix
+// renders a flavor word (CardUtil.italicizeWithEmDash).
+func flavorHeader(header string) string {
+	word := strings.TrimSuffix(header, " — ")
+	if word == header {
+		return header
+	}
+	return "<i>" + word + "</i> &mdash; "
+}
+
+// printedEquip spells an Equip ability whose Oracle text prints no Equip line
+// at all (Forge omits it from some cards' Oracle: Buster Sword, Glamdring) as
+// XMage renders a plain mana cost: "Equip {2}".
+func printedEquip(sa *cards.SA) (string, bool) {
+	if sa.ParamStr(cards.PKKeyword) != "Equip" {
 		return "", false
 	}
-	return matches[0], true
+	fields := strings.Fields(sa.ParamStr(cards.PKCost))
+	var text strings.Builder
+	for _, field := range fields {
+		if !isManaCostSymbol(field) {
+			return "", false
+		}
+		text.WriteString("{" + field + "}")
+	}
+	if text.Len() == 0 {
+		return "", false
+	}
+	return "Equip " + text.String(), true
+}
+
+// dashLed reports whether the keyword's cost is a dash-led non-mana cost
+// ("Equip—Sacrifice a creature").
+func dashLed(line, display string) bool {
+	rest := strings.TrimSpace(line[len(display):])
+	return strings.HasPrefix(rest, "—") || strings.HasPrefix(rest, "-")
 }
 
 // keywordCandidate strips a Job-style header ("Perseus's Bow — Equip {6}")
@@ -437,8 +573,9 @@ func keywordLineStartsWith(line, display string) bool {
 		return true
 	}
 	switch line[len(display)] {
-	case ' ', '{':
+	case ' ', '{', ':':
 		return true
 	}
-	return false
+	// "Equip—Sacrifice a creature": the dash is a multi-byte rune.
+	return dashLed(line, display)
 }
