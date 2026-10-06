@@ -286,6 +286,9 @@ func (e *Engine) triggerConditionHoldsWithSVars(t cards.Trigger, source state.Ob
 			return false
 		}
 	}
+	if !e.triggerHellbentHolds(t, you) {
+		return false
+	}
 	if strings.EqualFold(strings.TrimSpace(t.ParamStr(cards.PKCondition)), "AttackedPlayerWithMostLife") {
 		// Scourge of the Throne's intervening-if ("if it's attacking the
 		// player with the most life or tied for most life"): an
