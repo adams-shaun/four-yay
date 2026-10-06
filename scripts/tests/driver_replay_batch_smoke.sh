@@ -796,8 +796,11 @@ mkdrift K4
 gencommit gen.txt changed
 mkticket t1 2026-10-06T03:00:00Z tools/xmageoracle/t1.txt one
 runpass
-hasnt "$L" 'DRIFT-START' && has "$L" 'MERGED-INTO-BATCH t1'
-check "K a parked ticket runs the normal batch, not a DRIFT pass" $?
+has "$L" 'DRIFT-START' && hasnt "$L" 'MERGED-INTO-BATCH t1'
+check "K a parked ticket waits for main's DRIFT pass first" $?
+runpass
+has "$L" 'MERGED-INTO-BATCH t1'
+check "K the parked ticket batches once main's drift is replayed" $?
 [ "$(cat "$R/.ds4/driver-replay-last-main")" = "$(git -C "$R" rev-parse main)" ]
 check "K a batch landing records last-main too" $?
 
