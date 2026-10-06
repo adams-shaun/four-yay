@@ -49,23 +49,29 @@ func TestHeads(t *testing.T) {
 	}
 	reg := testutil.CorpusRegistry(t)
 	update := os.Getenv(updateHeadsEnv) == "1"
+	// One subtest per seat count (the operator's per-test budget,
+	// 2026-10-05): each game is measured and run on its own, e.g.
+	// -run '^TestHeads$/^8seats$', and the four play in parallel.
 	for _, seats := range AcceptanceSeatCounts() {
-		got := acceptanceHead(t, reg, seats)
-		if update {
-			if err := os.WriteFile(headPath(seats), []byte(got+"\n"), 0o644); err != nil {
-				t.Fatalf("%d seats: writing %s: %v", seats, headPath(seats), err)
+		t.Run(fmt.Sprintf("%dseats", seats), func(t *testing.T) {
+			t.Parallel()
+			got := acceptanceHead(t, reg, seats)
+			if update {
+				if err := os.WriteFile(headPath(seats), []byte(got+"\n"), 0o644); err != nil {
+					t.Fatalf("%d seats: writing %s: %v", seats, headPath(seats), err)
+				}
+				t.Logf("%d seats: pinned %s in rules/%s", seats, got, headPath(seats))
+				return
 			}
-			t.Logf("%d seats: pinned %s in rules/%s", seats, got, headPath(seats))
-			continue
-		}
-		// The "<n> seats: chain head <got>, golden <want>" prefix is parsed by
-		// orchestrator/hooks.py (_HEAD_RE); keep it.
-		if want := pinnedHead(t, seats); got != want {
-			t.Errorf("%d seats: chain head %s, golden %s -- if this move is intended, re-pin with `%s` "+
-				"and name the first diverging event and its cause in the COMMIT MESSAGE (not in a file). "+
-				"Find that event with cmd/headdiff: dump main's streams with `headdiff -dump` and run "+
-				"`headdiff -against` on this tree (see `go doc ./cmd/headdiff`)",
-				seats, got, want, rePinHint)
-		}
+			// The "<n> seats: chain head <got>, golden <want>" prefix is parsed by
+			// orchestrator/hooks.py (_HEAD_RE); keep it.
+			if want := pinnedHead(t, seats); got != want {
+				t.Errorf("%d seats: chain head %s, golden %s -- if this move is intended, re-pin with `%s` "+
+					"and name the first diverging event and its cause in the COMMIT MESSAGE (not in a file). "+
+					"Find that event with cmd/headdiff: dump main's streams with `headdiff -dump` and run "+
+					"`headdiff -against` on this tree (see `go doc ./cmd/headdiff`)",
+					seats, got, want, rePinHint)
+			}
+		})
 	}
 }

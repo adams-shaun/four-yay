@@ -126,6 +126,16 @@ Oracle:x
 // then call driveToStep(t, e, 1, 0, state.StepMain1) themselves once done.
 func newFixtureDeck(t *testing.T, seed uint64, fixtureSrc string, extras ...string) (*Engine, Config, state.ObjID) {
 	t.Helper()
+	return newFixtureDeckSpare(t, nil, seed, fixtureSrc, extras...)
+}
+
+// newFixtureDeckSpare is newFixtureDeck building its engine on sp's recycled
+// storage (Config.Spare; nil allocates fresh), its seat-0 toss probes
+// included (seatZeroStartSpare), for a census that builds one
+// fixture per subject and Releases each into sp when done. The returned
+// Config carries no Spare.
+func newFixtureDeckSpare(t *testing.T, sp *Spare, seed uint64, fixtureSrc string, extras ...string) (*Engine, Config, state.ObjID) {
+	t.Helper()
 	fixture := card(t, fixtureSrc)
 	name := fixture.Faces[0].Name
 	deck := []*cards.Card{fixture}
@@ -160,8 +170,10 @@ func newFixtureDeck(t *testing.T, seed uint64, fixtureSrc string, extras ...stri
 	// seat 0 (see its own doc); the caller's seed still pins deck content
 	// whenever the toss already starts seat 0, and the effective seed
 	// travels out in the returned cfg for replayCheck.
-	cfg = seatZeroStart(build(seed))
+	cfg = seatZeroStartSpare(build(seed), sp)
+	cfg.Spare = sp
 	e = New(cfg)
+	cfg.Spare = nil
 	e.Advance()
 
 	var id state.ObjID

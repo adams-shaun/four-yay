@@ -320,10 +320,15 @@ func cloneFuzzEnvInt(name string, def int) int {
 	return def
 }
 
-// TestCloneFidelityShort is the default-run slice: a 2-seat 60-card game and
-// a 4-seat Commander game, each cloned at EVERY decision of its first
-// intents.
-func TestCloneFidelityShort(t *testing.T) {
+// TestCloneFidelityShort2Seat and TestCloneFidelityShort4Seat are the
+// default-run slice: a 2-seat 60-card game and a 4-seat Commander game, each
+// cloned at EVERY decision of its first intents. They are two independent
+// tests (the operator's per-test budget, 2026-10-05: 2 GB, 2 vCPU, 1 min)
+// rather than two subtests of one.
+func TestCloneFidelityShort2Seat(t *testing.T) { cloneFidelityShortGame(t, 0) }
+func TestCloneFidelityShort4Seat(t *testing.T) { cloneFidelityShortGame(t, 5) }
+
+func cloneFidelityShortGame(t *testing.T, g int) {
 	t.Parallel()
 	if os.Getenv("GORGE_CLONE_FUZZ") != "" {
 		t.Skip("the GORGE_CLONE_FUZZ sweep is running instead")
@@ -331,18 +336,10 @@ func TestCloneFidelityShort(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	o := cloneFuzzOpts{maxIntents: 400, every: 1, lockstep: 4, diverge: 4, randomPct: 10}
 	var st cloneFuzzStats
-	t.Run("games", func(t *testing.T) {
-		for _, g := range []int{0, 5} {
-			g := g
-			t.Run(strconv.Itoa(g), func(t *testing.T) {
-				t.Parallel()
-				cfg, label := cloneFuzzConfig(t, reg, g)
-				playCloneFuzzGame(t, cfg, label, o, &st)
-			})
-		}
-	})
-	t.Logf("clone fidelity: %d games, %d intents, %d lockstep clones, %d divergent clones",
-		st.games.Load(), st.intents.Load(), st.clones.Load(), st.divergent.Load())
+	cfg, label := cloneFuzzConfig(t, reg, g)
+	playCloneFuzzGame(t, cfg, label, o, &st)
+	t.Logf("clone fidelity: %s, %d intents, %d lockstep clones, %d divergent clones",
+		label, st.intents.Load(), st.clones.Load(), st.divergent.Load())
 }
 
 // TestCloneFidelitySweep is the long sweep (GORGE_CLONE_FUZZ=N games).
