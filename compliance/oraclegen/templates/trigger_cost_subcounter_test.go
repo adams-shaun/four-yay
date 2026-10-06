@@ -1,7 +1,6 @@
 package templates
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/adams-shaun/gorge/compliance/levelb"
@@ -65,23 +64,20 @@ func TestTriggerSubCounterCostPays(t *testing.T) {
 				t.Fatalf("does not play through gorge: ok=%v fails=%v", ok, res.Fails)
 			}
 
-			// The first step that answers the ask is where the cost is
-			// decided; everything before it only builds the board.
+			// The last step carrying a scripted answer is where the trigger
+			// cost is decided -- "Remove 1 …" when paid, "Do not pay" when
+			// declined; it is the trigger's resolve, or the pass_to that
+			// carries a combat trigger. Everything before it only builds the
+			// board. Located by the presence of an answer, not by its label,
+			// so a decline still reaches the counter assertions below.
 			ask := -1
 			for i, st := range it.Scenario.Steps {
-				for _, a := range st.Answers {
-					for _, p := range a.Pick {
-						if strings.HasPrefix(p, "Remove 1 ") {
-							ask = i
-						}
-					}
-				}
-				if ask >= 0 {
-					break
+				if len(st.Answers) > 0 {
+					ask = i
 				}
 			}
 			if ask < 0 {
-				t.Fatalf("the scenario never answers the trigger cost with a pay pick: %+v", it.Scenario.Steps)
+				t.Fatalf("precondition: the scenario answers no ask: %+v", it.Scenario.Steps)
 			}
 
 			pre := runSteps(t, reg, it.Scenario, it.Scenario.Steps[:ask])
