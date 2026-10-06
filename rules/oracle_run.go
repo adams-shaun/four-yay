@@ -84,6 +84,14 @@ type oracleSeat struct {
 	// so the scenario still replays from its log like every other setup op.
 	Mana string `json:"mana,omitempty"`
 	Life *int32 `json:"life,omitempty"`
+	// Counters puts counters on this seat's battlefield cards: card name ->
+	// counter kind (CHARGE, P1P1, ...) -> amount, emitted as CounterChange
+	// events when the card is placed. Like Tapped it applies to every
+	// placement of the name.
+	Counters map[string]map[string]int32 `json:"counters,omitempty"`
+	// Speed is the seat's starting speed (CR 702.179), 0..4, set with a
+	// SpeedChange event during setup.
+	Speed int32 `json:"speed,omitempty"`
 }
 
 type oracleStep struct {
@@ -380,6 +388,9 @@ func (r *oracleRun) build(sc oracleScenario) error {
 			}
 			sideboards[p] = append(sideboards[p], c)
 		}
+		if err := validateSetupState(p, s); err != nil {
+			return err
+		}
 	}
 	cfg := Config{Seed: 42, Names: []string{"a", "b"}, Decks: decks, Tokens: r.reg.Tokens, NamedCorpus: r.reg.Cards}
 	for p := range sideboards {
@@ -460,6 +471,9 @@ func (r *oracleRun) build(sc oracleScenario) error {
 					break
 				}
 			}
+			if pl.zone == state.ZBattlefield {
+				r.emitSetupCounters(sc.Setup[fmt.Sprintf("p%d", p)], pl.name, id)
+			}
 			if pl.top {
 				tops = append(tops, id)
 			}
@@ -504,6 +518,7 @@ func (r *oracleRun) build(sc oracleScenario) error {
 				e.emit(events.Event{Kind: events.LifeChange, Player: pid, Amount: d})
 			}
 		}
+		r.emitSetupSpeed(p, sc.Setup[fmt.Sprintf("p%d", p)])
 	}
 	e.Advance()
 	// TurnChange cleared the pre-turn placement history. XMage's seeded
