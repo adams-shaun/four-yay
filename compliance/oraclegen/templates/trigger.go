@@ -167,6 +167,9 @@ func triggerScenario(f *cards.Face, name string, c triggerCause, req levelb.Requ
 	for _, card := range c.opponentHand {
 		p1.Hand = appendFixtureUnique(p1.Hand, card)
 	}
+	for _, card := range c.opponentBattlefield {
+		p1.Battlefield = appendFixtureUnique(p1.Battlefield, card)
+	}
 	for _, card := range c.tapped {
 		if card == "__SOURCE__" {
 			card = name

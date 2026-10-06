@@ -27,7 +27,10 @@ type triggerCause struct {
 	preludeXAbility []string
 	castSelfX       bool     // the card is cast from hand with X first (an X creature that setup would leave 0/0)
 	opponentHand    []string // probes held by p1 for opponent-cast causes
-	activateCost    string   // Forge cost of the activate step in steps (Crew/Saddle tap choice); "" when none
+	// opponentBattlefield are p1 permanents (a dies-other victim an OppCtrl
+	// filter names).
+	opponentBattlefield []string
+	activateCost        string // Forge cost of the activate step in steps (Crew/Saddle tap choice); "" when none
 }
 
 // Probe cards, each named with why. Spec hypothesis H4: the probe exists in
