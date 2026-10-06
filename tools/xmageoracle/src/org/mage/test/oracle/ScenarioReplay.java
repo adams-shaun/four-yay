@@ -7,6 +7,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonPrimitive;
+import mage.ConditionalMana;
 import mage.Mana;
 import mage.abilities.Ability;
 import mage.abilities.common.SimpleStaticAbility;
@@ -1640,14 +1641,34 @@ public class ScenarioReplay extends CardTestPlayerBase {
         return a;
     }
 
-    private static String pool(ManaPool mp) {
+    // ManaPool.getWhite() and the other colour getters sum only unconditional
+    // pool items: a restricted add ("spend only on Dragon spells") is a
+    // ConditionalMana whose ManaPoolItem keeps its plain counters at zero. Add
+    // those in too, so the snapshot matches gorge's letters-only pool. The
+    // restriction itself is not compared.
+    static String pool(ManaPool mp) {
+        int w = mp.getWhite();
+        int u = mp.getBlue();
+        int bl = mp.getBlack();
+        int r = mp.getRed();
+        int g = mp.getGreen();
+        int c = mp.getColorless();
+        for (ConditionalMana cm : mp.getConditionalMana()) {
+            w += cm.getWhite();
+            u += cm.getBlue();
+            bl += cm.getBlack();
+            r += cm.getRed();
+            g += cm.getGreen();
+            // ManaPool.addMana folds generic into colorless for plain mana.
+            c += cm.getColorless() + cm.getGeneric();
+        }
         StringBuilder b = new StringBuilder();
-        rep(b, 'W', mp.getWhite());
-        rep(b, 'U', mp.getBlue());
-        rep(b, 'B', mp.getBlack());
-        rep(b, 'R', mp.getRed());
-        rep(b, 'G', mp.getGreen());
-        rep(b, 'C', mp.getColorless());
+        rep(b, 'W', w);
+        rep(b, 'U', u);
+        rep(b, 'B', bl);
+        rep(b, 'R', r);
+        rep(b, 'G', g);
+        rep(b, 'C', c);
         return b.toString();
     }
 
