@@ -83,8 +83,8 @@ func fightDamageEvents(e *Engine) []events.Event {
 // TestWarbriarBlessingFightAnswered pins the execute-shaped Fight carrier end
 // to end on the real corpus card: the ETB trigger's placement ask offers up
 // to one target (TargetMin$ 0 | TargetMax$ 1), and the answered fight deals
-// BOTH powers simultaneously — the two per-side-sourced Damage events sit
-// adjacent in the event stream, inside one damage batch.
+// BOTH powers simultaneously — only damage-time history events may occur
+// between the two per-side-sourced Damage events in the same batch.
 func TestWarbriarBlessingFightAnswered(t *testing.T) {
 	e, cfg, aura := newFixtureDeck(t, 3, corpusCardText(t, "w/warbriar_blessing.txt"),
 		"Name:Ox\nManaCost:1 G\nTypes:Creature Ox\nPT:3/3\nOracle:x\n")
@@ -118,8 +118,10 @@ func TestWarbriarBlessingFightAnswered(t *testing.T) {
 	if dmg[1].Obj != ox || dmg[1].Amount != 2 {
 		t.Fatalf("victim→fighter damage = %+v, want ox taking 2", dmg[1])
 	}
-	if dmg[1].Seq-dmg[0].Seq > 2 {
-		t.Fatalf("the two fight hits are %d seqs apart — not one simultaneous batch", dmg[1].Seq-dmg[0].Seq)
+	for _, ev := range e.L.Events[dmg[0].Seq+1 : dmg[1].Seq] {
+		if ev.Kind != events.ExcessDamage && ev.Kind != events.DamageProvenance {
+			t.Fatalf("unexpected event %v between the two simultaneous fight hits", ev.Kind)
+		}
 	}
 	if e.G.Obj(ox).Zone != state.ZBattlefield {
 		t.Fatalf("Ox (3 toughness) died to 2 damage")

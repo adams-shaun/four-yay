@@ -11833,6 +11833,13 @@
     },
     {
       "seq": 2122,
+      "kind": 126,
+      "player": 1,
+      "obj": 101,
+      "amount": 1
+    },
+    {
+      "seq": 2123,
       "kind": 93,
       "obj": 6,
       "amount": 5,
@@ -11842,13 +11849,20 @@
       ]
     },
     {
-      "seq": 2123,
+      "seq": 2124,
       "kind": 5,
       "obj": 206,
       "amount": 5
     },
     {
-      "seq": 2124,
+      "seq": 2125,
+      "kind": 126,
+      "player": 1,
+      "obj": 206,
+      "amount": 1
+    },
+    {
+      "seq": 2126,
       "kind": 93,
       "obj": 6,
       "amount": 5,
@@ -11858,13 +11872,20 @@
       ]
     },
     {
-      "seq": 2125,
+      "seq": 2127,
       "kind": 5,
       "obj": 207,
       "amount": 5
     },
     {
-      "seq": 2126,
+      "seq": 2128,
+      "kind": 126,
+      "player": 1,
+      "obj": 207,
+      "amount": 1
+    },
+    {
+      "seq": 2129,
       "kind": 93,
       "obj": 6,
       "amount": 5,
@@ -11874,13 +11895,20 @@
       ]
     },
     {
-      "seq": 2127,
+      "seq": 2130,
       "kind": 5,
       "obj": 212,
       "amount": 5
     },
     {
-      "seq": 2128,
+      "seq": 2131,
+      "kind": 126,
+      "player": 1,
+      "obj": 212,
+      "amount": 1
+    },
+    {
+      "seq": 2132,
       "kind": 93,
       "obj": 6,
       "amount": 5,
@@ -11890,13 +11918,20 @@
       ]
     },
     {
-      "seq": 2129,
+      "seq": 2133,
       "kind": 5,
       "obj": 213,
       "amount": 5
     },
     {
-      "seq": 2130,
+      "seq": 2134,
+      "kind": 126,
+      "player": 1,
+      "obj": 213,
+      "amount": 1
+    },
+    {
+      "seq": 2135,
       "kind": 93,
       "obj": 6,
       "amount": 5,
@@ -11906,25 +11941,25 @@
       ]
     },
     {
-      "seq": 2131,
+      "seq": 2136,
       "kind": 2,
       "obj": 214,
       "from": 5,
       "to": 4
     },
     {
-      "seq": 2132,
+      "seq": 2137,
       "kind": 10,
       "player": 1
     },
     {
-      "seq": 2133,
+      "seq": 2138,
       "kind": 20,
       "player": 1,
       "text": "commander_zone"
     },
     {
-      "seq": 2134,
+      "seq": 2139,
       "kind": 2,
       "obj": 206,
       "from": 2,
@@ -11932,7 +11967,7 @@
       "text": "lethal damage"
     },
     {
-      "seq": 2135,
+      "seq": 2140,
       "kind": 2,
       "obj": 207,
       "from": 2,
@@ -11940,7 +11975,7 @@
       "text": "lethal damage"
     },
     {
-      "seq": 2136,
+      "seq": 2141,
       "kind": 2,
       "obj": 212,
       "from": 2,
@@ -11948,7 +11983,7 @@
       "text": "lethal damage"
     },
     {
-      "seq": 2137,
+      "seq": 2142,
       "kind": 2,
       "obj": 213,
       "from": 2,
@@ -11956,7 +11991,7 @@
       "text": "lethal damage"
     },
     {
-      "seq": 2138,
+      "seq": 2143,
       "kind": 2,
       "obj": 206,
       "from": 3,
@@ -11964,7 +11999,7 @@
       "text": "ceased to exist"
     },
     {
-      "seq": 2139,
+      "seq": 2144,
       "kind": 2,
       "obj": 207,
       "from": 3,
@@ -11972,7 +12007,7 @@
       "text": "ceased to exist"
     },
     {
-      "seq": 2140,
+      "seq": 2145,
       "kind": 2,
       "obj": 212,
       "from": 3,
@@ -11980,7 +12015,7 @@
       "text": "ceased to exist"
     },
     {
-      "seq": 2141,
+      "seq": 2146,
       "kind": 2,
       "obj": 213,
       "from": 3,
@@ -14643,7 +14678,7 @@
       ]
     }
   ],
-  "head": "9e68fdd484aab29d",
+  "head": "d7dd76f605e93e1d",
   "intent_count": 378,
   "turn": 14,
   "step": "main1",
