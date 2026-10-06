@@ -58,6 +58,10 @@ type staticView struct {
 	// for such a view and finds a pending cast's captured set by it
 	// (costStaticSpecCtx).
 	effectStamp uint32
+	// selfOnly marks a raise/reduce/set cost view whose ValidCard$ is exactly
+	// `Card.Self` (markCostSelfOnly). It is set only on views collected into a
+	// costStaticViews; the offer floor reads it (costStaticsInertFor).
+	selfOnly bool
 }
 
 // costRememberedEntry is one Effect-delivered cost static's Remembered set
