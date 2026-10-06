@@ -61,6 +61,63 @@ func TestStaticContinuousConditionalSnapshots(t *testing.T) {
 	}
 }
 
+func TestStaticIsPresentGraveyardSnapshots(t *testing.T) {
+	reg := testutil.CorpusRegistry(t)
+	for _, tc := range []struct {
+		card, key, pt, keywords string
+		count                   int
+	}{
+		{"Basking Capybara", "static#0.0", "4/3", "", 4},
+		{"Echo of Dusk", "static#0.0", "3/3", "lifelink", 4},
+		{"Didact Echo", "static#0.0", "3/2", "flying", 4},
+		{"Frilled Cave-Wurm", "static#0.0", "4/5", "", 4},
+		{"Akawalli, the Seething Tower", "static#0.0", "5/5", "trample", 4},
+		{"Akawalli, the Seething Tower", "static#0.1", "7/7", "trample", 8},
+	} {
+		t.Run(tc.card+"/"+tc.key, func(t *testing.T) {
+			card, ok := reg.Lookup(tc.card)
+			if !ok || len(card.Faces) == 0 {
+				t.Fatalf("precondition: %s in corpus", tc.card)
+			}
+			face := card.Faces[0]
+			if face.PT == tc.pt && oraclediff.EvergreenKeywords(face.Keywords) == tc.keywords {
+				t.Fatal("precondition: expected characteristics differ from printed")
+			}
+			var req *levelb.Requirement
+			for _, r := range levelb.Requirements(card) {
+				if r.Key == tc.key && r.Sub == "static.continuous" {
+					rr := r
+					req = &rr
+					break
+				}
+			}
+			if req == nil {
+				t.Fatalf("precondition: requirement %s exists", tc.key)
+			}
+			item, skip := templates.GenerateB(reg, tc.card, *req)
+			if skip != nil {
+				t.Fatalf("unexpected skip: %s", skip.Reason)
+			}
+			if len(item.Setup["p0"].Graveyard) < tc.count {
+				t.Fatalf("precondition: graveyard=%d want >=%d", len(item.Setup["p0"].Graveyard), tc.count)
+			}
+			res, err := rules.RunOracleScenarioJSON(reg, item.Raw())
+			if err != nil || len(res.Fails) != 0 || len(res.Snapshots) == 0 {
+				t.Fatalf("scenario replay: err=%v fails=%v", err, res.Fails)
+			}
+			for _, p := range res.Snapshots[len(res.Snapshots)-1].Permanents {
+				if p.Name == tc.card && p.Controller == 0 {
+					if p.PT != tc.pt || oraclediff.EvergreenKeywords(p.Keywords) != tc.keywords {
+						t.Fatalf("got %+v, want %s keywords %q", p, tc.pt, tc.keywords)
+					}
+					return
+				}
+			}
+			t.Fatalf("precondition: %s is on p0 battlefield", tc.card)
+		})
+	}
+}
+
 func TestStaticContinuousClassLevelNamedSkips(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	for _, name := range []string{"Blacksmith's Talent", "Caretaker's Talent", "Innkeeper's Talent", "Ninja Teen"} {

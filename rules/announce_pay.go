@@ -67,7 +67,11 @@ func (e *Engine) announcedAutoFillPlan(pc *pendingCast, mana Cost) *decision.Pay
 	if global, _ := e.paymentPlanGlobalManaEffect(p, pc.card); global {
 		return nil
 	}
-	cast := decision.PlannedCast{Object: pc.card, Face: 0, Origin: "hand"}
+	origin := "hand"
+	if plannedMayPlayZone(pc.from) {
+		origin = plannedMayPlayOrigin(pc.from)
+	}
+	cast := decision.PlannedCast{Object: pc.card, Face: 0, Origin: origin}
 	got := pay.PlanPaymentCost(asPayer(e), p, cast, mana)
 	if got.Plan == nil || len(got.Plan.Activations) == 0 {
 		return nil

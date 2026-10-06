@@ -176,7 +176,10 @@ func TestStaticContinuousAttachClusterTarget(t *testing.T) {
 			served++
 			continue
 		}
-		if skip.Reason != "static effect not observable on a probe or the card" {
+		// The generic reason, or the named one for an Aura that removes the
+		// vanilla target's abilities (Honest Work): both are observation gaps.
+		if skip.Reason != "static effect not observable on a probe or the card" &&
+			skip.Reason != "static removes the abilities of a permanent the fixture gives none" {
 			t.Errorf("%s %s %s: unexpected skip reason %q", row.set, row.card, row.key, skip.Reason)
 			continue
 		}

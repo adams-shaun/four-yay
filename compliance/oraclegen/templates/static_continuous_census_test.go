@@ -17,7 +17,15 @@ import (
 // qualifier the setup cannot give a probe, a grant outside the compared
 // evergreen keywords, an amount counted from state the fixture does not make
 // observable). Re-pinned by levelb-static-probe-from-filter, which retries a
-// row the Bear shows nothing on with the probes its Affected$ filter names.
+// row the Bear shows nothing on with the probes its Affected$ filter names,
+// and by levelb-static-cda-types-control, which also observes a card's own
+// characteristic-defining P/T, a type or colour change and a control change
+// (Eluge-style CDAs, Tractor Beam, Ygra move out of the skips; a removal of
+// abilities from the vanilla fixture creature is a named skip), and by
+// levelb-static-zone-permissions, which observes a static acting outside the
+// battlefield (a play permission or a granted Flashback, Plot or cost
+// reduction) as an offered option, a lifelink grant to spells through the
+// life it gains, and gives MayLookAt$ its own named skip.
 // It fails in both directions.
 var wantStaticContinuousCensus = map[string]map[string]int{
 	"BIG": {
@@ -25,30 +33,53 @@ var wantStaticContinuousCensus = map[string]map[string]int{
 		"skip:static counts cards exiled with the source": 1,
 	},
 	"EOE": {
-		"served": 20,
-		"skip:static effect not observable on a probe or the card":                    10,
-		"skip:static amount is a computed count the fixture does not make observable": 2,
-		"skip:static changes a player rule (hand size, land plays), not a permanent":  1,
-		"skip:static grants only keywords outside the compared evergreen set":         1,
-		"skip:static needs counters on the affected permanent":                        30,
+		"served": 29,
+		"skip:static effect not observable on a probe or the card":                   3,
+		"skip:static look-at not observable":                                         1,
+		"skip:static changes a player rule (hand size, land plays), not a permanent": 1,
+		"skip:static needs counters on the affected permanent":                       30,
 	},
 	"FDN": {
-		"served": 51,
-		"skip:static effect not observable on a probe or the card":                    16,
-		"skip:static amount is a computed count the fixture does not make observable": 3,
-		"skip:static changes a player rule (hand size, land plays), not a permanent":  2,
+		"served": 62,
+		"skip:static effect not observable on a probe or the card":                    5,
+		"skip:static look-at not observable":                                          1,
+		"skip:static amount is a computed count the fixture does not make observable": 1,
+		"skip:static removes the abilities of a permanent the fixture gives none":     1,
+		"skip:static changes a player rule (hand size, land plays), not a permanent":  1,
+		"skip:static hand size is not observable in the permanent snapshot":           1,
 		"skip:static needs counters on the affected permanent":                        3,
 	},
 	"FRA": {
-		"served": 17,
-		"skip:static effect not observable on a probe or the card":                    15,
-		"skip:static amount is a computed count the fixture does not make observable": 2,
-		"skip:static counts cards exiled with the source":                             1,
-		"skip:static grants only keywords outside the compared evergreen set":         1,
-		"skip:static needs a token (setup places none)":                               1,
-		"skip:static needs counters on the affected permanent":                        2,
+		"served": 20,
+		"skip:static effect not observable on a probe or the card":                13,
+		"skip:static removes the abilities of a permanent the fixture gives none": 1,
+		"skip:static counts cards exiled with the source":                         1,
+		"skip:static grants only keywords outside the compared evergreen set":     1,
+		"skip:static needs a token (setup places none)":                           1,
+		"skip:static needs counters on the affected permanent":                    2,
+	},
+	// DFT carries the Surveyor cycle's graveyard AddAbility$ grant, so the
+	// engine-gap skip is pinned here as its own key (levelb-static-zone-
+	// permissions named it, so the census tells it apart from the MaxSpeed
+	// setup gap).
+	"DFT": {
+		"served": 25,
+		"skip:static amount is a computed count the fixture does not make observable":            1,
+		"skip:static characteristic-defining P/T of a non-creature (the snapshot omits its P/T)": 1,
+		"skip:static effect not observable on a probe or the card":                               3,
+		"skip:static granted ability in Graveyard is not offered by the engine":                  4,
+		"skip:static grants only keywords outside the compared evergreen set":                    1,
+		"skip:static hand size is not observable in the permanent snapshot":                      1,
+		"skip:static needs max speed (setup has no speed knob)":                                  28,
+		"skip:static removes the abilities of a permanent the fixture gives none":                1,
 	},
 }
+
+// staticCensusSets are the sets TestStaticContinuousCensus pins. It extends
+// the level-A census sets (activateCensusSets) with DFT, whose Surveyor cycle
+// carries the graveyard AddAbility$ grant the engine offers no activation for
+// -- pinning DFT is what gives that named reason its own census key.
+var staticCensusSets = append([]string{"DFT"}, activateCensusSets...)
 
 func TestStaticContinuousCensus(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
@@ -57,7 +88,7 @@ func TestStaticContinuousCensus(t *testing.T) {
 	folded := compliance.FoldedNames(reg)
 
 	got := map[string]map[string]int{}
-	for _, set := range activateCensusSets {
+	for _, set := range staticCensusSets {
 		printed, err := compliance.LoadPrinted(filepath.Join(root, "compliance", "printed"), set)
 		if err != nil {
 			t.Fatalf("%s: %v", set, err)
@@ -83,7 +114,7 @@ func TestStaticContinuousCensus(t *testing.T) {
 		}
 		got[set] = counts
 	}
-	for _, set := range activateCensusSets {
+	for _, set := range staticCensusSets {
 		if diff := activateCensusDiff(wantStaticContinuousCensus[set], got[set]); diff != "" {
 			t.Errorf("%s static.continuous census mismatch:\n%s", set, diff)
 		}

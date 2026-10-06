@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"resolve","field":"p0.library_top","diff":"gorge+[Forest, Jace Beleren] xmage+[$LIB, Shock]"},"key":"activate | resolve | p0.library_top | gorge+[Forest, Jace Beleren] xmage+[$LIB, Shock]","cards":1}
-{"card":"Burnished Hart","template":"activate#0.0","status":"diverge","api":"-","sets":["FDN"],"detail":"step 1 (resolve) p0.library_top: gorge \"[Wastes, Jace Beleren, Wastes, Wastes, Forest]\", xmage \"[Shock, Wastes, Wastes, Wastes, Wastes]\""}

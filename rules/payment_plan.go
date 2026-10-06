@@ -55,11 +55,14 @@ func (e *Engine) planCastPaymentChecked(p state.PlayerID, cast decision.PlannedC
 	if cast.Face != 0 {
 		return PaymentPlanOutcome{Reason: "unsupported"}
 	}
-	// V1 plans exactly two ordinary-cast origins: the hand (the original
-	// shape) and the command zone (the CR 903.8 plain taxed cast; alternate
+	// V1 plans four ordinary-cast origins: the hand (the original shape),
+	// the command zone (the CR 903.8 plain taxed cast; alternate
 	// command-zone casts -- dash, evoke, bestow, ... -- carry a Mode and are
-	// withheld, as everywhere else).  Any other origin fails closed, and the
-	// object must actually sit in its origin's zone: a mislabeled origin
+	// withheld, as everywhere else), and the exile zone and graveyard, where
+	// only an untyped may-play permission's plain cast is planned (the
+	// "mayplay" cast mode; a MayPlayText$-typed permission, and every
+	// alternative cost, are withheld).  Any other origin fails closed, and
+	// the object must actually sit in its origin's zone: a mislabeled origin
 	// would compose a cost (and, from ZCommand, a commander tax) that
 	// beginCast would never charge.
 	originZone := state.ZHand
@@ -67,25 +70,57 @@ func (e *Engine) planCastPaymentChecked(p state.PlayerID, cast decision.PlannedC
 	case planCastPaymentCheckedHand:
 	case planCastPaymentCheckedCommandZone:
 		originZone = state.ZCommand
+	case planCastPaymentCheckedExile:
+		originZone = state.ZExile
+	case planCastPaymentCheckedGraveyard:
+		originZone = state.ZGraveyard
 	default:
 		return PaymentPlanOutcome{Reason: "unsupported"}
 	}
+	mayPlay := plannedMayPlayZone(originZone)
 	o := e.G.Obj(cast.Object)
-	if o == nil || o.Zone != originZone || o.Owner != p || o.Face() == nil || int(o.FaceIdx) != cast.Face {
+	// A may-play permission can grant an opponent's card (Intellect
+	// Devourer), so the owner check is relaxed for those origins only; the
+	// offer's own controller check already gates who may cast it.
+	if o == nil || o.Zone != originZone || (!mayPlay && o.Owner != p) || o.Face() == nil || int(o.FaceIdx) != cast.Face {
 		return PaymentPlanOutcome{Reason: "unsupported"}
 	}
 	if detail := e.paymentPlanCastShapeDetailUsing(statics.get(), p, cast.Object); detail != "" {
 		return PaymentPlanOutcome{Reason: "unsupported", Detail: detail}
 	}
-	if !candidates.has(cast.Object) {
+	if mayPlay {
+		if !candidates.has(cast.Object, true) {
+			return PaymentPlanOutcome{Reason: "unsupported"}
+		}
+	} else if !candidates.has(cast.Object) {
 		return PaymentPlanOutcome{Reason: "unsupported"}
 	}
 	// V1 has no way to carry a target-dependent reprice or a choice made at
 	// announcement. Candidate discovery below owns timing, targets and
 	// prohibitions; this method owns the exact cost/witness subset.
-	base := pay.RawBaseCost(asPayer(e), p, cast.Object)
-	base = pay.WithSpellAbilityExtras(o.Face(), base)
-	cost := e.offerCostForUsing(statics.get(), p, cast.Object, base, spellScope(""))
+	var cost Cost
+	if mayPlay {
+		// The untyped may-play cast's price, composed exactly as the offer
+		// walk (legal_walk_alt.go) prices it and beginCast's "mayplay" case
+		// charges it: the free grant empties the mana part, the granting
+		// static's RaiseCost$ is added before the cost statics apply, and
+		// the spell ability's extras follow in "mayplay" scope.
+		base := pay.RawBaseCost(asPayer(e), p, cast.Object)
+		if free, ok := e.mayPlayGrant(p, cast.Object); ok && free {
+			base = Cost{}
+		}
+		if raise, hasRaise, priced := e.mayPlayRaiseCost(p, cast.Object); hasRaise {
+			if !priced {
+				return PaymentPlanOutcome{Reason: "unsupported", Detail: "mayplay_raise"}
+			}
+			base = base.Plus(raise)
+		}
+		cost = pay.WithSpellAbilityExtras(o.Face(), e.offerCostForUsing(statics.get(), p, cast.Object, base, spellScope("mayplay")))
+	} else {
+		base := pay.RawBaseCost(asPayer(e), p, cast.Object)
+		base = pay.WithSpellAbilityExtras(o.Face(), base)
+		cost = e.offerCostForUsing(statics.get(), p, cast.Object, base, spellScope(""))
+	}
 	if detail := pay.PlanNonManaAdmissible(cost); detail != "" {
 		return PaymentPlanOutcome{Reason: "unsupported", Detail: detail}
 	}
@@ -135,33 +170,52 @@ type paymentCastCandidates struct {
 	ids    []state.ObjID
 	ready  bool
 	priced bool
+	// mayIDs are the untyped may-play casts (Mode "mayplay", no
+	// MayPlayPerm) the same walk listed, for the exile/graveyard origins.
+	mayIDs []state.ObjID
 }
 
 // pricedCandidatesVerify: see derivedMemoVerify. Set by the rules test binary.
 var pricedCandidatesVerify = derivedMemoVerifyFlag != ""
 
-func (c *paymentCastCandidates) has(id state.ObjID) bool {
+func (c *paymentCastCandidates) has(id state.ObjID, mayPlay ...bool) bool {
 	if c.priced && !pricedCandidatesVerify {
 		return true
 	}
 	if !c.ready {
 		hyp := state.Mana{1 << 28, 1 << 28, 1 << 28, 1 << 28, 1 << 28, 1 << 28}
-		// Only plain casts are read, so the walk skips the non-cast
-		// sections (legalActionsWalk's castsOnly).
+		// Only casts are read, so the walk skips the non-cast sections
+		// (legalActionsWalk's castsOnly).
 		opts := c.e.legalActionsWalkTemp(c.p, &hyp, true)
 		for _, opt := range opts {
-			if opt.Kind == "cast" && opt.Mode == "" && opt.AltCostIndex == 0 {
+			if opt.Kind != "cast" || opt.AltCostIndex != 0 {
+				continue
+			}
+			switch {
+			case opt.Mode == "":
 				c.ids = append(c.ids, opt.Obj)
+			case planCastPaymentCheckedCodes.Code(opt.Mode) == planCastPaymentCheckedMayPlayMode && opt.MayPlayPerm == "":
+				c.mayIDs = append(c.mayIDs, opt.Obj)
 			}
 		}
 		c.e.optRelease(opts)
 		c.ready = true
 	}
-	in := slices.Contains(c.ids, id)
-	if c.priced && !in {
-		panic(fmt.Sprintf("payment plan: priced-walk plain cast %d missing from the huge-pool walk", id))
+	wantMayPlay := len(mayPlay) > 0 && mayPlay[0]
+	found := false
+	if wantMayPlay {
+		found = slices.Contains(c.mayIDs, id)
+	} else {
+		found = slices.Contains(c.ids, id)
 	}
-	return in
+	if c.priced && !found {
+		kind := "plain cast"
+		if wantMayPlay {
+			kind = "may-play cast"
+		}
+		panic(fmt.Sprintf("payment plan: priced-walk %s %d missing from the huge-pool walk", kind, id))
+	}
+	return found
 }
 
 // paymentPlanCastShapeOK excludes plain casts whose announced cost or result
@@ -189,7 +243,11 @@ func (e *Engine) paymentPlanCastShapeDetailUsing(statics costStaticViews, p stat
 	}
 	// Cost$ on the spell ability and the supported cost-static extra are both
 	// additional costs; neither is represented by a mana-only plan witness.
-	mods := e.costModifiersWithTargetsUsing(statics, p, id, spellScope(""), nil, false)
+	scope := spellScope("")
+	if plannedMayPlayZone(o.Zone) {
+		scope = spellScope("mayplay")
+	}
+	mods := e.costModifiersWithTargetsUsing(statics, p, id, scope, nil, false)
 	spellCost := Cost{}
 	if sa := f.SpellAbility(); sa != nil {
 		spellCost = e.parseCost(sa.ParamStr(cards.PKCost))
@@ -434,21 +492,30 @@ func (e *Engine) paymentActionsForPriority(p, idSeat state.PlayerID, seq uint64,
 		// accepting that option would build the same PlannedCast and canonical
 		// action ID as the ordinary cast.  Apart from presenting the wrong
 		// cost, that produces duplicate IDs on the wire.
-		if opt.Kind != "cast" || opt.Mode != "" || opt.AltCostIndex != 0 {
+		// The one other plain shape is the untyped may-play cast of an
+		// exile/graveyard card (Mode "mayplay"): a typed MayPlayText$
+		// permission carries a MayPlayPerm and stays withheld.
+		mayPlay := planCastPaymentCheckedCodes.Code(opt.Mode) == planCastPaymentCheckedMayPlayMode && opt.MayPlayPerm == ""
+		if opt.Kind != "cast" || (opt.Mode != "" && !mayPlay) || opt.AltCostIndex != 0 {
 			continue
 		}
 		// Derive the origin from the object's actual zone.  Only the hand and
 		// the command zone (Commander format) ever offer a plain cast
-		// (Mode "" AltCostIndex 0); anything else fails closed.
+		// (Mode "" AltCostIndex 0), and only exile and the graveyard a
+		// may-play one; anything else fails closed.
 		originObj := e.G.Obj(opt.Obj)
 		if originObj == nil {
 			continue
 		}
 		var origin string
-		switch originObj.Zone {
-		case state.ZHand:
+		switch {
+		case mayPlay && plannedMayPlayZone(originObj.Zone):
+			origin = plannedMayPlayOrigin(originObj.Zone)
+		case mayPlay:
+			continue
+		case originObj.Zone == state.ZHand:
 			origin = "hand"
-		case state.ZCommand:
+		case originObj.Zone == state.ZCommand:
 			origin = "command_zone"
 		default:
 			continue
@@ -489,7 +556,7 @@ func (e *Engine) paymentActionsForPriority(p, idSeat state.PlayerID, seq uint64,
 			options = e.legalActions(p)
 		}
 		for i := range options {
-			if options[i].Kind == "cast" && options[i].Obj == opt.Obj && options[i].Mode == "" && options[i].AltCostIndex == 0 {
+			if options[i].Kind == "cast" && options[i].Obj == opt.Obj && options[i].Mode == opt.Mode && options[i].MayPlayPerm == "" && options[i].AltCostIndex == 0 {
 				idx := options[i].Index
 				a.BaseOptionIndex = &idx
 				break
@@ -520,7 +587,11 @@ func (e *Engine) ValidateCastPayment(p state.PlayerID, cast decision.PlannedCast
 	// submit; the seat then falls back to the manual window instead of
 	// committing a cast whose additional cost can no longer be paid.
 	if o := e.G.Obj(cast.Object); o != nil && o.Face() != nil {
-		composed := e.offerCostFor(p, cast.Object, pay.WithSpellAbilityExtras(o.Face(), pay.RawBaseCost(asPayer(e), p, cast.Object)), spellScope(""))
+		scope := spellScope("")
+		if plannedMayPlayZone(o.Zone) {
+			scope = spellScope("mayplay")
+		}
+		composed := e.offerCostFor(p, cast.Object, pay.WithSpellAbilityExtras(o.Face(), pay.RawBaseCost(asPayer(e), p, cast.Object)), scope)
 		if len(composed.Sac) != 0 && !pay.NonManaCastable(asPayer(e), p, cast.Object, composed, false, "") {
 			return fmt.Errorf("payment plan sacrifice cost no longer payable")
 		}
@@ -571,7 +642,27 @@ func (e *Engine) ValidateCastPayment(p state.PlayerID, cast decision.PlannedCast
 	if lastResort && !pay.PlanUsesLastResort(*got.Plan) {
 		return fmt.Errorf("payment plan uses a last-resort source while a normal plan exists")
 	}
-	cost := pay.PlanManaHalf(e.offerCostFor(p, cast.Object, pay.WithSpellAbilityExtras(e.G.Obj(cast.Object).Face(), pay.RawBaseCost(asPayer(e), p, cast.Object)), spellScope("")))
+	// The settle price is the planner's: for a may-play origin the free grant
+	// empties the mana part, the permission's RaiseCost$ surcharge is added
+	// before the cost statics, and the spell-ability extras follow in
+	// "mayplay" scope -- exactly planCastPaymentChecked and beginCast. Pricing
+	// it here in plain scope would under-charge a raised cast and reject the
+	// witness the planner just built.
+	settleBase := pay.RawBaseCost(asPayer(e), p, cast.Object)
+	settleScope := spellScope("")
+	if o := e.G.Obj(cast.Object); o != nil && plannedMayPlayZone(o.Zone) {
+		settleScope = spellScope("mayplay")
+		if free, granted := e.mayPlayGrant(p, cast.Object); granted && free {
+			settleBase = Cost{}
+		}
+		if raise, hasRaise, priced := e.mayPlayRaiseCost(p, cast.Object); hasRaise {
+			if !priced {
+				return fmt.Errorf("payment plan may-play raise cost no longer priceable")
+			}
+			settleBase = settleBase.Plus(raise)
+		}
+	}
+	cost := pay.PlanManaHalf(e.offerCostFor(p, cast.Object, pay.WithSpellAbilityExtras(e.G.Obj(cast.Object).Face(), settleBase), settleScope))
 	payment, ok := resolveManaWith(cost, pool, state.Mana{}, [7]state.Mana{}, e.G.Players[p].Life, false, pipRider{}, nil)
 	expected := pay.Witness(cost, e.G.Players[p].Pool, produced, nil, payment.Pool)
 	if !ok || pay.ManaAmount(payment.Pool) != plan.PoolAfter || expected.PoolSpend != plan.PoolSpend {
@@ -843,9 +934,43 @@ type planCastPaymentCheckedCode uint16
 const (
 	planCastPaymentCheckedHand planCastPaymentCheckedCode = iota + 1
 	planCastPaymentCheckedCommandZone
+	planCastPaymentCheckedExile
+	planCastPaymentCheckedGraveyard
+	planCastPaymentCheckedMayPlayMode
 )
 
 var planCastPaymentCheckedCodes = state.NewStrCodes(
 	state.StrEntry[planCastPaymentCheckedCode]{Key: "hand", Val: planCastPaymentCheckedHand},
 	state.StrEntry[planCastPaymentCheckedCode]{Key: "command_zone", Val: planCastPaymentCheckedCommandZone},
+	state.StrEntry[planCastPaymentCheckedCode]{Key: "exile", Val: planCastPaymentCheckedExile},
+	state.StrEntry[planCastPaymentCheckedCode]{Key: "graveyard", Val: planCastPaymentCheckedGraveyard},
+	state.StrEntry[planCastPaymentCheckedCode]{Key: "mayplay", Val: planCastPaymentCheckedMayPlayMode},
 )
+
+// plannedMayPlayZone reports whether z is an origin whose planned cast is an
+// untyped may-play cast (the "mayplay" mode): exile and the graveyard.
+func plannedMayPlayZone(z state.Zone) bool {
+	return z == state.ZExile || z == state.ZGraveyard
+}
+
+// plannedMayPlayOrigin is the PlannedCast.Origin code of a may-play zone.
+func plannedMayPlayOrigin(z state.Zone) string {
+	if z == state.ZGraveyard {
+		return "graveyard"
+	}
+	return "exile"
+}
+
+// plannedCastOption is the priority option an announced or planned cast of
+// cast begins as. A may-play origin (exile, graveyard) begins as Mode
+// "mayplay" so beginCast prices the permission's cost and records the hosts
+// while the card is still in the granted zone; the hand and command-zone
+// plain casts carry no Mode, exactly as before.
+func plannedCastOption(cast decision.PlannedCast) decision.Option {
+	opt := decision.Option{Kind: "cast", Obj: cast.Object}
+	switch planCastPaymentCheckedCodes.Code(cast.Origin) {
+	case planCastPaymentCheckedExile, planCastPaymentCheckedGraveyard:
+		opt.Mode = "mayplay"
+	}
+	return opt
+}

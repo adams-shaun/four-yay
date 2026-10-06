@@ -1,2 +1,0 @@
-{"shape":{"template":"trigger","op":"cast","field":"stack","diff":"gorge=[ability:$CARD@p0, spell:Angel's Mercy@p0] xmage=[spell:Angel's Mercy@p0]"},"key":"trigger | cast | stack | gorge=[ability:$CARD@p0, spell:Angel's Mercy@p0] xmage=[spell:Angel's Mercy@p0]","cards":1}
-{"card":"Diamond Mare","template":"trigger#0.0","status":"diverge","api":"SpellCast:GainLife","sets":["FDN"],"detail":"step 0 (cast) stack: gorge \"[ability:Diamond Mare@p0, spell:Angel's Mercy@p0]\", xmage \"[spell:Angel's Mercy@p0]\""}
