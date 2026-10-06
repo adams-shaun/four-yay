@@ -30,13 +30,20 @@ func generateBKey(t *testing.T, name, key string) oraclegen.Item {
 // A search-and-shuffle over the activate fixture's named search pool leaves an
 // order XMage randomises (measured: Expedition Map, Maze's End, Wishclaw
 // Talisman diverged on library_top only); the item compares counts, not order.
-// A static or combat item of a searching card never runs the search and keeps
-// comparing order.
+// The search need not be the exercised ability: a static item still casts the
+// card (Prismatic Undercurrents' and Lo and Li's ETB search), a combat item
+// still deals damage (Tempest Hawk's damage search), and an activate item's
+// sacrifice cost fires a search trigger (Heaped Harvest). Those four flipped
+// library_top between two identical XMage runs (2026-10-06).
 func TestSearchShuffleOverNamedLibrarySkipsLibraryOrder(t *testing.T) {
 	for _, c := range []struct{ name, key string }{
 		{"Expedition Map", "activate#0.0"},
 		{"Maze's End", "activate#0.1"},
 		{"Wishclaw Talisman", "activate#0.0"},
+		{"Heaped Harvest", "activate#0.0"},
+		{"Prismatic Undercurrents", "static#0.0"},
+		{"Tempest Hawk", "combat#0.attack"},
+		{"Lo and Li, Twin Tutors", "static#0.1"},
 	} {
 		it := generateBKey(t, c.name, c.key)
 		if !oraclegen.NamedLibrary(&it.Scenario) {
