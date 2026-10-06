@@ -44,8 +44,7 @@ var wantStaticContinuousCensus = map[string]map[string]int{
 		"skip:static counts cards exiled with the source": 1,
 	},
 	"EOE": {
-		"served": 43,
-		"skip:static effect not observable on a probe or the card":                      1,
+		"served": 44,
 		"skip:static changes a player rule (hand size, land plays), not a permanent":    1,
 		"skip:static needs counters on the affected permanent":                          10,
 		"skip:static grants a static ability (observed only through its own effect)":    1,
@@ -77,12 +76,11 @@ var wantStaticContinuousCensus = map[string]map[string]int{
 	// DFT includes the Surveyor cycle's graveyard AddAbility$ grant, whose
 	// engine-gap skip remains pinned separately.
 	"DFT": {
-		"served": 35,
+		"served": 36,
 		"skip:static amount is a computed count the fixture does not make observable":            1,
 		"skip:static characteristic-defining P/T of a non-creature (the snapshot omits its P/T)": 1,
 		"skip:static effect not observable on a probe or the card":                               2,
 		"skip:static grants a triggered ability (needs a probe-sourced trigger cause)":           8,
-		"skip:static grants only keywords outside the compared evergreen set":                    1,
 		"skip:static hand size is not observable in the permanent snapshot":                      1,
 		"skip:static removes the abilities of a permanent the fixture gives none":                1,
 		"skip:static gated self grant is not offered in the gate-on fixture":                     1,
