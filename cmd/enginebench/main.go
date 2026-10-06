@@ -20,6 +20,14 @@
 //
 // The wall clock is read only to report elapsed time; no game, decision or
 // seed reads it (internal/archtest's time allowlist names this command).
+//
+// Baseline break, 2026-10-06: the random and bot rows now recycle a finished
+// game's log and object arrays into the next game through a shared
+// internal/bench.SparePool (rules.Spare), the way production self-play does.
+// The rows therefore no longer include a per-game events.NewLogInto /
+// state.NewGameInto allocation, so their turns/s and games/s are not
+// comparable to runs before this date; re-measure a baseline rather than
+// diffing across it. The clone/step/sampler rows are unchanged.
 package main
 
 import (
