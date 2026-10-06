@@ -642,9 +642,12 @@ func decide(b Board, d *decision.Decision, r *rand.Rand, lethalPressure, combine
 		// "replacement" options by the same standing-worth proxy the
 		// trigger-order arm uses (cardWorth), descending, with the offered
 		// index as the deterministic tie-break. A "skip_replacement" opt-out
-		// is bypassed while at least one real replacement is offered. Every
-		// other KReplacement shape (a colour-valued "mana" pick, an optional
-		// "apply"/"decline") keeps the ordinary fallback below.
+		// is bypassed while at least one real replacement is offered. The
+		// Obstinate Familiar hint is handled below; other non-order shapes keep
+		// the ordinary deterministic fallback.
+		if pick := b.chooseObstinateFamiliarDraw(d); pick >= 0 {
+			in.Choices = []int{pick}
+		}
 		if pick := b.chooseReplacementOrder(d); pick >= 0 {
 			in.Choices = []int{pick}
 		}
@@ -824,6 +827,20 @@ func decide(b Board, d *decision.Decision, r *rand.Rand, lethalPressure, combine
 		case "counter_kinds":
 			for i := 0; i < len(d.Options) && i < 2; i++ {
 				in.Choices = append(in.Choices, d.Options[i].Index)
+			}
+		case "digmultiple":
+			if d.Min > 0 {
+				in.Choices = d.MaxDistinctTypeChoices()
+				break
+			}
+			for _, o := range d.Options {
+				if len(in.Choices) >= d.Max {
+					break
+				}
+				candidate := append(append([]int(nil), in.Choices...), o.Index)
+				if d.DistinctTypesFit(candidate) {
+					in.Choices = candidate
+				}
 			}
 		case "dig", "hand_move", "hidden_pick", "counter_dist", "counter_pick", "counter_kind", "blight", "proliferate", "move_counter_kind", "reveal":
 			// A Dig look-and-take, a "choose N matching cards from hand"
@@ -1338,6 +1355,19 @@ func Clamp(d *decision.Decision, in decision.Intent) decision.Intent {
 	// affordable required picks, then the arm's own picks, in its order, are
 	// swapped or appended while they fit.
 	in.Choices = d.FitRequired(in.Choices)
+	if d.DistinctTypePicks {
+		kept := make([]int, 0, len(in.Choices))
+		for _, c := range in.Choices {
+			candidate := append(kept, c)
+			if d.DistinctTypesFit(candidate) {
+				kept = candidate
+			}
+		}
+		in.Choices = kept
+		if len(kept) < d.Min {
+			in.Choices = d.MaxDistinctTypeChoices()
+		}
+	}
 	max := d.Max
 	if max < 0 {
 		max = 0
@@ -1412,7 +1442,8 @@ func Clamp(d *decision.Decision, in decision.Intent) decision.Intent {
 				continue
 			}
 			if !fits(o) || (d.TargetsWithSameController && haveTargetController && o.Controller != targetController) ||
-				!decision.SetPropAdmits(d.SetPropMode, setAcc, o.SetProps) {
+				!decision.SetPropAdmits(d.SetPropMode, setAcc, o.SetProps) ||
+				!d.DistinctTypesFit(append(in.Choices, o.Index)) {
 				continue
 			}
 			if o.Group != "" {

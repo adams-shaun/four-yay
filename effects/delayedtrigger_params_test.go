@@ -53,9 +53,12 @@ func TestCompileDelayedTrigger(t *testing.T) {
 // TestDelayedTriggerOfIsAllocationFree: a configured record or a front-cache
 // hit allocates nothing.
 func TestDelayedTriggerOfIsAllocationFree(t *testing.T) {
-	bound := &cards.SA{API: "DelayedTrigger", Params: map[string]string{"Mode": "Phase", "Phase": "Upkeep", "Execute": "X"}}
+	bound := slottedSA(t, "DelayedTrigger", map[string]string{"Mode": "Phase", "Phase": "Upkeep", "Execute": "X"})
 	f := NewSAFacts(bound)
 	f.Publish()
+	if LoadSAFacts(bound) != f {
+		t.Fatal("precondition: the configured record is not published on bound's facts slot")
+	}
 	cached := &cards.SA{API: "DelayedTrigger", Params: map[string]string{"Mode": "Phase", "Phase": "End of Turn"}}
 	DelayedTriggerOf(cached)
 	if n := allocsPerRun(100, func() {

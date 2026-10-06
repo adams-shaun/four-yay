@@ -14,6 +14,8 @@ import (
 type CostPart struct {
 	N    int32
 	Spec string
+	// ChooseCard marks Close Encounter's choice-only cost, never a reveal arm.
+	ChooseCard bool
 	// Referent is a source-relative object name bound by a granted ability.
 	// For Exile<N/OriginalHost>, this is the grantor rather than the recipient
 	// permanent that carries the activated ability.
@@ -195,6 +197,8 @@ type Cost struct {
 	// (Forge's CostReveal owns both arms), but only the hand arm is announced
 	// as a reveal. Spec serves both arms (the card's own chooser reads one
 	// type for the hand card and the permanent).
+	// ChooseCard parts share the paid-object election but carry a distinct
+	// cost kind so formatting/reparsing cannot turn them into hand reveals.
 	RevealOrChoose []CostPart
 	// RevealChosen carries RevealChosen<Player> and RevealChosen<Type/...>
 	// components (Stalking Leonin, Guardian Archon, Emissary of Grudges, A

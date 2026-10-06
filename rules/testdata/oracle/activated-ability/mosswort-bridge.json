@@ -7,10 +7,10 @@
     {
       "name": "hideaway-exiles-one-of-top-four-face-down",
       "cr": [
-        "702.35",
+        "702.75a",
         "614.13"
       ],
-      "why": "When it enters, hideaway 4 looks at the top four cards and exiles one of my choice face down; the Bridge itself enters tapped.",
+      "why": "Hideaway 4 triggers when the Bridge enters: before resolution Lightning Bolt is still in the library and the Bridge enters tapped; the trigger then looks at four cards and exiles my choice face down.",
       "setup": {
         "p0": {
           "hand": [
@@ -26,9 +26,17 @@
           "op": "play",
           "seat": 0,
           "card": "p0:Mosswort Bridge",
+          "expect": [
+            {"card": "p0:Lightning Bolt", "zone": "library"},
+            {"card": "p0:Mosswort Bridge", "zone": "battlefield", "tapped": true},
+            {"trigger_on_stack": "p0:Mosswort Bridge"}
+          ]
+        },
+        {
+          "op": "resolve",
           "answers": [
             {
-              "kind": "any",
+              "kind": "choose",
               "pick": [
                 "Lightning Bolt"
               ]

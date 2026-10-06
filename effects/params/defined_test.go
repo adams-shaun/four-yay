@@ -74,9 +74,12 @@ func TestCompileDefined(t *testing.T) {
 // TestDefinedOfIsAllocationFree: a configured record or a front-cache hit
 // allocates nothing, and neither does classifying selector text.
 func TestDefinedOfIsAllocationFree(t *testing.T) {
-	bound := &cards.SA{API: "Pump", Params: map[string]string{"Defined": "Self", "NumAtt": "+1"}}
+	bound := slottedSA(t, "Pump", map[string]string{"Defined": "Self", "NumAtt": "+1"})
 	f := newTestFacts(bound)
 	f.Publish()
+	if LoadFacts(bound) != &f.Facts {
+		t.Fatal("precondition: the configured record is not published on bound's facts slot")
+	}
 	cached := &cards.SA{API: "Destroy", Params: map[string]string{"Defined": "Remembered"}}
 	DefinedOf(cached)
 	if n := allocsPerRun(100, func() {

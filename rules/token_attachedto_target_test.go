@@ -143,6 +143,8 @@ func atAssertAttached(t *testing.T, e *Engine, obj, bearer state.ObjID) {
 func TestTokenAttachedToThisTargetedCardUsesItsOwnTarget(t *testing.T) {
 	t.Parallel()
 	e, cfg, spell := newFixtureDeckWithOpponentCard(t, 301, atThisTargetedSpell, atTokenBearSrc, atTokenBearSrc)
+	cfg.Tokens = fixtureTokenMap(cfg.Tokens)
+	e.G.Tokens = cfg.Tokens
 	e.G.Tokens["role_wicked"] = card(t, roleTokenSrc)
 	myBear := moveSeeded(t, e, 0, atTokenBearSrc, state.ZBattlefield)
 	oppBear := moveSeeded(t, e, 1, atTokenBearSrc, state.ZBattlefield)
@@ -163,6 +165,8 @@ func TestTokenAttachedToThisTargetedCardUsesItsOwnTarget(t *testing.T) {
 func TestTokenAttachedToTargetedUsesItsOwnTarget(t *testing.T) {
 	t.Parallel()
 	e, cfg, spell := newFixtureDeckWithOpponentCard(t, 302, atTargetedSpell, atTokenBearSrc, atTokenBearSrc)
+	cfg.Tokens = fixtureTokenMap(cfg.Tokens)
+	e.G.Tokens = cfg.Tokens
 	e.G.Tokens["role_wicked"] = card(t, roleTokenSrc)
 	myBear := moveSeeded(t, e, 0, atTokenBearSrc, state.ZBattlefield)
 	oppBear := moveSeeded(t, e, 1, atTokenBearSrc, state.ZBattlefield)
@@ -184,6 +188,8 @@ func TestTokenAttachedToTargetedUsesItsOwnTarget(t *testing.T) {
 func TestTokenAttachedToTargetedInheritsParentWhenSubHasNoTargets(t *testing.T) {
 	t.Parallel()
 	e, cfg, spell := newFixtureDeck(t, 303, atInheritSpell, atTokenBearSrc)
+	cfg.Tokens = fixtureTokenMap(cfg.Tokens)
+	e.G.Tokens = cfg.Tokens
 	e.G.Tokens["role_wicked"] = card(t, roleTokenSrc)
 	myBear := moveSeeded(t, e, 0, atTokenBearSrc, state.ZBattlefield)
 	addMana(t, e, 0, "R")
@@ -226,6 +232,8 @@ func TestTokenAttachedToTargetedInheritsParentWhenSubHasNoTargets(t *testing.T) 
 func TestTokenRememberedAttachSelfAttaches(t *testing.T) {
 	t.Parallel()
 	e, cfg, spell := newFixtureDeck(t, 304, atRememberedSpell)
+	cfg.Tokens = fixtureTokenMap(cfg.Tokens)
+	e.G.Tokens = cfg.Tokens
 	e.G.Tokens["sturdy_shield"] = card(t, shieldTokenSrc)
 	bearer := moveSeeded(t, e, 0, atRememberedSpell, state.ZBattlefield)
 	_ = spell

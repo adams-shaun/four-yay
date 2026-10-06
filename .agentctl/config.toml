@@ -76,13 +76,42 @@ tasks = ["review", "triage"]
 [[tiers]]
 name = "sol"
 provider = "openai-codex"
-model = "gpt-6-sol"
+# 2026-10-05: gpt-6.1-sol (DevDay 2026-09-29) replaces gpt-6-sol: higher
+# agentic-coding scores at ~1/4 the cost per task; smoke-tested via pi.
+model = "gpt-6.1-sol"
 thinking = "high"
 paid = true
 cap = 0
 rounds = 0
 tag_prefix = "sol"
 tasks = ["implement", "review"]
+
+# 2026-10-05 (operator): Claude Code CLI seats on the operator's
+# subscription (agentctl ClaudeHarness, provider "claude-cli"). paid = true so
+# they sort AFTER every pay-per-token tier: the last rungs of the implement
+# ladder, after sol. cap 1 each: these seats share the weekly quota with the
+# operator's own Claude Code session.
+[[tiers]]
+name = "claude-sonnet"
+provider = "claude-cli"
+model = "claude-sonnet-5-5"
+thinking = "medium"
+paid = true
+cap = 1
+rounds = 1
+tag_prefix = "cs"
+tasks = ["implement"]
+
+[[tiers]]
+name = "claude-opus"
+provider = "claude-cli"
+model = "claude-opus-5-5"
+thinking = "medium"
+paid = true
+cap = 1
+rounds = 1
+tag_prefix = "co"
+tasks = ["implement"]
 
 [policy]
 # 2026-09-24 (operator): false -- seats.local is DeepSeek now; reviews stay on glm.
@@ -211,7 +240,7 @@ ignore_uncommitted = ["TEST_HISTORY.md"]
 # the pipeline. Seats cannot run XMage, and 7883f6b25 merged a driver change
 # that turned every Standard scenario into a harness failure (4944 rows) until
 # a host full replay caught it. A branch touching tools/xmageoracle/ fails here
-# and parks; the operator runs /mnt/sata/gorge-training/xmageoracle/full-replay.sh,
+# and parks; the operator runs validation/oracle/full-replay.sh,
 # compares verdicts against main, and lands it by hand
 # (.ds4/operator-compliance-refresh.md).
 [[gates]]
@@ -302,121 +331,16 @@ timeout = 900
 env = { GOMEMLIMIT = "1GiB", GOMAXPROCS = "4" }
 
 [[gates]]
-name = "go vet"
-cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=8G", "-p", "CPUQuota=1600%", "go", "vet", "-p=8", "./..."]
+# 2026-10-05 (operator): per-ticket validation cut to 1-2 min. The old module
+# gate (go vet ./... + go test ./..., 300-500s under fleet load) moved to the
+# post-merge full suite (scripts/postmerge_full.sh), run on main after
+# landings; a red there is bisected and fixed at once. This gate tests ./rules
+# (minus four whole-corpus censuses, which run post-merge), the Kr8 pair in
+# their own processes, ./view, ./internal/codeshape and every package the
+# branch touched. Run from the BASE copy so a branch cannot edit its own gate.
+name = "go test (affected)"
+cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=8G", "-p", "CPUQuota=1600%", "bash", "-c", "set -o pipefail; git show {base}:scripts/gate_affected.sh | bash -s {base}"]
 timeout = 600
-env = { GOMEMLIMIT = "4GiB", GOMAXPROCS = "8" }
-
-# The whole module, not just ./effects ./rules ./cards: a merge that broke
-# internal/searchprobe and internal/archtest passed the old core-only gate
-# (2026-09-19, fixed in bd0f399e). -p=4 + GOMEMLIMIT: parallel package test
-# binaries across worktrees have exhausted this box's memory before.
-#
-# GOMEMLIMIT raised 1536MiB -> 4GiB (2026-09-30, cli-20260930T022327Z). The
-# limit sat BELOW one package's live heap: `host` peaks ~5.2G RSS, so the
-# limiter forced continuous GC instead of capping memory. Measured, forced
-# fresh (`go test -count=1 ./host/`, the module gate's critical package):
-#   GOMEMLIMIT=1536MiB -> 67.6s wall, 640s user CPU, 5.2G maxRSS
-#   GOMEMLIMIT=4GiB    -> 49.6s wall, 271s user CPU, 4.7G maxRSS
-# The higher limit is faster AND lower-RSS; `seat`, `rules` and
-# spellbench/v2engine sit under 1.2G RSS and are unaffected by either value,
-# so no package that previously fit the 8G MemoryMax scope grows into it.
-#
-# CPUQuota 800% -> 1600% and -p 4 -> 8 (2026-10-03,
-# cli-20261003T074330Z-1a867e88). After the 800% raise the gate was no
-# longer quota-bound at the tail: a `go test -json ./...` schedule showed
-# rules starting only at t=60.9s (behind v2engine/paymirror/sbsearch) and
-# then setting the wall at 60.9 -> 111.4s, with the 8-core quota 95% busy
-# (844s user / 111s wall). The box has 32 cores and the broker's gate-begin
-# pauses heavy/probe for the whole suite, and gate runs never overlap
-# themselves (measured: 0 overlapping spans in the last 1684 gate runs), so
-# the extra cores are free during a gate. Measured on this tree, forced
-# fresh (`go test -count=1 -skip ... ./...` in the gate's own systemd scope,
-# `MemoryMax=8G GOMEMLIMIT=4GiB`, both 0 FAIL):
-#   CPUQuota=800%  GOMAXPROCS=8  -p=4 -> 112.6s wall, 708.7s user, 6.16G maxRSS
-#   CPUQuota=1200% GOMAXPROCS=12 -p=4 -> 101.8s wall, 784.1s user, 6.23G maxRSS
-#   CPUQuota=1600% GOMAXPROCS=16 -p=4 ->  99.1s wall, 871.0s user, 6.03G maxRSS
-#   CPUQuota=1600% GOMAXPROCS=16 -p=6 ->  84.5s wall, 903.7s user, 6.00G maxRSS
-#   CPUQuota=1600% GOMAXPROCS=16 -p=8 ->  82.6s wall, 978.8s user, 5.87G maxRSS
-#   CPUQuota=1200% GOMAXPROCS=12 -p=8 ->  92.5s wall, 896.3s user, 5.94G maxRSS
-# 1600%/-p=8 is the knee: -p=6 buys nearly all of it (84.5s) and -p=8 the
-# last 2s; 1200% leaves 10s on the table. Peak RSS FALLS (5.87G vs 6.16G)
-# because a faster gate holds fewer test binaries' heaps at once, so the
-# unchanged 8G MemoryMax still bounds it. Net module gate: ~113s -> ~83s
-# (-30s, -27%). The other gates are unchanged.
-#
-# 2026-10-05: launch the slow rules package separately alongside the rest of
-# the module. The `go test ./...` schedule is dependency-order, so the whole
-# `rules` package -- the longest single binary -- waited for every other
-# package to be built before it started; measured in this worktree the serial
-# schedule left rules stalled until the queue drained, while starting it
-# immediately alongside the remaining packages (same -p=8, both halves, same
-# CPUQuota/MemoryMax/GOMEMLIMIT, forced fresh with -count=1) finished the
-# module gate at 114.7s vs 142.3s serial: -27.6s (-19%), peak RSS 6.1G under
-# the unchanged 8G MemoryMax. Both halves MUST carry the same -skip list --
-# TestHeads is its own gate (non-blocking) and TestInvariantsUnderSeedFuzz /
-# TestLargeEliminationSweepDoesNotTripLivelockWatcher are deliberately
-# excluded as heavy, so un-skipping them in the rules half would duplicate
-# TestHeads and change what this gate proves. Combined, the two halves cover
-# exactly the same package/test set as the original serial ./... Gate the
-# pair on both statuses: either half failing must fail this gate.
-#
-# GOGC=200 (2026-10-05, cli-20261005T030320Z): `make test` has run with
-# GOGC=200 since 54e132f6b ("trade ~0.4 GB RSS per rules.test for ~8% CPU"),
-# but the gate's own `go test` calls never picked it up, so every landing paid
-# the default GOGC=100. On the current corpus the win is larger than that
-# commit measured and costs no RSS. Paired, same box, gate's exact scope
-# (MemoryMax=8G CPUQuota=1600% GOMEMLIMIT=4GiB GOMAXPROCS=16, -count=1,
-# both halves concurrent as this gate runs them):
-#   GOGC=100 module gate: 112.3s wall
-#   GOGC=200 module gate:  90.3s wall  (-22s, -19.6%)
-# Isolated halves: `rest` 93.4s -> 72.3s wall, 1191.5s -> 830.9s user CPU,
-# maxRSS 6.32G -> 6.30G; `rules` 109.0s -> 93.2s wall, 492.8s -> 383.6s user
-# CPU, maxRSS 3.33G -> 2.04G. Peak RSS is flat, so the unchanged 8G MemoryMax
-# still bounds the gate. GOGC only re-tunes the running test binary's GC; it
-# changes neither the test set nor any verdict.
-#
-# 2026-10-05 (cli-20261005T092335Z-fc362c4d): the `rules` half is itself the
-# gate's critical path, and inside it the wall is a SERIAL PREFIX, not CPU.
-# Go runs every top-level test that does not call t.Parallel() to completion
-# before it starts any that does, so the two rules tests that install a
-# process-global default -- TestKr8WorldsInFuzzGames and
-# TestKr8HeadsCheckpointAll -- run strictly in sequence ahead of the entire
-# parallel group (6091 top-level tests, ~355s of parallel-scoped work that
-# fits in ~16 cores in ~25s). A -json schedule of this gate showed the `rest`
-# half done at t=8s while the rules binary ran alone to t=89s, ~1 core busy
-# of the 16 the scope grants: the gate was parallel-prefix-bound, not
-# quota-bound, so raising CPUQuota again buys nothing.
-#
-# Running each of the two process-global tests in its OWN concurrent `go
-# test ./rules` invocation -- and a third invocation for every remaining
-# rules test -- lets them overlap the parallel group instead of serialising
-# ahead of it. The three invocations plus the `rest` half cover exactly the
-# test set the single `go test ./rules` did: {serial} + {all - skip - serial}
-# = {all - skip}, checked by construction from go test's documented
-# `-run`/`-skip` intersection (a test runs iff it matches every -run and no
-# -skip). Every invocation carries the same outer -skip list, so TestHeads
-# and the two deliberately-heavy fuzz tests stay excluded from ALL of them;
-# either invocation failing fails the gate.
-#
-# Measured in this worktree, in the gate's own scope
-# (MemoryMax=8G CPUQuota=1600% GOMEMLIMIT=4GiB GOMAXPROCS=16 GOGC=200,
-# forced fresh with -count=1 so both variants do identical real work,
-# interleaved old/new/new/old to level the shared box's load):
-#   old (rest + one rules invocation): 177.7s, 149.1s wall
-#   new (rest + worlds + heads + rest-of-rules): 155.3s, 146.6s wall
-#   median ~163s -> ~151s (-12s, -8%); peak RSS 6.1-7.0G -> 6.3G, under the 8G
-# On a quiet box the same split ran the module gate in 42.2s against the old
-# command's 89.1s (-47s, -53%): the two isolated tests finished in 41.5s and
-# 11.5s while the remaining-rules invocation and `rest` finished underneath
-# them. The machine this fleet runs on is rarely quiet, so the interleaved
-# load-time number above is the honest floor. A listed test that is renamed
-# simply falls back into the remaining-rules invocation (today's behaviour,
-# never worse); a new process-global test does the same.
-[[gates]]
-name = "go test (module)"
-cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=8G", "-p", "CPUQuota=1600%", "bash", "-c", "set -euo pipefail; skip='^(TestHeads|TestInvariantsUnderSeedFuzz|TestLargeEliminationSweepDoesNotTripLivelockWatcher)$'; serial='^(TestKr8WorldsInFuzzGames|TestKr8HeadsCheckpointAll)$'; both='^(TestHeads|TestInvariantsUnderSeedFuzz|TestLargeEliminationSweepDoesNotTripLivelockWatcher|TestKr8WorldsInFuzzGames|TestKr8HeadsCheckpointAll)$'; rest=$(go list ./... | grep -vE '/rules$'); go test -p=8 -skip \"$skip\" $rest & a=$!; go test -p=8 -skip \"$skip\" -run '^TestKr8WorldsInFuzzGames$' ./rules/ & b=$!; go test -p=8 -skip \"$skip\" -run '^TestKr8HeadsCheckpointAll$' ./rules/ & c=$!; go test -p=8 -skip \"$both\" ./rules/ & d=$!; rc=0; for p in \"$a\" \"$b\" \"$c\" \"$d\"; do wait \"$p\" || rc=1; done; exit $rc"]
-timeout = 1200
 env = { GOMEMLIMIT = "4GiB", GOMAXPROCS = "16", GOGC = "200" }
 
 [[gates]]
@@ -504,7 +428,9 @@ patterns = [
 staging_worktree = true
 strategy = "merge-push"
 remote = "origin"
-push = true
+push = false
+# 2026-10-05 (operator): main is pushed by scripts/postmerge_batch.sh only
+# after the full suite passes, every 5 landings (or 60 min).
 # 2026-09-22 (operator): the demo is no longer redeployed on every merge --
 # a redeploy kills every in-flight vs-bot game (SIGTERM aborts live matches
 # and the persistence dir is wiped). Deploy by hand: `make deploy-demo`.

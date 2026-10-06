@@ -1165,7 +1165,7 @@ func (e *Engine) mayPlayValidSAKinds(validSA string, f *cards.Face, id, source s
 	// permission must not become an unconditional instant-speed grant merely
 	// because the card has some legal target (the CastWithFlash offer path is
 	// where prospective targets are read).
-	if e.spellMatchesValidSA(f, raw, id, source, you, nil) {
+	if e.spellMatchesValidSA(f, raw, id, source, you, nil, false) {
 		plain = true
 	}
 	for alt := range strings.SplitSeq(raw, ",") {

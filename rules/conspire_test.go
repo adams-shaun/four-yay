@@ -26,7 +26,7 @@ import (
 // battlefield through moveSeededCard (the seeded harness, a real logged
 // MoveZone), so every event in the log is engine-produced and replayCheck
 // stays honest.
-func conspireEngine(t *testing.T, hero string) (*Engine, Config, *cards.Registry) {
+func conspireEngine(t *testing.T, hero string, opponentCards ...string) (*Engine, Config, *cards.Registry) {
 	t.Helper()
 	reg := searchTestRegistry(t)
 	mountain := searchCorpusCard(t, reg, "Mountain")
@@ -51,11 +51,29 @@ func conspireEngine(t *testing.T, hero string) (*Engine, Config, *cards.Registry
 	for i := range opp {
 		opp[i] = mountain
 	}
+	for i, name := range opponentCards {
+		if i >= len(opp) {
+			break
+		}
+		opp[i] = searchCorpusCard(t, reg, name)
+	}
+	if hero == "Go Nuts!" && len(opponentCards) == 0 {
+		opp[0] = bear // Its Teamwork fight mode requires an opponent creature.
+	}
 	cfg := seatZeroStart(Config{Seed: 44207, Names: []string{"consp", "opp"},
 		Decks: [][]*cards.Card{deck, opp}, Tokens: reg.Tokens})
 	e := New(cfg)
 	e.Advance()
 	toMain1(t, e)
+	if hero == "Go Nuts!" {
+		// Teamwork requires both Charm modes at announcement. DBFight's
+		// opponent-controlled creature target must exist even if the cast
+		// will later decline the optional tap payment.
+		id := moveSeededCard(t, e, 1, bear, state.ZBattlefield)
+		if o := e.G.Obj(id); o == nil || o.Zone != state.ZBattlefield || o.Controller != 1 {
+			t.Fatalf("precondition: Go Nuts! fight mode needs an opponent-controlled battlefield creature: %+v", o)
+		}
+	}
 	return e, cfg, reg
 }
 

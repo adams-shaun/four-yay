@@ -14,9 +14,28 @@ import (
 
 func init() { effects.RegisterNonAPI("kw:Teamwork", "count:Teamwork") }
 
+func teamworkFlashOffer(w *legalWalk, id state.ObjID, face *cards.Face) {
+	if !w.e.stackKeywordPossibleH(id, kwhTeamwork) || face == nil || !w.e.activationPhasesOK(w.p, face.SpellAbility()) ||
+		!w.e.castWithFlashTargets(w.p, id, w.e.costPotentialTargets(w.p, id, spellScope("")), true) {
+		return
+	}
+	teamworkOffer(w, id, face, w.e.castOfferBase(w.p, id), true)
+}
+
 func teamworkOffer(w *legalWalk, id state.ObjID, face *cards.Face, base Cost, targets bool) {
 	e := w.e
 	if !e.stackKeywordPossibleH(id, kwhTeamwork) || !targets {
+		return
+	}
+	// The cast option declares the Teamwork branch before target announcement
+	// (CR 601.2b-c). Resolve target feasibility with that intent even though
+	// the player may still decline at the later optional-cost ask. Restore the
+	// prior cast before inspecting any other offer constraint.
+	previous := e.cast
+	e.cast = &pendingCast{player: w.p, card: id, mode: "teamworked"}
+	available := e.castTargetsAvailable(w.p, id, face.SpellAbility())
+	e.cast = previous
+	if !available {
 		return
 	}
 	var threshold int32

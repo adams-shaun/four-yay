@@ -100,6 +100,11 @@ func censusGaps(t *testing.T) map[string][]string {
 				continue
 			}
 			if ok, reason := FaceHasFixture(reg, f); !ok {
+				// Combination feasibility is covered by the focused charm
+				// combination census, not this target-filter census.
+				if reason == "charm combination" {
+					continue
+				}
 				gaps[reason] = append(gaps[reason], f.Name)
 			}
 		}

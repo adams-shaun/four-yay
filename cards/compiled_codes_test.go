@@ -27,14 +27,15 @@ func TestCompiledCodeMappings(t *testing.T) {
 	})
 
 	t.Run("APIs", func(t *testing.T) {
-		// Every non-test effects.Register spelling. This literal inventory
-		// makes adding an effect without assigning a stable opcode fail here.
+		// Every non-test effects.Register spelling plus Meld, whose opcode
+		// is reserved for its compiled operand record before registration.
+		// This literal inventory pins their stable opcodes.
 		names := []string{
 			"AddTurn", "Amass", "Animate", "AnimateAll", "Attach", "BecomeMonarch", "Branch",
 			"ChangeTargets", "ChangeZone", "ChangeZoneAll", "Charm", "ChooseCard",
 			"ChangeX", "ChooseNumber", "ChoosePlayer", "ChooseType", "Cleanup",
 			"ControlSpell", "CopySpellAbility", "Counter", "CumulativeUpkeep", "DamageAll", "DealDamage",
-			"DelayedTrigger", "Destroy", "DestroyAll", "Dig", "Discard", "Draw", "Echo", "Effect",
+			"DelayedTrigger", "Destroy", "DestroyAll", "Dig", "DigMultiple", "Discard", "Draw", "Echo", "Effect",
 			"Encore", "Extort", "Fog", "GainControl", "GainLife", "Goad", "Hideaway",
 			"LoseLife", "LosesGame", "Mana", "ManaReflected", "Mill", "Myriad", "NameCard",
 			"Pair", "PeekAndReveal", "PermanentCreature", "Play", "Protection", "Pump",
@@ -42,7 +43,7 @@ func TestCompiledCodeMappings(t *testing.T) {
 			"Repeat", "RepeatEach", "ReplaceEffect", "ReplaceMana", "RestartGame", "Reveal",
 			"RevealHand", "RollDice", "Sacrifice", "SacrificeAll", "Scry", "SetState",
 			"Shuffle", "Surveil", "Tap", "TapAll", "Token", "Untap", "UntapAll", "Vote", "Ward",
-			"AlterAttribute", "WinsGame",
+			"AlterAttribute", "WinsGame", "Meld",
 		}
 		assertUniqueKnownCodes(t, "API", names, APICodeForName, APIUnknown)
 		if len(names)+1 != APICodeCount {
@@ -225,6 +226,9 @@ func TestLineModeCatalogValuesArePinned(t *testing.T) {
 	repls := []string{
 		"Moved", "Untap", "BeginPhase", "Transform", "ProduceMana",
 		"GainLife", "LifeReduced", "DamageDone", "Counter", "Draw",
+		"AddCounter", "Attached", "BeginTurn", "Cascade", "CreateToken",
+		"DrawCards", "Explore", "GameLoss", "GameWin", "RollDice",
+		"RollPlanarDice", "Scry", "TurnFaceUp", "Mill", "PayLife", "LoseMana",
 	}
 	for i, n := range repls {
 		if got := ReplEventOf(n); int(got) != i+1 {

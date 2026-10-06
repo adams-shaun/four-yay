@@ -574,17 +574,24 @@ func faceWantsCastSpend(f *cards.Face) bool {
 
 // faceWantsManaColorSpent is the heads-safety gate for the pay-time
 // per-colour-spend CastInfo (the faceWantsCastSpend shape): it reports
-// whether the face reads a Count$Adamant head -- an SVar body
-// (once_and_future's SVar:X:Count$Adamant.Green.1.0 feeding its ChangeZone,
-// outmuscle's, desecrate_reality's) or an inline ability/replacement
-// parameter (the etbCounter expander's compiled CheckSVar$
-// Count$Adamant_3.<colour>.1.0 gate, and the ChangesZone triggers'
-// CheckSVar$ CastSA>Count$Adamant_2.<colour>.2.0). Face.Mentions scans
-// every string the face owns -- SVars, keywords, ability params, trigger
-// params and replacement params -- so both spellings are covered without a
-// second, driftable list.
+// whether the face reads Adamant payment provenance: a Count$Adamant head
+// (an SVar body or compiled CheckSVar$ gate) or the direct trigger-level
+// Adamant$ clause. Face.Mentions scans every string the face owns -- SVars,
+// keywords, ability params, trigger params and replacement params -- so both
+// forms are covered without a second, driftable list.
 func faceWantsManaColorSpent(f *cards.Face) bool {
-	return f != nil && f.Mentions("Count$Adamant")
+	if f == nil {
+		return false
+	}
+	if f.Mentions("Count$Adamant") {
+		return true
+	}
+	for _, tr := range f.Triggers {
+		if _, ok := tr.Param(cards.PKAdamant); ok {
+			return true
+		}
+	}
+	return false
 }
 
 // triggeredCastSpendReaderOut is the capture gate's second arm (the

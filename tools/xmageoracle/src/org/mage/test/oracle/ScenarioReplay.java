@@ -72,6 +72,11 @@ public class ScenarioReplay extends CardTestPlayerBase {
     // (blocking) step, so the driver must too.
     private PhaseStep phase = MAIN;
 
+    // Whether the scenario scripts a divided-damage split ("<ref>^X=<n>"
+    // target answers, oraclegen's damageSplitAnswers). Such a cast queues no
+    // target names of its own: the split answers are the targets.
+    private boolean splitScripted;
+
     // Override the factory the base class calls BEFORE it adds the player to
     // the game. Wrapping createPlayer(Game, ...)'s result instead copies a
     // player the game already holds, so scripted actions go to a player the
@@ -326,6 +331,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
             JsonArray steps = sc.has("steps") ? sc.getAsJsonArray("steps") : new JsonArray();
             JsonArray xans = sc.has("xmage_answers") && sc.get("xmage_answers").isJsonArray()
                     ? sc.getAsJsonArray("xmage_answers") : new JsonArray();
+            splitScripted = xans.toString().contains("^X=");
             for (int i = 0; i < steps.size(); i++) {
                 JsonObject st = steps.get(i).getAsJsonObject();
                 String op = str(st, "op");
@@ -652,6 +658,14 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     // cost" choice, rather than leave it to the AI.
                     setChoice(p, "Cast with no alternative cost");
                 }
+                if (splitScripted && spellTargetsDivided(card)) {
+                    // The scripted "<ref>^X=<share>" answers name the targets
+                    // and gorge's split; a target string here would be a
+                    // second, unconsumed set.
+                    castSpell(TURN, phase, p, card);
+                    cast.add(card);
+                    return;
+                }
                 if (tg.size() == 1 && isSeatRef(tg.get(0)) && !hasGift(card)) {
                     castSpell(TURN, phase, p, card, seat(seatOf(tg.get(0))));
                 } else if (tg.size() == 1 && isSeatRef(tg.get(0))) {
@@ -699,15 +713,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
                         return;
                     }
                     for (String t : tg) {
-                        if (isSeatRef(t)) {
-                            addTarget(p, seat(seatOf(t)));
-                        } else if (cast.contains(xmageSpelling(refName(t)))) {
-                            // A spell an earlier step cast: its setup alias
-                            // names the card in hand, not the spell.
-                            addTarget(p, xmageSpelling(refName(t)));
-                        } else {
-                            addTarget(p, targetName(t));
-                        }
+                        queueCastTarget(p, t);
                     }
                     if (!singleTargetFilled(card, tg.size())) {
                         // Close an "up to N" slot the scenario left short,
@@ -818,6 +824,19 @@ public class ScenarioReplay extends CardTestPlayerBase {
 
     private static int seatOf(String s) {
         return Integer.parseInt(s.substring(1));
+    }
+
+    /** Queue one cast target ref on the target queue. */
+    private void queueCastTarget(TestPlayer p, String t) {
+        if (isSeatRef(t)) {
+            addTarget(p, seat(seatOf(t)));
+        } else if (cast.contains(xmageSpelling(refName(t)))) {
+            // A spell an earlier step cast: its setup alias names the card
+            // in hand, not the spell.
+            addTarget(p, xmageSpelling(refName(t)));
+        } else {
+            addTarget(p, targetName(t));
+        }
     }
 
     /** The name form XMage's attack/block command takes. Unlike a cast

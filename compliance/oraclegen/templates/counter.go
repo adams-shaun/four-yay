@@ -40,19 +40,20 @@ type precast struct {
 	// a TargetType$ SpellAbility.singleTarget slot needs.
 	types        []string
 	singleTarget bool
+	spell        bool
 }
 
 // precasts are the spells a counterspell scenario counters, one per
 // colour and type a counter's filter commonly names.
 var precasts = []precast{
-	{card: "Disfigure", mana: "B", targets: []string{"p1:Grizzly Bears"}, types: []string{"instant"}, singleTarget: true},
-	{card: "Raise the Alarm", mana: "CW", types: []string{"instant"}},
-	{card: "Shock", mana: "R", targets: []string{"p1"}, types: []string{"instant"}, singleTarget: true},
-	{card: "Opt", mana: "U", types: []string{"instant"}},
-	{card: "Giant Growth", mana: "G", targets: []string{"p1:Grizzly Bears"}, types: []string{"instant"}, singleTarget: true},
-	{card: "Grizzly Bears", mana: "CG", types: []string{"creature"}},
-	{card: "Ornithopter", types: []string{"artifact", "creature"}},
-	{card: "Serra Angel", mana: "CCCWW", types: []string{"creature"}},
+	{card: "Disfigure", mana: "B", targets: []string{"p1:Grizzly Bears"}, types: []string{"instant"}, singleTarget: true, spell: true},
+	{card: "Raise the Alarm", mana: "CW", types: []string{"instant"}, spell: true},
+	{card: "Shock", mana: "R", targets: []string{"p1"}, types: []string{"instant"}, singleTarget: true, spell: true},
+	{card: "Opt", mana: "U", types: []string{"instant"}, spell: true},
+	{card: "Giant Growth", mana: "G", targets: []string{"p1:Grizzly Bears"}, types: []string{"instant"}, singleTarget: true, spell: true},
+	{card: "Grizzly Bears", mana: "CG", types: []string{"creature"}, spell: true},
+	{card: "Ornithopter", types: []string{"artifact", "creature"}, spell: true},
+	{card: "Serra Angel", mana: "CCCWW", types: []string{"creature"}, spell: true},
 }
 
 // precastFits reports whether a precast can stand in for a stack slot with
@@ -60,6 +61,9 @@ var precasts = []precast{
 // target a creature spell, and a single-target slot a spell that targets
 // exactly one object.
 func precastFits(filter string, p precast) bool {
+	if oraclegen.SlotIsStack(filter) && !p.spell {
+		return false
+	}
 	f := strings.ToLower(filter)
 	if strings.Contains(f, "instant") && !hasPrecastType(p, "instant") && !hasPrecastType(p, "sorcery") {
 		return false
@@ -118,7 +122,7 @@ func counterWith(reg *cards.Registry, f *cards.Face, name, mana string, pre prec
 	p0, p1 := *fx.P0(), *fx.P1()
 	// The counterspell first in hand, the spell it counters second: the
 	// order main's fixture always used, so the scenario stays the same.
-	p0 = oraclegen.WithHand(oraclegen.WithHand(p0, pre.card), name)
+	p0 = oraclegen.WithHand(oraclegen.WithHand(p0, pre.card), physicalName(reg, name))
 	targets := insertStackTargets(slots, stackIdx, fx.Targets(), pre)
 	sc := oraclegen.Scenario{
 		Setup: map[string]oraclegen.Seat{"p0": p0, "p1": p1},

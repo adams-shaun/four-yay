@@ -64,8 +64,13 @@ func TestCompileClone(t *testing.T) {
 	if !etb.ETBShapeOK || !etb.ChoiceZoneOK || etb.ChoiceZoneKind != state.ZBattlefield {
 		t.Fatalf("ETB shape = %+v", etb)
 	}
+	// ETBShapeOK checks the body's text; the caller also checks that the
+	// source face binds Y to Count$CastTotalManaSpent before offering it.
+	if !CloneOf(&cards.SA{API: "Clone", Params: map[string]string{"Choices": "Creature.Other+cmcLEY"}}).ETBShapeOK {
+		t.Fatal("Mockingbird's cast-spend selector must pass the text-only ETB gate")
+	}
 	for _, params := range []map[string]string{
-		{"Choices": "Creature.Other+cmcLEY"},
+		{"Choices": "Creature.Other+cmcLEX"},
 		{"Choices": "Creature", "AddKeywords": "IfNew Vanishing:3"},
 		{"Choices": "Creature", "IntoPlayTapped": "False"},
 		{"Choices": "Creature", "ChoiceTitle": "Pick"},
@@ -83,16 +88,26 @@ func TestCompileClone(t *testing.T) {
 // TestCloneOfIsAllocationFree: a configured record or a front-cache hit
 // allocates nothing.
 func TestCloneOfIsAllocationFree(t *testing.T) {
-	bound := &cards.SA{API: "Clone", Params: map[string]string{"Defined": "Targeted", "Duration": "UntilEndOfTurn"}}
+	bound := slottedSA(t, "Clone", map[string]string{"Defined": "Targeted", "Duration": "UntilEndOfTurn"})
 	f := NewSAFacts(bound)
 	f.Publish()
+	if LoadSAFacts(bound) != f {
+		t.Fatal("precondition: the configured record is not published on bound's facts slot")
+	}
 	cached := &cards.SA{API: "Clone", Params: map[string]string{"Choices": "Creature.Other"}}
-	CloneOf(cached)
+	if n := allocsPerRun(100, func() { _ = CloneOf(bound) }); n != 0 {
+		t.Fatalf("configured CloneOf allocated %v objects per run; want 0", n)
+	}
+	// The front cache is direct-mapped and shared with parallel corpus tests.
+	// Prime this slot immediately before each measured lookup: an eviction
+	// between separate iterations is not an allocation on a cache HIT.
+	p := CloneOf(cached)
+	slot := &cloneFront[paramMapSlot(cached.Params)]
 	if n := allocsPerRun(100, func() {
-		_ = CloneOf(bound)
+		slot.Store(p)
 		_ = CloneOf(cached)
 	}); n != 0 {
-		t.Fatalf("CloneOf allocated %v objects per run; want 0", n)
+		t.Fatalf("front-cache hit allocated %v objects per run; want 0", n)
 	}
 	if f.Clone == nil || !f.Clone.boundTo(bound.Params) {
 		t.Fatal("NewSAFacts did not compile the Clone half")

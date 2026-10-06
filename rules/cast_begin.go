@@ -65,13 +65,14 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		faceBefore = &before
 		e.emitProposalFlip(id, before, preSuppress, preAborts)
 	}
-	// CR 714: the same flip mechanism serves the Adventure faces. From the
-	// hand the cast flips to the Adventure spell face (adventure_alt); from
-	// the adventure zone it flips back to the main face (adventure_recast).
-	// Everything downstream -- rawBaseCost, targets, timing, resolution --
+	// CR 714: the same flip mechanism serves the Adventure spell face. From
+	// the hand the cast flips to the Adventure spell face (adventure_alt);
+	// everything downstream -- rawBaseCost, targets, timing, resolution --
 	// then reads the flipped face, because o.Face() is Faces[FaceIdx]. An
 	// aborted proposal restores the pre-flip face via pc.faceBefore (CR
-	// 733.1), the same reversal a Room cast takes.
+	// 733.1), the same reversal a Room cast takes. The adventure-zone recast
+	// (adventure_recast) needs no flip: off the stack the card is already
+	// its main face (CR 715.4, events.Apply's MoveZone fold).
 	if opt.Mode == "adventure_alt" {
 		if adventureSpellFace(o) == nil {
 			return
@@ -81,12 +82,9 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		e.emitProposalFlip(id, before, preSuppress, preAborts)
 	}
 	if opt.Mode == "adventure_recast" {
-		if o.Zone != state.ZExile || adventureSpellFace(o) == nil || o.Face() != o.Card.Faces[1] {
+		if o.Zone != state.ZExile || adventureSpellFace(o) == nil || o.FaceIdx != 0 {
 			return
 		}
-		before := o.FaceIdx
-		faceBefore = &before
-		e.emitProposalFlip(id, before, preSuppress, preAborts)
 	}
 	// CR 702.85a: the Aftermath half -- the alternate face of a Split card --
 	// is cast only from its owner's graveyard. From the graveyard the cast
@@ -1215,6 +1213,7 @@ const (
 	castModeMorphed
 	castModeMayflash
 	castModeEmerged
+	castModeLand
 )
 
 var castModeCodes = state.NewStrCodes(append([]state.StrEntry[castModeCode]{
@@ -1254,6 +1253,7 @@ var castModeCodes = state.NewStrCodes(append([]state.StrEntry[castModeCode]{
 	state.StrEntry[castModeCode]{Key: "disguised", Val: castModeMorphed},
 	state.StrEntry[castModeCode]{Key: "mayflash", Val: castModeMayflash},
 	state.StrEntry[castModeCode]{Key: "emerged", Val: castModeEmerged},
+	state.StrEntry[castModeCode]{Key: "land", Val: castModeLand},
 }, append(altCastModeEntries(),
 	// The Bargain row's mode word lives in rules/optional_sacrifice.go.
 	state.StrEntry[castModeCode]{Key: optionalSacrifices[optSacBargain].mode, Val: castModeBargained})...)...)

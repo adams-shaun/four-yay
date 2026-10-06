@@ -265,6 +265,7 @@ func (b *Board) fillTablesInc(g *state.Game, ch Chars, me state.PlayerID) bool {
 			r := inc.face(id, f, k)
 			inc.derive(r, id, combined)
 			*b.Cards.slot(id) = Card{
+				PrintedName:   f.Name,
 				Creature:      r.creature,
 				Power:         r.power,
 				Toughness:     r.toughness,
@@ -304,13 +305,14 @@ func (b *Board) fillTablesInc(g *state.Game, ch Chars, me state.PlayerID) bool {
 			r := inc.face(id, f, k)
 			inc.derive(r, id, combined)
 			*b.Cards.slot(id) = Card{
-				Creature:  r.creature,
-				Power:     r.power,
-				CMC:       r.cmc,
-				Basic:     r.basic,
-				ManaCost:  f.ManaCost,
-				Toughness: r.toughness,
-				Activated: o.ActivatedThisTurn, // public; A5 (BoardFromGameInto's foreign walk)
+				PrintedName: f.Name,
+				Creature:    r.creature,
+				Power:       r.power,
+				CMC:         r.cmc,
+				Basic:       r.basic,
+				ManaCost:    f.ManaCost,
+				Toughness:   r.toughness,
+				Activated:   o.ActivatedThisTurn, // public; A5 (BoardFromGameInto's foreign walk)
 			}
 		}
 	}

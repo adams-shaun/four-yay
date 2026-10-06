@@ -574,8 +574,12 @@ type DamageDealtRecord struct {
 	// SourceColors are the source's WUBRG colours when the hit landed
 	// (HasSourceColors false for a log recorded before they were kept: the
 	// count then reads the source's current colours).
-	SourceColors     string
-	HasSourceColors  bool
+	SourceColors    string
+	HasSourceColors bool
+	// Old provenance logs omit these fields; absent values use live characteristics.
+	SourceZone       Zone
+	HasSourceZone    bool
+	SourceTypes      []string
 	Recipient        ObjID
 	RecipientZone    Zone
 	RecipientControl PlayerID
@@ -1408,6 +1412,15 @@ type Object struct {
 	// Reset whenever the object leaves the battlefield (events.Move).
 	Paired ObjID
 
+	// MeldedWith marks a MELDED permanent (CR 712.4, 701.42): this object is
+	// the meld card whose Card carries the meld-result face (FaceIdx names
+	// it while melded), and MeldedWith is its partner card's object, parked
+	// in ZCeased for as long as the melded permanent exists. Only events.Apply
+	// writes it (the Meld fold sets it; events.Move clears it and moves the
+	// partner when the melded permanent leaves the battlefield). 0 means not
+	// melded. See state/meld.go.
+	MeldedWith ObjID
+
 	IsMyriad bool
 
 	// CopyMayChooseTarget is CR 707.10c's new-target permission for ONE copy
@@ -1494,7 +1507,7 @@ type Object struct {
 	// page-aligned Objs arena every object's hot head (the fields declared
 	// first) starts on a line of its own. Purely layout: it is never read or
 	// written. A field added above must re-pad it (TestObjectCacheLinePadded).
-	_ [23]byte
+	_ [19]byte
 }
 
 // DoorUnlocked reports the designation of a printed Room face. The cast

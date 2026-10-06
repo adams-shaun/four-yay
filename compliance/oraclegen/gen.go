@@ -173,6 +173,66 @@ func probeTargets(reg *cards.Registry, sc Scenario) (rules.OracleResult, bool) {
 
 type charmMode struct{ svar, label string }
 
+// CharmCombination is one legal, ordered set of mode picks and their target
+// chains. Combinations follow Choices$ order; repeated picks appear only when
+// CanRepeatModes$ is true.
+type CharmCombination struct {
+	Modes []CharmMode
+	Slots []Slot
+}
+
+// CharmCombinations enumerates legal combinations from the minimum pick count
+// upward, in Choices$ order within each size. Ordinary charms default to one
+// pick, preserving their historical ordering.
+func CharmCombinations(f *cards.Face) []CharmCombination {
+	modes := charmModes(f)
+	if len(modes) == 0 {
+		return nil
+	}
+	pickCount, minCount, repeat := 1, 1, false
+	for _, sa := range f.Abilities {
+		if sa.Kind != "SP" || sa.API != "Charm" {
+			continue
+		}
+		if n, err := strconv.Atoi(strings.TrimSpace(sa.Params["CharmNum"])); err == nil && n > 0 {
+			pickCount = n
+		}
+		if n, err := strconv.Atoi(strings.TrimSpace(sa.Params["MinCharmNum"])); err == nil && n > 0 {
+			minCount = n
+		} else if strings.TrimSpace(sa.Params["MinCharmNum"]) == "" {
+			minCount = pickCount
+		}
+		repeat = strings.EqualFold(strings.TrimSpace(sa.Params["CanRepeatModes"]), "True")
+		break
+	}
+	var out []CharmCombination
+	var selected []CharmMode
+	var visit func(int, int)
+	visit = func(start, count int) {
+		if len(selected) == count {
+			combo := CharmCombination{Modes: append([]CharmMode(nil), selected...)}
+			for _, mode := range selected {
+				combo.Slots = append(combo.Slots, ChainSlotSpecs(f, mode.svar)...)
+			}
+			out = append(out, combo)
+			return
+		}
+		for i := start; i < len(modes); i++ {
+			selected = append(selected, modes[i])
+			next := i
+			if !repeat {
+				next++
+			}
+			visit(next, count)
+			selected = selected[:len(selected)-1]
+		}
+	}
+	for count := minCount; count <= pickCount; count++ {
+		visit(0, count)
+	}
+	return out
+}
+
 // charmModes lists the spell's charm modes in Choices$ order.
 func charmModes(f *cards.Face) []charmMode {
 	for _, sa := range f.Abilities {
@@ -651,6 +711,22 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSt
 			}
 			as = append(as, XAnswer{d.Seat, "choice", map[bool]string{true: "yes", false: "no"}[yes]})
 		case "choose_n":
+			if d.Resume == "damage_split" {
+				// Divided damage: the engine's split ask repeats one option index
+				// per damage assigned (Fury, Forked Bolt, Twin Bolt). XMage's
+				// chooseTargetAmount consumes one "<ref>^X=<share>" per chosen
+				// target on the target queue, not makeChoose choices.
+				as = damageSplitAnswers(d)
+				break
+			}
+			if d.Resume == "mana_color" && d.Min == d.Max && d.Max > 1 {
+				// A multi-amount allocation (Combo Any, Desolation of Smaug):
+				// one unit per picked option, options laid out unit*5+colour
+				// over WUBRG. XMage poses one multi-amount message per colour
+				// and needs every one filled, zeroes included.
+				as = manaAllocationAnswers(d)
+				break
+			}
 			if payment(d.Picks) {
 				// Hybrid/phyrexian halves are payment UI; XMage pays from
 				// the pool without asking.
@@ -913,6 +989,82 @@ func refSeat(ref string) (int, bool) {
 	}
 	return n, true
 }
+
+// damageSplitAnswers turns a "damage_split" KChoose into one target answer
+// per chosen target, its Value the ref plus "^X=<share>". The engine's split
+// answer is a multiset over option indexes: a target receiving k damage has
+// its index repeated k times, and PickIdx/Picks/PickRefs are parallel. Targets
+// are emitted in first-appearance order of the option index, exactly as the
+// engine assigns them.
+func damageSplitAnswers(d rules.OracleDecision) []XAnswer {
+	share := map[int]int{}
+	var order []int
+	for _, i := range d.PickIdx {
+		if _, seen := share[i]; !seen {
+			order = append(order, i)
+		}
+		share[i]++
+	}
+	ref := map[int]string{}
+	for k, i := range d.PickIdx {
+		if k < len(d.PickRefs) {
+			ref[i] = d.PickRefs[k]
+		}
+	}
+	as := make([]XAnswer, 0, len(order))
+	for _, i := range order {
+		name := ref[i]
+		if name == "" {
+			// A snapshot without refs: fall back to the option label, which
+			// for a damage-split permanent is the card name.
+			if i < len(d.Picks) {
+				name = d.Picks[i]
+			}
+		}
+		// Keep the scenario ref (including #N): XMage's targetName uses it
+		// to resolve two same-name permanents to distinct setup aliases.
+		as = append(as, XAnswer{d.Seat, "target", name + "^X=" + strconv.Itoa(share[i])})
+	}
+	return as
+}
+
+// manaAllocationAnswers turns a "mana_color" allocation (Min==Max>1) into one
+// amount answer per WUBRG colour, zeroes included: XMage's
+// getMultiAmountWithIndividualConstraints iterates the effect's manaSymbols in
+// ColoredManaSymbol order and requires an "X=<n>" for each. A pick's colour is
+// its option label ("Add W", the authority), falling back to its index mod 5
+// (the effects/mana_effect.go layout: unit*5 + colourIndex).
+func manaAllocationAnswers(d rules.OracleDecision) []XAnswer {
+	counts := map[byte]int{}
+	for k := range d.Picks {
+		if code, ok := allocationColour(d, k); ok {
+			counts[code]++
+		}
+	}
+	as := make([]XAnswer, 0, 5)
+	for _, code := range "WUBRG" {
+		as = append(as, XAnswer{d.Seat, "amount", strconv.Itoa(counts[byte(code)])})
+	}
+	return as
+}
+
+// allocationColour names the WUBRG colour one picked option allocates.
+func allocationColour(d rules.OracleDecision, k int) (byte, bool) {
+	if k < len(d.Picks) {
+		if label := d.Picks[k]; strings.HasPrefix(label, "Add ") && len(label) == 5 {
+			if strings.IndexByte("WUBRG", label[4]) >= 0 {
+				return label[4], true
+			}
+		}
+	}
+	if k < len(d.PickIdx) {
+		return "WUBRG"[d.PickIdx[k]%5], true
+	}
+	return 0, false
+}
+
+// yesNo recognises a bare two-way boolean choice. The engine's option kind
+// and exact label/ref identity must both agree; composed choices such as
 
 // ModeChoiceQueue is the sentinel position modeNumbers stores for a mode
 // label that reaches XMage through its CHOICE queue (controller.choose)

@@ -309,14 +309,14 @@ func (h *fakeHost) ExileBlocked(id state.ObjID, forCost bool) bool {
 // for, so an effects-level surveil keeps its base count.
 func (h *fakeHost) SurveilLookExtra(p state.PlayerID) (int32, []int32) { return 0, nil }
 
-// ExploreReplaced has no replacement registry to consult here (the
+// ActionReplaced has no replacement registry to consult here (the
 // replacement matching lives in rules.Engine), the same discipline as
 // SacrificeBlocked above: the double reports false rather than inventing a
 // registry it cannot answer for.
-func (h *fakeHost) ExploreReplaced(explorer state.ObjID) bool { return false }
+func (h *fakeHost) ActionReplaced(proposal events.Event) bool { return false }
 
 // Scry has no replacement registry to consult here, the same discipline as
-// ExploreReplaced above: the double reports the instruction unchanged so an
+// ActionReplaced above: the double reports the instruction unchanged so an
 // effects-level scry test keeps the base count.
 func (h *fakeHost) Scry(p state.PlayerID, source state.ObjID, count int32, sa *cards.SA, target int) (int32, bool, bool) {
 	return count, true, false
@@ -326,11 +326,8 @@ func (h *fakeHost) Scry(p state.PlayerID, source state.ObjID, count int32, sa *c
 // replacement pipeline to bypass, the same discipline as its Scry above.
 func (h *fakeHost) EmitScryRecord(e events.Event) { h.Emit(e) }
 
-// RollDiceProposed has no replacement registry to consult here, the same
-// discipline as the double's Scry above: the proposal returns unchanged.
-func (h *fakeHost) RollDiceProposed(_ state.PlayerID, _ state.ObjID, amount, ignore int32) (int32, int32) {
-	return amount, ignore
-}
+// CountReplacementProposed has no replacement registry in the effects test double.
+func (h *fakeHost) CountReplacementProposed(ev events.Event) events.Event { return ev }
 
 // CascadeReplacement has no replacement registry to consult here, the same
 // discipline as the double's Scry above: it reports that nothing replaced the

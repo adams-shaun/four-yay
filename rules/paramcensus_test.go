@@ -126,7 +126,7 @@ func (b bucket) String() string {
 // the base's declared type; a name not listed here is UNCLASSIFIED and fails
 // the census (the rot guard) rather than being guessed at:
 //
-//	t       cards.Trigger (trigger-match/queue function parameters)
+//	t, tr  cards.Trigger (trigger-match/queue parameters and face trigger walks)
 //	sib     cards.Trigger (a paired sibling trigger: secondaryYields' scan)
 //	s,st,sv cards.Static / staticView (static and restriction machinery)
 //	r, repl cards.Repl; m.repl the replMatch pair (replacement machinery)
@@ -135,7 +135,8 @@ func (b bucket) String() string {
 //	pt.SA   the pendingTrigger's effect SA.
 var baseBuckets = map[string]bucket{
 	"":  bSA, // f.SpellAbility() in SpellEffectiveCost is a *cards.SA; its Params are spell-ability parameters.
-	"t": bTrig,
+	"t":  bTrig,
+	"tr": bTrig, // face trigger in the Adamant cast-spend reader; cards.Trigger Params.
 	// sib is the paired sibling trigger secondaryYields (checkFaceTriggers'
 	// Secondary$ walk) scans the same face for: a cards.Trigger like t.
 	"sib": bTrig,
@@ -1449,6 +1450,9 @@ var stringMapParams = map[string]string{
 	// value; not a card Params map.
 	"rules:staticModesFromSVars:svars":       "SVars table lookup by StaticAbilities$ name, not a card Params map",
 	"effects:CloneStaticGrantReadable:svars": "SVars table lookup by named Clone static, not a card Params map",
+	// effects/clone_etb_selector.go CloneETBSpendSelector reads the source
+	// face's SVar table by the fixed spend variable name, not card Params.
+	"effects:CloneETBSpendSelector:svars": "source-face SVars lookup for the ETB cast-spend selector, not a card Params map",
 	// Goad-static helpers inspect map arguments copied from parsed SVar
 	// statics, not card SA Params; their callers classify the actual source.
 	"effects:goadStaticGrantReadable:params": "parsed Goad static-line Params map, not a card SA Params map",
@@ -2121,8 +2125,10 @@ var handRoots = struct {
 	// r.Params read in it to repl:Moved. handleReplacement is the
 	// parked-repl-choice decision handler (it resumes the parked phase
 	// machinery and reads the parked repl's Optional$ directly), reached
-	// through the decision resume path rather than the pipeline.
-	repl: []string{"Engine.applyReplacements", "Engine.handleReplacement"},
+	// through the decision resume path rather than the pipeline. The optional
+	// phase resume callback is passed as a function value, so the scanner cannot
+	// infer this edge from handleReplacement; declare its read root explicitly.
+	repl: []string{"Engine.applyReplacements", "Engine.handleReplacement", "Engine.resumeParkedPhase"},
 }
 
 // derivedReads is the per-primitive read set the scan attributes.

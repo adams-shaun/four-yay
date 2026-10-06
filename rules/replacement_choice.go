@@ -6,6 +6,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -64,9 +65,11 @@ const (
 	// appended so existing in-memory enum values remain unchanged.
 	replChoiceEntryOrder
 	replChoiceFaceUp
-	// replChoiceDraw asks whether to apply a bodyless optional draw replacement.
-	// It is appended so existing in-memory enum values remain unchanged.
+	// replChoiceDraw asks whether to apply an optional draw replacement, with
+	// or without a ReplaceWith body. It is appended so existing in-memory enum
+	// values remain unchanged.
 	replChoiceDraw
+	replChoiceLoseMana
 )
 
 type replChoice struct {
@@ -105,8 +108,9 @@ type replChoice struct {
 	// which may differ from the CR 616.1e affected player recomputed fresh
 	// into damageAffectedPlayer at every cycle) for kind == replChoiceDamage
 	// or replChoiceCounter.
-	used   []replMatch
-	player state.PlayerID
+	used            []replMatch
+	player          state.PlayerID
+	drawCompetition bool // optional Draw candidate chosen from a multi-replacement order ask
 	// combat marks a damage competition parked from the combat-damage step's
 	// own assignment loop (rules/combat.go): the chosen replacement's
 	// lifelink/deathtouch riders and commander-damage tally pay the way
@@ -175,17 +179,40 @@ type replChoice struct {
 	// and a stale frame makes it abandon a resolution that actually finished,
 	// re-resolving it on every pass.
 	resumeAtPose *resumePoint
+	// Set on whichever replacement choice currently owns step-boundary cleanup.
+	manaBoundary *manaBoundaryContinuation
+}
+
+type manaBoundaryContinuation struct {
+	leaving, entering state.Step
+	next              int
+	phase             *parkedPhaseFinish
+	phaseSelected     int
+	// A setStep caller returned on the parked boundary; its entered-step
+	// turn-based action is still owed once cleanup and any phase finish settle.
+	finishEntry bool
+}
+
+// Only the proposed step and its replacement candidates are needed after
+// boundary cleanup; holding a replChoice here would recursively embed another
+// manaBoundaryContinuation and make a parked choice impossible to clone.
+type parkedPhaseFinish struct {
+	ev    events.Event
+	cands []replMatch
 }
 
 // replacementChoicePlayer is the affected player a parked competition asks:
 // a life event's player (the player whose life total changes), else mana/
 // phase candidates by role, else the moving object's controller.
 func (e *Engine) replacementChoicePlayer(rc replChoice) (state.PlayerID, bool) {
+	if rc.ev.Kind == events.LifeChange && rc.ev.Text == pay.PayLifeProposalText {
+		return rc.ev.Player, int(rc.ev.Player) < len(e.G.Players)
+	}
 	if rc.life {
 		return rc.ev.Player, int(rc.ev.Player) < len(e.G.Players)
 	}
 	switch rc.kind {
-	case replChoiceMana, replChoiceManaColor, replChoiceScry:
+	case replChoiceMana, replChoiceManaColor, replChoiceScry, replChoiceLoseMana:
 		return rc.ev.Player, int(rc.ev.Player) < len(e.G.Players)
 	case replChoicePhaseOrder, replChoicePhaseOptional:
 		return e.G.Active, int(e.G.Active) < len(e.G.Players)
@@ -245,12 +272,15 @@ func (e *Engine) poseUntapReplacementChoice(ev events.Event, matches []replMatch
 func (e *Engine) poseReplacementChoice(ev events.Event, matches []replMatch) {
 	p := ev.Player
 	kind := replChoiceMove
-	if ev.Kind == events.Draw && len(matches) == 1 && matches[0].repl.With == nil &&
-		matches[0].repl.OptionalValue() {
+	if ev.Kind == events.ManaClear {
+		kind = replChoiceLoseMana
+	}
+	if ev.Kind == events.Draw && len(matches) == 1 && matches[0].repl.OptionalValue() {
 		kind = replChoiceDraw
 		p = e.replacementAskPlayer(matches, ev.Player)
 	}
-	if ev.Kind != events.Draw {
+	if ev.Kind != events.Draw && ev.Kind != events.ManaClear &&
+		!(ev.Kind == events.LifeChange && ev.Text == pay.PayLifeProposalText) {
 		o := e.G.Obj(ev.Obj)
 		if o == nil {
 			return
@@ -276,6 +306,8 @@ func (e *Engine) askReplacementChoice(p state.PlayerID) {
 		indices[i] = i
 	}
 	switch rc.kind {
+	case replChoiceLoseMana:
+		d.Prompt = "Several replacement effects would convert unspent mana: choose which applies."
 	case replChoiceDamage:
 		d.Prompt = "Several replacement effects would modify damage: choose which applies next."
 	case replChoiceCounter:
@@ -323,7 +355,11 @@ func (e *Engine) askReplacementChoice(p state.PlayerID) {
 			name = o.Face().Name
 		}
 		d.Prompt = "Apply " + name + "'s optional draw replacement?"
-		d.Options = []decision.Option{{Index: 0, Kind: "apply", Obj: m.id, Label: "Yes — skip that draw"},
+		applyLabel := "Yes — skip that draw"
+		if m.repl.With != nil {
+			applyLabel = "Yes — apply the replacement"
+		}
+		d.Options = []decision.Option{{Index: 0, Kind: "apply", Obj: m.id, Label: applyLabel},
 			{Index: 1, Kind: "decline", Obj: m.id, Label: "No — draw the card"}}
 		if in, ok := parkTapeAnswer(e, d); ok {
 			e.handle(d, in)
@@ -421,6 +457,83 @@ func (e *Engine) askReplacementChoice(p state.PlayerID) {
 	e.ask(d)
 }
 
+// hasOptionalBodylessDrawReplacement reports whether a Draw competition has
+// an optional replacement whose complete effect is to skip that draw.
+func hasOptionalBodylessDrawReplacement(matches []replMatch) bool {
+	for _, m := range matches {
+		if m.repl.With == nil && m.repl.OptionalValue() {
+			return true
+		}
+	}
+	return false
+}
+
+func scheduleSelectedOptionalDraw(rc replChoice, index int,
+	askPlayer func([]replMatch, state.PlayerID) state.PlayerID,
+	choices *[]replChoice, ask func(state.PlayerID)) bool {
+	if rc.ev.Kind != events.Draw || rc.kind == replChoiceDraw || index < 0 || index >= len(rc.cands) {
+		return false
+	}
+	m := rc.cands[index]
+	if m.repl.With != nil || !m.repl.OptionalValue() {
+		return false
+	}
+	rc.kind = replChoiceDraw
+	rc.selected = 0
+	rc.drawCompetition = true
+	rc.cands = []replMatch{m}
+	rc.player = askPlayer(rc.cands, rc.ev.Player)
+	*choices = append([]replChoice{rc}, *choices...)
+	ask(rc.player)
+	return true
+}
+
+func handleDrawReplacementChoice(rc replChoice, choice int, before *triggerSnapshot,
+	emit func(events.Event) events.Event, applying *bool, exclude *[]string,
+	restore func(*triggerSnapshot), askNext func()) bool {
+	if rc.kind == replChoiceDraw {
+		if choice == 1 {
+			if rc.drawCompetition {
+				priorExclude := *exclude
+				*exclude = append(append([]string(nil), priorExclude...), replIdentity(rc.cands[rc.selected]))
+				emit(rc.ev)
+				*exclude = priorExclude
+			} else {
+				emitDeclinedDrawReplacement(emit, applying, rc.ev)
+			}
+		}
+		restore(before)
+		askNext()
+		return true
+	}
+	return handleDeclinedDrawCompetition(rc, choice, before, emit, exclude, restore, askNext)
+}
+
+func handleDeclinedDrawCompetition(rc replChoice, choice int, before *triggerSnapshot,
+	emit func(events.Event) events.Event, exclude *[]string,
+	restore func(*triggerSnapshot), askNext func()) bool {
+	if rc.ev.Kind != events.Draw || choice != len(rc.cands) ||
+		!hasOptionalBodylessDrawReplacement(rc.cands) {
+		return false
+	}
+	// Declining an optional candidate does not consume the event: exclude
+	// only that replacement and run the remaining CR 616.1 competition.
+	var declined string
+	for _, m := range rc.cands {
+		if m.repl.With == nil && m.repl.OptionalValue() {
+			declined = replIdentity(m)
+			break
+		}
+	}
+	priorExclude := *exclude
+	*exclude = append(append([]string(nil), priorExclude...), declined)
+	emit(rc.ev)
+	*exclude = priorExclude
+	restore(before)
+	askNext()
+	return true
+}
+
 // emitDeclinedDrawReplacement lets a declined optional bodyless replacement
 // continue the proposed draw without matching the same effect again.
 func emitDeclinedDrawReplacement(emit func(events.Event) events.Event, applying *bool, ev events.Event) {
@@ -428,6 +541,45 @@ func emitDeclinedDrawReplacement(emit func(events.Event) events.Event, applying 
 	*applying = true
 	emit(ev)
 	*applying = prior
+}
+
+func handleParkedDrawAnswer(rc replChoice, index int, before *triggerSnapshot,
+	askPlayer func([]replMatch, state.PlayerID) state.PlayerID, choices *[]replChoice,
+	ask func(state.PlayerID), emit func(events.Event) events.Event, applying *bool,
+	exclude *[]string, restore func(*triggerSnapshot), apply func(events.Event, replMatch),
+	invalid, askNext func()) bool {
+	if scheduleSelectedOptionalDraw(rc, index, askPlayer, choices, ask) {
+		return true
+	}
+	if rc.kind == replChoiceDraw && !rc.drawCompetition {
+		handleDrawReplacementAnswer(rc, index, apply,
+			func(ev events.Event) { emitDeclinedDrawReplacement(emit, applying, ev) }, invalid, func() {
+				restore(before)
+				askNext()
+			})
+		return true
+	}
+	return handleDrawReplacementChoice(rc, index, before, emit, applying, exclude, restore, askNext)
+}
+
+func handleDrawReplacementAnswer(rc replChoice, index int, apply func(events.Event, replMatch), decline func(events.Event), invalid, done func()) {
+	if index == 1 {
+		decline(rc.ev)
+	} else if index == 0 && rc.selected >= 0 && rc.selected < len(rc.cands) {
+		m := rc.cands[rc.selected]
+		if m.repl.With != nil {
+			apply(rc.ev, m)
+		}
+	} else {
+		invalid()
+	}
+	done()
+}
+
+func replacementAnswerInvalid(chosen []decision.Option, rc replChoice) bool {
+	damageKind := rc.kind == replChoiceDamage || rc.kind == replChoiceCounter
+	return len(chosen) == 0 || (damageKind && (chosen[0].Index < 0 || chosen[0].Index > len(rc.cands) ||
+		(chosen[0].Index == len(rc.cands) && !(rc.kind == replChoiceDamage && hasOptionalReplacement(rc.cands)))))
 }
 
 // handleReplacement applies an answered CR 616.1 order choice: the front
@@ -450,14 +602,12 @@ func (e *Engine) handleReplacement(d *decision.Decision, in decision.Intent) {
 		return
 	}
 	if len(e.replChoices) == 0 {
-		e.emit(events.Event{Kind: events.Note, Player: in.Player,
-			Text: "replacement decision answered with no event parked"})
+		e.emit(events.Event{Kind: events.Note, Player: in.Player, Text: "replacement decision answered with no event parked"})
 		return
 	}
 	rc := e.replChoices[0]
-	e.replChoices = e.replChoices[1:]
 	savedAnswerInRes := e.answerInResolution
-	e.answerInResolution = savedAnswerInRes || rc.inResolution
+	e.replChoices, e.answerInResolution = e.replChoices[1:], savedAnswerInRes || rc.inResolution
 	defer func() { e.answerInResolution = savedAnswerInRes }()
 	chosen := d.Chosen(in)
 	if rc.kind == replChoiceFaceUp {
@@ -477,24 +627,26 @@ func (e *Engine) handleReplacement(d *decision.Decision, in decision.Intent) {
 		e.applyingReplacement = prior
 		return
 	}
-	damageKind := rc.kind == replChoiceDamage || rc.kind == replChoiceCounter
-	if len(chosen) == 0 || (damageKind && (chosen[0].Index < 0 || chosen[0].Index > len(rc.cands) ||
-		(chosen[0].Index == len(rc.cands) && !(rc.kind == replChoiceDamage && hasOptionalReplacement(rc.cands))))) {
-		e.emit(events.Event{Kind: events.Note, Player: in.Player,
-			Text: "replacement answer had no choice"})
+	if replacementAnswerInvalid(chosen, rc) {
+		e.emit(events.Event{Kind: events.Note, Player: in.Player, Text: "replacement answer had no choice"})
 		return
 	}
 	before := e.triggerBefore
 	e.triggerBefore = rc.before
-	if rc.kind == replChoiceDraw {
-		if chosen[0].Index == 1 {
-			emitDeclinedDrawReplacement(e.emit, &e.applyingReplacement, rc.ev)
-		}
-		e.triggerBefore = before
-		e.askNextReplacementChoice()
+	// Draw order choices promote an optional bodyless candidate to its own
+	// apply/decline question; the handler keeps the declined candidate out of
+	// the ensuing CR 616.1 competition.
+	if handleParkedDrawAnswer(rc, chosen[0].Index, before, e.replacementAskPlayer,
+		&e.replChoices, e.askReplacementChoice, e.emit, &e.applyingReplacement,
+		&e.replExclude, func(snapshot *triggerSnapshot) {
+			e.triggerBefore, snapshot = snapshot, e.triggerBefore
+		},
+		func(ev events.Event, m replMatch) { e.applyReplacement(ev, m) }, func() {
+			e.emit(events.Event{Kind: events.Note, Player: in.Player, Text: "draw replacement answer out of range"})
+		}, e.askNextReplacementChoice) {
 		return
 	}
-	if damageKind {
+	if rc.kind == replChoiceDamage || rc.kind == replChoiceCounter {
 		completed := true
 		switch rc.kind {
 		case replChoiceCounter:
@@ -643,17 +795,11 @@ func (e *Engine) handleReplacement(d *decision.Decision, in decision.Intent) {
 			e.finishParkedPhase(rc, i)
 		}
 	case replChoicePhaseOptional:
-		if rc.selected < 0 || rc.selected >= len(rc.cands) {
+		if !answerParkedOptionalPhase(rc, chosen[0].Kind == "apply", e.finishParkedPhase, e.resumeParkedPhase) {
 			e.triggerBefore = before
 			e.emit(events.Event{Kind: events.Note, Player: in.Player,
 				Text: "optional phase replacement answer out of range"})
 			return
-		}
-		if chosen[0].Kind == "apply" {
-			e.finishParkedPhase(rc, rc.selected)
-		} else {
-			rc.applied[rc.selected] = true
-			e.resumeParkedPhase(rc)
 		}
 	case replChoiceAddCounter:
 		if chosen[0].Index < 0 || chosen[0].Index >= len(rc.cands) {
@@ -715,6 +861,9 @@ func (e *Engine) handleReplacement(d *decision.Decision, in decision.Intent) {
 			return
 		}
 		e.resumeUpdatedComposition(rc, chosen[0].Index)
+	case replChoiceLoseMana:
+		handleLoseManaChoice(rc, chosen[0].Index, in.Player, e.G, e, e.emit,
+			func(v bool) { e.applyingReplacement = v }, e.poseReplacementChoice)
 	case replChoiceUntap:
 		if chosen[0].Index < 0 || chosen[0].Index >= len(rc.cands) {
 			e.triggerBefore = before
@@ -736,6 +885,7 @@ func (e *Engine) handleReplacement(d *decision.Decision, in decision.Intent) {
 		e.applyReplacement(rc.ev, rc.cands[chosen[0].Index])
 	}
 	e.triggerBefore = before
+	continueLoseManaBoundary(rc.manaBoundary, func() bool { return e.pending != nil }, &e.replChoices, func(leaving, entering state.Step, next int) { e.finishStepBoundary(leaving, entering, next) }, e.finishParkedPhase, e.finishEnteredStep)
 	// A mana replacement or colour decision can interrupt CR 601.2g's mana
 	// window. Resume the parked cast only after the final rewrite is logged
 	// and no next replacement decision is pending.
@@ -743,6 +893,34 @@ func (e *Engine) handleReplacement(d *decision.Decision, in decision.Intent) {
 		e.continueCast()
 	}
 	e.askNextReplacementChoice()
+}
+
+// continueLoseManaBoundary resumes only after all competing replacements of
+// this seat's loss have settled. Callbacks keep Engine bookkeeping at its owner.
+func continueLoseManaBoundary(b *manaBoundaryContinuation, pending func() bool, queue *[]replChoice,
+	finish func(state.Step, state.Step, int), phase func(replChoice, int), entered func()) {
+	if b == nil {
+		return
+	}
+	if pending() {
+		(*queue)[len(*queue)-1].manaBoundary = b
+		return
+	}
+	if len(*queue) > 0 {
+		// A mana-order answer can queue its colour answer before posing it.
+		(*queue)[0].manaBoundary = b
+		return
+	}
+	finish(b.leaving, b.entering, b.next)
+	if pending() {
+		next := (*queue)[len(*queue)-1].manaBoundary
+		next.phase, next.phaseSelected = b.phase, b.phaseSelected
+		next.finishEntry = b.finishEntry
+	} else if b.phase != nil {
+		phase(replChoice{ev: b.phase.ev, cands: b.phase.cands}, b.phaseSelected)
+	} else if b.finishEntry {
+		entered()
+	}
 }
 
 // askNextReplacementChoice hands over to either an ordinary replacement

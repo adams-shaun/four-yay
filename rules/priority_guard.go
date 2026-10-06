@@ -124,8 +124,12 @@ func (e *Engine) priorityOptionStale(p state.PlayerID, opt decision.Option) stri
 			return "the land has no modal back face"
 		}
 	case optUnlock:
-		if _, ok := e.unlockRoomCost(o); !ok {
-			return "the Room has no locked half to unlock"
+		fi, err := strconv.Atoi(opt.Mode)
+		if err != nil {
+			return "the chosen Room face is invalid"
+		}
+		if _, ok := e.unlockRoomFaceCost(o, fi); !ok {
+			return "the chosen Room face is no longer locked"
 		}
 	case optSpecialize:
 		i, err := strconv.Atoi(opt.Mode)

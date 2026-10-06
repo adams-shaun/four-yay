@@ -92,22 +92,19 @@ func evalCountBodyObjHeads(h Host, c *Ctx, g *state.Game, head, arg string, dept
 		}
 		return dotBranch(h, c, rest, kicked, depth), true, true
 	}
-	// Teamwork.<paid>.<unpaid> is <paid> when the resolving source's
-	// K:Teamwork:N optional additional cost (CR 702.194a) was actually paid as
-	// it was cast, else <unpaid> -- Forge's Count$Teamwork.<n>.<m> family
-	// (Hulk Smash's Count$Teamwork.2.1, Cruel Alliance's Count$Teamwork.0.1).
-	// The read is Object.TeamworkPaid, the SAME one home the Card.Self+Teamwork
-	// filter predicate reads (folded by events.Apply's FlagTeamworkPaid arm),
-	// so the matcher and the count can never disagree. A missing source, a card
-	// never cast read the <unpaid> branch; a copy of a paid Teamwork spell
-	// inherits the cost-conditioned bool (as it does the FlagTeamworkPaid bit).
-	// The branch
-	// tokens resolve through dotBranch (a literal, or an SVar name), and a
-	// malformed body with a missing branch fails closed.
+	// Teamwork.<paid>.<unpaid> is <paid> when the optional cost was paid, else
+	// <unpaid> (Forge's Count$Teamwork.<n>.<m> family). The object's
+	// TeamworkPaid field is authoritative after payment and is shared with the
+	// Card.Self+Teamwork predicate. During CR 601.2c, however, targets are
+	// announced before payment: PendingTeamwork supplies the declared intent
+	// (CR 702.194b-c), and a later declined payment does not retroactively
+	// change that target set. Copies use the paid provenance on their object.
+	// Branch tokens resolve through dotBranch (literal or SVar); malformed
+	// bodies fail closed.
 	if rest, ok := strings.CutPrefix(head, "Teamwork."); ok {
-		paid := false
+		paid := c.Kicker.PendingTeamwork
 		if o := g.Obj(c.Source); o != nil {
-			paid = o.TeamworkPaid
+			paid = o.TeamworkPaid || c.Kicker.PendingTeamwork
 		}
 		return dotBranch(h, c, rest, paid, depth), true, true
 	}
@@ -553,6 +550,14 @@ func evalCountBodyDotted(h Host, c *Ctx, g *state.Game, head, arg string, depth 
 // dotBranch (literal or SVar name), the Revolt/Morbid precedent. A malformed
 // tail or an unreadable colour returns ok=false so the caller reports the
 // body unresolvable rather than a fake zero.
+// AdamantHolds reports whether the source spent at least n mana in the
+// requested colour, using the same per-colour branch evaluator as Count$Adamant.
+// evaluated is false for an unsupported colour or an unreadable source.
+func AdamantHolds(h Host, c *Ctx, g *state.Game, n int32, colour string) (holds, evaluated bool) {
+	v, evaluated := evalAdamantBranch(h, c, g, n, colour+".1.0", 0)
+	return evaluated && v == 1, evaluated
+}
+
 func evalAdamantBranch(h Host, c *Ctx, g *state.Game, n int32, rest string, depth int) (int32, bool) {
 	colTok, branch, found := strings.Cut(rest, ".")
 	if !found {

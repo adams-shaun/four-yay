@@ -87,6 +87,7 @@ func (e *Engine) targetBoundCtx(p state.PlayerID, source state.ObjID) (*effects.
 		// pre-payment gap TimesKicked closes, for the FlagKicked half. The
 		// mode was settled when the cast OPTION was picked, before this ask.
 		ctx.Kicker.PendingKicked = modeIsKicked(pc.mode)
+		ctx.Kicker.PendingTeamwork = castAnswerCodes.Code(pc.mode) == castAnswerTeamworkMode
 	}
 	if f := o.Face(); f != nil {
 		ctx.Source = source
@@ -300,8 +301,8 @@ func targetZones(sa *cards.SA) []state.Zone {
 //     whose tokens were all unknown must not silently fall through to Origin$
 //     either) and no stack-targeting TargetType$;
 //  3. effects.ParseZones parses its Origin$ as exactly one concrete zone
-//     (Graveyard only for ChangeZone) -- not Any/All, not an unknown token,
-//     not a multi-zone origin (ParseZones' ok=false fails closed);
+//     (Graveyard or Battlefield for ChangeZone) -- not Any/All, not an
+//     unknown token, not a multi-zone origin (ParseZones' ok=false fails closed);
 //  4. its ValidTgts$ is object-only under the existing targetsPlayers
 //     classifier, so a player-targeted ChangeZone keeps its existing
 //     player-target route untouched.
@@ -329,8 +330,11 @@ func originImpliedTargetZone(sa *cards.SA) (state.Zone, bool, bool) {
 	if changeZone {
 		// ChangeZone's Origin$ is read through its compiled parameters, the
 		// same parse effChangeZone's Origin$ precondition applies.
-		if effects.ChangeZoneOf(sa).OriginExactly(state.ZGraveyard) {
-			return state.ZGraveyard, true, changeZone
+		cz := effects.ChangeZoneOf(sa)
+		for _, z := range [...]state.Zone{state.ZGraveyard, state.ZBattlefield} {
+			if cz.OriginExactly(z) {
+				return z, true, changeZone
+			}
 		}
 		return 0, false, changeZone
 	}

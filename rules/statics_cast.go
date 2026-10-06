@@ -381,7 +381,7 @@ func (e *Engine) castWithFlash(p state.PlayerID, id state.ObjID) bool {
 	if len(e.withSelfStatics(e.activeStatics("CastWithFlash"), id, "CastWithFlash")) == 0 {
 		return false
 	}
-	return e.castWithFlashTargets(p, id, e.costPotentialTargets(p, id, spellScope("")))
+	return e.castWithFlashTargets(p, id, e.costPotentialTargets(p, id, spellScope("")), false)
 }
 
 // castWithFlashTargets is castWithFlash against an explicit target list. The
@@ -391,7 +391,7 @@ func (e *Engine) castWithFlash(p state.PlayerID, id state.ObjID) bool {
 // sources alternativeCosts reads for a self-carried AlternativeCost) -- so the
 // offer and the recheck cannot disagree about which statics grant the
 // permission.
-func (e *Engine) castWithFlashTargets(p state.PlayerID, id state.ObjID, targets []state.Target) bool {
+func (e *Engine) castWithFlashTargets(p state.PlayerID, id state.ObjID, targets []state.Target, teamworkOffer bool) bool {
 	o := e.G.Obj(id)
 	if o == nil || o.Face() == nil {
 		return false
@@ -410,7 +410,7 @@ func (e *Engine) castWithFlashTargets(p state.PlayerID, id state.ObjID, targets 
 				continue
 			}
 		}
-		if !e.spellMatchesValidSA(o.Face(), sv.ParamStr(cards.PKValidSA), id, sv.Source, p, targets) {
+		if !e.spellMatchesValidSA(o.Face(), sv.ParamStr(cards.PKValidSA), id, sv.Source, p, targets, teamworkOffer) {
 			continue
 		}
 		if e.matchesSpec(sv.ParamStr(cards.PKValidCard), id, e.staticSpecCtx(sv)) {
@@ -474,7 +474,7 @@ func (e *Engine) hasTargetConditionalFlash(p state.PlayerID, id state.ObjID) boo
 		if !e.actorMatches(sv, "Caster", p) {
 			continue
 		}
-		if validSpellHasTargeting(sv.ParamStr(cards.PKValidSA)) {
+		if validSpellHasTargeting(sv.ParamStr(cards.PKValidSA)) || validSpellHasTeamwork(sv.ParamStr(cards.PKValidSA)) {
 			return true
 		}
 	}
@@ -483,9 +483,9 @@ func (e *Engine) hasTargetConditionalFlash(p state.PlayerID, id state.ObjID) boo
 
 // flashGrantCoversTargets is the CR 601.2e enforcement half of a target-
 // conditional CastWithFlash grant, read for ONE face of a split card: it
-// answers false only when face f's off-sorcery timing could have rested on
-// an IsTargeting-conditional grant AND the announced targets do not satisfy
-// that grant. A face with its own unconditional timing (instant, Flash,
+// answers false when face f's off-sorcery timing could have rested on an
+// IsTargeting or Teamwork condition AND the announced target or paid choice
+// does not satisfy that grant. A face with its own unconditional timing (instant, Flash,
 // MayFlashSac's rider) never rested on the grant; a grant without an
 // IsTargeting alternative imposes no target requirement. The reads are
 // face-scoped (offerAsFace), so a fused cast's alternate half is judged
@@ -497,8 +497,19 @@ func (e *Engine) flashGrantCoversTargets(p state.PlayerID, id state.ObjID, f *ca
 		return true
 	}
 	return e.offerAsFace(id, f, func() bool {
-		return !e.hasTargetConditionalFlash(p, id) || e.castWithFlashTargets(p, id, targets)
+		return !e.hasTargetConditionalFlash(p, id) || e.castWithFlashTargets(p, id, targets, false)
 	})
+}
+
+const validSATeamworkConstraint = "Teamwork"
+
+func validSpellHasTeamwork(raw string) bool {
+	for alt := range strings.SplitSeq(raw, ",") {
+		if strings.TrimSpace(alt) == "Spell."+validSATeamworkConstraint {
+			return true
+		}
+	}
+	return false
 }
 
 // validSpellHasTargeting reports whether a ValidSA$/ValidSpell$ OR-list
@@ -649,9 +660,9 @@ func presentZoneFromParam(zone string) (state.Zone, bool) {
 // target list matches nothing, so an IsTargeting alternative never grants
 // unconditional timing. you is the caster the target spec's You clause binds
 // (never the granting static's controller). Constraint values beyond Self and
-// IsTargeting (XCostLE3, Teamwork, ...) remain unimplemented shapes and fail
+// IsTargeting and Teamwork (e.g. XCostLE3) remain unimplemented and fail
 // closed.
-func (e *Engine) spellMatchesValidSA(f *cards.Face, raw string, id, staticSource state.ObjID, you state.PlayerID, targets []state.Target) bool {
+func (e *Engine) spellMatchesValidSA(f *cards.Face, raw string, id, staticSource state.ObjID, you state.PlayerID, targets []state.Target, teamworkOffer bool) bool {
 	if strings.TrimSpace(raw) == "" {
 		return true
 	}
@@ -664,6 +675,19 @@ func (e *Engine) spellMatchesValidSA(f *cards.Face, raw string, id, staticSource
 			}
 			if constraint == "Self" && id == staticSource {
 				return true
+			}
+			if constraint == validSATeamworkConstraint {
+				// During announcement the selected tap cost is known, but its
+				// CastInfo is not emitted until payment. The target census and
+				// CR 601.2e recheck must use that committed choice, not the
+				// prospective offer or a printed keyword.
+				if teamworkOffer || e.cast != nil && e.cast.card == id && castAnswerCodes.Code(e.cast.mode) == castAnswerTeamworkMode && e.cast.teamworkPaid {
+					return true
+				}
+				o := e.G.Obj(id)
+				if e.cast == nil && o != nil && o.Zone == state.ZStack && o.CastFlags&state.FlagTeamworkPaid != 0 {
+					return true
+				}
 			}
 			if strings.HasPrefix(constraint, "IsTargeting") {
 				sc := e.specCtx(staticSource, you)

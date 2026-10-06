@@ -247,20 +247,11 @@ func TestWhatMustBeDoneReturnsHistoricCreatureWithTwoCounters(t *testing.T) {
 	}
 	submitChoices(t, e, juno)
 
-	// Resolve to the sub's target ask.
-	for i := 0; i < 12; i++ {
-		d = e.Pending()
-		if d == nil {
-			break
-		}
-		if d.Kind == decision.KPriority {
-			passPriorityOnce(t, e)
-			continue
-		}
-		break
-	}
-	if d == nil || d.Kind != decision.KChoose {
-		t.Fatalf("ChangeZone target ask missing: %+v", d)
+	// CR 601.2c: the single selected Charm mode's linked ChangeZone target
+	// is announced during casting, not deferred until resolution.
+	d = e.Pending()
+	if d == nil || d.Kind != decision.KTarget || d.ResumeKind != "cast_sub" {
+		t.Fatalf("pending after selecting Release Juno = %+v, want its cast-time linked target ask", d)
 	}
 	idx := -1
 	for _, option := range d.Options {
@@ -269,9 +260,12 @@ func TestWhatMustBeDoneReturnsHistoricCreatureWithTwoCounters(t *testing.T) {
 		}
 	}
 	if idx < 0 {
-		t.Fatalf("graveyard Hero not offered: %+v", d.Options)
+		t.Fatalf("graveyard Hero not offered as the cast-time target: %+v", d.Options)
 	}
 	submitChoices(t, e, idx)
+
+	// The selected target is already recorded on the spell; resolution must
+	// not ask for it again.
 	passUntilStackEmpty(t, e, 20)
 
 	entered := e.G.Obj(heroID)
