@@ -71,7 +71,7 @@ func TestOracleSetupPlacementFiresNoETB(t *testing.T) {
 func TestOracleSetupPlacementFiresNoETBShapes(t *testing.T) {
 	for _, card := range []string{"Collector's Cage", "Legion Extruder", "Vaultborn Tyrant"} {
 		raw := `{"name":"shape","setup":{"p0":{"battlefield":["` + card + `"],"library":["Forest","Island","Swamp","Plains","Mountain","Forest"]},"p1":{"battlefield":["Grizzly Bears"]}},"steps":[]}`
-		res, run := runFixtureScenario(t, raw)
+		res, _ := runFixtureScenario(t, raw)
 		snap := res.Snapshots[0]
 		if setupPermCount(snap, card) != 1 {
 			t.Fatalf("%s is not on the battlefield at setup", card)
@@ -81,7 +81,6 @@ func TestOracleSetupPlacementFiresNoETBShapes(t *testing.T) {
 			t.Errorf("%s: setup checkpoint moved: life %d/%d hand %v exile %v gy %v stack %v\n%s",
 				card, p0.Life, p1.Life, p0.Hand, p0.Exile, p0.Graveyard, snap.Stack, strings.Join(res.Transcript, "\n"))
 		}
-		_ = run
 	}
 }
 
@@ -97,5 +96,19 @@ func TestOracleSetupKeepsPhaseTrigger(t *testing.T) {
 	}
 	if tokens != 1 {
 		t.Fatalf("p0 has %d tokens, want 1 from the upkeep trigger", tokens)
+	}
+}
+
+// Another permanent's "one or more creatures enter" trigger (ChangesZoneAll)
+// is also caused by the setup placement, so it must not fire either: Welcoming
+// Vampire draws when a small creature enters, and p0's hand must stay empty.
+func TestOracleSetupPlacementFiresNoChangesZoneAllTrigger(t *testing.T) {
+	res, _ := runFixtureScenario(t, `{"name":"watcher","setup":{"p0":{"battlefield":["Welcoming Vampire","Grizzly Bears"],"library":["Forest","Forest","Forest"]},"p1":{"battlefield":["Grizzly Bears"]}},"steps":[]}`)
+	snap := res.Snapshots[0]
+	if setupPermCount(snap, "Welcoming Vampire") != 1 || setupPermCount(snap, "Grizzly Bears") != 2 {
+		t.Fatalf("setup permanents missing: %+v", snap.Permanents)
+	}
+	if h := snap.Players[0].Hand; len(h) != 0 {
+		t.Errorf("p0 hand = %v after setup, want empty (Welcoming Vampire's trigger fired)", h)
 	}
 }

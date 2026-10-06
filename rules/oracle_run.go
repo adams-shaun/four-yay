@@ -519,6 +519,7 @@ func (r *oracleRun) build(sc oracleScenario) error {
 					// their independent triggers.
 					clear(e.pendingTriggers[pendingBefore:])
 					e.pendingTriggers = e.pendingTriggers[:pendingBefore]
+					e.orderedTriggers = min(e.orderedTriggers, pendingBefore)
 				}
 			}
 			if pl.zone == state.ZBattlefield {
