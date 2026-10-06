@@ -1,0 +1,11 @@
+# Tests whose peak RSS exceeds the 2 GiB per-test budget (2097152 KiB) under
+# GOMEMLIMIT=1536MiB GOMAXPROCS=2, i.e. the limits both gate scopes run with.
+# SHRINK-ONLY: rows are deleted when the test is fixed, never added. The exact
+# package/test/peak tuples are pinned by rssExceptionPeaks in
+# rss_exceptions_test.go. Each row names its measured peak. Columns: package,
+# test, peak_kib.
+# Measured 2026-10-05 with each test binary under
+#   systemd-run --user --scope -p MemoryMax=2G -p CPUQuota=200% \
+#     env GOMAXPROCS=2 GOMEMLIMIT=1536MiB /usr/bin/time -f %M <pkg>.test -test.run '^<Test>$'
+host	TestHostedEnvSeatsNeverSeeTheLiveEngine	2107888
+host	TestHostFeedEqualsRebuildFeed	2102464

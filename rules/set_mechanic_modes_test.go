@@ -579,6 +579,9 @@ func TestSetMechanicTriggerModeCarrierCensus(t *testing.T) {
 		{"Saddled", "testdata/set-mechanic-carriers/saddled.txt"},
 		{"BecomesSaddled", "testdata/set-mechanic-carriers/becomes-saddled.txt"},
 		{"BecomesPlotted", "testdata/set-mechanic-carriers/becomes-plotted.txt"},
+		{"Forage", "testdata/set-mechanic-carriers/forage.txt"},
+		{"ManifestDread", "testdata/set-mechanic-carriers/manifest-dread.txt"},
+		{"CollectEvidence", "testdata/set-mechanic-carriers/collect-evidence.txt"},
 	} {
 		b, err := os.ReadFile(filepath.Join(".", tc.list))
 		if err != nil {

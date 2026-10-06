@@ -274,6 +274,9 @@ func (e *Engine) checkDelayedTriggers(ev events.Event) {
 				TriggerContext: effects.TriggerContext{
 					DelayedRemembered: append([]state.Target(nil), dt.Remembered...),
 					OptionalSpec:      dt.OptionalSpec,
+					// RememberNumber$ True's remembered Integer (Mana
+					// Drain): Count$TriggerRememberAmount reads it.
+					TriggerRememberedAmount: dt.RememberedAmount,
 				},
 			}),
 		})
@@ -293,22 +296,24 @@ func (e *Engine) checkDelayedTriggers(ev events.Event) {
 // static presentGate default; an unknown PresentZone$ fails closed (count 0),
 // the same direction countStaticPresent takes.
 func (e *Engine) delayedPresentGateHolds(dt *state.DelayedTrigger) bool {
-	zone, ok := presentZoneFromParam(dt.PresentZone)
+	zones, ok := presentZoneFromParam(dt.PresentZone)
 	if !ok {
 		return false
 	}
 	sc := e.specCtx(dt.Source, dt.Controller)
 	sc.DelayedRemembered = dt.Remembered
 	n := 0
-	e.forEachObject(func(id state.ObjID) {
-		o := e.G.Obj(id)
-		if o == nil || o.Zone != zone {
-			return
-		}
-		if e.matchesSpec(dt.PresentSpec, id, sc) {
-			n++
-		}
-	})
+	for _, zone := range zones {
+		e.forEachObject(func(id state.ObjID) {
+			o := e.G.Obj(id)
+			if o == nil || o.Zone != zone {
+				return
+			}
+			if e.matchesSpec(dt.PresentSpec, id, sc) {
+				n++
+			}
+		})
+	}
 	cmp := dt.PresentCompare
 	if cmp == "" {
 		cmp = "GE1"

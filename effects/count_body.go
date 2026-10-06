@@ -391,6 +391,11 @@ const (
 	evalCountBodyCostIsPrime
 	evalCountBodyCostImprintedSize
 	evalCountBodyCostFinishedEndOfTurnsThisTurn
+	// The two scalar heads the part-2 ticket landed: the reflexive trigger's
+	// remembered Integer and the "last state battlefield, else current"
+	// battlefield count.
+	evalCountBodyCostTriggerRememberAmount
+	evalCountBodyCostLastStateBattlefieldWithFallback
 	evalCountBodyCostManaPoolAll
 	evalCountBodyCostManaPoolGreen
 	evalCountBodyCostMaxCombatDamageThisTurn
@@ -412,6 +417,8 @@ var evalCountBodyCostCodes = state.NewStrCodes(
 	state.StrEntry[evalCountBodyCostCode]{Key: "IsPrime", Val: evalCountBodyCostIsPrime},
 	state.StrEntry[evalCountBodyCostCode]{Key: "ImprintedSize", Val: evalCountBodyCostImprintedSize},
 	state.StrEntry[evalCountBodyCostCode]{Key: "FinishedEndOfTurnsThisTurn", Val: evalCountBodyCostFinishedEndOfTurnsThisTurn},
+	state.StrEntry[evalCountBodyCostCode]{Key: "TriggerRememberAmount", Val: evalCountBodyCostTriggerRememberAmount},
+	state.StrEntry[evalCountBodyCostCode]{Key: "LastStateBattlefieldWithFallback", Val: evalCountBodyCostLastStateBattlefieldWithFallback},
 	state.StrEntry[evalCountBodyCostCode]{Key: "ManaPool:All", Val: evalCountBodyCostManaPoolAll},
 	state.StrEntry[evalCountBodyCostCode]{Key: "ManaPool:green", Val: evalCountBodyCostManaPoolGreen},
 	state.StrEntry[evalCountBodyCostCode]{Key: "MaxCombatDamageThisTurn", Val: evalCountBodyCostMaxCombatDamageThisTurn},

@@ -542,6 +542,85 @@ func (e *Engine) blightCostAsk() bool {
 // candidates aborts the whole cast (nothing has moved yet); a part whose sole
 // candidate IS the source records it without a decision, mirroring
 // sacAsk's CARDNAME singleton rule.
+
+// exilePartZones returns the zones one Exile cost part pays from, in the
+// deterministic order both the payment chooser (exAsk) and the announced-X
+// ceiling (xAsk) scan: a ZoneSet (ExileCtrlOrGrave's battlefield|graveyard)
+// expands to its member zones, a single Zone is itself, and the zero Zone
+// (state.ZLibrary) means the hand -- the same reading exileCostZones gives
+// on the pay side. One helper keeps the offer, the announcement cap and the
+// payment from disagreeing about where a part's materials live.
+func exilePartZones(part CostPart) []state.Zone {
+	if part.ZoneSet != 0 {
+		var zones []state.Zone
+		for _, z := range []state.Zone{state.ZBattlefield, state.ZGraveyard} {
+			if part.ZoneSet&(1<<z) != 0 {
+				zones = append(zones, z)
+			}
+		}
+		return zones
+	}
+	if part.Zone == 0 {
+		return []state.Zone{state.ZHand}
+	}
+	return []state.Zone{part.Zone}
+}
+
+// exileCostBoard is the narrow slice of the engine announcedExileCandidates
+// and announcedExileBounds read: the game state, the spec matcher and the
+// ForCost$ cost-block static. Taking this interface (not *Engine) keeps those
+// helpers off the engine's method surface.
+type exileCostBoard interface {
+	Game() *state.Game
+	matchesSpecFrom(spec string, id state.ObjID, you state.PlayerID, source state.ObjID) bool
+	exileBlockedForCost(id state.ObjID, cause pay.CostCause) bool
+}
+
+// announcedExileCandidates counts the objects that could pay one announced
+// Exile cost part at the xAsk ceiling. It mirrors exAsk's candidate walk --
+// every zone the part names, the cast-time self-exclusion, the battlefield
+// cost-block -- so the announced X can never exceed what the pick can settle
+// (CR 601.2b), and it reads every zone an ExileCtrlOrGrave part pays from
+// rather than the graveyard alone. Establishment-time reservation against
+// other parts is deliberately not applied: this is an upper bound for the
+// announcement, not the payment itself, and xAsk's own payable sweep plus
+// exAsk's `already` exclusion re-check distinctness per answer.
+//
+// It takes the narrow exileCostBoard slice rather than *Engine so it stays off
+// the engine's method surface (the lasagna rule: engine logic belongs in a free
+// function over a small interface).
+func announcedExileCandidates(e exileCostBoard, pc *pendingCast, part CostPart) []state.ObjID {
+	var out []state.ObjID
+	for _, zone := range exilePartZones(part) {
+		for _, oid := range pay.ExileCostCandidates(e.Game(), zone, pc.player, part) {
+			if !pc.isAbility() && oid == pc.card {
+				continue
+			}
+			if zone == state.ZBattlefield && e.exileBlockedForCost(oid, pay.CostCauseForAbility(pc.isAbility())) {
+				continue
+			}
+			if e.matchesSpecFrom(part.Spec, oid, pc.player, pc.card) {
+				out = append(out, oid)
+			}
+		}
+	}
+	return out
+}
+
+// announcedExileBounds min-clamps applyCap by every announced Exile cost part
+// on the pending cast. It is xAsk's Exile arm: reading every zone a part pays
+// from (not the graveyard alone) so an ExileCtrlOrGrave<X/...> part cannot cap
+// the announcement below what its pick can settle. Extracted so xAsk stays
+// within its frozen length.
+func announcedExileBounds(e exileCostBoard, pc *pendingCast, applyCap func(int32)) {
+	for _, part := range pc.cost.Exile {
+		if !part.Announced {
+			continue
+		}
+		applyCap(int32(len(announcedExileCandidates(e, pc, part))))
+	}
+}
+
 func (e *Engine) exAsk() bool {
 	pc := e.cast
 	// ExileFromTop is settled after the mana window, immediately before payment:
@@ -549,17 +628,7 @@ func (e *Engine) exAsk() bool {
 	// pay a card that is no longer on top. There is no chooser for this cost.
 	for pc.ExilePart < len(pc.cost.Exile) {
 		part := pc.cost.Exile[pc.ExilePart]
-		zones := []state.Zone{part.Zone}
-		if part.ZoneSet != 0 {
-			zones = zones[:0]
-			for _, z := range []state.Zone{state.ZBattlefield, state.ZGraveyard} {
-				if part.ZoneSet&(1<<z) != 0 {
-					zones = append(zones, z)
-				}
-			}
-		} else if part.Zone == 0 {
-			zones[0] = state.ZHand
-		}
+		zones := exilePartZones(part)
 
 		// The announce-bound filter (the Shoal cycle's cmcEQX): the announced
 		// X binds the spec's non-literal RHS through SpecContext.Resolve — the

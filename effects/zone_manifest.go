@@ -194,6 +194,7 @@ func manifestDreadAnswered(h Host, c *Ctx, p state.PlayerID, picked state.ObjID,
 // -- so a chained DBAttach/DBPutCounter reading Defined$ Remembered finds
 // it.
 func manifestDreadMove(h Host, c *Ctx, p state.PlayerID, window []state.ObjID, chosen state.ObjID, remember bool) {
+	var graveyard []state.ObjID
 	for _, id := range window {
 		if id == chosen {
 			h.Emit(events.Event{Kind: events.MoveZone, Obj: id, Player: p, From: state.ZLibrary,
@@ -206,9 +207,11 @@ func manifestDreadMove(h Host, c *Ctx, p state.PlayerID, window []state.ObjID, c
 			o := h.Game().Obj(id)
 			if o != nil {
 				h.Emit(events.Event{Kind: events.MoveZone, Obj: id, Player: o.Owner, From: state.ZLibrary, To: state.ZGraveyard})
+				graveyard = append(graveyard, id)
 			}
 		}
 	}
+	h.Emit(events.Event{Kind: events.ManifestDreadAction, Player: p, IDs: graveyard})
 }
 
 // effCloak implements Forge's Cloak primitive (veiled_ascension's upkeep

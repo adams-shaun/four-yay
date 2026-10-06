@@ -99,6 +99,20 @@ marker_new() {
 # implementer.
 file_ticket() {
 	local prio=$1 title=$2 body=$3
+	# Every filed brief carries the operator's test budget and the context
+	# rule (2026-10-05), so a seat never has to rediscover either.
+	{
+		printf '\n'
+		printf '%s\n' '## Test budget and context (operator, 2026-10-05)'
+		printf '%s\n' ''
+		printf '%s\n' '- Every test fits 2 GB RSS, 2 vCPU, 1 min wall. Run tests focused and capped, one package per invocation:'
+		printf '%s\n' '  `systemd-run --user --scope -q -p MemoryMax=2G -p CPUQuota=200% env GOMAXPROCS=2 GOMEMLIMIT=1536MiB go test -timeout 2m -run X ./pkg`.'
+		printf '%s\n' '  Never `go test ./...`, `./compliance/...`, a whole package, `-count=1`, `scripts/gate_affected.sh`, full sweeps or long seeded runs.'
+		printf '%s\n' '  The full suite is `scripts/postmerge_batch.sh`'"'"'s, once per batch on main.'
+		printf '%s\n' '- A cap OOM-kill or timeout is the measurement: the test is over budget. Split it into chunk tests sharing fixtures; never cut coverage.'
+		printf '%s\n' '- Tests load the corpus only via `internal/testutil.CorpusRegistry`, never `cards.LoadRegistry`.'
+		printf '%s\n' '- Anything this brief states without a command and a number behind it is a hypothesis: re-measure it before relying on it.'
+	} >>"$body"
 	if [ "$DRY" = 1 ]; then
 		did "DRY-RUN would file P$prio: $title"
 		return 0

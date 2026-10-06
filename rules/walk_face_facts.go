@@ -485,7 +485,7 @@ func (e *Engine) walkFaceFactsOf(f *cards.Face) *walkFaceFacts {
 			return ff
 		}
 	}
-	return e.compiledText.faces.lookup(f)
+	return e.compiledText.faceFacts(f)
 }
 
 // printedHeads is printedHeadsOf(f), read from the face facts when their

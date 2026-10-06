@@ -319,7 +319,7 @@ var staticQuietKinds = newKindSet(events.Tap, events.Untap, events.ManaAdd, even
 	events.CounterChange, events.PlayerCounterChange, events.StoreSVar, events.NoteNumber,
 	events.ModeChosen, events.ManaActivate, events.SearchedLibrary, events.Explore,
 	events.Investigate, events.Discover, events.Seek, events.Surveil, events.Scry,
-	events.Proliferate, events.Evolved, events.GiveGift, events.Clash)
+	events.Proliferate, events.Evolved, events.GiveGift, events.Clash, events.AbilityTriggered)
 
 // refreshStaticContinuous brings the staticEffects memo up to the current log
 // head: a no-op on an exact hit, a re-stamp across a layer-safe run, a full

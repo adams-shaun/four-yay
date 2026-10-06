@@ -109,6 +109,9 @@ type pendingTrigger struct {
 	// the MergedTriggerPush event as Amount (minus one). It and Delayed are
 	// never both set.
 	Merged int
+	// cause is the provenance the AbilityTriggered marker reports (see
+	// triggerCause); zero when no watcher was on the battlefield.
+	cause triggerCause
 	// Granted marks a static-grant's trigger (AddTrigger$ on a Mode$
 	// Continuous static, e.g. Hearthhull's "STATION 8+ Whenever you sacrifice
 	// a land"): like a delayed trigger its Ability is an SVar-named body (the
@@ -1745,6 +1748,7 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 						TriggerContext: observer.triggerReferents(t, id, *ev, objLKI),
 					}),
 				}
+				pt.cause = causeOf(boardOf(observer), t, id, *ev, pt.Ctx.TriggerContext.TriggerCard)
 				switch {
 				case fc.merged > 0:
 					pt.Merged = fc.merged
@@ -2348,6 +2352,17 @@ func triggerRemembered(ev events.Event, source state.ObjID) []state.Target {
 	if (ev.Kind == events.Crew || ev.Kind == events.Saddle) && len(ev.IDs) > 0 {
 		return []state.Target{{Obj: ev.IDs[0]}}
 	}
+	// Mode$ ManifestDread's body names "a card you put into your graveyard
+	// this way" (Paranormal Analyst: ChooseFromDefined$ TriggeredCards): the
+	// cards the action milled, carried in the marker's IDs. An empty list
+	// stays empty rather than falling back to the source.
+	if ev.Kind == events.ManifestDreadAction {
+		out := make([]state.Target, 0, len(ev.IDs))
+		for _, id := range ev.IDs {
+			out = append(out, state.Target{Obj: id})
+		}
+		return out
+	}
 	if ev.Obj != 0 {
 		return []state.Target{{Obj: ev.Obj}}
 	}
@@ -2711,7 +2726,7 @@ func init() {
 		"trig:TurnFaceUp", "trig:Transformed",
 		"trig:ManaExpend",
 		"trig:Connives",
-		"trig:Discover", "trig:SeekAll",
+		"trig:Discover", "trig:SeekAll", "trig:AbilityTriggered",
 		"trig:Surveil", "trig:Scry",
 		"trig:PhaseOutAll",
 		// trig-proliferate: "Whenever you proliferate ..." (CR 701.27; the 6

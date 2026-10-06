@@ -1,0 +1,56 @@
+{
+ "name": "Burn",
+ "format": "pauper",
+ "archetype": "burn",
+ "notes": "SpellBench pauper-kernel catalog deck Burn (mainboard, bo1). Source: jackmaiorino/mtg-kernel data/pauper_pool_v1.json (MIT), from oracle/xmage/decks/Pauper/Deck - Mono-Red Burn.dek.",
+ "cards": [
+  {
+   "name": "Faithless Looting",
+   "count": 2
+  },
+  {
+   "name": "Fiery Temper",
+   "count": 4
+  },
+  {
+   "name": "Fireblast",
+   "count": 4
+  },
+  {
+   "name": "Grab the Prize",
+   "count": 4
+  },
+  {
+   "name": "Guttersnipe",
+   "count": 4
+  },
+  {
+   "name": "Highway Robbery",
+   "count": 4
+  },
+  {
+   "name": "Lava Dart",
+   "count": 4
+  },
+  {
+   "name": "Lightning Bolt",
+   "count": 4
+  },
+  {
+   "name": "Masked Meower",
+   "count": 4
+  },
+  {
+   "name": "Mountain",
+   "count": 18
+  },
+  {
+   "name": "Sneaky Snacker",
+   "count": 4
+  },
+  {
+   "name": "Voldaren Epicure",
+   "count": 4
+  }
+ ]
+}

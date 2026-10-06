@@ -342,7 +342,7 @@ env = { GOMEMLIMIT = "1GiB", GOMAXPROCS = "4", GOFLAGS = "-p=2 -trimpath" }
 # their own processes, ./view, ./internal/codeshape and every package the
 # branch touched. Run from the BASE copy so a branch cannot edit its own gate.
 name = "go test (affected)"
-cmd = ["bash", "-c", "set -o pipefail; if [ -n \"${GORGE_HEAVY_LOCK:-}\" ]; then lock=\"$GORGE_HEAVY_LOCK\"; else common=\"$(git rev-parse --path-format=absolute --git-common-dir)\"; lock=\"$(dirname \"$common\")/.ds4/heavy.lock\"; fi; mkdir -p \"$(dirname \"$lock\")\"; started=\"$(mktemp)\"; flock -o -E 75 -w 1500 \"$lock\" bash -c 'rm -f -- \"$1\"; shift; exec \"$@\"' _ \"$started\" systemd-run --user --scope -q -p MemoryMax=8G -p CPUQuota=1600% bash -c 'set -o pipefail; git show {base}:scripts/gate_affected.sh | bash -s {base}'; rc=$?; if [ -e \"$started\" ] && [ \"$rc\" = 75 ]; then echo 'gate: heavy lock still held after 1500s; affected gate not run' >&2; fi; rm -f -- \"$started\"; exit \"$rc\""]
+cmd = ["bash", "-c", "set -o pipefail; if [ -n \"${GORGE_HEAVY_LOCK:-}\" ]; then lock=\"$GORGE_HEAVY_LOCK\"; else common=\"$(git rev-parse --path-format=absolute --git-common-dir)\"; lock=\"$(dirname \"$common\")/.ds4/heavy.lock\"; fi; mkdir -p \"$(dirname \"$lock\")\"; started=\"$(mktemp)\"; flock -o -E 75 -w 1500 \"$lock\" bash -c 'rm -f -- \"$1\"; shift; exec \"$@\"' _ \"$started\" systemd-run --user --scope -q -p MemoryMax=8G -p CPUQuota=800% bash -c 'set -o pipefail; git show {base}:scripts/gate_affected.sh | bash -s {base}'; rc=$?; if [ -e \"$started\" ] && [ \"$rc\" = 75 ]; then echo 'gate: heavy lock still held after 1500s; affected gate not run' >&2; fi; rm -f -- \"$started\"; exit \"$rc\""]
 # 2026-10-05 (operator): this gate is HEAVY-class work, so it takes the one
 # repo heavy lock like postmerge_batch.sh and heavy.sh. The lock acquisition is
 # INLINED here: the path is derived inline from the shared git common dir
@@ -362,8 +362,15 @@ cmd = ["bash", "-c", "set -o pipefail; if [ -n \"${GORGE_HEAVY_LOCK:-}\" ]; then
 # (gate active, so `may-i` refuses) holds no lock either: heavy.sh asks the
 # broker BEFORE it takes the lock. What it can wait on is a running post-merge
 # full suite, which holds the lock for its whole length and is never paused.
+#
+# gate_affected bounds the test phase to four concurrent test binaries
+# (each invocation uses -p=1); its vet phase is sequential and uses -p=2.
+# Four binaries x 1536MiB stays below the 8G scope with headroom. The
+# measured >2GiB test exceptions are pinned (shrink-only) in
+# internal/testutil/testdata/rss_exceptions.txt; the operator must remeasure
+# both full scopes before enabling these proposed limits.
 timeout = 2100
-env = { GOMEMLIMIT = "4GiB", GOMAXPROCS = "16", GOGC = "200", GOFLAGS = "-p=2 -trimpath" }
+env = { GOMEMLIMIT = "1536MiB", GOMAXPROCS = "2", GOGC = "200", GOFLAGS = "-p=2 -trimpath" }
 
 [[gates]]
 name = "CR conformance"

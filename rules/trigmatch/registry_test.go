@@ -156,6 +156,12 @@ var addedAfterTheSplit = []string{
 	// which was appended for it, so it could not have been in the pre-split
 	// switch.
 	"Surveil",
+	// AbilityTriggered (agent cli-20261006T024354Z-f4a25d7f): "Whenever a
+	// creature's attacking causes a triggered ability of it to trigger"
+	// (Firebender Ascension, Aboleth Spawn, Historian's Boon, Strict
+	// Proctor). It matches the events.AbilityTriggered marker appended for
+	// it, so the pre-split switch could not have dispatched it.
+	"AbilityTriggered",
 	// agent-20260919T183016Z-886b1a86: "Whenever you give a gift ..."
 	// (CR 702.168; Jolly Gerbils, the one corpus carrier). It matches the
 	// events.GiveGift marker Kind, which was appended for it alongside the
@@ -277,6 +283,10 @@ var addedAfterTheSplit = []string{
 	// express. None of the five names existed in the pre-split switch, so no
 	// arm there could have dispatched them.
 	"Crewed", "Saddled", "BecomesSaddled", "BecomesPlotted", "SacrificedOnce",
+	// cli-20261006T024353Z-ce4a0d59: these keyword-action markers carry the
+	// acting player (and ManifestDread's graveyard objects); the old switch
+	// had no dispatch for their modes.
+	"Forage", "ManifestDread", "CollectEvidence",
 	// cli-20261005T075020Z-05241a06: the aggregate tap trigger modes, the
 	// "whenever one or more ... become tapped/untapped" batch siblings of
 	// Taps/Untaps (MSH Rewrite History and LCI Deeproot Pilgrimage on TapAll,

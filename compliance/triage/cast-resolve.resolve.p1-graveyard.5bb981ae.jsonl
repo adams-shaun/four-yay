@@ -1,2 +1,0 @@
-{"shape":{"template":"cast-resolve","op":"resolve","field":"p1.graveyard","diff":"gorge+[] xmage+[Grizzly Bears]"},"key":"cast-resolve | resolve | p1.graveyard | gorge+[] xmage+[Grizzly Bears]","cards":1}
-{"card":"Rite of Renewal","template":"cast-resolve","status":"diverge","api":"ChangeZone+Pump","sets":["TDM"],"detail":"step 1 (resolve) p1.graveyard: gorge \"[]\", xmage \"[Grizzly Bears]\""}

@@ -124,9 +124,12 @@ func TestXAnswersSingleUnitManaIsNotAllocation(t *testing.T) {
 	}
 }
 
+// twinBoltRegistry is the process-shared registry (cards.SharedCorpus): a
+// registry is read-only after open, and a fresh load per test cost ~600 MB
+// and ~1 s and re-derived every card-keyed memo.
 func twinBoltRegistry(t *testing.T) *cards.Registry {
 	t.Helper()
-	reg, err := cards.LoadRegistry(cards.CachePath("../../.cards"))
+	reg, err := cards.SharedCorpus("../../.cards")
 	if err != nil {
 		t.Fatalf("the generator needs the corpus: %v", err)
 	}

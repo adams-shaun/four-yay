@@ -58,7 +58,7 @@ func TestRequirementsClassificationTable(t *testing.T) {
 	drawn := map[string]string{"ValidPlayer": "You"}
 	drawnByCard := map[string]string{"ValidCard": "Card.YouCtrl"}
 	phaseEnd := map[string]string{"Phase": "End of Turn", "ValidPlayer": "You"}
-	phaseEndOpp := map[string]string{"Phase": "Draw", "ValidPlayer": "Opponent"}
+	phaseEndOpp := map[string]string{"Phase": "End of Turn", "ValidPlayer": "Opponent"}
 	phaseUntap := map[string]string{"Phase": "Untap", "ValidPlayer": "You"}
 
 	tests := []struct {
@@ -320,7 +320,7 @@ func TestRequirementsClassificationTable(t *testing.T) {
 			c:    cardOf(&cards.Face{Types: []string{"Creature"}, Statics: []cards.Static{stat("ReduceCost", nil)}}),
 			want: []Requirement{{
 				Key: "static#0.0", Family: "static", Face: 0, Slot: "0",
-				Sub: "static.cost", Gap: "cost static",
+				Sub: "static.cost",
 			}},
 		},
 		{
@@ -328,7 +328,7 @@ func TestRequirementsClassificationTable(t *testing.T) {
 			c:    cardOf(&cards.Face{Types: []string{"Creature"}, Statics: []cards.Static{stat("RaiseCost", nil)}}),
 			want: []Requirement{{
 				Key: "static#0.0", Family: "static", Face: 0, Slot: "0",
-				Sub: "static.cost", Gap: "cost static",
+				Sub: "static.cost", Gap: "opponent-cast cost static",
 			}},
 		},
 		{
