@@ -442,9 +442,9 @@ regen_row() {
   rm -f -- "$gen" "$out"
   local genlog="$gen.log"
   if [ "${#GEN_CMD[@]}" -gt 0 ]; then
-    (cd "$dir" && "${GEN_CMD[@]}" "$set" "$gen" "$repo/.cards") >"$genlog" 2>&1 || { say "ATTRIBUTE generator failed for $id: $(head -n1 "$genlog")"; return 1; }
+    (cd "$dir" && "${GEN_CMD[@]}" "$set" "$gen" "$repo/.cards") >"$gen.stdout.log" 2>"$genlog" || { say "ATTRIBUTE generator failed for $id: $(head -n1 "$genlog")"; return 1; }
   else
-    (cd "$dir" && capped go run ./cmd/oraclediff gen -cards "$repo/.cards" -level "${ORACLE_LEVEL:-B}" -manifest "compliance/manifests/$set.json" -out "$gen") >"$genlog" 2>&1 || { say "ATTRIBUTE generator failed for $id: $(head -n1 "$genlog")"; return 1; }
+    (cd "$dir" && capped go run ./cmd/oraclediff gen -cards "$repo/.cards" -level "${ORACLE_LEVEL:-B}" -manifest "compliance/manifests/$set.json" -out "$gen") >"$gen.stdout.log" 2>"$genlog" || { say "ATTRIBUTE generator failed for $id: $(head -n1 "$genlog")"; return 1; }
   fi
   py row "$id" "$gen" >"$out" || return 1
   [ -s "$out" ]

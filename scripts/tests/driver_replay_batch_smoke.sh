@@ -44,6 +44,9 @@ cat >"$S/replay.sh" <<'EOF'
 #!/usr/bin/env bash
 # replay.sh OUTDIR, in the integration worktree: "replays" every verdict row.
 rdir=$1; mkdir -p "$rdir/S"
+# The retained oraclediff binary executes the batch's gorge code, regardless
+# of the cwd from which cleared invokes it.
+printf '%s\n' "$PWD" >"$DRB_REPO/.ds4/stub-batch-tree"
 [ -z "${STUB_REPLAY_RC:-}" ] || exit "$STUB_REPLAY_RC"
 if [ -n "${STUB_MOVE_MAIN:-}" ]; then
 	mf=${STUB_MOVE_FILE:-tools/xmageoracle/shared.txt}
@@ -111,7 +114,7 @@ state=good
 d=tools/xmageoracle
 for f in $d/*.regress; do [ -e "$f" ] && /usr/bin/grep -qxF -- "$id" "$f" && state=bad; done
 [ -n "${STUB_ALWAYS:-}" ] && [ -e "$STUB_ALWAYS" ] && /usr/bin/grep -qxF -- "$id" "$STUB_ALWAYS" && state=bad
-[ -e rules/oracle_run.go ] && /usr/bin/grep -qxF -- "$id" rules/oracle_run.go && state=bad
+# Gorge's runner cannot change XMage's result for an unchanged scenario.
 for f in $d/*.flaky; do [ -e "$f" ] && /usr/bin/grep -qxF -- "$id" "$f" && state="r$(date +%N)$RANDOM"; done
 /usr/bin/grep -q '"scen": "bad"' "$1" && state=bad
 extra=""
@@ -120,11 +123,16 @@ printf '{"id":"%s","scen":"%s","state":"%s","ms":%s%s}\n' "$id" "$scenario" "$st
 EOF
 cat >"$S/gen.sh" <<'EOF'
 #!/usr/bin/env bash
-# gen.sh SET OUT, in the tree whose generator is being tried: regenerate the set.
+# gen.sh SET OUT CARDS, in the tree whose generator is being tried.
+if [ -n "${STUB_GEN_FAIL:-}" ]; then
+	echo 'generator progress on stdout'
+	printf 'missing corpus fixture\nsecond diagnostic\n' >&2
+	exit 1
+fi
 python3 - "$2" "${3:-}" <<'PY'
 import glob, json, os, sys
 if os.environ.get("STUB_REQUIRE_CARDS") and (len(sys.argv) < 3 or sys.argv[2] != os.environ["DRB_REPO"] + "/.cards"):
-    print("explicit cards directory required")
+    print("explicit cards directory required", file=sys.stderr)
     sys.exit(1)
 gb = set()
 for g in glob.glob("compliance/oraclegen/*.genregress"):
@@ -142,6 +150,11 @@ EOF
 cat >"$S/diff.sh" <<'EOF'
 #!/usr/bin/env bash
 # diff.sh SCEN XMAGE OUT: the oraclediff verdict for one snapshot.
+# A call from main models the retained batch binary; a probe call models
+# go run in that probe. Select the code tree, not an artificial verdict.
+if [ "$PWD" = "$DRB_REPO" ]; then
+	cd "$(head -n1 "$DRB_REPO/.ds4/stub-batch-tree")" || exit 1
+fi
 id=$(python3 -c 'import json,sys; print(json.loads(open(sys.argv[1]).readline())["id"])' "$1")
 scenario=$(python3 -c 'import json,sys; print(json.loads(open(sys.argv[1]).readline()).get("scen", "ok"))' "$1")
 state=$(python3 -c 'import json,sys; print(json.loads(open(sys.argv[1]).readline()).get("state", "good"))' "$1")
@@ -155,13 +168,13 @@ for line in open(sys.argv[1]):
 PY
 )
 st=DIVERGE
-if [ "${STUB_RUNNER_ROW:-}" = "$id" ] && [[ "$PWD" != *-probe ]]; then st=DIVERGE
-elif [ "$scenario" = "$(echo "$xmage" | cut -d' ' -f1)" ] && [ "$(echo "$xmage" | cut -d' ' -f2)" = "good" ] && [ "$state" = "good" ]; then
+if [ "$scenario" = "$(echo "$xmage" | cut -d' ' -f1)" ] && [ "$(echo "$xmage" | cut -d' ' -f2)" = "good" ] && [ "$state" = "good" ]; then
   st=agree
   for f in compliance/oraclegen/*.genregress rules/oracle_run.go; do
     [ -e "$f" ] && /usr/bin/grep -qxF -- "$id" "$f" && st=DIVERGE
   done
 fi
+[ -z "${DRB_DIFF_TRACE:-}" ] || printf '%s %s %s %s %s\n' "$PWD" "$id" "$st" "$scenario" "$xmage" >>"$DRB_DIFF_TRACE"
 printf '{"id":"%s","card":"x","verdict":{"status":"%s"}}\n' "$id" "$st" >"$3"
 EOF
 cat >"$S/check.sh" <<'EOF'
@@ -524,33 +537,42 @@ mkticket t3 2026-10-06T04:00:00Z compliance/oraclegen/x.genregress 'Beta/cast-re
 mkticket t8 2026-10-06T05:00:00Z tools/xmageoracle/t8.txt eight
 mkdir -p "$R/.cards"
 export STUB_REQUIRE_CARDS=1 DRB_SCENARIO_TRACE=$R/scenario.trace
+DRB_REPO=$R "$S/gen.sh" S "$R/without-cards.jsonl" >"$R/no-cards.log" 2>&1
+[ $? != 0 ] && has "$R/no-cards.log" 'explicit cards directory required'
+check "I precondition: regeneration without explicit cards fails" $?
 runpass
 unset STUB_REQUIRE_CARDS DRB_SCENARIO_TRACE
 has "$L" 'CULPRIT t3 row Beta/cast-resolve/v1'
 check "I a row whose scenario the branch's generator changed is attributed to that branch" $?
 hasnt "$L" 'UNATTRIBUTED'
 check "I a generator-caused row is not UNATTRIBUTED" $?
+/usr/bin/grep -q '/\.worktrees/.*-probe Beta/cast-resolve/v1 ok$' "$R/scenario.trace"
+check "I the regenerated scenario is replayed on the probe, not paired with a stale snapshot" $?
 [ "$(status_of t3)" = human_needed ] && [ "$(status_of t1)" = merged ] && [ "$(status_of t8)" = merged ]
-check "I the regenerated scenario is replayed on the probe, not paired with a stale snapshot" \
-  $(/usr/bin/grep -q '/\.worktrees/.*-probe Beta/cast-resolve/v1 ok$' "$R/scenario.trace"; echo $?)
 check "I only the generator branch stays parked" $?
 /usr/bin/grep -qE 'LANDED [0-9a-f]{9} t1 t8$' "$L"
 check "I the others land" $?
 
-# ---- I2: a rules-side runner change is regenerated and attributed without XMage replay
+# ---- I2: a rules-side runner change with identical scenarios and XMage output
 mkrepo I2
 mkticket t1 2026-10-06T03:00:00Z tools/xmageoracle/t1.txt one
 mkticket t3 2026-10-06T04:00:00Z rules/oracle_run.go 'Beta/cast-resolve/v1'
 mkticket t8 2026-10-06T05:00:00Z tools/xmageoracle/t8.txt eight
-export STUB_RUNNER_ROW='Beta/cast-resolve/v1'
+export DRB_DIFF_TRACE=$R/diff.trace
 runpass
-unset STUB_RUNNER_ROW
+unset DRB_DIFF_TRACE
+has "$R/diff.trace" 'Beta/cast-resolve/v1 DIVERGE ok ok good'
+check "I2 precondition: gorge diverges although scenario and XMage stay unchanged" $?
+/usr/bin/grep -q '/\.worktrees/.*-probe Beta/cast-resolve/v1 agree ok ok good$' "$R/diff.trace"
+check "I2 removing the runner changes only gorge's verdict on the probe" $?
 has "$L" 'CULPRIT t3 row Beta/cast-resolve/v1'
 check "I2 a rules/oracle_run.go-only cause is attributed to its branch" $?
 hasnt "$L" 'UNATTRIBUTED'
 check "I2 a runner regression is not UNATTRIBUTED" $?
 [ "$(status_of t3)" = human_needed ] && [ "$(status_of t1)" = merged ] && [ "$(status_of t8)" = merged ]
 check "I2 only the runner culprit stays parked; innocent branches land" $?
+hasnt "$R/.ds4/issues/t1.md" 'driver_replay_batch: HELD' && hasnt "$R/.ds4/issues/t8.md" 'driver_replay_batch: HELD'
+check "I2 innocent branches are not HELD" $?
 /usr/bin/grep -qE 'LANDED [0-9a-f]{9} t1 t8$' "$L"
 check "I2 the non-culprit branches land" $?
 
@@ -587,6 +609,17 @@ check "I4 the production go-run path attributes a runner change" $?
   /usr/bin/grep -qE '/\.worktrees/.*-probe diff cards='"$R"'/\.cards$' "$DRB_GO_TRACE"
 check "I4 gen and diff run in the probe with the main checkout's .cards" $?
 unset DRB_GO_TRACE
+
+# ---- I5: generator failures report stderr, not progress written to stdout --------
+mkrepo I5
+mkticket t3 2026-10-06T04:00:00Z compliance/oraclegen/x.genregress 'Beta/cast-resolve/v1'
+STUB_GEN_FAIL=1 runpass
+has "$L" 'ATTRIBUTE generator failed for Beta/cast-resolve/v1: missing corpus fixture'
+check "I5 regeneration failure logs the first stderr line" $?
+hasnt "$L" 'generator progress on stdout' && hasnt "$L" 'second diagnostic'
+check "I5 progress and later diagnostics do not replace the first stderr line" $?
+has "$L" 'UNATTRIBUTED row Beta/cast-resolve/v1' && hasnt "$L" 'CULPRIT' && hasnt "$L" 'LANDED'
+check "I5 failed regeneration cannot clear a row" $?
 
 # ---- X: a candidate that changes BOTH the driver and gorge Go is attributed -------
 # Every selected ticket changes tools/xmageoracle/ (that is the park gate), so a
