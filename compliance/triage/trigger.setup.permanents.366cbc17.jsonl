@@ -1,2 +1,0 @@
-{"shape":{"template":"trigger","op":"setup","field":"permanents","diff":"$CARD gorge+[2/4] xmage+[1/4]; gorge+token"},"key":"trigger | setup | permanents | $CARD gorge+[2/4] xmage+[1/4]; gorge+token","cards":1}
-{"card":"Dáin Ironfoot","template":"trigger#0.1","status":"diverge","api":"ChangesZone:Token+Attacks:PumpAll","sets":["HOB"],"detail":"setup permanents: gorge \"c0 o0 Dáin Ironfoot [creature dwarf legendary warrior] {R} 2/4; c0 o0 token [artifact equipment] {} on=Dáin Ironfoot\", xmage \"c0 o0 Dáin Ironfoot [creature dwarf legendary warrior] {R} 1/4\""}

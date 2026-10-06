@@ -1,2 +1,0 @@
-{"shape":{"template":"cast-resolve","op":"harness","field":"xmage","diff":"IllegalArgumentException: op move unsupported"},"key":"cast-resolve | harness | xmage | IllegalArgumentException: op move unsupported","cards":1}
-{"card":"Reenact the Crime","template":"cast-resolve","status":"harness","api":"ChangeZone+Play+Cleanup","sets":["MKM"],"detail":"xmage: IllegalArgumentException: op move unsupported"}

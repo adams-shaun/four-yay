@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"setup","field":"permanents","diff":"Grizzly Bears gorge+[counters=STUN=2, tapped] xmage+[counters=STUN=1]"},"key":"activate | setup | permanents | Grizzly Bears gorge+[counters=STUN=2, tapped] xmage+[counters=STUN=1]","cards":1}
-{"card":"Floodpits Drowner","template":"activate#0.0","status":"diverge","api":"ChangesZone:Tap","sets":["DSK"],"detail":"setup permanents: gorge \"c1 o1 Grizzly Bears [bear creature] {G} 2/2 tapped counters=STUN=2\", xmage \"c1 o1 Grizzly Bears [bear creature] {G} 2/2 counters=STUN=1\""}

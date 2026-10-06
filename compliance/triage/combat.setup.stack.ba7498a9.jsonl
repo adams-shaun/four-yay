@@ -1,4 +1,4 @@
-{"shape":{"template":"combat","op":"setup","field":"stack","diff":"gorge=[] xmage=[ability:$CARD@p0]"},"key":"combat | setup | stack | gorge=[] xmage=[ability:$CARD@p0]","cards":8}
+{"shape":{"template":"combat","op":"setup","field":"stack","diff":"gorge=[] xmage=[ability:$CARD@p0]"},"key":"combat | setup | stack | gorge=[] xmage=[ability:$CARD@p0]","cards":10}
 {"card":"Absorbing Man","template":"combat#0.attack","status":"diverge","api":"Phase:Clone","sets":["MSH"],"detail":"setup stack: gorge \"[]\", xmage \"[ability:Absorbing Man@p0]\""}
 {"card":"Absorbing Man","template":"combat#0.block","status":"diverge","api":"Phase:Clone","sets":["MSH"],"detail":"setup stack: gorge \"[]\", xmage \"[ability:Absorbing Man@p0]\""}
 {"card":"Eirdu, Carrier of Dawn","template":"combat#0.attack","status":"diverge","api":"Phase:SetState","sets":["ECL"],"detail":"setup stack: gorge \"[]\", xmage \"[ability:Eirdu, Carrier of Dawn@p0]\""}
@@ -7,3 +7,5 @@
 {"card":"Grub, Storied Matriarch","template":"combat#0.block","status":"diverge","api":"ChangesZone:ChangeZone+Transformed:ChangeZone+Phase:SetState","sets":["ECL"],"detail":"setup stack: gorge \"[]\", xmage \"[ability:Grub, Storied Matriarch@p0]\""}
 {"card":"Sygg, Wanderwine Wisdom","template":"combat#0.attack","status":"diverge","api":"ChangesZone:Animate+Transformed:Animate+Phase:SetState","sets":["ECL"],"detail":"setup stack: gorge \"[]\", xmage \"[ability:Sygg, Wanderwine Wisdom@p0]\""}
 {"card":"Sygg, Wanderwine Wisdom","template":"combat#0.block","status":"diverge","api":"ChangesZone:Animate+Transformed:Animate+Phase:SetState","sets":["ECL"],"detail":"setup stack: gorge \"[]\", xmage \"[ability:Sygg, Wanderwine Wisdom@p0]\""}
+{"card":"Trystan, Callous Cultivator","template":"combat#0.attack","status":"diverge","api":"ChangesZone:Mill+Transformed:Mill+Phase:SetState","sets":["ECL"],"detail":"setup stack: gorge \"[]\", xmage \"[ability:Trystan, Callous Cultivator@p0]\""}
+{"card":"Trystan, Callous Cultivator","template":"combat#0.block","status":"diverge","api":"ChangesZone:Mill+Transformed:Mill+Phase:SetState","sets":["ECL"],"detail":"setup stack: gorge \"[]\", xmage \"[ability:Trystan, Callous Cultivator@p0]\""}

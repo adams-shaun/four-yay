@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"setup","field":"permanents","diff":"Hada Freeblade gorge+[1/2, counters=P1P1=1] xmage+[0/1]"},"key":"activate | setup | permanents | Hada Freeblade gorge+[1/2, counters=P1P1=1] xmage+[0/1]","cards":1}
-{"card":"Boiling Rock Rioter","template":"activate#0.0","status":"diverge","api":"Attacks:Play+Attacks:Mana","sets":["TLA"],"detail":"setup permanents: gorge \"c0 o0 Hada Freeblade [ally creature human soldier] {W} 1/2 counters=P1P1=1\", xmage \"c0 o0 Hada Freeblade [ally creature human soldier] {W} 0/1\""}
