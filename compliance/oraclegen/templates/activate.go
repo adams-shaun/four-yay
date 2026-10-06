@@ -220,10 +220,30 @@ func addActivationCostAnswers(answers [][]oraclegen.XAnswer, step int, cost stri
 				picks = []string{"Wastes"}
 			}
 		case "Sac":
-			// The fixture table is the single authority; a self-sacrifice has
-			// no answer (the engine records the singleton without asking).
-			if card, ok := sacFilterFixture(tok); ok {
-				picks = []string{card}
+			// The engine's observed pick is authoritative. A broad filter can
+			// include the ability's source, so a catalogue fixture is not
+			// necessarily the permanent the payment path actually sacrificed.
+			observed := false
+			for _, d := range decisions {
+				if d.Step != step || d.Seat != 0 || d.Kind != "choose_n" {
+					continue
+				}
+				for i, kind := range d.PickKinds {
+					if kind != "sacrifice" {
+						continue
+					}
+					observed = true
+					if i < len(d.Picks) {
+						picks = append(picks, d.Picks[i])
+					}
+				}
+			}
+			// A self-sacrifice is usually a singleton with no ask. For cases
+			// with no observed sacrifice decision, use the deterministic fixture.
+			if !observed {
+				if card, ok := sacFilterFixture(tok); ok {
+					picks = []string{card}
+				}
 			}
 		}
 		for _, pick := range picks {
