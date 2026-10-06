@@ -176,6 +176,7 @@ const (
 	staticGrantLoyaltyManaReason = "grants a loyalty ability that adds mana (its offered label names no text to assert)"
 	staticGrantActivateReason    = "grants an activated ability (needs the driver's activate on a granted ability)"
 	staticGrantTriggerReason     = "grants a triggered ability (needs a probe-sourced trigger cause)"
+	staticGrantReplacementReason = "grants a replacement effect (needs an event the replacement can change)"
 	staticGrantStaticReason      = "grants a static ability (observed only through its own effect)"
 	staticGrantGainsReason       = "gains the activated abilities of other cards (needs a donor card)"
 	staticGrantSVarReason        = "adds an SVar a granted trigger reads (needs that trigger's cause)"
@@ -200,6 +201,8 @@ func staticGrantGap(f *cards.Face, st cards.Static) string {
 		return staticGrantTriggerReason
 	case st.HasParam(cards.PKAddStaticAbility):
 		return staticGrantStaticReason
+	case st.Params["AddReplacementEffect"] != "":
+		return staticGrantReplacementReason
 	case st.HasParam(cards.PKGainsAbilitiesOf):
 		return staticGrantGainsReason
 	case st.HasParam(cards.PKAddSVar), st.HasParam(cards.PKAddSVars):

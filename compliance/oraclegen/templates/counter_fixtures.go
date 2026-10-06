@@ -23,12 +23,6 @@ import (
 // maxSpeed is the speed Condition$ MaxSpeed needs (CR 702.179b).
 const maxSpeed = 4
 
-// staticGrantWaits is the skip reason for a static whose only effect grants an
-// ability, trigger, static or replacement: the probes can observe a P/T,
-// type or keyword change but not a granted ability, which waits for the
-// granted-ability observation (ticket levelb-static-granted-ability).
-const staticGrantWaits = "grants an ability, which waits for levelb-static-granted-ability"
-
 // selfCounterGate matches the `Card.Self+counters_GE<n>_<KIND>` gate a static
 // carries in Affected$ (a Spacecraft's own station) or IsPresent$ ("as long as
 // CARDNAME has a shield counter on it").

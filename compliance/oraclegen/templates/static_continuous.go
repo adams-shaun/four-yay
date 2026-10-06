@@ -22,11 +22,9 @@
 // served by placing the card on the battlefield holding exactly those counters
 // (counterGatedBase): its effect is live at the first checkpoint, so no cast
 // is needed and the fixture supplies the state the condition reads. A static
-// gated on Condition$ MaxSpeed is placed with p0 at speed 4. A counter- or
-// speed-gated static whose only effect grants an ability, trigger, static or
-// replacement gets the named staticGrantWaits skip rather than the generic
-// observability reason, because the probes cannot observe a granted ability
-// (ticket levelb-static-granted-ability).
+// gated on Condition$ MaxSpeed is placed with p0 at speed 4. Counter- or
+// speed-gated AddAbility statics use the granted-ability offered observation
+// on the card itself; unserved grants fall through to their named gap.
 //
 // A candidate is served only when gorge shows an effect: a probe's P/T,
 // evergreen keywords, types or colours differ from its printed ones (Grizzly
@@ -73,6 +71,22 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 	st, affected := staticSlotOf(f, req)
 	_, _, gated := staticCounterGate(&st)
 	speedGated := staticGatedOnMaxSpeed(&st)
+	// A gated self grant is observed as an offered ability on the card
+	// itself. Try that first, but on failure fall through to the generic
+	// probe and fixture paths: a gated grant that also carries an
+	// observable effect (a level creature's SetPower/SetToughness, Echo
+	// Mage, Joraga Treespeaker) is served by the generic path and must not
+	// be converted into a skip. The helper's specific reason is kept for
+	// the final gap. A grant whose Affected$ names other cards is not a self
+	// grant and is not this helper's to claim.
+	var gatedGrantWhy string
+	if (gated || speedGated) && st.HasParam(cards.PKAddAbility) && staticSelfGrantedAbility(&st) {
+		it, why, ok := staticGatedGrantedAbilityItem(reg, c, f, name, req, st)
+		if ok {
+			return it, nil
+		}
+		gatedGrantWhy = why
+	}
 	plans := []staticProbePlan{{}}
 	probePlan := staticPlanFor(affected)
 	if !probePlan.empty() {
@@ -147,11 +161,13 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 	if gap := staticOffBattlefieldGrantGap(st); gap != "" {
 		return skip(gap)
 	}
-	// A counter- or speed-gated static that grants only an ability, trigger,
-	// static or replacement is a named wait: the probes compare P/T and
-	// evergreen keywords, which a granted ability never moves.
-	if (gated || speedGated) && staticGrantsAbility(&st) {
-		return skip(staticGrantWaits)
+	if gated || speedGated {
+		if gatedGrantWhy != "" {
+			return skip(gatedGrantWhy)
+		}
+		if gap := staticGrantGap(f, st); gap != "" {
+			return skip(gap)
+		}
 	}
 	if gap := staticObserveGap(f, st); gap != "" {
 		return skip(gap)
