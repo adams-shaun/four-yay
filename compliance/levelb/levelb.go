@@ -277,7 +277,7 @@ func classifyStatic(f *cards.Face, st *cards.Static) (sub, gap string) {
 		// Own additional costs are exercised by the spell's own cast probe;
 		// opponent taxes still need an opponent-turn recipe.
 		activator := st.ParamStr(cards.PKActivator)
-		if strings.EqualFold(st.ParamStr(cards.PKValidCard), "Card.Self") && (activator == "" || strings.EqualFold(activator, "You")) {
+		if strings.EqualFold(st.ParamStr(cards.PKValidCard), "Card.Self") && strings.EqualFold(activator, "You") {
 			return "static.cost", ""
 		}
 		return "static.cost", "opponent-cast cost static"

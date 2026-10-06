@@ -20,11 +20,14 @@ var CostStatic = Template{ID: "static.cost", Version: 1}
 type costProbe struct {
 	spell, mana string
 	battlefield []string
+	graveyard   []string
+	exile       []string
 	hand        []string
 	first       *oraclegen.Step
 	// targeted offers the probe cast a surplus player target; gorge's own
 	// target decision rewrites it to the exact pick before the item is kept.
-	targeted bool
+	targeted   bool
+	mustReplay bool
 }
 
 func costStatic(reg *cards.Registry, f *cards.Face, name string, req levelb.Requirement) (oraclegen.Item, *oraclegen.Skip) {
@@ -55,7 +58,11 @@ func costStatic(reg *cards.Registry, f *cards.Face, name string, req levelb.Requ
 		var ok bool
 		p, ok = parameterCostProbe(reg, f, name, idx)
 		if !ok {
-			return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: "cost static probe not supported: unsupported self-cost shape"}
+			reason := "cost static probe not supported"
+			if strings.EqualFold(f.Statics[idx].Params["ValidCard"], "Card.Self") {
+				reason += ": unsupported self-cost shape"
+			}
+			return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: reason}
 		}
 	}
 	slots := oraclegen.SlotSpecs(f)
@@ -67,6 +74,8 @@ func costStatic(reg *cards.Registry, f *cards.Face, name string, req levelb.Requ
 		p0 := *fx.P0()
 		p1 := *fx.P1()
 		p0.Battlefield = appendUnique(p0.Battlefield, p.battlefield...)
+		p0.Graveyard = appendUnique(p0.Graveyard, p.graveyard...)
+		p0.Exile = appendUnique(p0.Exile, p.exile...)
 		p0.Hand = append(p0.Hand, p.hand...)
 		p0.Hand = appendUnique(p0.Hand, p.spell)
 		if p.first != nil && p.first.Card == "p0:Shock" {
@@ -76,6 +85,8 @@ func costStatic(reg *cards.Registry, f *cards.Face, name string, req levelb.Requ
 			Setup:        map[string]oraclegen.Seat{"p0": p0, "p1": p1},
 			SetupAnswers: oraclegen.OpeningHandAnswers(f),
 		}
+		sc.Steps = append(sc.Steps, fx.CombatSteps()...)
+		sc.Steps = append(sc.Steps, fx.Prelude()...)
 		if p.first != nil {
 			sc.Steps = append(sc.Steps, *p.first, oraclegen.Step{Op: "resolve"})
 		}
@@ -111,6 +122,11 @@ func costStatic(reg *cards.Registry, f *cards.Face, name string, req levelb.Requ
 				settled.Name, settled.CR, settled.Why = it.Name, it.CR, it.Why
 				it.Scenario = settled
 				it.XAnswers = oraclegen.XAnswersForScenario(res2, settled, nil, castSteps)
+			}
+		}
+		if p.mustReplay {
+			if _, ok := oraclegen.PlaysThrough(reg, it.Scenario); !ok {
+				return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: "cost static probe not supported: prerequisite fixture unavailable"}
 			}
 		}
 		return it, nil
@@ -169,25 +185,61 @@ func parameterCostProbe(reg *cards.Registry, f *cards.Face, name string, idx int
 	case strings.HasPrefix(amount, "__kwAffinity"):
 		return costProbe{}, false
 	case amount == "X" || amount == "Y" || amount == "Z":
-		// X/Y/Z reductions are fixture-dependent; one unit is the minimal
-		// positive probe and a gorge refusal remains visible in the item.
+		// Recognised count descriptions get a real matching zone/permanent
+		// fixture; unknown formulas are not represented by a guessed 1.
+		desc := strings.ToLower(st.Params["Description"])
+		switch {
+		case strings.Contains(desc, "instant and sorcery card in your graveyard"):
+			p.graveyard = []string{"Opt", "Shock"}
+		case strings.Contains(desc, "artifact and/or creature card in your graveyard"):
+			p.graveyard = []string{"Silver Myr"}
+		case strings.Contains(desc, "creature card you own in exile and in your graveyard"):
+			p.graveyard = []string{"Grizzly Bears"}
+		case strings.Contains(desc, "each color among permanents you control"):
+			p.battlefield = []string{"Grizzly Bears", "Mischievous Snappers", "Goblin Piker"}
+		case strings.Contains(desc, "greatest mana value among elementals you control"):
+			p.battlefield = affinityFixtures(reg, "Elemental", 1)
+			if len(p.battlefield) == 0 {
+				return costProbe{}, false
+			}
+		case strings.Contains(desc, "each cave you control"):
+			p.battlefield = affinityFixtures(reg, "Cave", 1)
+			if len(p.battlefield) == 0 {
+				return costProbe{}, false
+			}
+			p.graveyard = []string{"Wastes"}
+		default:
+			return costProbe{}, false
+		}
 		reduction = 1
 	case amount != "":
 		if _, err := fmt.Sscanf(amount, "%d", &reduction); err != nil || reduction < 1 {
 			return costProbe{}, false
 		}
 	default:
-		// A condition-gated reduction still gets the same self-cast probe;
-		// if the condition fixture is not modelled, the exact cast refusal is
-		// intentionally retained as a generated host-replay scenario.
-		reduction = 1
+		return costProbe{}, false
 	}
-	// Presence conditions in the common self-cost family are represented by
-	// a matching permanent. Other condition grammars remain explicit skips.
+	// Conditions are served only when this generator can establish their
+	// truth from scenario state. Unknown condition grammars remain named gaps.
+	if cond := strings.ToLower(st.Params["Condition"]); cond != "" {
+		if cond == "delirium" {
+			p.graveyard = appendUnique(p.graveyard, "Wastes", "Opt", "Grizzly Bears", "Silver Myr")
+		} else {
+			return costProbe{}, false
+		}
+	}
+	if strings.Contains(strings.ToLower(st.Params["Description"]), "during your turn") {
+		// The generated cast is p0's turn.
+	} else if st.Params["CheckSVar"] != "" && st.Params["Amount"] != "X" && st.Params["Amount"] != "Y" && st.Params["Amount"] != "Z" {
+		return costProbe{}, false
+	}
+	if st.Params["ValidSpell"] != "" {
+		return costProbe{}, false
+	}
 	present := st.Params["IsPresent"]
 	if present != "" {
 		head := strings.SplitN(present, ".", 2)[0]
-		fixtures := map[string]string{"Otter": "Mischievous Snappers", "Frog": "Frog Lizard", "Creature": "Grizzly Bears", "Artifact": "Silver Myr", "Kithkin": "Kithkin Greatheart", "land": "Forest", "Land": "Forest", "Card": "Grizzly Bears"}
+		fixtures := map[string]string{"Otter": "Mischievous Snappers", "Frog": "Frog Lizard", "Creature": "Grizzly Bears", "Artifact": "Silver Myr", "Kithkin": "Kithkin Greatheart", "land": "Forest", "Land": "Forest"}
 		card := fixtures[head]
 		if card != "" {
 			p.battlefield = appendUnique(p.battlefield, card)
@@ -208,6 +260,7 @@ func parameterCostProbe(reg *cards.Registry, f *cards.Face, name string, idx int
 	if !ok {
 		return costProbe{}, false
 	}
+	p.mustReplay = true
 	return p, true
 }
 
@@ -227,6 +280,9 @@ func affinityFixtures(reg *cards.Registry, typ string, count int) []string {
 	})
 	var fixtures []string
 	for _, c := range cardsInOrder {
+		if strings.HasPrefix(firstName(c), "A-") || strings.Contains(firstName(c), "\"") || strings.Contains(firstName(c), "'") {
+			continue
+		}
 		if len(c.Faces) == 0 {
 			continue
 		}
