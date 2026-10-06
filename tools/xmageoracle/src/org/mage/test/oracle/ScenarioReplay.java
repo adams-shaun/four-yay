@@ -341,6 +341,11 @@ public class ScenarioReplay extends CardTestPlayerBase {
          */
         @Override
         public boolean chooseTarget(Outcome outcome, mage.target.Target target, Ability source, Game game) {
+            // An adjusted spell's open slot is closed only when XMage asks
+            // again after the scenario's answers: a slot whose candidates are
+            // exhausted never asks, so a skip queued up front would be left
+            // unused and fail assertAllCommandsUsed.
+            closeAskedAgain(getTargets(), owner.isAdjustedSpellAsk(source, game));
             mage.target.Target orig = target.getOriginalTarget();
             if (orig instanceof mage.target.common.TargetSpellOrPermanent
                     && !getTargets().isEmpty()
@@ -472,6 +477,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
             xmageName = str(sc, "xmage_name");
             endTurnScenario = hasEndTurnEffect(xmageName.isEmpty() ? gorgeName : xmageName);
             cast.clear();
+            adjustedCasts.clear();
             refAlias.clear();
             phase = MAIN;
             TURN = scenarioTurn(sc);
@@ -801,6 +807,24 @@ public class ScenarioReplay extends CardTestPlayerBase {
         }
     }
 
+    /** Whether the ask belongs to the spell ability of a card the scenario cast
+     * through a target adjuster. */
+    private boolean isAdjustedSpellAsk(Ability source, Game game) {
+        if (source == null || source.getAbilityType() != mage.constants.AbilityType.SPELL) {
+            return false;
+        }
+        mage.MageObject object = source.getSourceObject(game);
+        return object != null && adjustedCasts.contains(object.getName());
+    }
+
+    /** An ask for an adjusted spell's target with no scenario answer left skips
+     * the slot (an "up to" slot with candidates remaining). */
+    static void closeAskedAgain(List<String> queue, boolean adjustedSpellAsk) {
+        if (adjustedSpellAsk && queue.isEmpty()) {
+            queue.add(TestPlayer.TARGET_SKIP);
+        }
+    }
+
     /** An adjusted spell must receive targets through the cast-time chooser. */
     static boolean queueAdjustedCastTargets(boolean hasAdjuster, boolean divided, int targetCount) {
         return hasAdjuster && !divided && targetCount > 0;
@@ -847,16 +871,6 @@ public class ScenarioReplay extends CardTestPlayerBase {
     /** An unfilled or open target slot needs an explicit skip to finish casting. */
     static boolean targetSlotNeedsSkip(List<mage.target.Target> targets, int supplied) {
         return targets.size() != 1 || supplied < targets.get(0).getMaxNumberOfTargets();
-    }
-
-    private static boolean targetSlotNeedsSkipForCard(String card, int supplied) {
-        return !singleTargetFilled(card, supplied);
-    }
-
-    static void queueAdjustedTargetSkip(TestPlayer player, boolean needsSkip) {
-        if (needsSkip) {
-            player.addTarget(TestPlayer.TARGET_SKIP);
-        }
     }
 
     /** Normalises a cost label so gorge's pick ("Sacrifice artifact or
@@ -941,6 +955,11 @@ public class ScenarioReplay extends CardTestPlayerBase {
 
     private JsonObject sc0 = new JsonObject();
     private final List<String> cast = new ArrayList<>();
+
+    /** Cards cast through a target adjuster: the cast-time chooser may ask for
+     * another target after the scenario's answers run out (see
+     * ScriptedChoicePlayer.chooseTarget). */
+    private final Set<String> adjustedCasts = new java.util.HashSet<>();
     // Setup objects the scenario can name by ref ("p0:Grizzly Bears#2"): the
     // XMage alias each ref is registered under, so two same-name permanents
     // are told apart. Filled during setup, read by step targeting.
@@ -1172,7 +1191,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     for (String t : tg) {
                         queueCastTarget(p, t);
                     }
-                    queueAdjustedTargetSkip(p, targetSlotNeedsSkipForCard(card, tg.size()));
+                    adjustedCasts.add(card);
                     castSpell(turn, phase, p, card);
                 } else if (tg.size() == 1 && isSeatRef(tg.get(0)) && !hasGift(card)) {
                     castSpell(turn, phase, p, card, seat(seatOf(tg.get(0))));

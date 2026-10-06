@@ -116,16 +116,18 @@ public final class ScenarioReplaySplitRoomTest {
         equal(true, ScenarioReplay.targetSlotNeedsSkip(
                 java.util.List.of(new TargetPermanent(0, Integer.MAX_VALUE, new FilterPermanent())), 1));
         equal(false, ScenarioReplay.targetSlotNeedsSkip(java.util.List.of(new TargetPermanent()), 1));
-        Field unsafeField = Unsafe.class.getDeclaredField("theUnsafe");
-        unsafeField.setAccessible(true);
-        Unsafe unsafe = (Unsafe) unsafeField.get(null);
-        TestPlayer targetQueue = (TestPlayer) unsafe.allocateInstance(TestPlayer.class);
-        Field targets = TestPlayer.class.getDeclaredField("targets");
-        targets.setAccessible(true);
-        targets.set(targetQueue, new java.util.ArrayList<String>());
-        ScenarioReplay.queueAdjustedTargetSkip(targetQueue, ScenarioReplay.targetSlotNeedsSkip(
-                java.util.List.of(new TargetPermanent(0, Integer.MAX_VALUE, new FilterPermanent())), 1));
-        equal(java.util.List.of(TestPlayer.TARGET_SKIP), targets.get(targetQueue));
+        // The skip is added only when XMage asks again with no answer left, so
+        // a pool the supplied target exhausted never asks, so nothing calls
+        // this and no skip is left behind; an ask with candidates left gets it.
+        java.util.List<String> askedAgain = new java.util.ArrayList<>();
+        ScenarioReplay.closeAskedAgain(askedAgain, true);
+        equal(java.util.List.of(TestPlayer.TARGET_SKIP), askedAgain);
+        java.util.List<String> answered = new java.util.ArrayList<>(java.util.List.of("Grizzly Bears"));
+        ScenarioReplay.closeAskedAgain(answered, true);
+        equal(java.util.List.of("Grizzly Bears"), answered);
+        java.util.List<String> otherSpell = new java.util.ArrayList<>();
+        ScenarioReplay.closeAskedAgain(otherSpell, false);
+        equal(java.util.List.of(), otherSpell);
         System.out.println("PASS target-adjuster detection and closing an unfilled adjusted target slot");
         System.out.println("PASS adjusted spell targets are queued without changing divided, ordinary, or targetless casts");
         System.out.println("PASS ordinary alias and unchanged spelling");
