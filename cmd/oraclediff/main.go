@@ -97,6 +97,10 @@ func main() {
 		rulings := fs.String("rulings", shape.RulingDir, "shape rulings that classify a disagreement automatically")
 		fs.Parse(os.Args[2:])
 		err = runDiff(*dir, *scen, *xm, *cache, *out, *write, *ref, *rulings)
+	case "forge-export":
+		err = runForgeExport(os.Args[2:])
+	case "forge-diff":
+		err = runForgeDiff(os.Args[2:])
 	case "triage":
 		fs := flag.NewFlagSet("triage", flag.ExitOnError)
 		dir := fs.String("cards", ".cards", "corpus dir")
