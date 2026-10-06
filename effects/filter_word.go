@@ -886,16 +886,14 @@ func wordMatches(kind wordKind, key string, g *state.Game, o *state.Object, sc S
 		// semantics its shape implies rather than the always-true trap an
 		// unrecognised-but-plausible token could be mistaken for.
 		return !sharesName(o, key, sc)
-	case wordDealtDamageThisTurn:
+	case wordDealtDamageThisTurn, wordSourceDealtDamageThisTurn:
 		// Forge's wasDealtDamageThisTurn: the object was dealt damage this
 		// turn. The flag is the per-object provenance events.Apply's Damage
 		// case sets (the same field the playercount HasProperty heads read)
-		// and TurnChange clears; an object never damaged this turn reads
-		// false. The by-source refinement (wasDealtDamageThisTurnBySource)
-		// is a separate token and stays unknown.
-		return o.WasDealtDamageThisTurn
-	case wordSourceDealtDamageThisTurn:
-		return sourceDealtDamageThisTurn(o)
+		// and TurnChange clears. dealtDamageThisTurn is the SOURCE side: the
+		// object DEALT damage (state.Object.DamageDealtThisTurn). The
+		// by-source refinement is a separate token and stays unknown.
+		return damageThisTurnPredicate(kind, o)
 	case wordDealtExcessDamageThisTurn:
 		return o.WasDealtExcessDamageThisTurn
 	case wordDealtDamageByThisGame:
@@ -1135,15 +1133,22 @@ func wordMatches(kind wordKind, key string, g *state.Game, o *state.Object, sc S
 	return false
 }
 
-// sourceDealtDamageThisTurn evaluates Forge's dealtDamageThisTurn -- the
-// object DEALT damage this turn (the source side, distinct from
-// wordDealtDamageThisTurn's recipient side). state.Object.DamageDealtThisTurn
-// is appended by events.Apply's DamageProvenance fold and cleared at
-// TurnChange, so an object that never dealt damage this turn has an empty
-// record and reads false -- the fail-closed direction. Kept out of
-// wordMatches so the branch costs it one line, not the long-function ratchet.
-func sourceDealtDamageThisTurn(o *state.Object) bool {
-	return len(o.DamageDealtThisTurn) > 0
+// damageThisTurnPredicate evaluates the two same-turn damage predicates for
+// one candidate object. wordDealtDamageThisTurn is Forge's
+// wasDealtDamageThisTurn, the RECIPIENT side: state.Object.WasDealtDamageThisTurn,
+// the flag events.Apply's Damage case sets and TurnChange clears, so an object
+// never damaged this turn reads false. wordSourceDealtDamageThisTurn is Forge's
+// dealtDamageThisTurn, the SOURCE side: state.Object.DamageDealtThisTurn, the
+// record the DamageProvenance fold appends to and TurnChange clears, non-empty
+// only when the object itself dealt damage this turn -- the fail-closed
+// direction. Both share one wordMatches case so the added branch costs the
+// long-function ratchet nothing extra; wordDealtExcessDamageThisTurn (the
+// recipient's excess) stays its own case.
+func damageThisTurnPredicate(kind wordKind, o *state.Object) bool {
+	if kind == wordSourceDealtDamageThisTurn {
+		return len(o.DamageDealtThisTurn) > 0
+	}
+	return o.WasDealtDamageThisTurn
 }
 
 // attachedToBearerQualifier evaluates the dotted two-token
