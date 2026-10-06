@@ -201,6 +201,11 @@ func classifyTrigger(f *cards.Face, t *cards.Trigger) (sub, gap string, covered 
 		return gapMode()
 
 	case cards.TriggerPhase:
+		// The phase recipe scripts only p0's phases, so a ValidPlayer$
+		// naming another player is a gap.
+		if vp := t.ParamStr(cards.PKValidPlayer); vp != "" && !strings.EqualFold(vp, "You") {
+			return gapMode()
+		}
 		switch t.ParamStr(cards.PKPhase) {
 		case "End of Turn", "BeginCombat", "Upkeep", "Draw":
 			return "trigger.phase", "", false
@@ -268,12 +273,14 @@ func isBasicLand(c *cards.Card) bool {
 	return basic && land
 }
 
-// namesSelf reports whether a card filter selects the source card itself: a
-// "Self" token after a "." in any comma-separated alternative.
-func namesSelf(filter string) bool {
+// filterHasToken reports whether a card filter carries want as a token in any
+// comma-separated alternative. A Forge filter is "<class>.<qualifier>[+<qualifier>]"
+// per alternative, so a token is split on both "." and "+" (the qualifier
+// separator): `Card.Self+kicked` carries tokens Card, Self and kicked.
+func filterHasToken(filter, want string) bool {
 	for _, alt := range strings.Split(filter, ",") {
-		for _, tok := range strings.Split(alt, ".") {
-			if strings.EqualFold(strings.TrimSpace(tok), "Self") {
+		for _, tok := range strings.FieldsFunc(alt, func(r rune) bool { return r == '.' || r == '+' }) {
+			if strings.EqualFold(strings.TrimSpace(tok), want) {
 				return true
 			}
 		}
@@ -281,15 +288,10 @@ func namesSelf(filter string) bool {
 	return false
 }
 
-// namesYouCtrl reports whether a card filter selects a permanent you control:
-// a "YouCtrl" token in any comma-separated alternative.
-func namesYouCtrl(filter string) bool {
-	for _, alt := range strings.Split(filter, ",") {
-		for _, tok := range strings.FieldsFunc(alt, func(r rune) bool { return r == '.' || r == '+' }) {
-			if strings.EqualFold(strings.TrimSpace(tok), "YouCtrl") {
-				return true
-			}
-		}
-	}
-	return false
-}
+// namesSelf reports whether a card filter selects the source card itself, e.g.
+// `Card.Self` or `Card.Self+wasCastByYou`.
+func namesSelf(filter string) bool { return filterHasToken(filter, "Self") }
+
+// namesYouCtrl reports whether a card filter selects a permanent you control,
+// e.g. `Creature.YouCtrl` or `Creature.Other+YouCtrl`.
+func namesYouCtrl(filter string) bool { return filterHasToken(filter, "YouCtrl") }

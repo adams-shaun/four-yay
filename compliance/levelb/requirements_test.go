@@ -34,6 +34,12 @@ func TestRequirementsClassificationTable(t *testing.T) {
 	selfETB := map[string]string{
 		"Origin": "Any", "Destination": "Battlefield", "ValidCard": "Card.Self",
 	}
+	selfETBKicked := map[string]string{
+		"Origin": "Any", "Destination": "Battlefield", "ValidCard": "Card.Self+kicked",
+	}
+	selfETBWasCast := map[string]string{
+		"Origin": "Any", "Destination": "Battlefield", "ValidCard": "Card.wasCastByYou+Self",
+	}
 	otherETB := map[string]string{
 		"Origin": "Any", "Destination": "Battlefield", "ValidCard": "Creature.YouCtrl",
 	}
@@ -52,6 +58,7 @@ func TestRequirementsClassificationTable(t *testing.T) {
 	drawn := map[string]string{"ValidPlayer": "You"}
 	drawnByCard := map[string]string{"ValidCard": "Card.YouCtrl"}
 	phaseEnd := map[string]string{"Phase": "End of Turn", "ValidPlayer": "You"}
+	phaseEndOpp := map[string]string{"Phase": "Draw", "ValidPlayer": "Opponent"}
 	phaseUntap := map[string]string{"Phase": "Untap", "ValidPlayer": "You"}
 
 	tests := []struct {
@@ -132,6 +139,26 @@ func TestRequirementsClassificationTable(t *testing.T) {
 			want: []Requirement{{
 				Key: "trigger#0.0", Family: "trigger", Face: 0, Slot: "0",
 				Sub: "trigger.gap:ChangesZone", Gap: "trigger mode ChangesZone",
+			}},
+		},
+		{
+			name: "trigger self-etb with a qualifier is covered by A",
+			c: cardOf(&cards.Face{Types: []string{"Creature"}, Triggers: []cards.Trigger{
+				trig("ChangesZone", selfETBKicked),
+			}}),
+			want: []Requirement{{
+				Key: "trigger#0.0", Family: "trigger", Face: 0, Slot: "0",
+				Sub: "trigger.etb-other", CoveredByA: true,
+			}},
+		},
+		{
+			name: "trigger self-etb token order does not matter",
+			c: cardOf(&cards.Face{Types: []string{"Creature"}, Triggers: []cards.Trigger{
+				trig("ChangesZone", selfETBWasCast),
+			}}),
+			want: []Requirement{{
+				Key: "trigger#0.0", Family: "trigger", Face: 0, Slot: "0",
+				Sub: "trigger.etb-other", CoveredByA: true,
 			}},
 		},
 		{
@@ -240,6 +267,16 @@ func TestRequirementsClassificationTable(t *testing.T) {
 			want: []Requirement{{
 				Key: "trigger#0.0", Family: "trigger", Face: 0, Slot: "0",
 				Sub: "trigger.drawn",
+			}},
+		},
+		{
+			name: "trigger phase for another player is a gap",
+			c: cardOf(&cards.Face{Types: []string{"Enchantment"}, Triggers: []cards.Trigger{
+				trig("Phase", phaseEndOpp),
+			}}),
+			want: []Requirement{{
+				Key: "trigger#0.0", Family: "trigger", Face: 0, Slot: "0",
+				Sub: "trigger.gap:Phase", Gap: "trigger mode Phase",
 			}},
 		},
 		{
