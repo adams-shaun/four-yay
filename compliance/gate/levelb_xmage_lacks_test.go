@@ -37,8 +37,8 @@ func TestLevelBXMageLacksIsReportedForItsScenario(t *testing.T) {
 			break
 		}
 	}
-	if itemTemplate == "" {
-		t.Fatalf("%q has no generable level-B requirement", name)
+	if itemTemplate != "trigger#0.1" {
+		t.Fatalf("%q first generable level-B template = %q, want trigger#0.1", name, itemTemplate)
 	}
 	var problems []string
 	scan := &setScan{verdicts: map[string]map[string]compliance.VerdictRow{
