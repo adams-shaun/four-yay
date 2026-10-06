@@ -188,22 +188,32 @@ func TestCostStaticProfilesAndOpponentGap(t *testing.T) {
 			t.Errorf("%s reduced-price cast failed: %v", name, res.Fails)
 		}
 	}
-	c, ok := reg.Lookup("Thalia, the Survivor")
+	for _, name := range []string{"Thalia, the Survivor", "Terror of the Peaks"} {
+		it := staticCostItem(t, reg, name)
+		castByOpponent := false
+		for _, step := range it.Steps {
+			castByOpponent = castByOpponent || (step.Op == "cast" && step.Seat == 1)
+		}
+		if !castByOpponent {
+			t.Fatalf("%s probe does not cast as p1: %+v", name, it.Steps)
+		}
+	}
+	c, ok := reg.Lookup("Aven Interrupter")
 	if !ok {
-		t.Fatal("precondition: Thalia, the Survivor missing from corpus")
+		t.Fatal("precondition: Aven Interrupter missing from corpus")
 	}
 	for _, req := range levelb.Requirements(c) {
 		if req.Key == "static#0.0" {
 			if req.Sub != "static.cost" || !strings.Contains(req.Gap, "opponent-cast") {
-				t.Fatalf("Thalia gap = %+v, want named opponent-cast gap", req)
+				t.Fatalf("Aven Interrupter gap = %+v, want named opponent-cast gap", req)
 			}
-			if _, skip := GenerateB(reg, "Thalia, the Survivor", req); skip == nil || !strings.Contains(skip.Reason, "opponent-cast") {
-				t.Fatalf("Thalia did not remain a named gap: %v", skip)
+			if _, skip := GenerateB(reg, "Aven Interrupter", req); skip == nil || !strings.Contains(skip.Reason, "opponent-cast") {
+				t.Fatalf("Aven Interrupter did not remain a named gap: %v", skip)
 			}
 			return
 		}
 	}
-	t.Fatal("precondition: Thalia has no static#0.0")
+	t.Fatal("precondition: Aven Interrupter has no static#0.0")
 }
 
 // A gorge that ignores the reduction cannot cast at the reduced price. The

@@ -138,6 +138,9 @@ func triggerScenario(f *cards.Face, name string, c triggerCause, req levelb.Requ
 	for _, card := range c.graveyard {
 		p0.Graveyard = appendFixtureUnique(p0.Graveyard, card)
 	}
+	for _, card := range c.opponentHand {
+		p1.Hand = appendFixtureUnique(p1.Hand, card)
+	}
 	for _, card := range c.tapped {
 		if card == "__SOURCE__" {
 			card = name
@@ -234,6 +237,18 @@ func triggerWithFixture(reg *cards.Registry, f *cards.Face, name string, req lev
 	}
 	it = oraclegen.NewLevelBItem(name, req.Key, TriggerFires.Version, []string{"603.2"}, sc)
 	it.XAnswers = oraclegen.XAnswersForScenario(res, sc, oraclegen.ModeNumbers(f), castSteps)
+	// Ward is caused by targeting; decline its unless-pay mode so the probe
+	// does not depend on the opponent's ability to pay the ward cost.
+	for _, d := range res.Decisions {
+		if req.Sub != "trigger.becomes-target" || len(c.opponentHand) == 0 || d.Resume != "unless_pay" || d.Step < 0 || d.Step >= len(it.XAnswers) {
+			continue
+		}
+		for i := range it.XAnswers[d.Step] {
+			if it.XAnswers[d.Step][i].Kind == "mode" {
+				it.XAnswers[d.Step][i].Value = "[mode_skip]"
+			}
+		}
+	}
 	if c.xability != nil {
 		it.XAbility = make([]string, len(sc.Steps))
 		offset := len(c.prelude) + len(triggerSteps(f, name, c, nil, fx))
