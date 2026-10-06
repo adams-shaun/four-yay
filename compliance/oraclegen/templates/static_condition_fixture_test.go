@@ -1,7 +1,6 @@
 package templates_test
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/adams-shaun/gorge/compliance/levelb"
@@ -94,23 +93,44 @@ func TestStaticSelfConditionTurnHistory(t *testing.T) {
 	t.Fatal("precondition: Brightspear Zealot static#0.0 requirement exists")
 }
 
-func TestStaticIsPresentGraveyardHasNamedSkip(t *testing.T) {
+func TestStaticIsPresentGraveyardScenarios(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
-	c, ok := reg.Lookup("Basking Capybara")
-	if !ok {
-		t.Fatal("precondition: Basking Capybara is in the corpus")
+	for _, tc := range []struct {
+		card, key string
+		minimum   int
+	}{
+		{"Basking Capybara", "static#0.0", 4},
+		{"Echo of Dusk", "static#0.0", 4},
+		{"Didact Echo", "static#0.0", 4},
+		{"Frilled Cave-Wurm", "static#0.0", 4},
+		{"Akawalli, the Seething Tower", "static#0.0", 4},
+		{"Akawalli, the Seething Tower", "static#0.1", 8},
+	} {
+		t.Run(tc.card+"/"+tc.key, func(t *testing.T) {
+			card, ok := reg.Lookup(tc.card)
+			if !ok {
+				t.Fatalf("precondition: %s is in corpus", tc.card)
+			}
+			var req *levelb.Requirement
+			for i := range levelb.Requirements(card) {
+				r := levelb.Requirements(card)[i]
+				if r.Key == tc.key && r.Sub == "static.continuous" {
+					req = &r
+					break
+				}
+			}
+			if req == nil {
+				t.Fatalf("precondition: %s %s requirement exists", tc.card, tc.key)
+			}
+			item, skip := templates.GenerateB(reg, tc.card, *req)
+			if skip != nil {
+				t.Fatalf("unexpected skip: %s", skip.Reason)
+			}
+			if len(item.Setup["p0"].Graveyard) < tc.minimum {
+				t.Fatalf("graveyard fixture has %d cards, want >=%d: %+v", len(item.Setup["p0"].Graveyard), tc.minimum, item.Setup)
+			}
+		})
 	}
-	for _, req := range levelb.Requirements(c) {
-		if req.Sub != "static.continuous" {
-			continue
-		}
-		_, skip := templates.GenerateB(reg, "Basking Capybara", req)
-		if skip == nil || !strings.Contains(skip.Reason, "counts permanent cards in a graveyard") {
-			t.Fatalf("Basking Capybara %s skip = %v, want the named graveyard-filter limitation", req.Key, skip)
-		}
-		return
-	}
-	t.Fatal("precondition: Basking Capybara has a static.continuous requirement")
 }
 
 func hasCard(xs []string, card string) bool {
