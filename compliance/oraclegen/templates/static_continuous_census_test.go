@@ -40,7 +40,8 @@ var wantStaticContinuousCensus = map[string]map[string]int{
 		"skip:static effect not observable on a probe or the card":                    14,
 		"skip:static amount is a computed count the fixture does not make observable": 1,
 		"skip:static removes the abilities of a permanent the fixture gives none":     1,
-		"skip:static changes a player rule (hand size, land plays), not a permanent":  2,
+		"skip:static changes a player rule (hand size, land plays), not a permanent":  1,
+		"skip:static hand size is not observable in the permanent snapshot":           1,
 		"skip:static needs counters on the affected permanent":                        3,
 	},
 	"FRA": {
