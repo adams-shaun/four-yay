@@ -2,7 +2,6 @@ package botpolicy
 
 import (
 	"fmt"
-	"reflect"
 	"slices"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -334,15 +333,15 @@ func verifyIncBoard(g *state.Game, ch Chars, me state.PlayerID, b *Board) {
 // table order included, or "".
 func boardsDiffer(a, b Board) string {
 	switch {
-	case !tablesSame(a.Creatures, b.Creatures):
+	case !tablesSame(a.Creatures, b.Creatures, creatureEqual):
 		return fmt.Sprintf("Creatures %v / %v vs %v / %v", a.Creatures.Keys(), a.Creatures.Values(), b.Creatures.Keys(), b.Creatures.Values())
-	case !tablesSame(a.Cards, b.Cards):
+	case !tablesSame(a.Cards, b.Cards, comparableEqual[Card]):
 		return fmt.Sprintf("Cards %v / %+v vs %v / %+v", a.Cards.Keys(), a.Cards.Values(), b.Cards.Keys(), b.Cards.Values())
-	case !tablesSame(a.Life, b.Life):
+	case !tablesSame(a.Life, b.Life, comparableEqual[int32]):
 		return "Life"
-	case !tablesSame(a.Commanders, b.Commanders):
+	case !tablesSame(a.Commanders, b.Commanders, commanderEqual):
 		return "Commanders"
-	case !reflect.DeepEqual(a.Stack, b.Stack) && (len(a.Stack) != 0 || len(b.Stack) != 0):
+	case !slices.Equal(a.Stack, b.Stack): // nil and empty stacks are the same stack
 		return "Stack"
 	case a.OwnDeck != b.OwnDeck || a.IsMain != b.IsMain || a.FirstMain != b.FirstMain || a.MyTurn != b.MyTurn ||
 		a.Step != b.Step || a.Pool != b.Pool || a.PoolRestricted != b.PoolRestricted ||
@@ -352,13 +351,15 @@ func boardsDiffer(a, b Board) string {
 	return ""
 }
 
-func tablesSame[K TableKey, V any](a, b IDTable[K, V]) bool {
+// tablesSame compares two tables entry for entry, in order, with eq: the
+// typed stand-in for reflect.DeepEqual on the value type (board_equal.go).
+func tablesSame[K TableKey, V any](a, b IDTable[K, V], eq func(*V, *V) bool) bool {
 	if !slices.Equal(a.Keys(), b.Keys()) {
 		return false
 	}
 	av, bv := a.Values(), b.Values()
 	for i := range av {
-		if !reflect.DeepEqual(av[i], bv[i]) {
+		if !eq(&av[i], &bv[i]) {
 			return false
 		}
 	}

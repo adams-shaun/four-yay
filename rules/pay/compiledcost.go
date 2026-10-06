@@ -1,7 +1,6 @@
 package pay
 
 import (
-	"reflect"
 	"sync/atomic"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -52,7 +51,7 @@ func costIsBareTap(c *Cost) bool {
 	}
 	rest := *c
 	rest.Tap = false
-	return reflect.DeepEqual(rest, Cost{})
+	return rest.IsZero()
 }
 
 // FreeCost is the parse of an empty cost text, shared read-only.

@@ -3,10 +3,29 @@ package manabrew
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"reflect"
 	"sort"
-	"strings"
+)
+
+//go:generate go run ./internal/schemagen -dir .
+
+// schema is one node of the typed JSON schema graph Decode walks to report
+// unknown fields. schema_gen.go builds it from this package's source
+// (internal/schemagen), so no runtime reflection is involved. A nil *schema
+// is a leaf: the walker never descends into it.
+type schema struct {
+	kind   schemaKind
+	fields map[string]*schema // schemaStruct: JSON key -> field schema
+	elem   *schema            // schemaList, schemaMap: element schema
+}
+
+type schemaKind uint8
+
+const (
+	schemaStruct schemaKind = iota + 1
+	schemaList
+	schemaMap
 )
 
 // Encode emits canonical ManaBrew JSON: compact (no insignificant whitespace),
@@ -29,10 +48,7 @@ func Decode(data []byte, v any) ([]string, error) {
 	if v == nil {
 		return nil, fmt.Errorf("manabrew: Decode target is nil")
 	}
-	rv := reflect.ValueOf(v)
-	if rv.Kind() != reflect.Pointer || rv.IsNil() {
-		return nil, fmt.Errorf("manabrew: Decode target must be a non-nil pointer")
-	}
+	root, known := schemaOfTarget(v)
 	var raw any
 	d := json.NewDecoder(bytes.NewReader(data))
 	d.UseNumber()
@@ -43,23 +59,32 @@ func Decode(data []byte, v any) ([]string, error) {
 		return nil, fmt.Errorf("manabrew: multiple JSON values in one document")
 	}
 	if err := json.Unmarshal(data, v); err != nil {
+		var inv *json.InvalidUnmarshalError
+		if errors.As(err, &inv) {
+			return nil, fmt.Errorf("manabrew: Decode target must be a non-nil pointer")
+		}
 		return nil, err
 	}
-	paths := unknownPaths(raw, rv.Elem().Type(), "")
+	if !known {
+		// A target outside this package's schema graph (a non-struct or
+		// foreign type) decodes, but has no schema to report unknowns by.
+		return nil, nil
+	}
+	paths := unknownPaths(raw, root, "")
 	sort.Strings(paths)
 	return paths, nil
 }
 
-// unknownPaths walks the parsed JSON against the Go schema and collects the
-// paths of fields the schema does not model. A union carrier is resolved from
-// its discriminator before the walk descends.
-func unknownPaths(value any, t reflect.Type, path string) []string {
-	for t.Kind() == reflect.Pointer {
-		t = t.Elem()
+// unknownPaths walks the parsed JSON against the schema graph and collects
+// the paths of fields the schema does not model. A union carrier is resolved
+// from its discriminator before the walk descends.
+func unknownPaths(value any, s *schema, path string) []string {
+	if s == nil {
+		return nil
 	}
-	if t.Kind() == reflect.Struct {
+	if s.kind == schemaStruct {
 		if m, ok := value.(map[string]any); ok {
-			if key, concrete := resolveUnionType(t, m); concrete != nil {
+			if key, concrete := resolveUnionType(s, m); concrete != nil {
 				// Walk the union's concrete schema with the discriminator key
 				// itself removed: the concrete struct does not re-declare it.
 				filtered := make(map[string]any, len(m))
@@ -72,20 +97,19 @@ func unknownPaths(value any, t reflect.Type, path string) []string {
 			}
 		}
 	}
-	switch t.Kind() {
-	case reflect.Struct:
+	switch s.kind {
+	case schemaStruct:
 		m, ok := value.(map[string]any)
 		if !ok {
 			return nil
 		}
-		fields := structFields(t)
 		var out []string
 		for k, v := range m { // collected into one slice, then sorted by Decode
 			p := k
 			if path != "" {
 				p = path + "." + k
 			}
-			ft, ok := fields[k]
+			ft, ok := s.fields[k]
 			if !ok {
 				out = append(out, p)
 				continue
@@ -93,17 +117,17 @@ func unknownPaths(value any, t reflect.Type, path string) []string {
 			out = append(out, unknownPaths(v, ft, p)...)
 		}
 		return out
-	case reflect.Slice, reflect.Array:
+	case schemaList:
 		a, ok := value.([]any)
 		if !ok {
 			return nil
 		}
 		var out []string
 		for i, v := range a {
-			out = append(out, unknownPaths(v, t.Elem(), fmt.Sprintf("%s[%d]", path, i))...)
+			out = append(out, unknownPaths(v, s.elem, fmt.Sprintf("%s[%d]", path, i))...)
 		}
 		return out
-	case reflect.Map:
+	case schemaMap:
 		m, ok := value.(map[string]any)
 		if !ok {
 			return nil
@@ -114,7 +138,7 @@ func unknownPaths(value any, t reflect.Type, path string) []string {
 			if path != "" {
 				p = path + "." + k
 			}
-			out = append(out, unknownPaths(v, t.Elem(), p)...)
+			out = append(out, unknownPaths(v, s.elem, p)...)
 		}
 		return out
 	default:
@@ -122,81 +146,53 @@ func unknownPaths(value any, t reflect.Type, path string) []string {
 	}
 }
 
-// resolveUnionType maps a union carrier type plus its raw JSON object to the
-// discriminator key it resolved on and the concrete schema that key selects.
-// It returns nil when the discriminator is absent or unknown (the strict
-// codecs report that; the walker stays silent).
-func resolveUnionType(t reflect.Type, m map[string]any) (string, reflect.Type) {
-	switch t {
-	case reflect.TypeOf(PromptInput{}):
-		if s, ok := m["type"].(string); ok {
-			if newCase, ok := promptInputCases[s]; ok {
-				return "type", reflect.TypeOf(newCase())
+// resolveUnionType maps a union carrier schema plus its raw JSON object to
+// the discriminator key it resolved on and the concrete schema that key
+// selects. It returns nil when the discriminator is absent or unknown (the
+// strict codecs report that; the walker stays silent).
+func resolveUnionType(s *schema, m map[string]any) (string, *schema) {
+	switch s {
+	case schemaPromptInput:
+		if t, ok := m["type"].(string); ok {
+			if newCase, ok := promptInputCases[t]; ok {
+				if cs, ok := schemaOfTarget(newCase()); ok {
+					return "type", cs
+				}
 			}
 		}
-	case reflect.TypeOf(PromptOutputData{}):
-		if s, ok := m["type"].(string); ok {
-			if newCase, ok := promptOutputCases[s]; ok {
-				return "type", reflect.TypeOf(newCase())
+	case schemaPromptOutputData:
+		if t, ok := m["type"].(string); ok {
+			if newCase, ok := promptOutputCases[t]; ok {
+				if cs, ok := schemaOfTarget(newCase()); ok {
+					return "type", cs
+				}
 			}
 		}
-	case reflect.TypeOf(ClientMessage{}):
+	case schemaClientMessage:
 		switch m["kind"] {
 		case "response":
-			return "kind", reflect.TypeOf(ClientResponse{})
+			return "kind", schemaClientResponse
 		case "directive":
-			return "kind", reflect.TypeOf(ClientDirective{})
+			return "kind", schemaClientDirective
 		}
-	case reflect.TypeOf(EngineMessage{}):
+	case schemaEngineMessage:
 		switch m["kind"] {
 		case "state":
-			return "kind", reflect.TypeOf(StateUpdate{})
+			return "kind", schemaStateUpdate
 		case "stateDelta":
-			return "kind", reflect.TypeOf(StateDelta{})
+			return "kind", schemaStateDelta
 		case "display":
-			return "kind", reflect.TypeOf(DisplayMessage{})
+			return "kind", schemaDisplayMessage
 		case "prompt":
-			return "kind", reflect.TypeOf(PromptMessage{})
+			return "kind", schemaPromptMessage
 		case "error":
-			return "kind", reflect.TypeOf(ErrorMessage{})
+			return "kind", schemaErrorMessage
 		}
-	case reflect.TypeOf(CardView{}):
+	case schemaCardView:
 		if m["visibility"] == "hidden" {
-			return "visibility", reflect.TypeOf(HiddenCard{})
+			return "visibility", schemaHiddenCard
 		}
-		return "visibility", reflect.TypeOf(VisibleCard{})
+		return "visibility", schemaVisibleCard
 	}
 	return "", nil
-}
-
-// structFields maps each JSON key of a struct type to its field type,
-// flattening anonymous embedded structs the way encoding/json does.
-func structFields(t reflect.Type) map[string]reflect.Type {
-	fields := make(map[string]reflect.Type)
-	for i := 0; i < t.NumField(); i++ {
-		f := t.Field(i)
-		if f.PkgPath != "" { // unexported
-			continue
-		}
-		name := strings.Split(f.Tag.Get("json"), ",")[0]
-		if name == "-" {
-			continue
-		}
-		if name == "" {
-			if f.Anonymous {
-				ft := f.Type
-				for ft.Kind() == reflect.Pointer {
-					ft = ft.Elem()
-				}
-				if ft.Kind() == reflect.Struct {
-					for k, v := range structFields(ft) {
-						fields[k] = v
-					}
-				}
-			}
-			continue
-		}
-		fields[name] = f.Type
-	}
-	return fields
 }

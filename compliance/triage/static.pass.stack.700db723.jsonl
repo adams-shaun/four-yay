@@ -1,0 +1,2 @@
+{"shape":{"template":"static","op":"pass","field":"stack","diff":"gorge=[] xmage=[ability:Angel of Renewal@p0, ability:Angel of Renewal@p0]"},"key":"static | pass | stack | gorge=[] xmage=[ability:Angel of Renewal@p0, ability:Angel of Renewal@p0]","cards":1}
+{"card":"Katara, the Fearless","template":"static#0.0","status":"diverge","api":"-","sets":["TLA"],"detail":"step 2 (pass) stack: gorge \"[]\", xmage \"[ability:Angel of Renewal@p0, ability:Angel of Renewal@p0]\""}
