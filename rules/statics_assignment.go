@@ -30,7 +30,7 @@ func (e *Engine) asUnblockedStaticMatches(id state.ObjID) (matched, mandatory bo
 			continue
 		}
 		if spec := strings.TrimSpace(sv.ParamStr(cards.PKIsPresent)); spec != "" {
-			if e.countPresent(spec, sv.Source, sv.Controller) <= 0 {
+			if n, known := presentCountInZones(e, sv.ParamStr(cards.PKPresentZone), spec, sv.Source, sv.Controller); !known || n <= 0 {
 				continue
 			}
 		}
@@ -138,7 +138,7 @@ func (e *Engine) combatDamageToughnessMatches(id state.ObjID) bool {
 			continue
 		}
 		if spec := strings.TrimSpace(sv.ParamStr(cards.PKIsPresent)); spec != "" {
-			if e.countPresent(spec, sv.Source, sv.Controller) <= 0 {
+			if n, known := presentCountInZones(e, sv.ParamStr(cards.PKPresentZone), spec, sv.Source, sv.Controller); !known || n <= 0 {
 				continue
 			}
 		}

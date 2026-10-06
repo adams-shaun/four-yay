@@ -547,7 +547,7 @@ func (e *Engine) mayPlayStatic(params map[string]string, id state.ObjID, you sta
 	// matches the spec. A spec nothing on the battlefield satisfies --
 	// including one whose predicate this build cannot evaluate (unknown
 	// predicates fail closed) -- withholds the static, never widens it.
-	if ip := strings.TrimSpace(params["IsPresent"]); ip != "" && !e.mayPlayIsPresent(ip, you, source) {
+	if ip := strings.TrimSpace(params["IsPresent"]); ip != "" && !e.mayPlayIsPresent(ip, params["PresentZone"], you, source) {
 		return false, false, false, Cost{}, hasRaise, priced
 	}
 	spec := strings.TrimSpace(params["Affected"])
@@ -612,20 +612,15 @@ func (e *Engine) mayPlayStatic(params map[string]string, id state.ObjID, you sta
 	return true, grants, free, raise, hasRaise, priced
 }
 
-// isPresent scans the battlefield (Forge's IsPresent$ default zone) for at
-// least one object matching spec -- Gravecrawler's `IsPresent$ Zombie.YouCtrl`.
+// mayPlayIsPresent scans the PresentZone$ zones (Forge's IsPresent$ default is
+// the battlefield; an unrecognised zone fails closed) for at least one object
+// matching spec -- Gravecrawler's `IsPresent$ Zombie.YouCtrl`.
 // The spec's controller-relative qualifiers resolve against `you`, Self and
 // CARDNAME against `source`, exactly like the Affected$ spec. AliveFrom(0)
 // keeps the scan deterministic and empty-safe.
-func (e *Engine) mayPlayIsPresent(spec string, you state.PlayerID, source state.ObjID) bool {
-	for _, p := range e.G.AliveFrom(0) {
-		for _, oid := range e.G.Zone(state.ZBattlefield, p) {
-			if e.matchesSpecFrom(spec, oid, you, source) {
-				return true
-			}
-		}
-	}
-	return false
+func (e *Engine) mayPlayIsPresent(spec, zoneParam string, you state.PlayerID, source state.ObjID) bool {
+	n, _ := presentCountInZones(e, zoneParam, spec, source, you)
+	return n > 0
 }
 
 // mayPlayLimitReached reports whether the card has already been played
@@ -789,7 +784,7 @@ func (e *Engine) mayPlayAltCosts(p state.PlayerID, id state.ObjID) []Cost {
 		default:
 			continue
 		}
-		if ip := strings.TrimSpace(sv.ParamStr(cards.PKIsPresent)); ip != "" && !e.mayPlayIsPresent(ip, sv.Controller, sv.Source) {
+		if ip := strings.TrimSpace(sv.ParamStr(cards.PKIsPresent)); ip != "" && !e.mayPlayIsPresent(ip, sv.ParamStr(cards.PKPresentZone), sv.Controller, sv.Source) {
 			continue
 		}
 		spec := strings.TrimSpace(sv.ParamStr(cards.PKAffected))

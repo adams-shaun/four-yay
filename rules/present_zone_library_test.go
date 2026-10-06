@@ -76,11 +76,49 @@ func TestCorpusPresentZoneHiddenZones(t *testing.T) {
 			t.Errorf("%s %s: PresentZone$ %s maps to (%v, %v), want (%v, true)", name, kind, zone, got, known, want)
 		}
 	}
-	visit := func(name, kind string, params map[string]string) {
+	// zoneAwareSites is the class invariant: the dispatch key (kind + Mode$/
+	// Event$/API) of every IsPresent$ site that reads PresentZone$ through
+	// the one shared mapper (presentZoneFromParam) or, for the R: events the
+	// match path owns, through replacementConditionHolds. A carrier that
+	// puts a non-battlefield PresentZone$ on a key not listed here is read by
+	// a battlefield-only count and fails below -- route its site through
+	// presentCountInZones / presentZoneFromParam, then list it.
+	zoneAwareSites := map[string]bool{
+		// trigger, ability: presentClauseHolds / abilityPresentHolds.
+		"T:*": true, "A:*": true,
+		// layer statics and the cast-side statics: continuousGateHolds,
+		// staticTimingGate, costConditionHolds -> presentGate -> countStaticPresent.
+		"S:Continuous": true, "S:CantAttack": true, "S:CantBlock": true, "S:CantBlockBy": true,
+		"S:CanAttackDefender": true, "S:CastWithFlash": true, "S:MinMaxBlocker": true, "S:ReduceCost": true,
+		// the former battlefield-only sites, now through presentCountInZones.
+		"S:MayPlay": true, "S:UntapOtherPlayer": true, "S:AssignCombatDamageAsUnblocked": true,
+		"S:CombatDamageToughness": true, "S:CombatDamageNegatePower": true,
+		"R:GainLife": true, "R:LoseLife": true, "R:PayLife": true, "R:DamageDone": true,
+		// the rest of the R: events: replacementConditionHolds.
+		"R:Counter": true, "R:Draw": true, "R:Learn": true, "R:Planeswalk": true,
+	}
+	siteKey := func(kind, mode string, params map[string]string) string {
+		if kind == "S:" && strings.TrimSpace(params["MayPlay"]) != "" {
+			return "S:MayPlay"
+		}
+		if kind == "T:" || kind == "A:" {
+			return kind + "*"
+		}
+		return kind + mode
+	}
+	nonBattlefield := 0
+	visit := func(name, kind, mode string, params map[string]string) {
 		if strings.TrimSpace(params["IsPresent"]) == "" {
 			return
 		}
-		check(name, kind, params["PresentZone"])
+		zone := strings.TrimSpace(params["PresentZone"])
+		if zone != "" && zone != "Battlefield" {
+			nonBattlefield++
+			if key := siteKey(kind, mode, params); !zoneAwareSites[key] {
+				t.Errorf("%s %s Mode/Event %q: IsPresent$ with PresentZone$ %s is dispatched by %q, which is not a zone-aware site", name, kind, mode, zone, key)
+			}
+		}
+		check(name, kind, zone)
 	}
 	for _, c := range reg.Cards {
 		for _, face := range c.Faces {
@@ -88,17 +126,17 @@ func TestCorpusPresentZoneHiddenZones(t *testing.T) {
 				continue
 			}
 			for _, s := range face.Statics {
-				visit(face.Name, "S:", s.Params)
+				visit(face.Name, "S:", s.Mode, s.Params)
 			}
 			for _, tr := range face.Triggers {
-				visit(face.Name, "T:", tr.Params)
+				visit(face.Name, "T:", tr.Params["Mode"], tr.Params)
 			}
 			for _, r := range face.Repls {
-				visit(face.Name, "R:", r.Params)
+				visit(face.Name, "R:", r.Event, r.Params)
 			}
 			for _, ab := range face.Abilities {
 				if ab != nil {
-					visit(face.Name, "A:", ab.Params)
+					visit(face.Name, "A:", "", ab.Params)
 				}
 			}
 			keys := make([]string, 0, len(face.SVars))
@@ -121,6 +159,11 @@ func TestCorpusPresentZoneHiddenZones(t *testing.T) {
 	// /usr/bin/grep -rhoE 'PresentZone$ [A-Za-z,]+' .cards/cardsfolder | sort | uniq -c.
 	if counts["Library"] < 10 || counts["Hand"] < 24 || counts["Battlefield,Graveyard"] < 8 {
 		t.Fatalf("census precondition: Library=%d (want >= 10), Hand=%d (want >= 24), Battlefield,Graveyard=%d (want >= 8) carriers", counts["Library"], counts["Hand"], counts["Battlefield,Graveyard"])
+	}
+	// Floor measured 2026-10-06 (the 150-odd non-battlefield carriers above);
+	// a census that stopped seeing them would pass the invariant vacuously.
+	if nonBattlefield < 100 {
+		t.Fatalf("census precondition: %d non-battlefield IsPresent$ carriers, want >= 100", nonBattlefield)
 	}
 	sort.Strings(carriers)
 	for _, c := range carriers {

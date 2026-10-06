@@ -179,19 +179,7 @@ func (e *Engine) replacementCondition(source state.ObjID, r *cards.Repl) bool {
 		return false
 	}
 	if spec := r.ParamStr(cards.PKIsPresent); spec != "" {
-		found := false
-		for _, p := range e.G.AliveFrom(0) {
-			for _, id := range e.G.Zone(state.ZBattlefield, p) {
-				if e.matchesSpec(spec, id, e.specCtx(source, o.Controller)) {
-					found = true
-					break
-				}
-			}
-			if found {
-				break
-			}
-		}
-		if !found {
+		if n, _ := presentCountInZones(e, r.ParamStr(cards.PKPresentZone), spec, source, o.Controller); n <= 0 {
 			return false
 		}
 	}
