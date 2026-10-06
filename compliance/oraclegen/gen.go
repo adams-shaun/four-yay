@@ -188,6 +188,14 @@ type Item struct {
 	// because rules' runner decodes steps with DisallowUnknownFields and
 	// would reject an unknown per-step field. Empty for every level-A item.
 	XAbility []string `json:"xmage_ability,omitempty"`
+	// XTargetSkips is parallel to Scenario.Steps: entry i lists the cast
+	// step's completely omitted optional XMage target objects, each with the
+	// offset in Targets where the driver queues its "[target_skip]" (see
+	// XTargetSkip). Like XAbility it is an Item field, never a Step one, so
+	// Raw() and gorge's runner never see it. Nil for every item that is not
+	// the supported independent-0..1 shape, which keeps those bytes unchanged
+	// and the driver on its legacy trailing skip.
+	XTargetSkips [][]XTargetSkip `json:"xmage_target_skips,omitempty"`
 	// Ignore names snapshot fields the comparison leaves out for this
 	// scenario: library_top after the card shuffles a library.
 	Ignore []string `json:"ignore,omitempty"`

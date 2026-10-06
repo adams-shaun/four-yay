@@ -349,6 +349,35 @@ public class ScenarioReplay extends CardTestPlayerBase {
          */
         @Override
         public boolean chooseTarget(Outcome outcome, mage.target.Target target, Ability source, Game game) {
+            // TestPlayer.chooseTarget runs its zone matcher over every queued
+            // answer and rejects a "[target_skip]" that is not at the queue
+            // front (checkTargetDefinitionMarksSupport), so a skip queued for
+            // a LATER target object (Rise from the Wreck's empty Mount slot)
+            // is hidden from this ask and restored, in order, afterwards.
+            List<String> later = hideAfterNextSkip(getTargets());
+            try {
+                return chooseTargetInSegment(outcome, target, source, game);
+            } finally {
+                getTargets().addAll(later);
+            }
+        }
+
+        /** Detaches and returns the queue's suffix that starts at its next
+         * "[target_skip]" so only the contiguous segment that precedes it is
+         * visible. A skip at the front (consumed by this ask) or no skip at all
+         * detaches nothing. */
+        static List<String> hideAfterNextSkip(List<String> queue) {
+            int next = queue.indexOf(TestPlayer.TARGET_SKIP);
+            if (next <= 0) {
+                return new ArrayList<>();
+            }
+            List<String> tail = queue.subList(next, queue.size());
+            List<String> hidden = new ArrayList<>(tail);
+            tail.clear();
+            return hidden;
+        }
+
+        private boolean chooseTargetInSegment(Outcome outcome, mage.target.Target target, Ability source, Game game) {
             // An adjusted spell's open slot is closed only when XMage asks
             // again after the scenario's answers: a slot whose candidates are
             // exhausted never asks, so a skip queued up front would be left
@@ -503,6 +532,8 @@ public class ScenarioReplay extends CardTestPlayerBase {
             splitScripted = xans.toString().contains("^X=");
             xabilities = sc.has("xmage_ability") && sc.get("xmage_ability").isJsonArray()
                     ? sc.getAsJsonArray("xmage_ability") : new JsonArray();
+            xtargetSkips = sc.has("xmage_target_skips") && sc.get("xmage_target_skips").isJsonArray()
+                    ? sc.getAsJsonArray("xmage_target_skips") : new JsonArray();
             for (int i = 0; i < steps.size(); i++) {
                 JsonObject st = steps.get(i).getAsJsonObject();
                 String op = str(st, "op");
@@ -1098,6 +1129,52 @@ public class ScenarioReplay extends CardTestPlayerBase {
         return "";
     }
 
+    // The item's xmage_target_skips: parallel to the steps, entry i lists the
+    // empty optional target objects of step i's cast as {"at": n, "slot": k}.
+    // "at" is the number of filled targets that precede the object, so the
+    // skip is queued before target n (consecutive empty objects repeat n, a
+    // trailing one has n == the target count). "slot" only identifies the
+    // object for the generator's own validation.
+    private JsonArray xtargetSkips = new JsonArray();
+
+    /** The queue offsets of step i's explicit target skips, validated against
+     * the cast's target count; empty when the item carries none. A malformed
+     * plan fails the replay rather than queueing a speculative skip. */
+    private List<Integer> castTargetSkipsAt(int i, int targetCount) {
+        List<Integer> out = new ArrayList<>();
+        if (i >= xtargetSkips.size() || !xtargetSkips.get(i).isJsonArray()) {
+            return out;
+        }
+        int prev = 0;
+        for (JsonElement e : xtargetSkips.get(i).getAsJsonArray()) {
+            if (!e.isJsonObject() || !e.getAsJsonObject().has("at")) {
+                throw new IllegalArgumentException("step " + i + " xmage_target_skips entry has no \"at\": " + e);
+            }
+            int at = e.getAsJsonObject().get("at").getAsInt();
+            if (at < prev || at > targetCount) {
+                throw new IllegalArgumentException("step " + i + " xmage_target_skips offset " + at
+                        + " is out of order or beyond its " + targetCount + " targets");
+            }
+            prev = at;
+            out.add(at);
+        }
+        return out;
+    }
+
+    /** Queue the cast's targets with one "[target_skip]" before each offset. */
+    private void queueCastTargetsWithSkips(TestPlayer p, List<String> tg, List<Integer> skips) {
+        int next = 0;
+        for (int k = 0; k <= tg.size(); k++) {
+            while (next < skips.size() && skips.get(next) == k) {
+                addTarget(p, TestPlayer.TARGET_SKIP);
+                next++;
+            }
+            if (k < tg.size()) {
+                queueCastTarget(p, tg.get(k));
+            }
+        }
+    }
+
     /** Whether the named card has an activated mana ability whose rule text
      * starts with text; XMage activates those through activateManaAbility. */
     private static boolean isManaAbilityText(String name, String text) {
@@ -1249,7 +1326,18 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     cast.add(card);
                     return;
                 }
-                if (!tg.isEmpty() && queueAdjustedCastTargets(spellNeedsQueuedCastTargets(card), spellTargetsDivided(card), tg.size())) {
+                List<Integer> skips = castTargetSkipsAt(stepIdx, tg.size());
+                if (!skips.isEmpty()) {
+                    // The generator named every empty optional target object
+                    // and where it falls between the filled ones, so the queue
+                    // is exactly the plan: no blind trailing skip.
+                    if (spellTargetsDivided(card) || queueAdjustedCastTargets(spellNeedsQueuedCastTargets(card), false, tg.size())) {
+                        throw new IllegalArgumentException("cast step " + stepIdx + " carries xmage_target_skips for " + card
+                                + ", a divided or adjusted spell the explicit skip plan does not cover");
+                    }
+                    queueCastTargetsWithSkips(p, tg, skips);
+                    castSpell(turn, phase, p, card);
+                } else if (!tg.isEmpty() && queueAdjustedCastTargets(spellNeedsQueuedCastTargets(card), spellTargetsDivided(card), tg.size())) {
                     // An adjuster may add the SpellAbility's target slots only
                     // after cast setup. Inline $target is validated too early
                     // (against the unadjusted, targetless ability), so queue
