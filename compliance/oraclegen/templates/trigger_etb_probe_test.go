@@ -39,7 +39,7 @@ func TestTriggerETBProbe(t *testing.T) {
 			if res, ok := oraclegen.PlaysThrough(reg, it.Scenario); !ok || len(res.Fails) != 0 {
 				t.Fatalf("does not play through gorge: ok=%v fails=%v", ok, res.Fails)
 			}
-			if !triggerShownOnStack(t, reg, it.Scenario, tc.name) {
+			if !triggerProbeSlotOnStack(t, reg, it.Scenario, tc.name, "0") {
 				t.Fatalf("no snapshot shows an ability on the stack sourced by %s", tc.name)
 			}
 			t.Logf("%s: %s %s", tc.name, steps[0].Op, probe)
@@ -98,7 +98,7 @@ func TestTriggerETBProbeGraveyardZone(t *testing.T) {
 	if !inGrave || onField {
 		t.Fatalf("Bloodghast graveyard=%v battlefield=%v, want it in the graveyard only", p0.Graveyard, p0.Battlefield)
 	}
-	if !triggerShownOnStack(t, reg, it.Scenario, "Bloodghast") {
+	if !triggerProbeSlotOnStack(t, reg, it.Scenario, "Bloodghast", "0") {
 		t.Fatal("Bloodghast's graveyard trigger never reaches the stack")
 	}
 }

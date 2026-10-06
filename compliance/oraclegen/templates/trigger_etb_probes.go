@@ -23,18 +23,6 @@ import (
 	"github.com/adams-shaun/gorge/compliance/oraclegen"
 )
 
-// etbProbeSpec is one candidate entering object: a card put into p0's hand,
-// played if it is a land or cast otherwise. targets is the cast step's target
-// list (an Aura needs a bearer); battlefield lists extra p0 permanents the
-// cause needs before the probe enters (the Aura's bearer), and is ignored for
-// a land.
-type etbProbeSpec struct {
-	card        string
-	play        bool
-	targets     []string
-	battlefield []string
-}
-
 // etbLandProbes are lands to play. The typed basics come first so a filter
 // naming one of them is served by the matching basic; Gate and Cave lands
 // follow for the subtype filters. None carries a cost.
@@ -43,10 +31,9 @@ var etbLandProbes = []string{"Plains", "Island", "Swamp", "Mountain", "Forest", 
 // etbCastProbes is the ordered cast list: enchantments, auras, artifacts,
 // vehicles, equipment, then the creature subtypes the corpus's etb filters
 // name, and then the qualifier creatures (legendary, power>=4, mana value >=5).
-// The Bear is tried before this list (see etbProbeCauses). Order only affects how
-// fast a matching probe is reached -- gorge's matcher accepts or rejects each
-// one -- so a specific probe never needs to be ranked above a generic one for
-// correctness.
+// These are tried before the vanilla Bear fallback (see etbProbeCauses).
+// Gorge's matcher, including the requested trigger slot, accepts or rejects
+// each candidate; this table does not interpret the filter.
 var etbCastProbes = []string{
 	// Enchantments (a Shrine is an enchantment subtype).
 	"Glorious Anthem", "Ghostly Prison",
