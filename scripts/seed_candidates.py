@@ -255,7 +255,8 @@ branches' own work.
 ## Done means
 
 `scripts/reward_collect.py hotspots --repo .` no longer lists these paths for
-this branch set, and `go build ./... && go test ./...` is green. If the
+this branch set, `go build ./...` succeeds, and the touched packages' tests pass
+focused and capped (the full suite is scripts/postmerge_batch.sh's). If the
 resolution is sequencing or the hot-file table rather than a split, the commit
 message says why a split was not honest.
 """,
@@ -539,7 +540,8 @@ change, no renamed exported symbols.
 - `go test ./rules -run TestHeads -v` prints the pinned chain heads unchanged.
 - No new size-only file names: `go test ./internal/archtest -run
   TestNoNewSizeOnlyFileNames` is green.
-- `go build ./... && go test ./...` is green.
+- `go build ./...` succeeds; the touched packages' tests pass focused and
+  capped (never `go test ./...`: the full suite is scripts/postmerge_batch.sh's).
 """,
                 est_delta=lines / 300.0,
                 est_cost=COST_SEAM_SPLIT,

@@ -69,6 +69,13 @@ so most of these hurt someone other than you.
   `go test -tags fuzz`; the default suite and the pipeline gates skip it.
   Regression tests pinning a fixed fuzz finding stay untagged.
 - **Don't raise a `budget_s`** without a `Test-Budget-Approved:` trailer.
+- **Don't write or run a test outside the budget** (2 GB RSS, 2 vCPU, 1 min
+  wall; operator 2026-10-05). Don't call `cards.LoadRegistry` in a test (use
+  `internal/testutil.CorpusRegistry`), don't pass `-count=1`, don't run
+  `go test ./...`, `./compliance/...` or a whole package uncapped, and don't
+  run a known-heavy test whole "for a baseline": measure one chunk under the
+  2 GB cap. Split a heavy test into chunk tests sharing fixtures; never
+  delete assertions or shrink a census to make it fit.
 - **Don't grow `AGENTS.md` with detail.** It is loaded on every agent turn.
   Put the detail in `docs/agents/` or `docs/superpowers/` and link to it.
 - **Don't quote an unmeasured number as fact.** Name the command or report,

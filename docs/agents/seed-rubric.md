@@ -101,7 +101,13 @@ Generators, in the order they are consulted:
   promotion when a candidate's CI clears the incumbent.
 
 Every ticket carries its evidence: the measurement, the command that produced
-it, and a "Done means" that re-runs that command.
+it, and a "Done means" that re-runs that command. Since 2026-10-05 (operator)
+every brief also carries the context that keeps the seat's run short -- the
+exact `file:line` of the mechanism, the commands to run and their caps, what is
+already ruled out, and who is working nearby -- with any unverified premise
+under a `Hypothesis:` label. `file_ticket` appends the test-budget footer
+(every test 2 GB / 2 vCPU / 1 min, focused and capped, never `./...` or
+`-count=1`) to every brief it files.
 
 ### 5. Journal
 
