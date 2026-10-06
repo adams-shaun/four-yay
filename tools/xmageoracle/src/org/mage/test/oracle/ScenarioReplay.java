@@ -651,6 +651,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 }
                 int beforeA = playerA.getActions().size();
                 int beforeB = playerB.getActions().size();
+                queuePassCommands(i);
                 step(st, op, i);
                 String cp = "step " + i + " (" + op + ")";
                 runCode(cp, turn, phase, playerA, (info, p, g) -> snaps.add(snapshot(info, g)));
@@ -1601,6 +1602,106 @@ public class ScenarioReplay extends CardTestPlayerBase {
         return false;
     }
 
+    static final int PASS_PAIR_FIRST = 1;
+    static final int PASS_HANDOFF = 2;
+    static final int PASS_PAIR_SECOND = 3;
+
+    /** The XMage commands a pass step queues on the active player, the seat
+     * that carries every checkpoint. */
+    static final String CMD_REQUIRE_STACK = "pass pair needs a stack object";
+    static final String CMD_WAIT_RESOLVE_ONE = "waitStackResolved:1";
+    static final String CMD_YIELD_PRIORITY = "pass handoff to the opponent";
+
+    private static boolean isOp(JsonArray steps, int index, String op) {
+        return index >= 0 && index < steps.size() && str(steps.get(index).getAsJsonObject(), "op").equals(op);
+    }
+
+    private static int seatOfStep(JsonArray steps, int index) {
+        JsonObject st = steps.get(index).getAsJsonObject();
+        return st.has("seat") ? st.get("seat").getAsInt() : 0;
+    }
+
+    /** Classify only the pass shapes emitted by Level-B scenarios; anything
+     * else fails loudly. Gorge's pass answers one priority decision of the
+     * named seat. Two opposing passes (p0 then p1) resolve the stack's top
+     * object, so p0's pass leaves the stack as it was and only p1's pass
+     * resolves. A lone p0 pass hands priority to the p1 cast that follows. */
+    static int passAction(JsonArray steps, int index) {
+        if (index < 0 || index >= steps.size()) {
+            throw new IllegalArgumentException("pass step index out of range: " + index);
+        }
+        if (!isOp(steps, index, "pass")) {
+            throw new IllegalArgumentException("pass action requested for non-pass step " + index);
+        }
+        int seat = seatOfStep(steps, index);
+        if (isOp(steps, index - 1, "pass")) {
+            if (seatOfStep(steps, index - 1) == 0 && seat == 1
+                    && !isOp(steps, index - 2, "pass") && !isOp(steps, index + 1, "pass")) {
+                return PASS_PAIR_SECOND;
+            }
+            throw new IllegalArgumentException("unsupported pass sequence at step " + index);
+        }
+        if (isOp(steps, index + 1, "pass")) {
+            if (seat == 0 && seatOfStep(steps, index + 1) == 1 && !isOp(steps, index + 2, "pass")) {
+                return PASS_PAIR_FIRST;
+            }
+            throw new IllegalArgumentException("unsupported pass pair at step " + index);
+        }
+        if (seat == 0 && isOp(steps, index + 1, "cast") && seatOfStep(steps, index + 1) == 1) {
+            return PASS_HANDOFF;
+        }
+        throw new IllegalArgumentException("unsupported pass pattern at step " + index);
+    }
+
+    /** The commands step {@code index} queues before its own actions and
+     * checkpoint, in queue order. XMage runs every queued action of the
+     * active player at one priority in order and only then lets the opponent
+     * act, so each pass effect has to sit between the right two checkpoints:
+     * the first pass of a pair queues nothing (its checkpoint still sees the
+     * spell, as gorge's does); the second queues the one-object resolution
+     * ahead of its checkpoint; the step after a lone p0 pass starts by
+     * yielding priority, so the opponent's cast is on the stack before that
+     * step's checkpoint. Passes need the active player to be seat 0. */
+    static List<String> passCommands(JsonArray steps, int index, int activeSeat) {
+        List<String> cmds = new ArrayList<>();
+        boolean passHere = isOp(steps, index, "pass");
+        boolean afterHandoff = isOp(steps, index - 1, "pass")
+                && passAction(steps, index - 1) == PASS_HANDOFF;
+        if ((passHere || afterHandoff) && activeSeat != 0) {
+            throw new IllegalArgumentException("pass at step " + index + " needs seat 0 to be the active player");
+        }
+        if (afterHandoff) {
+            cmds.add(CMD_YIELD_PRIORITY);
+        }
+        if (passHere && passAction(steps, index) == PASS_PAIR_SECOND) {
+            cmds.add(CMD_REQUIRE_STACK);
+            cmds.add(CMD_WAIT_RESOLVE_ONE);
+        }
+        return cmds;
+    }
+
+    private void queuePassCommands(int stepIdx) {
+        for (String cmd : passCommands(steps(sc0), stepIdx, activeSeat)) {
+            switch (cmd) {
+                case CMD_REQUIRE_STACK:
+                    runCode(cmd, turn, phase, playerA, (info, pl, g) -> {
+                        if (g.getStack().isEmpty()) {
+                            throw new IllegalStateException(cmd + ": the stack is empty");
+                        }
+                    });
+                    break;
+                case CMD_WAIT_RESOLVE_ONE:
+                    waitStackResolved(turn, phase, playerA, true);
+                    break;
+                case CMD_YIELD_PRIORITY:
+                    runCode(cmd, turn, phase, playerA, (info, pl, g) -> pl.pass(g));
+                    break;
+                default:
+                    throw new IllegalArgumentException("unknown pass command " + cmd);
+            }
+        }
+    }
+
     private void step(JsonObject st, String op, int stepIdx) {
         int seatIdx = st.has("seat") ? st.get("seat").getAsInt() : 0;
         TestPlayer p = seat(seatIdx);
@@ -1866,6 +1967,11 @@ public class ScenarioReplay extends CardTestPlayerBase {
             }
             case "play":
                 playLand(turn, phase, p, xmageSpelling(refName(str(st, "card"))));
+                return;
+            case "pass":
+                // Validated here; its XMage commands are queued around the
+                // checkpoint by queuePassCommands, which the replay loop runs before this step.
+                passAction(steps(sc0), stepIdx);
                 return;
             case "resolve":
                 // gorge's resolve op passes priority until the stack is empty.
