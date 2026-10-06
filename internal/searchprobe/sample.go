@@ -246,13 +246,30 @@ func Sample(setup PublicGame, h History, opts SampleOptions) (out SampleResult, 
 	// pool that mixes proposals from different exclusion sets concentrates the
 	// weights and collapses the ESS gate (measured: covered decisions fell
 	// 185 -> 114 when exclusions accumulated attempt by attempt).
-	runAttempt := func(res *SampleResult, plans *constraintPlanCache, store *exclusionStore, staging *exclusionStore, attempt int) (World, float64, bool, error) {
+	// spare recycles a rejected attempt's engine arrays (its event log and
+	// object arena, ~0.7 MB) into the next attempt's genesis: most attempts
+	// are rejected, and a rejected world's engine is referenced by nothing
+	// (frames hold owned values, never engine memory). Reuse is invisible to
+	// the game (rules.Spare, TestSpareReuseIsInvisible).
+	var spare rules.Spare
+	runAttempt := func(res *SampleResult, plans *constraintPlanCache, store *exclusionStore, staging *exclusionStore, attempt int) (_ World, _ float64, kept bool, _ error) {
 		res.Attempts++
 		seed := taggedSeed(opts.Seed, digest, attempt, seedEngine)
 		cfg := rules.Config{Seed: seed[0], Names: setup.Names, Decks: setup.Decks, Tokens: setup.Tokens, StartingLife: setup.StartingLife}
 		observer := NewCollector(h.Actor)
 		proposal := &proposalState{epochs: epochs, logWeight: tossWeight, base: opts.Seed, history: digest, attempt: attempt, observer: observer, result: res, plans: plans, exclusions: store, staging: staging, noLandExclusion: opts.NoLandExclusion}
-		e, err := rules.NewHypotheticalPlanned(cfg, tape, proposal.plan)
+		// The Spare rides a private copy: a kept World's Config must not
+		// alias the recycling slot.
+		hcfg := cfg
+		hcfg.Spare = &spare
+		e, err := rules.NewHypotheticalPlanned(hcfg, tape, proposal.plan)
+		if e != nil {
+			defer func() {
+				if !kept {
+					spare = e.Release()
+				}
+			}()
+		}
 		if errors.Is(err, errIncompatibleProposal) {
 			return World{}, 0, false, nil
 		}
