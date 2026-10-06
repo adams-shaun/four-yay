@@ -8,9 +8,10 @@ import (
 )
 
 // TestGracefulTakedownFixtureAndResolution locks the legal board shape and
-// the damage result. The opponent's 2/2 is a real target, and the chosen
-// enchanted creature deals enough damage to destroy it (Oracle text; CR 120.3e,
-// then CR 704.5g moves the lethal-damaged creature to its owner's graveyard).
+// the damage result. The opponent's 2/2 is a real target, and the enchanted
+// creature (pumped by its Aura) plus the other chosen creature each deal damage
+// to it, enough to destroy it (Oracle text; CR 120.3e, then CR 704.5g moves the
+// lethal-damaged creature to its owner's graveyard).
 func TestGracefulTakedownFixtureAndResolution(t *testing.T) {
 	reg := loadGenRegistry(t)
 	it, skip := Generate(reg, "Graceful Takedown")
@@ -42,7 +43,7 @@ func TestGracefulTakedownFixtureAndResolution(t *testing.T) {
 }
 
 // TestSorceressSchemesMixedZoneFixture proves the OR-zone selector produces
-// a castable card matching one of the spell's supported graveyard alternatives.
+// a castable card matching one of the spell's supported graveyard or exile alternatives.
 func TestSorceressSchemesMixedZoneFixture(t *testing.T) {
 	reg := loadGenRegistry(t)
 	it, skip := Generate(reg, "Sorceress's Schemes")

@@ -1504,7 +1504,9 @@ public class ScenarioReplay extends CardTestPlayerBase {
             case "move": {
                 String ref = str(st, "card");
                 String name = xmageSpelling(refName(ref));
-                Zone destination = Zone.valueOf(str(st, "to").toUpperCase(java.util.Locale.ROOT));
+                // gorge names the exile zone "exile"; XMage's enum member is EXILED.
+                String to = str(st, "to");
+                Zone destination = to.equals("exile") ? Zone.EXILED : Zone.valueOf(to.toUpperCase(java.util.Locale.ROOT));
                 runCode("move " + ref + " to " + destination, turn, phase, p, (info, pl, g) -> {
                     Card moving = null;
                     for (Card candidate : pl.getHand().getCards(g)) {
