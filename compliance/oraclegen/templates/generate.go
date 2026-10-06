@@ -37,6 +37,12 @@ func Generate(reg *cards.Registry, name string) (oraclegen.Item, *oraclegen.Skip
 		return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: "not in corpus"}
 	}
 	f := c.Faces[0]
+	for _, face := range c.Faces {
+		if face.Name == name {
+			f = face
+			break
+		}
+	}
 	if oraclegen.HasType(f, "Land") {
 		return playLand(reg, name, f), nil
 	}
