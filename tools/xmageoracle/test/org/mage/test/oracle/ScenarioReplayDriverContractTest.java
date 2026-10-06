@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.function.BiPredicate;
 import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import mage.abilities.keyword.SpreeAbility;
 import mage.cards.Card;
@@ -144,22 +145,134 @@ public final class ScenarioReplayDriverContractTest {
         System.out.println("PASS move destination mapping (exile->EXILED) and multi-zone source search");
     }
 
-    private static void passes() {
-        JsonArray pair = JsonParser.parseString("[{op:'pass',seat:0},{op:'pass',seat:1}]").getAsJsonArray();
-        check(pair.get(0).getAsJsonObject().get("seat").getAsInt()
-                        != pair.get(1).getAsJsonObject().get("seat").getAsInt(),
-                "precondition: resolving pass pair must come from opposing seats");
-        check(ScenarioReplay.passAction(pair, 0) == ScenarioReplay.PASS_RESOLVE_ONE,
-                "opposing consecutive passes must resolve exactly one stack object");
-        check(ScenarioReplay.passAction(pair, 1) == ScenarioReplay.PASS_SECOND,
-                "second opposing pass must not queue another resolution");
+    private static JsonArray steps(String json) {
+        return JsonParser.parseString(json).getAsJsonArray();
+    }
 
-        JsonArray handoff = JsonParser.parseString("[{op:'pass',seat:0},{op:'cast',seat:1}]").getAsJsonArray();
-        check(handoff.get(1).getAsJsonObject().get("op").getAsString().equals("cast"),
-                "precondition: supported handoff must immediately precede an opponent cast");
-        check(ScenarioReplay.passAction(handoff, 0) == ScenarioReplay.PASS_HANDOFF,
-                "lone p0 pass before p1 cast must hand off without a resolution command");
-        System.out.println("PASS pass mapping (opposing pair resolves one; lone p0 hands off to p1 cast)");
+    private static boolean rejects(JsonArray steps, int index) {
+        try {
+            ScenarioReplay.passAction(steps, index);
+            return false;
+        } catch (IllegalArgumentException expected) {
+            return true;
+        }
+    }
+
+    private static void setField(Object target, String name, Object value) throws Exception {
+        for (Class<?> c = target.getClass(); c != null; c = c.getSuperclass()) {
+            try {
+                java.lang.reflect.Field f = c.getDeclaredField(name);
+                f.setAccessible(true);
+                f.set(target, value);
+                return;
+            } catch (NoSuchFieldException next) {
+                // keep climbing
+            }
+        }
+        throw new AssertionError("no field " + name);
+    }
+
+    /** A driver with two bare players: no game, so only queueing runs. */
+    private static ScenarioReplay queueingDriver(JsonArray steps, TestPlayer a, TestPlayer b) throws Exception {
+        ScenarioReplay r = new ScenarioReplay();
+        JsonObject sc = new JsonObject();
+        sc.add("steps", steps);
+        setField(r, "playerA", a);
+        setField(r, "playerB", b);
+        setField(r, "sc0", sc);
+        return r;
+    }
+
+    private static TestPlayer bare(String name) {
+        return new TestPlayer(new org.mage.test.player.TestComputerPlayer(name, mage.constants.RangeOfInfluence.ALL));
+    }
+
+    private static List<String> names(TestPlayer p) {
+        List<String> out = new ArrayList<>();
+        for (org.mage.test.player.PlayerAction a : p.getActions()) {
+            out.add(a.getAction().startsWith("waitStackResolved") ? a.getAction() : a.getActionName());
+        }
+        return out;
+    }
+
+    /** What the replay loop does for one step: its pass commands, the step
+     * itself, then its checkpoint (the loop's order is pinned by
+     * driver_levelb_pass_test.go). */
+    private static void loopStep(ScenarioReplay r, TestPlayer a, JsonArray steps, int i) throws Exception {
+        String op = steps.get(i).getAsJsonObject().get("op").getAsString();
+        queue(r, "queuePassCommands", i);
+        if (op.equals("pass")) {
+            queue(r, "step", steps.get(i).getAsJsonObject(), op, i);
+        }
+        r.runCode("step " + i + " (" + op + ")", 1, mage.constants.PhaseStep.PRECOMBAT_MAIN, a, (info, p, g) -> { });
+    }
+
+    private static void queue(ScenarioReplay r, String method, Object... args) throws Exception {
+        for (Method m : ScenarioReplay.class.getDeclaredMethods()) {
+            if (m.getName().equals(method) && m.getParameterCount() == args.length) {
+                m.setAccessible(true);
+                m.invoke(r, args);
+                return;
+            }
+        }
+        throw new AssertionError("no method " + method);
+    }
+
+    private static void passes() throws Exception {
+        JsonArray pair = steps("[{op:'pass',seat:0},{op:'pass',seat:1}]");
+        check(ScenarioReplay.passAction(pair, 0) == ScenarioReplay.PASS_PAIR_FIRST, "first pass of a pair");
+        check(ScenarioReplay.passAction(pair, 1) == ScenarioReplay.PASS_PAIR_SECOND, "second pass of a pair");
+        JsonArray handoff = steps("[{op:'pass',seat:0},{op:'cast',seat:1,card:'p1:Lightning Bolt'}]");
+        check(ScenarioReplay.passAction(handoff, 0) == ScenarioReplay.PASS_HANDOFF, "lone p0 pass before a p1 cast");
+        // Every other shape fails loudly rather than being guessed at.
+        check(rejects(steps("[{op:'pass',seat:0}]"), 0), "a lone trailing pass must be rejected");
+        check(rejects(steps("[{op:'pass',seat:0},{op:'resolve'}]"), 0), "a pass before a non-cast must be rejected");
+        check(rejects(steps("[{op:'pass',seat:1},{op:'pass',seat:0}]"), 0), "a p1-first pair must be rejected");
+        check(rejects(steps("[{op:'pass',seat:0},{op:'pass',seat:0}]"), 0), "a same-seat pair must be rejected");
+        check(rejects(steps("[{op:'pass',seat:0},{op:'pass',seat:1},{op:'pass',seat:0}]"), 1),
+                "a three-pass run must be rejected");
+
+        // Queue order on the active player (the checkpoint owner). Cast and
+        // pass pair: the spell is on the stack at the first-pass checkpoint,
+        // and the one-object resolution sits after it, before the second.
+        JsonArray cast = steps("[{op:'cast',seat:0},{op:'pass',seat:0},{op:'pass',seat:1}]");
+        TestPlayer a = bare("A");
+        TestPlayer b = bare("B");
+        ScenarioReplay r = queueingDriver(cast, a, b);
+        queue(r, "queuePassCommands", 0);
+        check(names(a).isEmpty(), "a cast step queues no pass command; got " + names(a));
+        loopStep(r, a, cast, 1);
+        check(names(a).equals(Arrays.asList("step 1 (pass)")),
+                "first pass must queue only its checkpoint (no early resolution); got " + names(a));
+        loopStep(r, a, cast, 2);
+        check(names(a).equals(Arrays.asList("step 1 (pass)", ScenarioReplay.CMD_REQUIRE_STACK,
+                        ScenarioReplay.CMD_WAIT_RESOLVE_ONE, "step 2 (pass)")),
+                "second pass must queue the one-object resolution before its checkpoint; got " + names(a));
+        check(names(b).isEmpty(), "the pair queues nothing for the opponent; got " + names(b));
+        check(a.getActions().get(2).getAction().equals("waitStackResolved:1"),
+                "the resolution must wait for exactly one stack object");
+
+        // Lone p0 pass then p1 cast: p0 yields priority between the pass
+        // checkpoint and the opponent's cast checkpoint.
+        TestPlayer a2 = bare("A");
+        ScenarioReplay r2 = queueingDriver(handoff, a2, bare("B"));
+        loopStep(r2, a2, handoff, 0);
+        check(names(a2).equals(Arrays.asList("step 0 (pass)")), "the handoff pass queues only its checkpoint; got " + names(a2));
+        queue(r2, "queuePassCommands", 1); // the cast step's own pre-step hook
+        check(names(a2).equals(Arrays.asList("step 0 (pass)", ScenarioReplay.CMD_YIELD_PRIORITY)),
+                "priority must be yielded before the opponent's cast checkpoint; got " + names(a2));
+
+        // Passes need seat 0 to be the active player.
+        JsonArray turn2 = steps("[{op:'pass',seat:0},{op:'pass',seat:1}]");
+        boolean threw = false;
+        try {
+            ScenarioReplay.passCommands(turn2, 1, 1);
+        } catch (IllegalArgumentException expected) {
+            threw = true;
+        }
+        check(threw, "a pass on seat 1's turn must be rejected");
+        System.out.println("PASS pass mapping and queue order (pair resolves after its second pass; "
+                + "lone p0 pass yields before the p1 cast checkpoint; other shapes rejected)");
     }
 
     private static CardSetInfo info(String name) {
