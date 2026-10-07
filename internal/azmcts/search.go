@@ -111,6 +111,8 @@ func (o Options) Validate(net *policynet.Model) error {
 		return fmt.Errorf("azmcts: Dirichlet alpha %g must be > 0", o.DirichletAlpha)
 	case o.DirichletEps < 0 || o.DirichletEps > 1:
 		return fmt.Errorf("azmcts: Dirichlet epsilon %g must be in [0,1]", o.DirichletEps)
+	case o.CachedWorlds < 0:
+		return fmt.Errorf("azmcts: cached worlds %d must be >= 0 (0 is off)", o.CachedWorlds)
 	case o.NodeCache < 0:
 		return fmt.Errorf("azmcts: node cache %d must be >= 0 (0 is off)", o.NodeCache)
 	case o.Kinds == (Kinds{}):
@@ -221,11 +223,17 @@ func Search(ctx context.Context, root Root, src WorldSource, net *policynet.Mode
 		root: rootPt, rootCands: cands, rootDec: root.Decision, stats: &res.Stats,
 		envBoard: &envBoard, enumBoard: &enumBoard, views: views,
 	}
-	var envs EnvSource = &worldEnvs{src: src, cfg: cfg}
-	if opts.NodeCache > 0 && isFixed(src) {
-		envs = &fixedEnvs{worldEnvs: envs.(*worldEnvs)}
+	var tr TreeResult
+	var err error
+	if rs, ok := src.(*RedealSource); ok && opts.CachedWorlds > 0 && !opts.RootPerWorld {
+		tr, err = runCachedWorlds(ctx, rootPt, rs, cfg, opts, &res.Stats)
+	} else {
+		var envs EnvSource = &worldEnvs{src: src, cfg: cfg}
+		if opts.NodeCache > 0 && isFixed(src) {
+			envs = &fixedEnvs{worldEnvs: envs.(*worldEnvs)}
+		}
+		tr, err = RunTree(ctx, rootPt, envs, opts, &res.Stats)
 	}
-	tr, err := RunTree(ctx, rootPt, envs, opts, &res.Stats)
 	if err != nil {
 		return res, err
 	}
