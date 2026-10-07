@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand/v2"
+	"slices"
 	"strings"
 
 	"github.com/adams-shaun/gorge/botpolicy"
@@ -242,8 +243,13 @@ func (b *Bot) paymentIntent(brd botpolicy.Board, d *decision.Decision) (decision
 	if d == nil || d.Kind != decision.KPriority || (brd.MyTurn && !brd.IsMain) {
 		return decision.Intent{}, false
 	}
-	payable := make(map[state.ObjID]decision.PaymentAction, len(d.PaymentActions))
-	for _, a := range d.PaymentActions {
+	// payable lists the indices of d.PaymentActions that count as payable. A
+	// later action for the same object supersedes an earlier one, so lookups
+	// scan from the end (payableFor). Slices, not maps: a window holds a
+	// handful of casts and this runs once per priority decision.
+	var payBuf [16]int
+	payable := payBuf[:0]
+	for i, a := range d.PaymentActions {
 		// A plan the policy would never take must not count as payable: C8
 		// refuses a counter with no foreign spell (CounterIsDead), so its
 		// plan is dead -- leaving it in `payable` would let the private
@@ -257,7 +263,7 @@ func (b *Bot) paymentIntent(brd botpolicy.Board, d *decision.Decision) (decision
 		// such an action is treated as having no plan.
 		if len(a.Plans) != 0 && !brd.CounterIsDead(d.Player, a.Cast.Object) &&
 			!(b.skipLifePlans && paymentPlanPaysLife(a.Plans[0])) {
-			payable[a.Cast.Object] = a
+			payable = append(payable, i)
 		}
 	}
 	if b.wantsManual(brd, d, payable) {
@@ -277,10 +283,15 @@ func (b *Bot) paymentIntent(brd botpolicy.Board, d *decision.Decision) (decision
 		return decision.Intent{}, false
 	}
 
-	candidate := d.Clone()
+	// A shallow copy: the policy only reads the candidate, and every field but
+	// Options (rebuilt below) is shared read-only with d, so the deep clone of
+	// the payment actions and plans bought nothing.
+	cand := *d
+	candidate := &cand
 	candidate.Options = make([]decision.Option, 0, len(d.Options)+len(payable))
-	candidateToOriginal := make(map[int]int, len(d.Options))
-	legacyOrdinary := make(map[state.ObjID]bool, len(d.Options))
+	candidateToOriginal := make([]int, 0, len(d.Options))
+	var legacyBuf [16]state.ObjID
+	legacyOrdinary := legacyBuf[:0]
 	for _, o := range d.Options {
 		// These are precisely legalActions' mana abilities. A payment plan
 		// performs the required activations atomically, so exposing one here
@@ -290,22 +301,22 @@ func (b *Bot) paymentIntent(brd botpolicy.Board, d *decision.Decision) (decision
 		}
 		originalIndex := o.Index
 		o.Index = len(candidate.Options)
-		candidateToOriginal[o.Index] = originalIndex
+		candidateToOriginal = append(candidateToOriginal, originalIndex)
 		if o.Kind == "cast" && o.Mode == "" && o.AltCostIndex == 0 {
-			legacyOrdinary[o.Obj] = true
+			legacyOrdinary = append(legacyOrdinary, o.Obj)
 			// An ordinary legacy cast whose object has a plan is a
 			// plan-backed candidate: choosing it submits the plan, so the
 			// cast scorer prices it against producible mana (C7). A
 			// non-ordinary mode (an evoke, pitch, dash, surge) pays its
 			// own cost by hand and stays false.
-			if _, ok := payable[o.Obj]; ok {
+			if _, ok := payableFor(d, payable, o.Obj); ok {
 				o.PlanBacked = true
 			}
 		}
 		candidate.Options = append(candidate.Options, o)
 	}
 	for _, a := range d.PaymentActions {
-		if len(a.Plans) == 0 || legacyOrdinary[a.Cast.Object] {
+		if len(a.Plans) == 0 || slices.Contains(legacyOrdinary, a.Cast.Object) {
 			continue
 		}
 		candidate.Options = append(candidate.Options, decision.Option{
@@ -332,7 +343,7 @@ func (b *Bot) paymentIntent(brd botpolicy.Board, d *decision.Decision) (decision
 		// as itself: substituting the ordinary plan would silently replace
 		// the chosen mode.
 		if o.Kind == "cast" && o.Mode == "" && o.AltCostIndex == 0 {
-			if a, ok := payable[o.Obj]; ok {
+			if a, ok := payableFor(d, payable, o.Obj); ok {
 				return decision.Intent{Seq: d.Seq, Player: d.Player, Payment: &decision.PaymentSelection{
 					ActionID: a.ID, Plan: decision.ClonePaymentPlan(a.Plans[0]),
 				}}, true
@@ -344,10 +355,22 @@ func (b *Bot) paymentIntent(brd botpolicy.Board, d *decision.Decision) (decision
 	// legacy cast mode, or pass. Translate that choice back to the original
 	// option index so removing mana activations never changes the decision's
 	// public index contract.
-	if original, ok := candidateToOriginal[in.Choices[0]]; ok {
+	if c := in.Choices[0]; c >= 0 && c < len(candidateToOriginal) {
+		original := candidateToOriginal[c]
 		return decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{original}}, true
 	}
 	return decision.Intent{}, false
+}
+
+// payableFor returns the payable action for obj: the last listed index whose
+// action is for obj, which is what the map it replaces kept.
+func payableFor(d *decision.Decision, payable []int, obj state.ObjID) (decision.PaymentAction, bool) {
+	for i := len(payable) - 1; i >= 0; i-- {
+		if a := d.PaymentActions[payable[i]]; a.Cast.Object == obj {
+			return a, true
+		}
+	}
+	return decision.PaymentAction{}, false
 }
 
 // wantsManual reports whether the auto-pay adapter should answer this
@@ -372,7 +395,7 @@ func (b *Bot) paymentIntent(brd botpolicy.Board, d *decision.Decision) (decision
 //     keeps the plan the policy will take from being abandoned for a lesser
 //     unplanned card -- the same one-intent scoping the unplanned-bot intent
 //     fallback always had.
-func (b *Bot) wantsManual(brd botpolicy.Board, d *decision.Decision, payable map[state.ObjID]decision.PaymentAction) bool {
+func (b *Bot) wantsManual(brd botpolicy.Board, d *decision.Decision, payable []int) bool {
 	if len(payable) == 0 {
 		return brd.AnyCastableNow(d.Player, d)
 	}
@@ -380,7 +403,7 @@ func (b *Bot) wantsManual(brd botpolicy.Board, d *decision.Decision, payable map
 	if !ok {
 		return false
 	}
-	if _, planned := payable[id]; planned {
+	if _, planned := payableFor(d, payable, id); planned {
 		return false
 	}
 	return true
