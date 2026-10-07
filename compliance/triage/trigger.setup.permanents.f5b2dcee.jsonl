@@ -1,2 +1,0 @@
-{"shape":{"template":"trigger","op":"setup","field":"permanents","diff":"$CARD types gorge+[] xmage+[bird]"},"key":"trigger | setup | permanents | $CARD types gorge+[] xmage+[bird]","cards":1}
-{"card":"Roaming Throne","template":"trigger#0.0","status":"diverge","api":"BecomesTarget:Ward","sets":["LCI"],"detail":"setup permanents: gorge \"c0 o0 Roaming Throne [artifact creature golem] {} 4/4\", xmage \"c0 o0 Roaming Throne [artifact bird creature golem] {} 4/4\""}

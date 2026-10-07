@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"pass_to","field":"permanents","diff":"$CARD gorge+[counters=PLAN=4] xmage+[counters=PLAN=3]"},"key":"trigger | pass_to | permanents | $CARD gorge+[counters=PLAN=4] xmage+[counters=PLAN=3]","cards":1}
+{"card":"Death to Our Enemies","template":"trigger#0.1","status":"diverge","api":"SpellCast:Token+CounterAdded:Sacrifice","sets":["MSH"],"detail":"step 2 (pass_to) permanents: gorge \"c0 o0 Death to Our Enemies [enchantment plan] {R} counters=PLAN=4\", xmage \"c0 o0 Death to Our Enemies [enchantment plan] {R} counters=PLAN=3\""}
