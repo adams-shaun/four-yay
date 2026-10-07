@@ -401,12 +401,6 @@ func (c *constraintCounter) count(pos int, remaining []int, unseen []int, other 
 	if pos > c.stop {
 		return c.factorials[c.n-pos]
 	}
-	if !c.constraintsHold(pos, remaining) {
-		return zeroBig
-	}
-	if pos >= c.stop {
-		return c.factorials[c.n-pos]
-	}
 	key, keyOK := countKey(pos, remaining, unseen, other)
 	if keyOK {
 		if cached := c.memo[key]; cached != nil {
@@ -414,6 +408,12 @@ func (c *constraintCounter) count(pos int, remaining []int, unseen []int, other 
 		}
 	} else if cached := c.memoStr[countKeyStr(pos, remaining, unseen, other)]; cached != nil {
 		return cached
+	}
+	if !c.constraintsHold(pos, remaining) {
+		return zeroBig
+	}
+	if pos >= c.stop {
+		return c.factorials[c.n-pos]
 	}
 	total := new(big.Int)
 	// scratch is the reused receiver for every branch product. count runs
