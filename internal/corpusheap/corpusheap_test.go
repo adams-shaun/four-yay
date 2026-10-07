@@ -34,9 +34,11 @@ import (
 // 163.1 MB heap) rounded to a stable value; the census logs the live numbers so
 // a later step can lower them.
 const (
-	ceilingScanBytes   int64 = 107_164_467 // 102.2 MB: /gc/scan/heap:bytes
-	ceilingHeapBytes   int64 = 170_917_888 // 163.0 MB: HeapAlloc
-	ceilingHeapObjects int64 = 1_685_000   // /gc/heap/objects:objects
+	// Lowered at S4 (the imaged lazy registry): measured 1.4 MB scan,
+	// 35.6 MB heap, 18,394 objects.
+	ceilingScanBytes   int64 = 1_500_000  // 1.4 MB: /gc/scan/heap:bytes
+	ceilingHeapBytes   int64 = 37_300_000 // 35.6 MB: HeapAlloc
+	ceilingHeapObjects int64 = 18_400     // /gc/heap/objects:objects
 )
 
 // tolerance is the noise band: a measurement within this fraction of its

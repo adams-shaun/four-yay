@@ -30,6 +30,10 @@ type Registry struct {
 	// the requested cards, and Lookup answers from the whole corpus's name
 	// index, decoding a card outside the subset on first use (subset.go).
 	sub *subsetSource
+
+	// lazy is set on an imaged registry (registry_lazy.go): cards is then
+	// nil, and every card is materialized from the image on first use.
+	lazy *lazyCards
 }
 
 func NewRegistry() *Registry {
@@ -37,16 +41,37 @@ func NewRegistry() *Registry {
 }
 
 // Len returns the number of cards in the registry.
-func (r *Registry) Len() int { return len(r.cards) }
+func (r *Registry) Len() int {
+	if r.lazy != nil {
+		return len(r.lazy.mat)
+	}
+	return len(r.cards)
+}
 
-// Card returns the card at ordinal i.
-func (r *Registry) Card(i int) *Card { return r.cards[i] }
+// Card returns the card at ordinal i, materializing it on an imaged registry.
+func (r *Registry) Card(i int) *Card {
+	if r.lazy != nil {
+		return r.lazy.card(i)
+	}
+	return r.cards[i]
+}
 
-// AllCards returns the cards in registry order.
-func (r *Registry) AllCards() []*Card { return r.cards }
+// AllCards returns the cards in registry order. On an imaged registry it
+// materializes EVERY card (memoised): tools and tests only.
+func (r *Registry) AllCards() []*Card {
+	if r.lazy != nil {
+		return r.lazy.allCards()
+	}
+	return r.cards
+}
 
 // MaterializedCount returns the number of cards currently materialized.
-func (r *Registry) MaterializedCount() int { return len(r.cards) }
+func (r *Registry) MaterializedCount() int {
+	if r.lazy != nil {
+		return int(r.lazy.n.Load())
+	}
+	return len(r.cards)
+}
 
 // NormalizeName folds case, collapses whitespace and drops punctuation so
 // catalogue names from Scryfall match Forge script names. A "Front // Back"
@@ -76,6 +101,9 @@ func NormalizeName(s string) string {
 }
 
 func (r *Registry) Add(c *Card) {
+	if r.lazy != nil {
+		panic("cards: Add on an imaged registry")
+	}
 	r.invalidateCatalog()
 	r.cards = append(r.cards, c)
 	if r.byName == nil {
@@ -105,6 +133,9 @@ func (r *Registry) Add(c *Card) {
 func (r *Registry) Lookup(name string) (*Card, bool) {
 	if r.sub != nil {
 		return r.sub.lookup(NormalizeName(name))
+	}
+	if r.lazy != nil {
+		return r.lazy.lookup(NormalizeName(name))
 	}
 	c, ok := r.byName[NormalizeName(name)]
 	return c, ok
@@ -270,7 +301,7 @@ func (r *Registry) Save(path string) error {
 	if err := r.saveGob(path); err != nil {
 		return err
 	}
-	return writeSegments(SegmentPath(path), r.cards, r.Tokens)
+	return writeSegments(SegmentPath(path), r.AllCards(), r.Tokens)
 }
 
 func (r *Registry) saveGob(path string) error {
@@ -299,7 +330,7 @@ func (r *Registry) saveGob(path string) error {
 	if err != nil {
 		return fail(err)
 	}
-	if err := gob.NewEncoder(zw).Encode(cacheFile{Version: cacheVersion, Cards: r.cards, Tokens: r.Tokens}); err != nil {
+	if err := gob.NewEncoder(zw).Encode(cacheFile{Version: cacheVersion, Cards: r.AllCards(), Tokens: r.Tokens}); err != nil {
 		zw.Close()
 		return fail(err)
 	}
@@ -342,7 +373,9 @@ func LoadRegistry(path string) (*Registry, error) {
 	if cf.Version != cacheVersion {
 		return nil, &CacheVersionError{Got: cf.Version, Want: cacheVersion}
 	}
-	return finishDecoded(cf.Cards, cf.Tokens)
+	// The imaged registry keeps the decoded cards only as the pointer-free
+	// image and drops the trees; tokens are finished eagerly, as before.
+	return imagedRegistry(cf.Cards, cf.Tokens)
 }
 
 // finishDecoded is the post-decode half of LoadRegistry: it turns cards and

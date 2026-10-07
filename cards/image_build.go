@@ -173,25 +173,17 @@ func buildImage(cards []*Card, tokens map[string]*Card) (*Image, error) {
 	for _, k := range keys {
 		im.Tokens = append(im.Tokens, TokenRec{b.str(k), b.card(tokens[k])})
 	}
-	// The name index is deterministic and preserves first-card-wins semantics.
-	first := map[string]uint32{}
+	// The name index is Lookup's: nameIndexOf's tiered first-wins index
+	// (native fronts before every other face), recorded as ordinals.
+	ordOf := make(map[*Card]uint32, len(cards))
 	for i, c := range cards {
-		if c == nil {
-			continue
+		if _, dup := ordOf[c]; !dup {
+			ordOf[c] = uint32(i)
 		}
-		for _, f := range c.Faces {
-			if f == nil {
-				continue
-			}
-			for _, name := range append([]string{f.Name}, f.Aliases...) {
-				n := NormalizeName(name)
-				if n != "" {
-					if _, ok := first[n]; !ok {
-						first[n] = uint32(i)
-					}
-				}
-			}
-		}
+	}
+	first := map[string]uint32{}
+	for k, c := range nameIndexOf(cards) {
+		first[k] = ordOf[c]
 	}
 	nk := make([]string, 0, len(first))
 	for k := range first {

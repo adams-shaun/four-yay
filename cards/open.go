@@ -103,7 +103,15 @@ func openCorpus(dir, fingerprint string) (*Registry, error) {
 	if err != nil {
 		return nil, err
 	}
-	_ = r.Save(cache)
+	if err := r.Save(cache); err == nil {
+		// Serve the imaged registry the cache now holds, so a recompile
+		// costs the GC no more than a cache hit does.
+		if lr, err := LoadRegistry(cache); err == nil {
+			rerootPaths(lr, dir)
+			PruneCaches(dir, cache)
+			return lr, nil
+		}
+	}
 	PruneCaches(dir, cache)
 	return r, nil
 }
@@ -238,22 +246,13 @@ func rerootPaths(r *Registry, dir string) {
 	if err != nil {
 		return
 	}
-	fix := func(c *Card) {
-		if c == nil {
-			return
-		}
-		for _, sub := range []string{"cardsfolder", "tokenscripts"} {
-			seg := string(filepath.Separator) + sub + string(filepath.Separator)
-			if i := strings.LastIndex(c.Path, seg); i >= 0 {
-				c.Path = filepath.Join(abs, c.Path[i+1:])
-				return
-			}
-		}
+	if r.lazy != nil {
+		r.lazy.root = abs
 	}
 	for _, c := range r.cards {
-		fix(c)
+		rerootCard(c, abs)
 	}
 	for _, c := range r.Tokens {
-		fix(c)
+		rerootCard(c, abs)
 	}
 }

@@ -622,40 +622,11 @@ func OpenCorpusSubset(dir string, names []string) (*Registry, error) {
 // (directory, distinct card names) and hands the same registry back, since
 // the rules layer's pointer-keyed memos keep every opened copy live.
 func OpenCorpusFor(dir string, names []string) (*Registry, error) {
-	keys := make([]string, 0, len(names)+1)
-	if abs, err := filepath.Abs(dir); err == nil {
-		keys = append(keys, abs)
-	} else {
-		keys = append(keys, dir)
-	}
-	distinct := map[string]bool{}
-	for _, n := range names {
-		distinct[NormalizeName(n)] = true
-	}
-	for k := range distinct {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys[1:])
-	key := strings.Join(keys, "\x00")
-	subsetCorpora.Lock()
-	defer subsetCorpora.Unlock()
-	if r, ok := subsetCorpora.m[key]; ok {
-		return r, nil
-	}
-	r, err := OpenCorpusSubset(dir, names)
-	if err != nil || NeedsFullNameUniverse(r.cards, r.Tokens) {
-		if err == nil {
-			r.sub.sf.f.Close()
-		}
-		if r, err = SharedCorpus(dir); err != nil {
-			return nil, err
-		}
-	}
-	if subsetCorpora.m == nil {
-		subsetCorpora.m = map[string]*Registry{}
-	}
-	subsetCorpora.m[key] = r
-	return r, nil
+	// Since the imaged registry (registry_lazy.go) materializes only the
+	// cards a process touches, the whole corpus costs the GC what a subset
+	// did, so this is the shared full registry. Kept for its callers; S8
+	// deletes it.
+	return SharedCorpus(dir)
 }
 
 var subsetCorpora struct {

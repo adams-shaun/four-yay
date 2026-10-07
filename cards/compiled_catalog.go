@@ -159,6 +159,9 @@ func (r *Registry) Catalog() *CompiledCatalog {
 	if r == nil {
 		return nil
 	}
+	if r.lazy != nil {
+		return r.lazy.catalog()
+	}
 	return r.catalog
 }
 
