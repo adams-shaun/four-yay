@@ -396,25 +396,24 @@ func (l *Log) Reserve(n int) {
 
 // growEvents grows the backing array geometrically, then returns s with len ==
 // need. It replaces the built-in append's growth in one way: it doubles
-// (factor 2) while the target stays small, and tapers to 1.25x past
-// growTaperAt. Why: a fresh log climbs from cap 16 to its final length and
-// doubling is the lowest-total-allocation policy there (a geometric series to
-// a final capacity C sums to ~2C for factor 2, ~4C for factor 1.25), so small
-// logs double. But most of growEvents' allocation is a log that a Clone made
-// cap == len at a fully-grown length L and then appended to — a time-travel
-// view replays into a clone of the live log; the first append must copy L
-// elements and the doubling rule would allocate 2L (a 73823-event log jumps to
-// 147456) for a replay that lands a few events past head. Tapering past
-// growTaperAt makes that first grow cost ~1.25L instead, which is the measured
-// win in ./host (growEvents was the top allocator; the large-start grows that
-// doubling saddled with 2x dominate it 9:1). It returns s with len == need,
-// whether in place or in a freshly-allocated array, so the ordinary no-realloc
-// Append path costs nothing. Growth never overshoots need by more than the
-// taper factor at any single step and always bounds the total, and the policy
-// change does not touch the hash chain. Clone safety is untouched: Clone has
-// already fixed a clone's cap == len, so the first append on either side
-// arrives here with no spare capacity, allocates a fresh array, and the two
-// logs diverge cleanly (pinned by TestLogCloneAppendsDiverge).
+// (factor 2) while the array is small, and tapers to 1.25x from growTaperAt
+// upward. Why: a fresh log climbs from its preallocation (4096) to its final
+// length and doubling is the lowest-total-copy policy there (a fresh log that
+// reaches 6522 events copies 4096 events doubling, 15616 tapering from 4096),
+// so every array a fresh log can reach doubles. growTaperAt sits above the
+// longest measured unhinted game (10299 events) for that reason. The taper is
+// for a deliberately presized or large-start array (a Reserve, an
+// ExpectedEvents hint, a recycled spare from a long game) that overflows by a
+// little: doubling L -> 2L there allocates an array half of which is never
+// written, while 1.25x costs one copy of L either way. A Clone never reaches
+// the taper: it sets forked (b0f8ff5af) and grows by slack, below. growEvents
+// returns s with len == need, whether in place or in a freshly-allocated
+// array, so the ordinary no-realloc Append path costs nothing. Growth never
+// overshoots need by more than the growth factor at any single step and always
+// bounds the total, and the policy does not touch the hash chain. Clone safety
+// is untouched: Clone has already fixed a clone's cap == len, so the first
+// append on either side arrives here with no spare capacity, allocates a fresh
+// array, and the two logs diverge cleanly (pinned by TestLogCloneAppendsDiverge).
 //
 // A forked log (one Clone made) grows differently: its first append arrives
 // with cap == len == L, the shared prefix, and the ordinary rule would copy L
@@ -429,10 +428,10 @@ func (l *Log) Reserve(n int) {
 // per append. Capacity only: contents, Seq and the chain are untouched.
 const (
 	growMinCap   = 16
-	growTaperAt  = 4096 // double below this many elements, taper above
-	growTaperDiv = 4    // past growTaperAt, grow by (1 + 1/growTaperDiv) = 1.25x
-	forkMinSlack = 256  // a forked log's growth adds at least this many slots
-	forkSlackDiv = 8    // ... or need/forkSlackDiv, whichever is larger
+	growTaperAt  = 16384 // double below this many elements, taper from here up
+	growTaperDiv = 4     // past growTaperAt, grow by (1 + 1/growTaperDiv) = 1.25x
+	forkMinSlack = 256   // a forked log's growth adds at least this many slots
+	forkSlackDiv = 8     // ... or need/forkSlackDiv, whichever is larger
 )
 
 func growEvents(s []Event, need int, forked bool) []Event {
