@@ -2087,11 +2087,15 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 }
                 // cast_mode "optionalcost" is a plain cast on this side: XMage poses
                 // the "pay the additional cost?" chooseUse itself, and the yes and the
-                // cost's picks come from xmage_answers. Every other cast_mode, and
-                // kicked, stay unsupported.
-                if (st.has("kicked") || (st.has("cast_mode") && !"optionalcost".equals(str(st, "cast_mode")))) {
+                // cost's picks come from xmage_answers. "disguised" casts the card
+                // face down for {3}; XMage selects that cast by suffixing the card
+                // name ("<card> using Disguise", DisguiseTest/CovetedFalconTest).
+                // Every other cast_mode, and kicked, stay unsupported.
+                String mode = st.has("cast_mode") ? str(st, "cast_mode") : "";
+                if (st.has("kicked") || (st.has("cast_mode") && !"optionalcost".equals(mode) && !"disguised".equals(mode))) {
                     throw new IllegalArgumentException("kicked/cast_mode unsupported");
                 }
+                boolean disguised = "disguised".equals(mode);
                 if (!sc0.has("xmage_answers")) {
                     answers(st, p);
                 }
@@ -2114,6 +2118,9 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 // object: a split/Room half is cast by its half name while
                 // the hand holds the whole "A // B" card (castSpelling).
                 String card = castSpelling(refName(str(st, "card")));
+                // A face-down Disguise cast names the SpellAbility by "using
+                // Disguise"; every plain cast names the card itself.
+                String castCommand = disguised ? card + " using Disguise" : card;
                 List<String> tg = targets(st);
                 if (hasAlternativeSourceCost(card)) {
                     // A plain cast step: gorge paid the mana cost, so decline
@@ -2127,7 +2134,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     // The scripted "<ref>^X=<share>" answers name the targets
                     // and gorge's split; a target string here would be a
                     // second, unconsumed set.
-                    castSpell(turn, phase, p, card);
+                    castSpell(turn, phase, p, castCommand);
                     cast.add(card);
                     return;
                 }
@@ -2143,20 +2150,20 @@ public class ScenarioReplay extends CardTestPlayerBase {
                                 + ", a divided, adjusted or later-mode-target spell the explicit skip plan does not cover");
                     }
                     queueCastTargetsWithSkips(p, tg, skips);
-                    castSpell(turn, phase, p, card);
+                    castSpell(turn, phase, p, castCommand);
                 } else if (!tg.isEmpty() && castQueuedTargets(turn, phase, p, card, tg, castAbility)) {
                     // Cast with its targets queued: see castQueuedTargets.
                 } else if (tg.size() == 1 && isSeatRef(tg.get(0)) && !hasGift(card)) {
-                    castSpell(turn, phase, p, card, seat(seatOf(tg.get(0))));
+                    castSpell(turn, phase, p, castCommand, seat(seatOf(tg.get(0))));
                 } else if (tg.size() == 1 && isSeatRef(tg.get(0))) {
                     // A Gift spell (Mind Spiral, Sazacap's Brew): the castSpell
                     // player form binds the wrong ask, so queue the spell's
                     // own player target and close the rest.
                     addTarget(p, seat(seatOf(tg.get(0))));
                     addTarget(p, TestPlayer.TARGET_SKIP);
-                    castSpell(turn, phase, p, card);
+                    castSpell(turn, phase, p, castCommand);
                 } else if (tg.isEmpty()) {
-                    castSpell(turn, phase, p, card);
+                    castSpell(turn, phase, p, castCommand);
                     cast.add(card);
                     return;
                 } else if (tg.size() == 1 && cast.contains(castSpelling(refName(tg.get(0))))) {
@@ -2165,12 +2172,12 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     // target is a scenario ref; the setup alias names the
                     // card in hand, not the spell, so target by name.
                     String spell = castSpelling(refName(tg.get(0)));
-                    castSpell(turn, phase, p, card, spell, spell);
+                    castSpell(turn, phase, p, castCommand, spell, spell);
                 } else if (tg.size() == 1) {
                     // A single target goes through XMage's own string form. A
                     // divided target whose inline form XMage cannot read
                     // (Twin Bolt) was queued by castQueuedTargets above.
-                    castSpell(turn, phase, p, card, targetName(tg.get(0)));
+                    castSpell(turn, phase, p, castCommand, targetName(tg.get(0)));
                 } else {
                     // Two or more targets: queue each through addTarget and
                     // cast with no $target, so an "up to N" slot stays open
@@ -2188,7 +2195,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
                         for (String t : tg) {
                             names.add(xmageSpelling(refName(t)));
                         }
-                        castSpell(turn, phase, p, card, String.join("^", names));
+                        castSpell(turn, phase, p, castCommand, String.join("^", names));
                         cast.add(card);
                         return;
                     }
@@ -2202,7 +2209,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
                         // is filled is rejected (Pull Through the Weft).
                         addTarget(p, TestPlayer.TARGET_SKIP);
                     }
-                    castSpell(turn, phase, p, card);
+                    castSpell(turn, phase, p, castCommand);
                 }
                 cast.add(card);
                 return;

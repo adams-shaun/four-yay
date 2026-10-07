@@ -31,7 +31,8 @@ func triggerSubs(sub string) bool {
 		"trigger.dies-other", "trigger.zone-change-residue", "trigger.scry", "trigger.surveil", "trigger.noncombat-damage", "trigger.combat-damage-all",
 		"trigger.loyalty-activated", "trigger.discarded", "trigger.attacks-one-target", classLevelGainedSub,
 		"trigger.spell-cast-opponent", "trigger.spell-cast-self-cast", "trigger.commit-crime", "trigger.ability-activated",
-		levelb.UnlockDoorSub, levelb.FullyUnlockSub, stateSelfCountersSub, levelb.CounterAddedSub:
+		levelb.UnlockDoorSub, levelb.FullyUnlockSub, stateSelfCountersSub, levelb.CounterAddedSub,
+		levelb.TurnedFaceUpSub, levelb.TurnedFaceUpOtherSub:
 		return true
 	}
 	return tapCombatSub(sub)
