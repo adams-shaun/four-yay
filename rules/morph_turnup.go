@@ -100,7 +100,12 @@ func morphFaceUpCost(o *state.Object) (morphFaceUp, bool) {
 	case fam&state.FlagDisguised != 0:
 		head = "Disguise"
 	}
-	raw, ok := f.KeywordParam(head)
+	// The cost is the first colon-field of the keyword parameter (Forge's
+	// KeywordWithCost rule): a shaped line like
+	// "Disguise:5 R:X:This cost is reduced by …" costs {5}{R}, and handing the
+	// whole remainder to ParseCost polluted it (20 phantom generic + Unknown,
+	// failing the fail-closed gate below and withholding the turn-up).
+	raw, ok := f.KeywordCostParam(head)
 	if !ok || strings.TrimSpace(raw) == "" {
 		return morphFaceUp{}, false
 	}
