@@ -59,7 +59,7 @@ var proliferatePermanents = []string{"Karn's Bastion", "Contagion Engine", "Thro
 
 // counterAddedRecipe builds the causes for the counter-added family. ok is
 // false for every other sub-family.
-func counterAddedRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards.Trigger) (causes []triggerCause, why string, ok bool) {
+func counterAddedRecipe(reg *cards.Registry, name string, t *cards.Trigger) (causes []triggerCause, why string, ok bool) {
 	if !isCounterAddedMode(t.ModeKind()) {
 		return nil, "", false
 	}
