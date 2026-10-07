@@ -12,6 +12,7 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"runtime"
+	"runtime/debug"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -107,6 +108,7 @@ func runPlay(args []string) int {
 	fs.IntVar(&gonetCardCache, "gonet-card-cache", gonetCardCache, "cached gonet= card vectors (0 = none)")
 	pprofAddr := fs.String("pprof", "", "serve net/http/pprof at this address (e.g. 127.0.0.1:6060); diagnostic only")
 	fs.Parse(args)
+	tuneGC()
 	if *pprofAddr != "" {
 		runtime.SetBlockProfileRate(1)
 		runtime.SetMutexProfileFraction(1)
@@ -603,3 +605,16 @@ func corpusMember(recs []policynet.VisitRecord, o gbench.Outcome, err error) []b
 }
 
 var _ searchseat.SearchSeat = (*azmcts.Seat)(nil)
+
+// tuneGC sets the self-play GC defaults: the search loop allocates fast and
+// holds a small live heap, so a high GOGC trades a few hundred MB of headroom
+// for much less collector work, with a soft memory limit as the backstop.
+// GC pacing never changes the output. An explicit GOGC or GOMEMLIMIT wins.
+func tuneGC() {
+	if os.Getenv("GOGC") == "" {
+		debug.SetGCPercent(400)
+	}
+	if os.Getenv("GOMEMLIMIT") == "" {
+		debug.SetMemoryLimit(6 << 30)
+	}
+}
