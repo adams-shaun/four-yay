@@ -32,6 +32,12 @@ type legalWalk struct {
 	outHW         int
 	costStatics   costStaticSource
 	actionStatics actionStaticSource
+	// flashBoardBit/flashBoardSet are the board half of castWithFlash's fast
+	// path (legal_walk_flash.go): len(activeStatics("CastWithFlash")) != 0,
+	// read once per walk outside any face probe. The set flag distinguishes
+	// "not read yet" from "read, false".
+	flashBoardSet bool
+	flashBoardBit bool
 	// rec records this walk's pool-independent blocks (a priority walk);
 	// reuse serves them to a potential walk at the same state
 	// (walk_block_reuse.go). At most one is set.

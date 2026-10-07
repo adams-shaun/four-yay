@@ -766,13 +766,30 @@ func (e *Engine) spellMatchesValidSA(f *cards.Face, raw string, id, staticSource
 // zone, flashback/harmonize/escape, adventure, foretell) rather than to the
 // hand walk alone. This is a pure read; the helper never emits.
 func (e *Engine) spellTimingOK(p state.PlayerID, id state.ObjID, f *cards.Face, sorcery bool) bool {
-	if f == nil {
-		return sorcery
-	}
-	if !e.activationPhasesOK(p, f.SpellAbility()) {
+	ok, needFlash := e.spellTimingPre(p, id, f, sorcery)
+	if !ok {
 		return false
 	}
-	return sorcery || (f.IsInstant() || e.hasKeywordH(id, kwhFlash) || mayFlashSacFace(f) || e.castWithFlash(p, id))
+	return !needFlash || e.castWithFlash(p, id)
+}
+
+// spellTimingPre is spellTimingOK's decision up to the CastWithFlash lookup:
+// ok reports the timing is satisfiable so far, and needFlash reports that it
+// is satisfiable EXACTLY when castWithFlash grants it (the other arms did not
+// already allow the cast). It is the one home for the predicate so the walk's
+// bit-fast entry (legal_walk_flash.go, w.spellTimingOK) cannot drift from the
+// engine's. It is a pure read; the helper never emits.
+func (e *Engine) spellTimingPre(p state.PlayerID, id state.ObjID, f *cards.Face, sorcery bool) (ok, needFlash bool) {
+	if f == nil {
+		return sorcery, false
+	}
+	if !e.activationPhasesOK(p, f.SpellAbility()) {
+		return false, false
+	}
+	if sorcery || f.IsInstant() || e.hasKeywordH(id, kwhFlash) || mayFlashSacFace(f) {
+		return true, false
+	}
+	return true, true
 }
 
 type spellMatchesValidSACode uint16

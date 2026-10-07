@@ -116,7 +116,7 @@ func (w *legalWalk) mayPlaySpellWalk() {
 					Label: "Cast " + f.Name + " (" + label + ")", Obj: id, Mode: sc.mode})
 			}
 		}
-		if !e.spellTimingOK(p, id, f, sorcery) {
+		if !w.spellTimingOK(p, id, f, sorcery) {
 			continue
 		}
 		if plain && e.castTargetsAvailable(p, id, f.SpellAbility()) {
@@ -251,7 +251,7 @@ func (w *legalWalk) commandZoneWalk() {
 		if w.castRestricted(p, id) || e.castSuppressed(p, id) {
 			continue
 		}
-		if !e.spellTimingOK(p, id, f, sorcery) {
+		if !w.spellTimingOK(p, id, f, sorcery) {
 			continue
 		}
 		targetsAvailable := e.castTargetsAvailable(p, id, f.SpellAbility())
@@ -372,7 +372,7 @@ func (w *legalWalk) graveyardCastsOver(grave []state.ObjID) {
 		if !ok || w.castRestricted(p, id) || e.castSuppressed(p, id) {
 			continue
 		}
-		if !e.spellTimingOK(p, id, f, sorcery) {
+		if !w.spellTimingOK(p, id, f, sorcery) {
 			continue
 		}
 		if e.castTargetsAvailable(p, id, f.SpellAbility()) {
@@ -398,7 +398,7 @@ func (w *legalWalk) graveyardCastsOver(grave []state.ObjID) {
 		if e.castSuppressed(p, id) {
 			continue
 		}
-		if !e.spellTimingOK(p, id, f, sorcery) {
+		if !w.spellTimingOK(p, id, f, sorcery) {
 			continue
 		}
 		if !e.castTargetsAvailable(p, id, f.SpellAbility()) {
@@ -446,7 +446,7 @@ func (w *legalWalk) graveyardCastsOver(grave []state.ObjID) {
 		if af == nil || w.castRestrictedAsFace(p, id, af) || e.castSuppressed(p, id) {
 			continue
 		}
-		if !e.spellTimingOK(p, id, af, sorcery) {
+		if !w.spellTimingOK(p, id, af, sorcery) {
 			continue
 		}
 		if !e.castTargetsAvailable(p, id, af.SpellAbility()) {
@@ -506,7 +506,7 @@ func (w *legalWalk) graveyardCastsOver(grave []state.ObjID) {
 			continue
 		}
 		ec, ok := e.escapeCost(id)
-		if !ok || !e.spellTimingOK(p, id, f, sorcery) ||
+		if !ok || !w.spellTimingOK(p, id, f, sorcery) ||
 			!e.castTargetsAvailable(p, id, f.SpellAbility()) {
 			continue
 		}
@@ -531,7 +531,7 @@ func (w *legalWalk) graveyardCastsOver(grave []state.ObjID) {
 		if f == nil || !e.hasKeywordH(id, kwhRetrace) || w.castRestricted(p, id) || e.castSuppressed(p, id) {
 			continue
 		}
-		if !e.spellTimingOK(p, id, f, sorcery) ||
+		if !w.spellTimingOK(p, id, f, sorcery) ||
 			!e.castTargetsAvailable(p, id, f.SpellAbility()) {
 			continue
 		}
@@ -561,7 +561,7 @@ func (w *legalWalk) graveyardCastsOver(grave []state.ObjID) {
 		if f == nil || !e.hasKeywordH(id, kwhJumpStart) || w.castRestricted(p, id) || e.castSuppressed(p, id) {
 			continue
 		}
-		if !e.spellTimingOK(p, id, f, sorcery) ||
+		if !w.spellTimingOK(p, id, f, sorcery) ||
 			!e.castTargetsAvailable(p, id, f.SpellAbility()) {
 			continue
 		}
@@ -606,7 +606,7 @@ func (w *legalWalk) graveyardCastsOver(grave []state.ObjID) {
 		if !ok || w.castRestricted(p, id) || e.castSuppressed(p, id) || !e.mayhemDiscardedThisTurn(p, id) {
 			continue
 		}
-		if !e.spellTimingOK(p, id, f, sorcery) ||
+		if !w.spellTimingOK(p, id, f, sorcery) ||
 			!e.castTargetsAvailable(p, id, f.SpellAbility()) {
 			continue
 		}
@@ -651,7 +651,7 @@ func (w *legalWalk) exileCastsWalk() {
 			if src := e.G.Obj(o.PreparedSource); src != nil && src.Zone == state.ZBattlefield &&
 				src.Prepared && src.Controller == p &&
 				!w.castRestricted(p, id) && !e.castSuppressed(p, id) &&
-				e.spellTimingOK(p, id, f, sorcery) &&
+				w.spellTimingOK(p, id, f, sorcery) &&
 				e.castTargetsAvailable(p, id, f.SpellAbility()) {
 				if w.offerCastable(p, id, pay.RawBaseCost(asPayer(e), p, id), spellScope("prepared_copy"), false) {
 					*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
@@ -673,7 +673,7 @@ func (w *legalWalk) exileCastsWalk() {
 		if adventureSpellFace(o) != nil && o.FaceIdx == 0 && e.adventureZoneAvailable(id) &&
 			!w.castRestrictedAsFace(p, id, o.Card.Faces[0]) && !e.castSuppressed(p, id) {
 			front := o.Card.Faces[0]
-			if e.spellTimingOK(p, id, front, sorcery) && e.castTargetsAvailable(p, id, front.SpellAbility()) &&
+			if w.spellTimingOK(p, id, front, sorcery) && e.castTargetsAvailable(p, id, front.SpellAbility()) &&
 				w.offerCastableAsFace(p, id, front, ParseCost(front.ManaCost), spellScope("")) {
 				*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 					Label: "Cast " + front.Name + " (from adventure zone)", Obj: id, Mode: "adventure_recast"})
@@ -691,7 +691,7 @@ func (w *legalWalk) exileCastsWalk() {
 		// carrier) would otherwise never reach it.
 		if o.CastFlags&state.FlagForetold != 0 &&
 			e.foretellCastAvailable(id) && !w.castRestricted(p, id) && !e.castSuppressed(p, id) &&
-			e.spellTimingOK(p, id, f, sorcery) && e.castTargetsAvailable(p, id, f.SpellAbility()) {
+			w.spellTimingOK(p, id, f, sorcery) && e.castTargetsAvailable(p, id, f.SpellAbility()) {
 			// The K:Foretell parameter prices the later cast (CR 702.126a);
 			// a face with no parameter falls back to the rule's action default
 			// {2} -- every corpus carrier carries one (measured 55/55), so the
@@ -719,7 +719,7 @@ func (w *legalWalk) exileCastsWalk() {
 		// continue, the foretell block's own reason.
 		if o.PlottedTurn > 0 && e.G.Turn > o.PlottedTurn &&
 			!w.castRestricted(p, id) && !e.castSuppressed(p, id) &&
-			sorcery && e.spellTimingOK(p, id, f, true) &&
+			sorcery && w.spellTimingOK(p, id, f, true) &&
 			e.castTargetsAvailable(p, id, f.SpellAbility()) {
 			if w.offerCastable(p, id, Cost{}, spellScope("plot_cast"), false) {
 				*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
@@ -736,7 +736,7 @@ func (w *legalWalk) exileCastsWalk() {
 		// card) would otherwise never reach it.
 		if airbendAvailable(id) && !w.castRestricted(p, id) && !e.castSuppressed(p, id) {
 			instantSpeed := f.IsInstant() || e.hasKeywordH(id, kwhFlash)
-			if (instantSpeed || sorcery) && e.spellTimingOK(p, id, f, sorcery) &&
+			if (instantSpeed || sorcery) && w.spellTimingOK(p, id, f, sorcery) &&
 				e.castTargetsAvailable(p, id, f.SpellAbility()) {
 				if w.offerCastable(p, id, Cost{Generic: 2}, spellScope("airbend_cast"), false) {
 					*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
