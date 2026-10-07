@@ -103,6 +103,9 @@ type boardScratch struct {
 func (s *boardScratch) board(players int) *botpolicy.Board {
 	if !s.built {
 		s.b, s.built = botpolicy.NewBoard(players), true
+		// The scratch boards feed only the bot's and the enumerators'
+		// answers, which never read OwnLibrary.
+		s.b.SkipOwnLibrary()
 	}
 	return &s.b
 }

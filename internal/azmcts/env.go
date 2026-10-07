@@ -220,6 +220,7 @@ func newEngineEnv(w World, cfg *walkConfig) (*engineEnv, error) {
 	} else {
 		b := botpolicy.NewBoard(n)
 		board = &b
+		b.SkipOwnLibrary()
 	}
 	rngs, pcgs := botStreams(cfg.envSeed, n)
 	env := &engineEnv{
@@ -368,10 +369,23 @@ func (e *engineEnv) advance() (*Point, error) {
 			return nil, fmt.Errorf("%w: no pending decision and the game is not over", ErrSubmit)
 		}
 		var in decision.Intent
+		// skippedPay marks a priority window whose payment actions were not
+		// built ahead of the bot's answer (see below); they are built later
+		// only where something reads them.
+		skippedPay := false
 		if pd.Player == e.cfg.actor && e.actorBot != nil {
 			b := botpolicy.BoardFromGameInto(g, e.e, pd.Player, e.board)
 			if pd.Kind == decision.KPriority {
-				e.e.EnsurePaymentActions()
+				// seat.Bot.paymentIntent declines outside a main phase on the
+				// bot's own turn (MyTurn && !IsMain) and never reads
+				// PaymentActions there, so the (costly) build is deferred:
+				// enumerate builds it for a searched point, and a capped stop
+				// builds it below, so every reader sees what it saw before.
+				if b.MyTurn && !b.IsMain {
+					skippedPay = true
+				} else {
+					e.e.EnsurePaymentActions()
+				}
 			}
 			in, _ = e.actorBot.DecideBoard(context.Background(), b, *pd)
 		} else {
@@ -417,6 +431,9 @@ func (e *engineEnv) advance() (*Point, error) {
 			}
 		}
 		if e.steps >= e.cfg.maxSteps {
+			if skippedPay {
+				e.e.EnsurePaymentActions()
+			}
 			e.capped = true
 			e.cur, e.cands = nil, nil
 			return nil, nil

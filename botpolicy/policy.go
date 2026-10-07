@@ -229,6 +229,8 @@ type Board struct {
 	// for one decision never pays for it.
 	inc      *boardInc
 	incArmed bool
+	// noOwnLibrary leaves OwnLibrary unfilled on a refill (SkipOwnLibrary).
+	noOwnLibrary bool
 }
 
 // Commander is the Board's per-commander commander-format bookkeeping,
@@ -1652,3 +1654,9 @@ func aiRandomPick(d *decision.Decision, r *rand.Rand) []int {
 	}
 	return []int{d.Options[r.IntN(len(d.Options))].Index}
 }
+
+// SkipOwnLibrary makes every later BoardFromGameInto refill of b leave
+// OwnLibrary untouched (zero). The search walk's bot answers read no field
+// of it, and the fold is a whole-game walk per refill; a caller that reads
+// Board.OwnLibrary must not set this.
+func (b *Board) SkipOwnLibrary() { b.noOwnLibrary = true }
