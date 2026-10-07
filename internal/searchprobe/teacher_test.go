@@ -155,3 +155,47 @@ func TestSampleMinESSRelaxesTheResamplingGate(t *testing.T) {
 		t.Fatalf("relaxed gate returned %d worlds from %d accepted", len(relaxed.Worlds), relaxed.Accepted)
 	}
 }
+
+// TestTeacherRolloutsAreRecyclingInvariant pins that the parallel rollout path
+// scores each candidate identically to the sequential one whether or not the
+// two paths recycle their clone storage.
+func TestTeacherRolloutsAreRecyclingInvariant(t *testing.T) {
+	setup, h := samplingHistory(t)
+	result, err := Sample(setup, h, SampleOptions{Seed: 44, Attempts: 8, Worlds: 2, MaxSubmits: 5000})
+	if err != nil || len(result.Worlds) != 2 {
+		t.Fatalf("sample %d worlds, %v", len(result.Worlds), err)
+	}
+	d := result.Worlds[0].Engine.Pending()
+	var cands [][]Action
+	for i := range d.Options {
+		a, err := result.Worlds[0].Observer.Actions(d, decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{i}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		cands = append(cands, a)
+		if len(cands) == 2 {
+			break
+		}
+	}
+	if len(cands) < 2 {
+		t.Skip("fixture root offers a single option")
+	}
+	opts := TeacherOptions{Seed: 3, HorizonTurns: 1, MaxSubmits: 5000}
+	seq, err := TeacherChoice(result.Worlds, cands, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	opts.Parallelism = 4
+	par, err := TeacherChoice(result.Worlds, cands, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if seq.Index != par.Index || len(seq.Values) != len(par.Values) {
+		t.Fatalf("sequential %+v != parallel %+v", seq, par)
+	}
+	for i := range seq.Values {
+		if seq.Values[i] != par.Values[i] {
+			t.Fatalf("value %d: sequential %v != parallel %v", i, seq.Values[i], par.Values[i])
+		}
+	}
+}

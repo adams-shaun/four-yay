@@ -233,11 +233,6 @@ func TeacherIntentChoice(worlds []World, candidates []SemanticIntent, opts Teach
 		o.value = leafValue(opts.Leaf, *lv, actor)
 	}
 	if workers := min(opts.Parallelism, len(outs)); workers > 1 {
-		engines := make([]*rules.Engine, len(outs))
-		for k := range engines {
-			engines[k] = worlds[k/len(candidates)].Engine.Clone()
-			engines[k].SetDecisionArena(true)
-		}
 		var wg sync.WaitGroup
 		var next atomic.Int64
 		for w := 0; w < workers; w++ {
@@ -245,13 +240,16 @@ func TeacherIntentChoice(worlds []World, candidates []SemanticIntent, opts Teach
 			go func() {
 				defer wg.Done()
 				var lv view.View
+				var sp rules.Spare
 				for {
 					k := int(next.Add(1)) - 1
 					if k >= len(outs) {
 						return
 					}
-					run(k, engines[k], &lv)
-					engines[k] = nil
+					e := worlds[k/len(candidates)].Engine.CloneInto(&sp)
+					e.SetDecisionArena(true)
+					run(k, e, &lv)
+					sp = e.Release()
 				}
 			}()
 		}
