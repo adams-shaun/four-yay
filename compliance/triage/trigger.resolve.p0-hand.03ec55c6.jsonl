@@ -1,2 +1,0 @@
-{"shape":{"template":"trigger","op":"resolve","field":"p0.hand","diff":"gorge+[] xmage+[Colossal Dreadmaw]"},"key":"trigger | resolve | p0.hand | gorge+[] xmage+[Colossal Dreadmaw]","cards":1}
-{"card":"Rambling Possum","template":"trigger#0.0","status":"diverge","api":"Attacks:Pump","sets":["OTJ"],"detail":"step 3 (resolve) p0.hand: gorge \"[]\", xmage \"[Colossal Dreadmaw]\""}
