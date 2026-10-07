@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/internal/testutil"
 )
 
 func TestManaMemberCarryRoundTripAndInvalidation(t *testing.T) {
@@ -50,5 +51,43 @@ func TestManaMemberCarryTouchObjBumps(t *testing.T) {
 	}
 	if c.touch[1] != 0 {
 		t.Fatalf("untouched neighbour = %d, want 0", c.touch[1])
+	}
+}
+
+// newManaCarryTestEngine parks a two-seat game at seat 0's main1 with real
+// Snow-Covered Swamps on the battlefield (own mana sources), via the existing
+// corpus fixture.
+func newManaCarryTestEngine(t *testing.T) *Engine {
+	t.Helper()
+	reg := testutil.CorpusRegistry(t)
+	e, _, _ := witheringEngine(t, reg, 3)
+	return e
+}
+
+func TestWalkClassTouchBumpsManaTouch(t *testing.T) {
+	// A touched object that is not provably static-cold must get a fresh
+	// mana touch generation, so the carry cannot serve stale membership.
+	e := newManaCarryTestEngine(t)
+	o := e.G.Obj(1)
+	if o == nil {
+		t.Skip("no object 1 in the test board")
+	}
+	// Force the recompute path: a cleared class is not provably unchanged,
+	// so walkClassTouch re-derives it rather than taking the
+	// fingerprint-unchanged early return.
+	i := int(o.ID) - 1
+	e.ownWalkClasses()
+	if i >= 0 && i < len(e.walkObjCls) {
+		e.walkObjCls[i].set = false
+	}
+	before := e.manaTouchOf(o.ID)
+	e.walkClassTouch(o)
+	if e.manaTouchOf(o.ID) == before {
+		t.Fatalf("touch did not move the mana generation (still %d)", before)
+	}
+	// The drop-all path bumps every object's generation too.
+	e.walkClassDropAll()
+	if e.manaTouchOf(o.ID) <= before {
+		t.Fatalf("drop-all did not move the mana generation")
 	}
 }
