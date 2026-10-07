@@ -102,6 +102,10 @@ type engineScratch struct {
 	// (walk_block_reuse.go). Clone copies none.
 	walkRec   walkBlockRec  `clone:"reset"`
 	walkReuse *walkBlockRec `clone:"reset"`
+	// manaCarry caches per own-battlefield object mana-ability membership
+	// across a seat's priority walks (rules/mana_member_carry.go). Clone
+	// copies none: a clone starts cold (legal-walk design §4.6).
+	manaCarry manaMemberCarry `clone:"reset"`
 	// potentialManaRec is the record armed for the next PotentialMana's
 	// membership walk (walk_block_reuse.go potentialMembers). Clone copies
 	// none.
