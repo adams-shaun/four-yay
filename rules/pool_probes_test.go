@@ -35,9 +35,14 @@ func TestPoolGatesMatchesTheSingleProbes(t *testing.T) {
 			}
 			cfg := Config{Decks: [][]*cards.Card{deck, {plain}}, Tokens: tokens}
 			s, l, c := poolGates(cfg)
-			if s != poolHasSetNameStatic(cfg) || l != poolHasLayer4Static(cfg) || c != poolHasControlStatic(cfg) {
-				t.Fatalf("mask %03b decks %03b: poolGates = (%v %v %v), single probes = (%v %v %v)", mask, deckBits,
-					s, l, c, poolHasSetNameStatic(cfg), poolHasLayer4Static(cfg), poolHasControlStatic(cfg))
+			// Genesis gates intentionally census decks only. A token raises
+			// the corresponding gate when it is minted, through notePoolCard.
+			wantS := mask&deckBits&1 != 0
+			wantL := mask&deckBits&2 != 0
+			wantC := mask&deckBits&4 != 0
+			if s != wantS || l != wantL || c != wantC {
+				t.Fatalf("mask %03b decks %03b: poolGates = (%v %v %v), want deck gates = (%v %v %v)", mask, deckBits,
+					s, l, c, wantS, wantL, wantC)
 			}
 		}
 	}

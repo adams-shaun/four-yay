@@ -27,6 +27,11 @@ type engineDerivedTables struct {
 	renameDSeq     uint64               `clone:"reset"` // derivedSeq at the build; never cloned (0 = none)
 	renameBFSeq    uint64               `clone:"reset"` // derivedBFSeq at the build; never cloned
 	renameBuilding bool                 `clone:"reset"`
+	// renameBranchCounts is the E2 measurement diagnostic (emit-action.md
+	// §3 step 1): which exit refreshRenames took, indexed
+	// reentry/epoch/inert/gate/derived/rebuild. Reset on clone; never read
+	// by rules.
+	renameBranchCounts [6]int `clone:"reset"`
 	// derivedTypes is the layer-4 derived type table (layer4types.go) the
 	// effects tier's ordinary type filters read through SpecContext.
 	// DerivedTypes. Exactly the shape (and rationale) of renames above: a

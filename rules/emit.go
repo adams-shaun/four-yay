@@ -29,6 +29,9 @@ func triggerCheckEvent(stored events.Event, tokenMintWant state.ObjID) events.Ev
 }
 
 func (e *Engine) emit(ev events.Event) events.Event {
+	// E1 (emit-action.md): objects minted during this event are compared
+	// against this count to raise the pool gates (the mint scan below).
+	objsBefore := len(e.G.Objs)
 	if suppressSuspectedEvent(e, ev) {
 		return ev
 	} // CR 702.157
@@ -359,6 +362,17 @@ func (e *Engine) emit(ev events.Event) events.Event {
 		// Other permanents' "enters tapped / with a counter" replacements
 		// apply to a token's entry too (rules/token_entry_replacements.go).
 		e.applyTokenEntryUpdates(tokenMintWant)
+	}
+	// E1 (emit-action.md): any object minted during this event (a token, a
+	// named-card or permanent copy, an ability wrapper) is a card the genesis
+	// census never saw, so raise this match's pool gates on it BEFORE the
+	// refreshes below. The raise is monotone and a pure function of the log,
+	// so a replay reaches the same gates at every position; the objsBefore
+	// compare covers every mint path without a per-kind list.
+	for id := objsBefore + 1; id <= len(e.G.Objs); id++ {
+		if o := e.G.Obj(state.ObjID(id)); o != nil && o.Card != nil {
+			e.notePoolCard(o.Card)
+		}
 	}
 	e.recordTurnLedgers(stored, abilityMintWant)
 	if stackCopyMintWant != 0 && e.G.Obj(stackCopyMintWant) != nil {
