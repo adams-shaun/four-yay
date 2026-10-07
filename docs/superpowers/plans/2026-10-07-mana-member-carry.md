@@ -39,6 +39,8 @@
   - `func (e *Engine) manaBoardStamp() manaMemberBoardStamp`
   - `func (e *Engine) manaTouchOf(id state.ObjID) uint64`
   - `func (e *Engine) ownManaCarry() `
+  - `func (e *Engine) manaTouchBumpIdx(i int)`
+  - `func (e *Engine) manaTouchBumpAll()`
   - `func (e *Engine) manaMemberLookup(id state.ObjID) ([]*cards.SA, bool)`
   - `func (e *Engine) manaMemberStore(id state.ObjID, all []*cards.SA)`
   - `func (e *Engine) ManaCarryStats() (hits, misses uint64)`
@@ -256,6 +258,24 @@ func (e *Engine) ownManaCarry() {
 	}
 }
 
+// manaTouchBumpIdx owns the carry then bumps object id i+1's generation. The
+// owner guard is mandatory: a by-value Engine copy shares the carry's backing
+// arrays while manaCarry.owner still points at the original, so a bare
+// touch[i]++ would corrupt the original's carry (the ownWalkClasses reason).
+func (e *Engine) manaTouchBumpIdx(i int) {
+	e.ownManaCarry()
+	e.manaCarry.touchObj(i)
+}
+
+// manaTouchBumpAll owns the carry then bumps every object's generation -- the
+// per-object twin of walkClassDropAll's staticTouchGen bump.
+func (e *Engine) manaTouchBumpAll() {
+	e.ownManaCarry()
+	for i := range e.manaCarry.touch {
+		e.manaCarry.touch[i]++
+	}
+}
+
 func (e *Engine) manaMemberLookup(id state.ObjID) ([]*cards.SA, bool) {
 	e.ownManaCarry()
 	return e.manaCarry.lookup(id, e.manaBoardStamp(), e.manaTouchOf(id))
@@ -327,12 +347,22 @@ func TestWalkClassTouchBumpsManaTouch(t *testing.T) {
 }
 ```
 
-Add a small helper `newManaCarryTestEngine` using the package's existing test
-engine constructor (find it with `grep -rn "func.*testEngine\|rules.New(" rules/*_test.go`;
-reuse the simplest repo-deck-free one). If no zero-state helper exists, build
-one from `rules.New(rules.Config{})` and `e.Advance()` and hand-place one
-object, or delete this test and rely on the digest in Task 4. **Prefer the
-existing helper.**
+Add a small helper `newManaCarryTestEngine` that wraps the existing corpus
+fixture `witheringEngine` (`rules/activation_limit_test.go:44`), which parks a
+two-seat game at seat 0's main1 with real Snow-Covered Swamps on the
+battlefield (own mana sources):
+
+```go
+func newManaCarryTestEngine(t *testing.T) *Engine {
+	t.Helper()
+	reg := testutil.CorpusRegistry(t)
+	e, _, _ := witheringEngine(t, reg, 3)
+	return e
+}
+```
+
+(`witheringEngine` already imports `internal/testutil`; add it if the test file
+does not.)
 
 - [ ] **Step 2: Run test to verify it fails**
 
@@ -342,15 +372,10 @@ Expected: FAIL (generation unchanged).
 - [ ] **Step 3: Write minimal implementation**
 
 In `rules/walk_objclass.go`, bump the touched object's mana generation at every
-point `walkClassTouch` drops or recomputes the class. Add near the top of the
-function body, right after `e.ownWalkClasses()` and the index computation:
-
-```go
-	e.manaCarry.touchObj(i)
-```
-
-but only in the paths where the object is not proven unchanged. Concretely,
-add `e.manaCarry.touchObj(i)` in:
+point `walkClassTouch` drops or recomputes the class. The bump MUST go through
+`e.manaTouchBumpIdx` (owner-guarded): a by-value Engine copy shares the carry's
+backing arrays, so a direct `e.manaCarry.touchObj(i)` would corrupt the
+original's carry. Add `e.manaTouchBumpIdx(i)` in:
 
 1. the `i < 0 || i >= len(e.walkObjCls) || !e.walkObjCls[i].set` branch
    (`walk_objclass.go:362-365`), before its `staticTouchGen++`;
@@ -371,9 +396,7 @@ Also add the touch drop where every class is dropped, in `walkClassDropAll`
 
 ```go
 	clear(e.walkObjCls)
-	for i := range e.manaCarry.touch {
-		e.manaCarry.touch[i]++
-	}
+	e.manaTouchBumpAll()
 ```
 
 (that path already bumps `staticTouchGen`, which the board stamp also sees;
