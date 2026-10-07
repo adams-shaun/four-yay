@@ -46,6 +46,10 @@ type deadlineConstraint struct {
 	Through int
 	Name    string
 	Count   int
+	// idx is nameIndex[Name], precomputed at construction. constraintsHold
+	// runs once per count call, millions of times on the search seat; a
+	// string-map lookup there was a measurable slice of mapaccess_faststr.
+	idx int
 }
 
 // exclusionConstraint is the deadline's dual: at most Cap copies of Name may
@@ -59,6 +63,9 @@ type exclusionConstraint struct {
 	Through int
 	Name    string
 	Cap     int
+	// idx is nameIndex[Name], precomputed at construction (see
+	// deadlineConstraint.idx).
+	idx int
 }
 
 type proposalRandom interface {
@@ -72,6 +79,9 @@ type constraintCounter struct {
 	nameIndex map[string]int
 	fixedObj  map[int]proposalCard
 	fixedName map[int]string
+	// fixedNameIdx is nameIndex[fixedName[pos]] precomputed per fixed-name
+	// position, sparing count's hot name branch a string-map lookup.
+	fixedNameIdx map[int]int
 	// unseenIndex records, per position, whether the position is an unseen
 	// one; unseenTracked records, per relevant name, whether the name is
 	// carried by at least one unseen position. The per-name unseen-remaining
@@ -316,6 +326,10 @@ func newConstraintCounterWithExclusions(cards []proposalCard, positions []positi
 	for i, name := range c.names {
 		c.nameIndex[name] = i
 	}
+	c.fixedNameIdx = make(map[int]int, len(c.fixedName))
+	for pos, name := range c.fixedName {
+		c.fixedNameIdx[pos] = c.nameIndex[name]
+	}
 	c.exactPrefix = make([][]int, len(cards)+1)
 	for i := range c.exactPrefix {
 		c.exactPrefix[i] = make([]int, len(c.names))
@@ -356,6 +370,12 @@ func newConstraintCounterWithExclusions(cards []proposalCard, positions []positi
 	}
 	c.deadlines = append([]deadlineConstraint(nil), deadlines...)
 	c.exclusions = append([]exclusionConstraint(nil), exclusions...)
+	for i := range c.deadlines {
+		c.deadlines[i].idx = c.nameIndex[c.deadlines[i].Name]
+	}
+	for i := range c.exclusions {
+		c.exclusions[i].idx = c.nameIndex[c.exclusions[i].Name]
+	}
 	return c, available, nil
 }
 
@@ -405,7 +425,7 @@ func (c *constraintCounter) count(pos int, remaining []int, unseen []int, other 
 	if _, ok := c.fixedObj[pos]; ok {
 		total.Set(c.count(pos+1, remaining, unseen, other))
 	} else if name := c.fixedName[pos]; name != "" {
-		i := c.nameIndex[name]
+		i := c.fixedNameIdx[pos]
 		if c.unseenIndex[pos] {
 			if unseen[i] > 0 {
 				multiplicity := unseen[i]
@@ -476,7 +496,7 @@ func (c *constraintCounter) constraintsHold(pos int, remaining []int) bool {
 		if pos < d.Through {
 			continue
 		}
-		i := c.nameIndex[d.Name]
+		i := d.idx
 		placed := c.exactPrefix[pos][i] + c.initialFree[i] - remaining[i]
 		if placed < d.Count {
 			return false
@@ -491,7 +511,7 @@ func (c *constraintCounter) constraintsHold(pos int, remaining []int) bool {
 		if pos != e.Through {
 			continue
 		}
-		i := c.nameIndex[e.Name]
+		i := e.idx
 		placed := c.exactPrefix[pos][i] + c.initialFree[i] - remaining[i]
 		if placed > e.Cap {
 			return false
