@@ -22,6 +22,13 @@ type manaMemberBoardStamp struct {
 	tapeEpoch         uint64
 	objs              int
 	turn              int32
+	// events is len(e.L.Events), the derived memo's own cross-walk position.
+	// Membership reads arbitrary board state (another permanent's existence
+	// for an IsPresent$ gate, a tap gate, a controller), far more than
+	// walkObjFPOf covers, so the only sound cheap key is "no event was
+	// appended since the store". Within one priority decision reads append
+	// nothing, so lookups still hit across the decision's repeated walks.
+	events int
 }
 
 type manaMemberEntry struct {
@@ -115,11 +122,15 @@ func (c *manaMemberCarry) touchObj(i int) {
 // counters. tapeEpoch covers a kernel restore that rewinds state under the
 // same log (rules/board_read_key.go).
 func (e *Engine) manaBoardStamp() manaMemberBoardStamp {
-	return manaMemberBoardStamp{
+	s := manaMemberBoardStamp{
 		lineage: e.L, derivedSeq: e.derivedSeq, staticTouchGen: e.staticTouchGen,
 		crossWalkRetires: e.crossWalkRetires, continuousVersion: e.continuousVersion,
 		tapeEpoch: uint64(e.tapeEpoch), objs: len(e.G.Objs), turn: e.G.Turn,
 	}
+	if e.L != nil {
+		s.events = len(e.L.Events)
+	}
+	return s
 }
 
 func (e *Engine) manaTouchOf(id state.ObjID) uint64 {
@@ -171,4 +182,12 @@ func (e *Engine) manaMemberStore(id state.ObjID, all []*cards.SA) {
 // ManaCarryStats is a test-visible diagnostic.
 func (e *Engine) ManaCarryStats() (hits, misses uint64) {
 	return e.manaCarry.hits, e.manaCarry.misses
+}
+
+func manaLineList(all []*cards.SA) []string {
+	out := make([]string, 0, len(all))
+	for _, ma := range all {
+		out = append(out, ma.Line)
+	}
+	return out
 }

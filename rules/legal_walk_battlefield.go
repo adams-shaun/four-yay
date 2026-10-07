@@ -2,6 +2,7 @@ package rules
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -64,6 +65,12 @@ func (w *legalWalk) battlefieldWalk() {
 					// The seat's own battlefield membership is recorded for
 					// PotentialMana (walk_block_reuse.go: recordMembers).
 					own := w.rec != nil && z == state.ZBattlefield && zonePlayer == p
+					// The mana-member carry serves a seat's OWN battlefield
+					// objects (legal-walk design §S4). A board-wide grant or an
+					// add-ability changes every object's membership, so those
+					// boards keep the direct walk.
+					ownSeat := z == state.ZBattlefield && zonePlayer == p
+					carryable := ownSeat && !board.hasGrants && !board.addAbility
 					useCls := manaCls && !own && !(z == state.ZBattlefield && lTypeBlock)
 					for zi, id := range e.G.Zone(z, zonePlayer) {
 						if useCls && !e.walkClassOf(id).manaHot {
@@ -97,7 +104,27 @@ func (w *legalWalk) battlefieldWalk() {
 							continue
 						}
 						var mas []*cards.SA
-						if own {
+						if carryable {
+							if all, ok := e.manaMemberLookup(id); ok {
+								if walkCacheVerify {
+									want := e.appendAvailableManaAbilitiesGate(nil, actionStatics, p, id, true)
+									if !slices.EqualFunc(want, all, pay.SameManaAbility) {
+										panic(fmt.Sprintf("rules: mana-member carry of obj %d is stale (carry %d %v, want %d %v, p %d)", id, len(all), manaLineList(all), len(want), manaLineList(want), p))
+									}
+								}
+								if own {
+									w.rec.recordMembers(zi, all)
+								}
+								mas = e.filterPayableMana(masBuf[:0], all, p, o, id)
+							} else {
+								all := e.appendAvailableManaAbilitiesGate(masBuf[:0], actionStatics, p, id, true)
+								e.manaMemberStore(id, all)
+								if own {
+									w.rec.recordMembers(zi, all)
+								}
+								mas = e.filterPayableMana(masBuf[:0], all, p, o, id)
+							}
+						} else if own {
 							mas = w.ownManaMembers(masBuf[:0], zi, o, id)
 						} else {
 							mas = e.appendAvailableManaAbilities(masBuf[:0], actionStatics, p, id)

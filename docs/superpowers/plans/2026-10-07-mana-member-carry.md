@@ -4,7 +4,7 @@
 
 **Goal:** Cut per-object mana-ability membership recomputation on the live priority walk by carrying a seat's own-battlefield membership across its walks, so enginebench `-row random` / `-row bot` games/s rise.
 
-**Architecture:** A new per-engine value cluster `manaMemberCarry` (`rules/mana_member_carry.go`) holds a dense `ObjID`-indexed entry table of deferred-payability mana-ability lists, keyed on the `BoardReadKey` board stamp plus `staticTouchGen`, `crossWalkRetires`, `turn` and a per-object touch generation. The priority walk's own-battlefield mana loop (`rules/legal_walk_battlefield.go`) reads the carry on a hit and populates it on a miss; the potential record `w.rec` is still fed on both paths. Payability is never cached — it is re-applied every walk. Verify mode recomputes every hit and panics.
+**Architecture:** A new per-engine value cluster `manaMemberCarry` (`rules/mana_member_carry.go`) holds a dense `ObjID`-indexed entry table of deferred-payability mana-ability lists, keyed on the `BoardReadKey` board stamp plus `staticTouchGen`, `crossWalkRetires`, `turn`, `len(e.L.Events)` and a per-object touch generation. The priority walk's own-battlefield mana loop (`rules/legal_walk_battlefield.go`) reads the carry on a hit and populates it on a miss; the potential record `w.rec` is still fed on both paths. Payability is never cached — it is re-applied every walk. Verify mode recomputes every hit and panics.
 
 **Tech Stack:** Go (no cgo, no third-party deps), gorge rules engine, enginebench.
 
@@ -30,7 +30,7 @@
 
 **Interfaces:**
 - Produces:
-  - `type manaMemberBoardStamp struct { lineage *events.Log; derivedSeq, staticTouchGen, crossWalkRetires uint64; continuousVersion int; tapeEpoch uint64; objs int; turn int32 }`
+  - `type manaMemberBoardStamp struct { lineage *events.Log; derivedSeq, staticTouchGen, crossWalkRetires uint64; continuousVersion int; tapeEpoch uint64; objs int; turn int32; events int }`
   - `type manaMemberEntry struct { gen, objTouch uint64; all []*cards.SA; n int32; set bool }`
   - `type manaMemberCarry struct { owner *Engine; entries []manaMemberEntry; touch []uint64; stamp manaMemberBoardStamp; stampSet bool; gen uint64; hits, misses uint64 }`
   - `func (c *manaMemberCarry) lookup(id state.ObjID, cur manaMemberBoardStamp, touch uint64) ([]*cards.SA, bool)`
@@ -140,6 +140,15 @@ type manaMemberBoardStamp struct {
 	tapeEpoch         uint64
 	objs              int
 	turn              int32
+	// events is len(e.L.Events), the derived memo's own cross-walk
+	// position. Membership reads arbitrary board state (another
+	// permanent's existence for an IsPresent$ gate, a tap gate, a
+	// controller), far more than walkObjFPOf covers, so the only sound
+	// cheap key is "no event appended since the store". Discovered when
+	// verify caught a tapped Incubation Druid whose ManaReflected gate had
+	// closed without a fingerprint change (walk_objclass.go walkObjFPOf
+	// omits o.Tapped).
+	events int
 }
 
 type manaMemberEntry struct {
@@ -233,11 +242,15 @@ func (c *manaMemberCarry) touchObj(i int) {
 // counters. tapeEpoch covers a kernel restore that rewinds state under the
 // same log (rules/board_read_key.go:35-38).
 func (e *Engine) manaBoardStamp() manaMemberBoardStamp {
-	return manaMemberBoardStamp{
+	s := manaMemberBoardStamp{
 		lineage: e.L, derivedSeq: e.derivedSeq, staticTouchGen: e.staticTouchGen,
 		crossWalkRetires: e.crossWalkRetires, continuousVersion: e.continuousVersion,
 		tapeEpoch: uint64(e.tapeEpoch), objs: len(e.G.Objs), turn: e.G.Turn,
 	}
+	if e.L != nil {
+		s.events = len(e.L.Events)
+	}
+	return s
 }
 
 func (e *Engine) manaTouchOf(id state.ObjID) uint64 {
@@ -550,7 +563,7 @@ Replace lines 99-107 (the `var mas []*cards.SA` block and the `if own { … } el
 								if walkCacheVerify {
 									want := e.appendAvailableManaAbilitiesGate(nil, actionStatics, p, id, true)
 									if !slices.EqualFunc(want, all, pay.SameManaAbility) {
-										panic(fmt.Sprintf("rules: mana-member carry of obj %d is stale", id))
+										panic(fmt.Sprintf("rules: mana-member carry of obj %d is stale (carry %d %v, want %d %v, p %d)", id, len(all), manaLineList(all), len(want), manaLineList(want), p))
 									}
 								}
 								if own {

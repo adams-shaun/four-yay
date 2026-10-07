@@ -91,3 +91,17 @@ func TestWalkClassTouchBumpsManaTouch(t *testing.T) {
 		t.Fatalf("drop-all did not move the mana generation")
 	}
 }
+
+func TestManaCarryHitsSecondWalk(t *testing.T) {
+	e := newManaCarryTestEngine(t)
+	first := e.legalActions(e.G.Active)
+	h1, m1 := e.ManaCarryStats()
+	second := e.legalActions(e.G.Active)
+	h2, _ := e.ManaCarryStats()
+	if h2 == h1 {
+		t.Fatalf("second walk at the same board did not hit (hits %d -> %d, misses %d)", h1, h2, m1)
+	}
+	if !optionsEqual(first, second) {
+		t.Fatal("carry changed the offered options")
+	}
+}
