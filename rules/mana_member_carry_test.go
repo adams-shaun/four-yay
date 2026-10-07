@@ -105,3 +105,18 @@ func TestManaCarryHitsSecondWalk(t *testing.T) {
 		t.Fatal("carry changed the offered options")
 	}
 }
+
+func TestManaCarryColdOnClone(t *testing.T) {
+	e := newManaCarryTestEngine(t)
+	e.legalActions(e.G.Active) // warm the parent
+	cl := e.Clone()
+	h0, _ := cl.ManaCarryStats()
+	cl.legalActions(cl.G.Active)
+	h1, _ := cl.ManaCarryStats()
+	if h0 != 0 {
+		t.Fatalf("clone inherited carry stats: hits %d", h0)
+	}
+	if h1 != 0 {
+		t.Fatalf("clone hit the parent's carry: hits %d", h1)
+	}
+}
