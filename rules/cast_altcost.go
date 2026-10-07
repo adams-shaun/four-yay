@@ -674,7 +674,7 @@ func (e *Engine) flashbackCost(id state.ObjID) Cost {
 	if f == nil {
 		return Cost{}
 	}
-	if s, ok := f.KeywordParam("Flashback"); ok {
+	if s, ok := f.KeywordCostParam("Flashback"); ok {
 		return ParseCost(s)
 	}
 	return ParseCost(f.ManaCost)
@@ -705,7 +705,9 @@ func (e *Engine) extraFlashbackCosts(id state.ObjID) []string {
 		}
 		raw := f.ManaCost
 		if i := strings.IndexByte(k, ':'); i >= 0 {
-			raw = k[i+1:]
+			// The same KeywordWithCost cost read as the printed instance: a
+			// derived "Flashback:8 U U:ReduceCost$ X:…" line costs {8}{U}{U}.
+			raw = cards.KeywordCostField(k[i+1:])
 		}
 		if costFieldsEqual(raw, "") || costFieldsEqual(raw, first) ||
 			slices.ContainsFunc(out, func(s string) bool { return costFieldsEqual(raw, s) }) {
@@ -743,7 +745,7 @@ func costFieldsEqual(a, b string) bool {
 
 // flashbackCostString is the raw cost string flashbackCost parses.
 func (e *Engine) flashbackCostString(f *cards.Face) string {
-	if s, ok := f.KeywordParam("Flashback"); ok {
+	if s, ok := f.KeywordCostParam("Flashback"); ok {
 		return s
 	}
 	return f.ManaCost
