@@ -38,10 +38,13 @@ const (
 	// 40.5 MB heap, 18,405 objects. S4 set the heap ceiling to 35.6 MB from
 	// the design's ESTIMATE ("~35-40 MB") rather than from the measurement
 	// it logged, so it landed just above the ceiling; cmd/botbench failed
-	// first in the same batch run and masked it. Corrected to the measured
-	// value plus the same ~5% headroom the earlier ceilings carry.
+	// first in the same batch run and masked it.
+	//
+	// Heap re-lowered 2026-10-07 to 37.3 MB measured (35.6 MiB) plus ~5%
+	// headroom, after the heap-object perf landing pushed the live value
+	// more than the staleFraction below 42.5 MB.
 	ceilingScanBytes   int64 = 1_500_000  // 1.4 MB: /gc/scan/heap:bytes
-	ceilingHeapBytes   int64 = 42_500_000 // 40.5 MB: HeapAlloc
+	ceilingHeapBytes   int64 = 39_200_000 // 37.3 MB: HeapAlloc
 	ceilingHeapObjects int64 = 18_400     // /gc/heap/objects:objects
 )
 
