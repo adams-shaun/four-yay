@@ -91,7 +91,7 @@ type GameSetup struct {
 	MaxSubmits int
 
 	Tokens       map[string]*cards.Card
-	NameUniverse []*cards.Card
+	NameUniverse *cards.Universe
 	Vocab        *mzbridge.Vocab
 
 	// DecisionContext, when set, bounds one searched decision's wall time

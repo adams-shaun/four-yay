@@ -364,7 +364,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		seatServer[i] = srv
 	}
 	log.logf("INFO", "main", "gorge self-play: %d games, %d threads, run seed %d, budget A %d (%s) B %d (%s), corpus %d cards (subset %v), vocab A=%d",
-		cfg.Games, threads, runSeed, cfg.A.SearchBudget, leafName(cfg.A), cfg.B.SearchBudget, leafName(cfg.B), len(reg.Cards), reg.IsSubset(), vocab.Dim())
+		cfg.Games, threads, runSeed, cfg.A.SearchBudget, leafName(cfg.A), cfg.B.SearchBudget, leafName(cfg.B), reg.Len(), reg.IsSubset(), vocab.Dim())
 
 	// The games.
 	results := make([]*mzplay.GameResult, len(plans))
@@ -413,7 +413,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 				gs := mzplay.GameSetup{
 					Index: pl.Index, Seed: pl.Seed, GoesFirst: cfg.GoesFirst, MaxTurns: cfg.MaxTurns,
 					Seats:  [2]mzplay.SeatSetup{seat(0, cfg.A, da), seat(1, cfg.B, db)},
-					Tokens: reg.Tokens, NameUniverse: reg.Cards, Vocab: vocab,
+					Tokens: reg.Tokens, NameUniverse: reg.Universe(), Vocab: vocab,
 				}
 				timeouts := [2]time.Duration{time.Duration(cfg.A.TimeoutMS) * time.Millisecond, time.Duration(cfg.B.TimeoutMS) * time.Millisecond}
 				gs.DecisionContext = func(s int) (context.Context, context.CancelFunc) {

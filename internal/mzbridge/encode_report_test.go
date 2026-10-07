@@ -68,7 +68,7 @@ func TestEncodeFDNReport(t *testing.T) {
 		seed := uint64(20261002 + g)
 		seats := []seat.Seat{seat.NewBot(seed ^ 1), seat.NewBot(seed ^ 2)}
 		cfg := rules.Config{Seed: seed, Names: []string{"p0", "p1"}, Decks: [][]*cards.Card{deckA, deckB},
-			Tokens: reg.Tokens, NameUniverse: reg.Cards}
+			Tokens: reg.Tokens, NameUniverse: reg.Universe()}
 		n := 0
 		hook := func(e *rules.Engine, seatIdx int, d *decision.Decision, in decision.Intent) (bool, error) {
 			if d == nil || d.Kind != decision.KPriority {
