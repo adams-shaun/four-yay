@@ -374,11 +374,8 @@ func foldClonePermanent(g *state.Game, e *Event) {
 	}
 	var face *cards.Face
 	if e.Counter == "chosen-name" {
-		for _, card := range g.NameUniverse {
-			if len(card.Faces) > 0 && card.Faces[0].Name == e.Text {
-				face = card.Faces[0]
-				break
-			}
+		if i, ok := g.NameUniverse.FirstByName(e.Text); ok {
+			face = g.NameUniverse.Card(i).Faces[0]
 		}
 	} else if src := g.Obj(e.IDs[0]); src != nil {
 		face = src.Face()

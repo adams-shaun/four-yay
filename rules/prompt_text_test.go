@@ -149,7 +149,7 @@ func promptTextGames(t *testing.T, reg *cards.Registry) []promptTextGame {
 		games = append(games, promptTextGame{
 			label: "legacy " + strings.Join(names, ","),
 			cfg: Config{Seed: uint64(g), Names: append([]string(nil), names...), Decks: decks,
-				Tokens: reg.Tokens, NameUniverse: reg.AllCards(), Mulligans: 1},
+				Tokens: reg.Tokens, NameUniverse: reg.Universe(), Mulligans: 1},
 			bot: uint64(g),
 		})
 	}
@@ -173,7 +173,7 @@ func promptTextGames(t *testing.T, reg *cards.Registry) []promptTextGame {
 			label: "constructed " + n,
 			cfg: Config{Seed: uint64(100 + i), Names: []string{n, opp},
 				Decks:  [][]*cards.Card{testutil.RepoDeck(t, reg, n), testutil.RepoDeck(t, reg, opp)},
-				Tokens: reg.Tokens, NameUniverse: reg.AllCards(), Mulligans: 1},
+				Tokens: reg.Tokens, NameUniverse: reg.Universe(), Mulligans: 1},
 			bot: uint64(100 + i),
 		})
 	}
@@ -184,7 +184,7 @@ func promptTextGames(t *testing.T, reg *cards.Registry) []promptTextGame {
 			cfg: Config{Seed: uint64(1000 + i), Names: []string{a, b},
 				Decks:        [][]*cards.Card{testutil.RepoDeck(t, reg, a), testutil.RepoDeck(t, reg, b)},
 				Tokens:       reg.Tokens,
-				NameUniverse: reg.AllCards(),
+				NameUniverse: reg.Universe(),
 				Format:       FormatCommander,
 				StartingLife: 40,
 				Commanders:   [][]int{testutil.RepoDeckFile(t, a).CommanderIndices(), testutil.RepoDeckFile(t, b).CommanderIndices()},

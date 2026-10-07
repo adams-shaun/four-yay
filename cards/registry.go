@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"unicode"
 )
 
@@ -34,6 +35,9 @@ type Registry struct {
 	// lazy is set on an imaged registry (registry_lazy.go): cards is then
 	// nil, and every card is materialized from the image on first use.
 	lazy *lazyCards
+
+	univOnce sync.Once
+	univ     *Universe
 }
 
 func NewRegistry() *Registry {
@@ -104,6 +108,7 @@ func (r *Registry) Add(c *Card) {
 	if r.lazy != nil {
 		panic("cards: Add on an imaged registry")
 	}
+	r.univOnce, r.univ = sync.Once{}, nil
 	r.invalidateCatalog()
 	r.cards = append(r.cards, c)
 	if r.byName == nil {

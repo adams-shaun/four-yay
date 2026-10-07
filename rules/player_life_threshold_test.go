@@ -31,7 +31,7 @@ func TestBreenaAttackTriggerReadsLifeGTX(t *testing.T) {
 	for i := range deck {
 		deck[i] = searchCorpusCard(t, reg, "Grizzly Bears")
 	}
-	e := New(Config{Seed: 19, Names: []string{"Breena", "one", "two"}, Decks: [][]*cards.Card{deck, deck, deck}, Tokens: reg.Tokens, NameUniverse: reg.AllCards()})
+	e := New(Config{Seed: 19, Names: []string{"Breena", "one", "two"}, Decks: [][]*cards.Card{deck, deck, deck}, Tokens: reg.Tokens, NameUniverse: reg.Universe()})
 	e.Advance()
 	source := e.G.AddObject(breena, 0)
 	attacker := e.G.AddObject(searchCorpusCard(t, reg, "Grizzly Bears"), 2)

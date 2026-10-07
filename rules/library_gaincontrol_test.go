@@ -38,7 +38,7 @@ func briberyEngine(t *testing.T) (*Engine, Config) {
 		opp[i] = bears
 	}
 	cfg := Config{Seed: 9202, Names: []string{"searcher", "opponent"},
-		Decks: [][]*cards.Card{deck, opp}, Tokens: reg.Tokens, NameUniverse: reg.AllCards()}
+		Decks: [][]*cards.Card{deck, opp}, Tokens: reg.Tokens, NameUniverse: reg.Universe()}
 	e := New(cfg)
 	e.Advance()
 	toMain1(t, e)

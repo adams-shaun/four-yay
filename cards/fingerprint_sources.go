@@ -127,6 +127,7 @@ import "embed"
 //go:embed strtab.go
 //go:embed subset.go
 //go:embed tokens.go
+//go:embed universe.go
 //go:embed validate.go
 //go:embed value_heads.go
 //go:embed words.go

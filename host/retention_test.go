@@ -202,7 +202,7 @@ func TestArchivedIndexHoldsNoNameUniverse(t *testing.T) {
 	opts := Options{
 		Dir:          dir,
 		LoadDeck:     nameLandLoader(t),
-		NameUniverse: reg.AllCards(),
+		NameUniverse: reg.Universe(),
 		Sleep:        func(time.Duration, <-chan struct{}) {},
 	}
 	r, err := New(opts)

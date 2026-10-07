@@ -299,7 +299,7 @@ func (m *match) sidecar() sidecar {
 	return sidecar{Table: string(m.table.cfg.ID), Match: m.k, Seed: m.seed, Seats: m.seats, Names: m.cfg.Names,
 		PlayerNames: m.cfg.PlayerNames, Decks: m.decks, Spectator: m.table.cfg.Spectator.String(), State: m.state, Result: m.result, Winner: m.winner,
 		Head: m.head, Events: events, Turns: m.e.G.Turn, Reason: m.reason, Mulligans: m.cfg.Mulligans,
-		NameUniverse:      len(m.cfg.NameUniverse) > 0,
+		NameUniverse:      m.cfg.NameUniverse.Len() > 0,
 		NameUniverseNames: append([]string(nil), m.e.G.NameUniverseNames...),
 		Format:            Format(m.cfg.Format), StartingLife: m.cfg.StartingLife, Commanders: m.cfg.Commanders, BotPolicy: m.table.cfg.BotPolicy,
 		Refusals: m.refusals, Fallbacks: m.fallbacks, RootRefusals: m.rootRefusals}

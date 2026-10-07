@@ -51,7 +51,7 @@ func itrFullEngine(t *testing.T, reg *cards.Registry, fixtures ...string) (*Engi
 		opp = append(opp, mountain)
 	}
 	cfg := seatZeroStart(Config{Seed: 9713, Names: []string{"itr", "opp"},
-		Decks: [][]*cards.Card{deck, opp}, Tokens: reg.Tokens, NameUniverse: reg.AllCards()})
+		Decks: [][]*cards.Card{deck, opp}, Tokens: reg.Tokens, NameUniverse: reg.Universe()})
 	e := New(cfg)
 	e.Advance()
 	toMain1(t, e)

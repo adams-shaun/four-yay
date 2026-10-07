@@ -161,7 +161,7 @@ func TestRemoveAnyCounterRealCorpusOozeFluxAnnouncesX(t *testing.T) {
 		opp[i] = land
 	}
 	cfg := seatZeroStart(Config{Seed: 8123, Names: []string{"ooze", "opponent"},
-		Decks: [][]*cards.Card{deck, opp}, Tokens: reg.Tokens, NameUniverse: reg.AllCards()})
+		Decks: [][]*cards.Card{deck, opp}, Tokens: reg.Tokens, NameUniverse: reg.Universe()})
 	e := New(cfg)
 	e.Advance()
 	toMain1(t, e)

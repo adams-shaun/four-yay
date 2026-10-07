@@ -39,7 +39,7 @@ func playCensusGame(t *testing.T, reg *cards.Registry, seats int, seed uint64, c
 		playerNames[i] = names[(int(seed)+i)%len(names)]
 		decks[i] = testutil.RepoDeck(t, reg, playerNames[i])
 	}
-	cfg := rules.Config{Seed: seed, Names: playerNames, Decks: decks, Tokens: reg.Tokens, NameUniverse: reg.AllCards()}
+	cfg := rules.Config{Seed: seed, Names: playerNames, Decks: decks, Tokens: reg.Tokens, NameUniverse: reg.Universe()}
 	table := "census"
 	seats_ := make([]seat.Seat, seats)
 	for i := range seats_ {

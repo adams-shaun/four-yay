@@ -493,7 +493,7 @@ func TestPaymentPlanSearchZoneSeqIndexAgreesInGames(t *testing.T) {
 			names[i] = all[(int(seed)+i*3)%len(all)]
 			decks[i] = testutil.RepoDeck(t, reg, names[i])
 		}
-		e := New(Config{Seed: seed, Names: names, Decks: decks, Tokens: reg.Tokens, NameUniverse: reg.AllCards()})
+		e := New(Config{Seed: seed, Names: names, Decks: decks, Tokens: reg.Tokens, NameUniverse: reg.Universe()})
 		b := newTestBot(seed)
 		e.Advance()
 		for n := 0; !e.G.Over && e.Pending() != nil && n < 20000; n++ {

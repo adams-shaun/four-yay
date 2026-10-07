@@ -200,7 +200,7 @@ func (e *Engine) entryETBChoice(ev events.Event, ordinal int) (etbChoice, bool) 
 				// eligible names nothing, so there is no choice to pose and
 				// the entry proceeds (the body's effNameCard then returns
 				// without naming, as it does mid-resolution).
-				if len(e.G.NameUniverse) > 0 && strings.TrimSpace(r.With.ParamStr(cards.PKChooseFromList)) != "" {
+				if e.G.NameUniverse.Len() > 0 && strings.TrimSpace(r.With.ParamStr(cards.PKChooseFromList)) != "" {
 					continue
 				}
 				opts = []decision.Option{{Index: 0, Kind: "name",
@@ -311,7 +311,7 @@ func (e *Engine) etbOptions(you state.PlayerID, card state.ObjID, kind, validCar
 		// object builder, including the Card.nonLand default and its full
 		// MatchesSpecFrom semantics, is retained byte-for-byte below; changing
 		// it would invalidate persisted ETB NameCard logs.
-		if len(e.G.NameUniverse) == 0 {
+		if e.G.NameUniverse.Len() == 0 {
 			return e.legacyETBNameOptions(you, card, validCards)
 		}
 		// NameCard ranges over the compiled card-name universe, not public

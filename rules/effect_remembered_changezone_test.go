@@ -176,7 +176,7 @@ func TestWhatMustBeDoneReturnsHistoricCreatureWithTwoCounters(t *testing.T) {
 		opp[i] = forest
 	}
 	cfg := seatZeroStart(Config{Seed: 9157, Names: []string{"done", "opponent"},
-		Decks: [][]*cards.Card{deck, opp}, Tokens: reg.Tokens, NameUniverse: reg.AllCards()})
+		Decks: [][]*cards.Card{deck, opp}, Tokens: reg.Tokens, NameUniverse: reg.Universe()})
 	e := New(cfg)
 	e.Advance()
 	toMain1(t, e)

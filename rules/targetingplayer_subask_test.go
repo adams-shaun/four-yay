@@ -58,7 +58,7 @@ func subaskChooserBoard(t *testing.T, reg *cards.Registry, carrier *cards.Card, 
 	}
 	d1 = d1[:40]
 	cfg := seatZeroStart(Config{Seed: 9120, Names: []string{"caster", "chooser"},
-		Decks: [][]*cards.Card{d0, d1}, Tokens: reg.Tokens, NameUniverse: reg.AllCards()})
+		Decks: [][]*cards.Card{d0, d1}, Tokens: reg.Tokens, NameUniverse: reg.Universe()})
 	e := New(cfg)
 	e.Advance()
 	toMain1(t, e)

@@ -42,7 +42,7 @@ func winsGameEngine(t *testing.T) (*Engine, Config) {
 		opp[i] = mountain
 	}
 	cfg := seatZeroStart(Config{Seed: 4201, Names: []string{"a", "b"},
-		Decks: [][]*cards.Card{seatDeck, opp}, Tokens: reg.Tokens, NameUniverse: reg.AllCards()})
+		Decks: [][]*cards.Card{seatDeck, opp}, Tokens: reg.Tokens, NameUniverse: reg.Universe()})
 	e := New(cfg)
 	e.Advance()
 	toMain1(t, e)

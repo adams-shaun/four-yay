@@ -61,7 +61,7 @@ func TestPlayMatchUsesBoardSeatWithViewParity(t *testing.T) {
 		new  func(uint64) *seat.Bot
 	}{{"bot", seat.NewBot}, {"lethal-pressure", seat.NewLethalPressureBot}} {
 		for _, seed := range []uint64{0, 7} {
-			cfg := rules.Config{Seed: seed, Names: names, Decks: decks, Tokens: reg.Tokens, NameUniverse: reg.AllCards()}
+			cfg := rules.Config{Seed: seed, Names: names, Decks: decks, Tokens: reg.Tokens, NameUniverse: reg.Universe()}
 			var boardTrace, viewTrace []decision.Intent
 			boardSeats, viewSeats := make([]seat.Seat, 2), make([]seat.Seat, 2)
 			for i := range boardSeats {

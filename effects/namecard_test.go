@@ -25,7 +25,7 @@ func namecardUniverse(t *testing.T) []*cards.Card {
 func namecardGameWithUniverse(t *testing.T) *state.Game {
 	t.Helper()
 	g := state.NewGame(names(2))
-	g.NameUniverse = namecardUniverse(t)
+	g.NameUniverse = cards.UniverseOf(namecardUniverse(t))
 	return g
 }
 
@@ -179,7 +179,7 @@ func TestNameChoicesUnrestrictedPrefersThePersistedSnapshot(t *testing.T) {
 	g.NameUniverseNames = append([]string(nil), pinned...)
 
 	// The corpus grows after the match was recorded.
-	g.NameUniverse = append(g.NameUniverse, mkCard(t, "Name:!Newcomer\nTypes:Creature\nPT:1/1\nOracle:x\n"))
+	g.NameUniverse = cards.UniverseOf(append(universeCards(g.NameUniverse), mkCard(t, "Name:!Newcomer\nTypes:Creature\nPT:1/1\nOracle:x\n")))
 
 	got := NameChoices(g, "", "")
 	if len(got) != len(pinned) {
@@ -200,4 +200,13 @@ func TestNameChoicesUnrestrictedPrefersThePersistedSnapshot(t *testing.T) {
 	if live := NameChoices(g, "", ""); !containsName(live, "!Newcomer") {
 		t.Fatalf("a live (unpinned) unrestricted NameChoices missed the new card: %v", live)
 	}
+}
+
+// universeCards lists u's cards in order.
+func universeCards(u *cards.Universe) []*cards.Card {
+	out := make([]*cards.Card, u.Len())
+	for i := range out {
+		out[i] = u.Card(i)
+	}
+	return out
 }

@@ -311,7 +311,7 @@ func newEngineShell(cfg Config, random *rng) *Engine {
 	e.G.NameUniverse = cfg.NameUniverse
 	e.G.NamedCorpus = cfg.NamedCorpus
 	e.G.NameUniverseNames = append([]string(nil), cfg.NameUniverseNames...)
-	if len(e.G.NameUniverseNames) == 0 && len(cfg.NameUniverse) > 0 {
+	if len(e.G.NameUniverseNames) == 0 && cfg.NameUniverse.Len() > 0 {
 		e.G.NameUniverseNames = effects.NameUniverseNames(cfg.NameUniverse)
 	}
 	e.manaExpendedTurn = e.G.Turn

@@ -71,7 +71,7 @@ func opponentChooserBoard(t *testing.T, reg *cards.Registry, carrier *cards.Card
 		deck1 = append(deck1, bear)
 	}
 	cfg := Config{Seed: 4711, Names: []string{"caster", "chooser"},
-		Decks: [][]*cards.Card{deck0, deck1}, Tokens: reg.Tokens, NameUniverse: reg.AllCards()}
+		Decks: [][]*cards.Card{deck0, deck1}, Tokens: reg.Tokens, NameUniverse: reg.Universe()}
 	e := New(cfg)
 	e.Advance()
 	// Seat 1 may win the toss and take the first turn: drive to seat 0's next

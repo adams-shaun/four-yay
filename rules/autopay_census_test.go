@@ -359,7 +359,7 @@ func (cz *autopayCensus) buildBase() {
 	driveToStep(t, e, 1, 0, state.StepMain1)
 	// The layer-4 land-type grant path is armed by the corpus vocabulary, the
 	// way a universe-backed match arms it.
-	e.landTypeWords = chars.CorpusLandTypeWords(cz.r.AllCards())
+	e.landTypeWords = chars.CorpusLandTypeWords(cz.r.Universe())
 	for _, k := range []string{"relic", "relic", "relic", "charm", "charm", "elf", "elf", "legend"} {
 		id := censusPlace(e, cz.support[k], 0, state.ZBattlefield, 0)
 		if k == "legend" {

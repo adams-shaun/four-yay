@@ -110,7 +110,7 @@ func TestFeedbackSnapshotReplaysAUniverseBackedMatch(t *testing.T) {
 	r, err := host.New(host.Options{
 		LoadDeck:     load,
 		Tokens:       reg.Tokens,
-		NameUniverse: reg.AllCards(),
+		NameUniverse: reg.Universe(),
 		Seats: func(seatNames []string, seed uint64) []seat.Seat {
 			return []seat.Seat{seat.NewBot(seed ^ 1), seat.NewBot(seed ^ 2)}
 		},

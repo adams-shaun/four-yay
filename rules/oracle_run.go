@@ -455,7 +455,7 @@ func (r *oracleRun) build(sc oracleScenario) error {
 			return err
 		}
 	}
-	cfg := Config{Seed: 42, Names: []string{"a", "b"}, Decks: decks, Tokens: r.reg.Tokens, NamedCorpus: r.reg.AllCards()}
+	cfg := Config{Seed: 42, Names: []string{"a", "b"}, Decks: decks, Tokens: r.reg.Tokens, NamedCorpus: r.reg.Universe()}
 	for p := range sideboards {
 		if len(sideboards[p]) > 0 {
 			// Only a scenario that names a sideboard sets the field, so every

@@ -89,7 +89,7 @@ func TestNameUniverseModeGatesReplay(t *testing.T) {
 	}
 	r, err := New(Options{
 		LoadDeck:     nameLandLoader(t),
-		NameUniverse: reg.AllCards(),
+		NameUniverse: reg.Universe(),
 		Sleep:        func(d time.Duration, stop <-chan struct{}) {},
 	})
 	if err != nil {

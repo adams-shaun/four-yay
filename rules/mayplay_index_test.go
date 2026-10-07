@@ -226,7 +226,7 @@ func TestMayPlayIndexOfferSurface(t *testing.T) {
 		testutil.RepoDeck(t, reg, names[1]),
 	}
 	runDeckGame := func() (snaps []string, head string) {
-		cfg := Config{Seed: 42, Names: names[:2], Decks: decks, Tokens: reg.Tokens, NameUniverse: reg.AllCards(), Mulligans: 1}
+		cfg := Config{Seed: 42, Names: names[:2], Decks: decks, Tokens: reg.Tokens, NameUniverse: reg.Universe(), Mulligans: 1}
 		e := NewStartingPlayerChoice(cfg)
 		b := newTestBot(7)
 		e.AskStartingPlayer()

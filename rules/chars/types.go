@@ -3,7 +3,6 @@ package chars
 import (
 	"slices"
 	"strings"
-	"sync"
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
@@ -216,73 +215,30 @@ func TypesAndAllCreatureTypes(b Board, act []state.ContinuousEffect, id state.Ob
 	return impendingTypeSwitch(o, reconfigureTypeSwitch(o, bestowedTypeSwitch(o, ty))), allCreatureTypes
 }
 
-// landTypeWordsCache memoises CorpusLandTypeWords per universe, keyed by the
-// universe slice's identity (first element address + length). The universe
-// is immutable by contract (state.Game.NameUniverse) and shared by every game
-// an embedder starts from one registry, so the ~24k-card walk runs once per
-// registry instead of once per game. The cached list is shared read-only:
-// its one reader, appendLandTypes, only appends it into another slice.
-// Bounded: dropped wholesale on overflow, which only costs a recomputation.
-var landTypeWordsCache struct {
-	mu sync.Mutex
-	m  map[landTypeWordsKey][]string
-}
-
-type landTypeWordsKey struct {
-	first **cards.Card
-	n     int
-}
-
 // CorpusLandTypeWords derives the land-subtype vocabulary from the parsed
 // compiled corpus supplied as the game's NameUniverse. Card and supertype
 // words, plus creature subtypes printed on creature lands, are excluded.
-// Sorting makes the derived layer list deterministic.
-func CorpusLandTypeWords(universe []*cards.Card) []string {
-	if len(universe) == 0 {
-		return buildCorpusLandTypeWords(universe)
-	}
-	k := landTypeWordsKey{first: &universe[0], n: len(universe)}
-	landTypeWordsCache.mu.Lock()
-	if out, ok := landTypeWordsCache.m[k]; ok {
-		landTypeWordsCache.mu.Unlock()
-		return out
-	}
-	landTypeWordsCache.mu.Unlock()
-	out := buildCorpusLandTypeWords(universe)
-	out = out[:len(out):len(out)]
-	landTypeWordsCache.mu.Lock()
-	defer landTypeWordsCache.mu.Unlock()
-	if prev, ok := landTypeWordsCache.m[k]; ok {
-		return prev
-	}
-	if len(landTypeWordsCache.m) >= 64 {
-		landTypeWordsCache.m = nil
-	}
-	if landTypeWordsCache.m == nil {
-		landTypeWordsCache.m = make(map[landTypeWordsKey][]string)
-	}
-	landTypeWordsCache.m[k] = out
-	return out
+// Sorting makes the derived layer list deterministic. The universe is
+// immutable and shared by every game an embedder starts from one registry,
+// so the walk is memoised on it and runs once per universe; the list is
+// shared read-only (its one reader, appendLandTypes, only appends it).
+func CorpusLandTypeWords(universe *cards.Universe) []string {
+	return universe.LandTypeWords(buildCorpusLandTypeWords)
 }
 
-func buildCorpusLandTypeWords(universe []*cards.Card) []string {
+func buildCorpusLandTypeWords(universe *cards.Universe) []string {
 	words := make(map[string]struct{})
-	for _, card := range universe {
-		if card == nil {
-			continue
+	universe.EachFaceTypes(func(types []string) {
+		if !slices.ContainsFunc(types, func(t string) bool { return strings.EqualFold(t, "Land") }) {
+			return
 		}
-		for _, face := range card.Faces {
-			if face == nil || !slices.ContainsFunc(face.Types, func(t string) bool { return strings.EqualFold(t, "Land") }) {
+		for _, typ := range types {
+			if strings.EqualFold(typ, "Land") || IsSupertype(typ) || IsCardType(typ) || effects.CreatureTypeWords(typ) {
 				continue
 			}
-			for _, typ := range face.Types {
-				if strings.EqualFold(typ, "Land") || IsSupertype(typ) || IsCardType(typ) || effects.CreatureTypeWords(typ) {
-					continue
-				}
-				words[typ] = struct{}{}
-			}
+			words[typ] = struct{}{}
 		}
-	}
+	})
 	out := make([]string, 0, len(words))
 	for word := range words {
 		out = append(out, word)

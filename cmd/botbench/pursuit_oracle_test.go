@@ -311,7 +311,7 @@ func oracleAudit(t *testing.T, nGames, sampleEvery, budget int, allUnpriced bool
 		}
 		var res sbResult
 		inner := sbSubmitWithFallback(seats, &res)
-		cfg := rules.Config{Seed: g.seed, Names: []string{"p0", "p1"}, Decks: [][]*cards.Card{deck, deck}, Tokens: reg.Tokens, NameUniverse: reg.AllCards()}
+		cfg := rules.Config{Seed: g.seed, Names: []string{"p0", "p1"}, Decks: [][]*cards.Card{deck, deck}, Tokens: reg.Tokens, NameUniverse: reg.Universe()}
 		hooks := gbench.Hooks{
 			Setup: func(e *rules.Engine) {
 				for _, st := range seats {

@@ -86,7 +86,7 @@ func cloneFuzzConfig(t *testing.T, reg *cards.Registry, g int) (Config, string) 
 	if cmdr {
 		pool = commander
 	}
-	cfg := Config{Seed: uint64(1000 + g), Tokens: reg.Tokens, NameUniverse: reg.AllCards(), Mulligans: 1}
+	cfg := Config{Seed: uint64(1000 + g), Tokens: reg.Tokens, NameUniverse: reg.Universe(), Mulligans: 1}
 	for i := 0; i < seats; i++ {
 		name := pool[(g*7+i*5)%len(pool)]
 		cfg.Names = append(cfg.Names, name)

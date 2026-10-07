@@ -98,7 +98,7 @@ func TestHeuristicParityWithInProcess(t *testing.T) {
 		for k := 0; k < 2; k++ {
 			seed := uint64(7000 + 10*di + k)
 			cfg := rules.Config{Seed: seed, Names: []string{"p0", "p1"}, Decks: [][]*cards.Card{deck, deck},
-				Tokens: reg.Tokens, NameUniverse: reg.AllCards()}
+				Tokens: reg.Tokens, NameUniverse: reg.Universe()}
 			start := fmt.Sprintf("p%d", rules.New(cfg).G.StartingPlayer)
 			seats := []seat.Seat{builtins.New(builtins.Heuristic, builtins.Manual, 1), builtins.New(builtins.Heuristic, builtins.Manual, 2)}
 			o, e, err := gbench.PlayGame(cfg, seats, 0, 60000, gbench.Hooks{})

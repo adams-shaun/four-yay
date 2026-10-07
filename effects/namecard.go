@@ -158,12 +158,13 @@ func nameChoicesFiltered(g *state.Game, spec, chooseFromList string, strict bool
 	}
 	allowed := nameSet(g.NameUniverseNames)
 	seen := make(map[string]bool)
-	filtered := make([]string, 0, len(g.NameUniverse))
+	filtered := make([]string, 0, g.NameUniverse.Len())
 	// One scratch object serves every card: the matcher reads it and keeps
 	// no reference, and a fresh ~1 KB Object per universe card was the
 	// dominant allocation of a NameCard ask.
 	o := new(state.Object)
-	for _, c := range g.NameUniverse {
+	for i, n := 0, g.NameUniverse.Len(); i < n; i++ {
+		c := g.NameUniverse.Card(i)
 		if c == nil || len(c.Faces) == 0 || c.Faces[0] == nil {
 			continue
 		}
@@ -227,31 +228,11 @@ func descriptionSpec(description string) string {
 	return ""
 }
 
-// buildNameUniverseNames computes the sorted, distinct primary-face-name
-// list NameUniverseNames memoises.
-func buildNameUniverseNames(universe []*cards.Card) []string {
-	seen := make(map[string]bool, len(universe))
-	out := make([]string, 0, len(universe))
-	for _, c := range universe {
-		if c == nil || len(c.Faces) == 0 || c.Faces[0] == nil {
-			continue
-		}
-		name := c.Faces[0].Name
-		if name == "" || seen[name] {
-			continue
-		}
-		seen[name] = true
-		out = append(out, name)
-	}
-	sort.Strings(out)
-	return out
-}
-
 // nameUniverseSnapshot prefers a persisted match's immutable list over the
 // current corpus so a later corpus update cannot renumber an answer. Both
 // lists are immutable, so the result is returned without a copy and is
 // read-only for the caller.
-func nameUniverseSnapshot(universe []*cards.Card, snapshot []string) []string {
+func nameUniverseSnapshot(universe *cards.Universe, snapshot []string) []string {
 	if len(snapshot) > 0 {
 		return snapshot[:len(snapshot):len(snapshot)]
 	}

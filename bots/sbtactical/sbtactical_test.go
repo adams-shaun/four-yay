@@ -308,7 +308,7 @@ func TestSBTacticalPlannerIsReadAtPriorityOnly(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	deck := testutil.RepoDeck(t, reg, "dimir-tempo")
 	cfg := rules.Config{Seed: 20260928, Names: []string{"p0", "p1"},
-		Decks: [][]*cards.Card{deck, deck}, Tokens: reg.Tokens, NameUniverse: reg.AllCards()}
+		Decks: [][]*cards.Card{deck, deck}, Tokens: reg.Tokens, NameUniverse: reg.Universe()}
 	seats := []seat.Seat{
 		mustNew(t, bots.Options{Seed: 1, Deps: bots.Deps{Cards: reg}}, Hosted()),
 		mustNew(t, bots.Options{Seed: 2, Deps: bots.Deps{Cards: reg}}, Hosted()),

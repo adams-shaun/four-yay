@@ -179,7 +179,7 @@ func TestPartnerWithTargetedOpponentAnswersTheSearch(t *testing.T) {
 		deck1 = append(deck1, mountain)
 	}
 	cfg := Config{Seed: 9203, Names: []string{"searcher", "opponent"},
-		Decks: [][]*cards.Card{deck0, deck1}, Tokens: reg.Tokens, NameUniverse: reg.AllCards()}
+		Decks: [][]*cards.Card{deck0, deck1}, Tokens: reg.Tokens, NameUniverse: reg.Universe()}
 	e := New(cfg)
 	e.Advance()
 	toMain1(t, e)

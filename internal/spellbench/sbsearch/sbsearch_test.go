@@ -46,7 +46,7 @@ func (g *testGame) tactical(seed uint64) *builtins.Seat {
 func (g *testGame) play(t *testing.T, seed uint64, mk func(seed uint64) seat.Seat) (string, gbench.Outcome) {
 	t.Helper()
 	seats := []seat.Seat{mk(seed ^ 1), g.tactical(seed ^ 2)}
-	cfg := rules.Config{Seed: seed, Names: []string{"p0", "p1"}, Decks: [][]*cards.Card{g.deck, g.deck}, Tokens: g.reg.Tokens, NameUniverse: g.reg.AllCards()}
+	cfg := rules.Config{Seed: seed, Names: []string{"p0", "p1"}, Decks: [][]*cards.Card{g.deck, g.deck}, Tokens: g.reg.Tokens, NameUniverse: g.reg.Universe()}
 	hooks := gbench.Hooks{Setup: func(e *rules.Engine) {
 		for _, s := range seats {
 			if u, ok := s.(interface{ UnwrapSeat() seat.Seat }); ok {

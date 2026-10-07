@@ -86,7 +86,7 @@ func fainCorpusEngine(t *testing.T, reg *cards.Registry) (*Engine, Config, state
 		opp[i] = forest
 	}
 	cfg := seatZeroStart(Config{Seed: 7711, Names: []string{"fain", "opponent"},
-		Decks: [][]*cards.Card{deck, opp}, Tokens: reg.Tokens, NameUniverse: reg.AllCards()})
+		Decks: [][]*cards.Card{deck, opp}, Tokens: reg.Tokens, NameUniverse: reg.Universe()})
 	e := New(cfg)
 	e.Advance()
 	toMain1(t, e)

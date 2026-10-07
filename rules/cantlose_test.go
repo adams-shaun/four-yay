@@ -47,7 +47,7 @@ func cantLoseFixture(t *testing.T, seed uint64, oppSrc string) (*Engine, Config,
 	}
 	cfg := seatZeroStart(Config{Seed: seed, Names: []string{"a", "b"},
 		Decks:  [][]*cards.Card{seatDeck, oppDeck},
-		Tokens: reg.Tokens, NameUniverse: reg.AllCards()})
+		Tokens: reg.Tokens, NameUniverse: reg.Universe()})
 	e := New(cfg)
 	e.Advance()
 	heraldID := moveNamedToBattlefield(t, e, 0, "Herald of Eternal Dawn")

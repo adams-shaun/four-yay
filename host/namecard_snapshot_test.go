@@ -21,7 +21,7 @@ func TestNameUniverseSnapshotReplaysAcrossCorpusChange(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	r, err := New(Options{
 		LoadDeck:     nameLandLoader(t),
-		NameUniverse: reg.AllCards(),
+		NameUniverse: reg.Universe(),
 		Sleep:        func(time.Duration, <-chan struct{}) {},
 	})
 	if err != nil {
@@ -64,12 +64,12 @@ func TestNameUniverseSnapshotReplaysAcrossCorpusChange(t *testing.T) {
 	added := parseNameLand(t, "Name:! Replay Sentinel\nTypes:Creature\nOracle:x\n")
 	changed := append(append([]*cards.Card(nil), reg.AllCards()...), added)
 	probe := state.NewGame([]string{"a", "b"})
-	probe.NameUniverse = changed
+	probe.NameUniverse = cards.UniverseOf(changed)
 	changedNames := effects.NameChoices(probe, "Card.nonLand", "")
 	if len(changedNames) == 0 || changedNames[0] != added.Faces[0].Name {
 		t.Fatalf("precondition: corpus addition did not become the first nonland name: %q", changedNames)
 	}
-	r.opts.NameUniverse = changed
+	r.opts.NameUniverse = cards.UniverseOf(changed)
 
 	replayed, err := r.matchForLog(tb, sc, m.e.L)
 	if err != nil {
