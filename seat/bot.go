@@ -57,6 +57,10 @@ type Bot struct {
 	// attackSim, when non-nil, answers KAttackers with the opt-in combat
 	// simulation (botpolicy.AttackSimDecide); set only by NewAttackSimBot.
 	attackSim *botpolicy.AttackSimParams
+	// mulligan is the London-mulligan rule (botpolicy.MulliganRule), copied
+	// onto every decision's Board like cast. The zero value is the default
+	// 1/3 coin; WithMulligan / EnableLandMulligan set another.
+	mulligan botpolicy.MulliganRule
 }
 
 // M4: a compile-time assertion that Bot keeps satisfying Seat, since
@@ -97,6 +101,21 @@ func (b *Bot) EnableAutoPayMana() *Bot {
 	b.autoPayMana = true
 	return b
 }
+
+// WithMulligan configures the bot's London-mulligan rule (botpolicy.
+// MulliganRule): MulliganLands keeps or mulligans on the hand's land count
+// and bottoms toward a sensible land count, MulliganNever always keeps, and
+// MulliganCoin (the zero value) is the default 1/3 coin. A rule other than
+// the coin consumes no rng at the mulligan, so the bot's later draws shift
+// relative to the default bot's. It returns b, like EnableAutoPayMana.
+func (b *Bot) WithMulligan(rule botpolicy.MulliganRule) *Bot {
+	b.mulligan = rule
+	return b
+}
+
+// EnableLandMulligan is WithMulligan(botpolicy.MulliganLands): the opt-in
+// Limited land-count mulligan heuristic.
+func (b *Bot) EnableLandMulligan() *Bot { return b.WithMulligan(botpolicy.MulliganLands) }
 
 // SkipLifePlans makes the bot treat an offered payment action whose plan pays
 // life as having no plan, so its policy sees the ordinary options for that
@@ -193,6 +212,9 @@ func NewCastProfileBotWithWeights(seed uint64, w botpolicy.CastWeights) *Bot {
 func (b *Bot) decide(brd botpolicy.Board, d *decision.Decision) decision.Intent {
 	if b.castSet {
 		brd.Cast = b.cast
+	}
+	if b.mulligan != botpolicy.MulliganCoin {
+		brd.Mulligan = b.mulligan
 	}
 	if b.autoPayMana {
 		if in, ok := b.paymentIntent(brd, d); ok {

@@ -79,6 +79,25 @@ type Options struct {
 	// network then supplies only the leaf value (the search benchmark's
 	// "priors off", upstream experiment #2's setting).
 	UniformPrior bool
+	// PriorTopK lets the network choose the candidates. Limit cuts a
+	// decision's candidates in enumeration order before any prior is
+	// formed, and past the bot's answer and Pass that order is the
+	// enumerator's (a priority decision's other plays sort by key bytes),
+	// not quality: a strong play can be cut while a weak one is searched.
+	// With PriorTopK > 0 and a network prior in use (a net, UniformPrior
+	// off), every searched point -- the root and every in-walk point -- is
+	// enumerated in full (BenchCandidateLimit), the prior is formed over
+	// every candidate, and the bot's candidate (index 0, still the
+	// tie-winner) is kept with the PriorTopK-1 others of highest prior,
+	// prior descending (ties to the enumeration order), the kept prior
+	// renormalised; Limit is then unused. A prior that falls back to
+	// uniform ties every candidate, so the cut keeps the enumeration's
+	// first PriorTopK. Under AutoPayment the ranking prior also scores a
+	// payment cast that has no legacy cast option -- the usual case, nothing
+	// floats -- as the plain cast option it stands for, where the ordinary
+	// prior falls back to uniform (priorsWith). 0 is off; without a network
+	// prior it does nothing. Stats.PriorTopK* count it.
+	PriorTopK int
 
 	// AbsoluteUnvisitedQ replaces first-play urgency: an unvisited child's Q
 	// is the constant UnvisitedQ instead of its parent's Q minus FPU. The
@@ -131,6 +150,31 @@ type Options struct {
 	// tree; the roots are merged by summing visits (Q visit-weighted). 0 is
 	// off (the default), and a fixed-world source ignores it.
 	CachedWorlds int
+	// OpponentNodes puts the opponent in the tree. Off (the default), the
+	// walk's bot answers every decision of every other seat, so the search
+	// computes a best response to that bot. On, an in-walk decision of
+	// another seat that is a searched kind (Kinds) with at least two
+	// candidates -- built by the same enumerators, the walk bot's own
+	// answer for that seat first, capped at Limit -- is a tree point too.
+	// Every stored value stays the searching seat's win probability; at an
+	// opponent's point selection maximises the opponent's, 1 - Q, and
+	// first-play urgency reads the parent from that side. The prior there
+	// is the network's on the OPPONENT's redacted view of the world
+	// (uniform without one, or under UniformPrior). The leaf and the backup
+	// are unchanged.
+	//
+	// An opponent's candidate keys name every object by its card name (the
+	// NameKeys rule with nothing known at the root): its hand is re-dealt in
+	// every world, so an observer-local reference would not name the same
+	// card twice, and two same-named objects share one key (one candidate
+	// is kept). Its keys carry oppKeyPrefix, so they never meet the
+	// searching seat's at a node two worlds reach with different seats to
+	// act; the other seat's children are unavailable there. The opponent
+	// enumerates the manual-payment vocabulary even under AutoPayment: its
+	// walk bot is the manual one, whose casts are offered only once mana
+	// floats (a tap is never a candidate, so such a priority stays the
+	// bot's).
+	OpponentNodes bool
 }
 
 // DiscountUnit is what one step of the backup discount counts.
@@ -143,7 +187,8 @@ const (
 	DiscountPly DiscountUnit = iota
 	// DiscountAction counts searched tree edges between the node and the
 	// leaf (upstream's "logical action": only edges out of the searching
-	// seat's searched decisions).
+	// seat's searched decisions, and under OpponentNodes out of the
+	// opponent's points too: every tree edge).
 	DiscountAction
 	// DiscountTurn counts turn boundaries crossed between the node and the
 	// leaf.
@@ -205,9 +250,10 @@ type Stats struct {
 	PriorFallbacks int // network priors that fell back to uniform, at the root and at in-walk points (a discarded simulation's included)
 	FeedStopped    int // decisions the driver routed around the search (its observation feed stopped): the bot's answer was played
 	RedealRefused  int // decisions whose honest (redeal) world source refused to prepare: no world, the bot's answer was played
-	// Truncated counts searched points -- the root and in-walk decisions,
-	// a discarded simulation's included -- whose candidate list the Limit
-	// cut; RootTruncated is the root's share (0 or 1 per Search).
+	// Truncated counts searched points -- the root and in-walk decisions
+	// (an opponent's too, under OpponentNodes), a discarded simulation's
+	// included -- whose candidate list the Limit cut; RootTruncated is the
+	// root's share (0 or 1 per Search).
 	Truncated     int
 	RootTruncated int
 	// LeafPlies, LeafEdges and LeafTurns sum, over completed simulations,
@@ -222,6 +268,13 @@ type Stats struct {
 	// or became done between simulations, the tree stopped where it was and
 	// the bot's answer was played. A live context never counts it.
 	DeadlineHits int
+	// OppPoints and OppExpanded are Options.OpponentNodes at work:
+	// OppPoints counts the selections simulations made at an opponent's
+	// point (one per visit, a discarded simulation's included), OppExpanded
+	// the new tree nodes that are an opponent's point (Expanded's share).
+	// Both stay 0 with the option off.
+	OppPoints   int
+	OppExpanded int
 
 	// The walk's cost counters. They count work, not outcomes: the node
 	// cache (Options.NodeCache) changes them, and EnvSteps above, and
@@ -245,6 +298,15 @@ type Stats struct {
 	// those decisions are never searched, so this row is where stage 0 sees
 	// how often the search meets a cast only after mana has floated.
 	PrioritySkipped [NumBaseKinds][NumSkipReasons]int
+
+	// PriorTopKPoints counts searched points -- the root and in-walk
+	// decisions, a discarded simulation's included -- whose candidates
+	// Options.PriorTopK ranked by the network prior; PriorTopKCuts those
+	// where the ranking dropped a candidate, and PriorTopKBefore sums those
+	// points' candidate counts before the cut (MeanPriorTopKBefore).
+	PriorTopKPoints int
+	PriorTopKCuts   int
+	PriorTopKBefore int
 }
 
 // The searched kinds, indexing Stats' per-kind breakdowns.
@@ -328,6 +390,8 @@ func (s *Stats) Add(o Stats) {
 	s.FeedStopped += o.FeedStopped
 	s.RedealRefused += o.RedealRefused
 	s.DeadlineHits += o.DeadlineHits
+	s.OppPoints += o.OppPoints
+	s.OppExpanded += o.OppExpanded
 	s.Truncated += o.Truncated
 	s.RootTruncated += o.RootTruncated
 	s.LeafPlies += o.LeafPlies
@@ -339,6 +403,9 @@ func (s *Stats) Add(o Stats) {
 	s.NodeSaves += o.NodeSaves
 	s.NodeResumes += o.NodeResumes
 	s.NodeEvicts += o.NodeEvicts
+	s.PriorTopKPoints += o.PriorTopKPoints
+	s.PriorTopKCuts += o.PriorTopKCuts
+	s.PriorTopKBefore += o.PriorTopKBefore
 	for k := range s.KindSearched {
 		s.KindSearched[k] += o.KindSearched[k]
 		for r := range s.KindSkipped[k] {
@@ -360,6 +427,15 @@ func (s Stats) MeanLeafEdges() float64 { return perCompleted(s.LeafEdges, s.Comp
 
 // MeanLeafTurns is LeafTurns per completed simulation (0 with none).
 func (s Stats) MeanLeafTurns() float64 { return perCompleted(s.LeafTurns, s.Completed) }
+
+// MeanPriorTopKBefore is the candidates a PriorTopK cut ranked, per cut (0
+// with none).
+func (s Stats) MeanPriorTopKBefore() float64 {
+	if s.PriorTopKCuts == 0 {
+		return 0
+	}
+	return float64(s.PriorTopKBefore) / float64(s.PriorTopKCuts)
+}
 
 func perCompleted(sum, n int) float64 {
 	if n == 0 {

@@ -34,6 +34,10 @@ type walkConfig struct {
 	// uniformPrior keeps the uniform prior at in-walk points even with a
 	// network (Options.UniformPrior).
 	uniformPrior bool
+	// priorTopK is the PriorTopK in effect (Options.priorTopK): 0, or the
+	// candidates rankedPrior keeps at every in-walk point of the searching
+	// seat, which then enumerates past limit (enumLimit).
+	priorTopK int
 	// rootPerWorld re-derives the root candidates in every world
 	// (Options.RootPerWorld).
 	rootPerWorld bool
@@ -57,6 +61,13 @@ type walkConfig struct {
 	// and the prior's reusable views, refilled per leaf and per point.
 	// Nil (a hand-built config) projects into fresh views.
 	views *viewScratch
+	// oppNodes makes the other seats' searched decisions tree points
+	// (Options.OpponentNodes). oppForks[p] hands seat p's walk a fresh
+	// collector per world (nil for the searching seat): simulations run one
+	// at a time, so one forked collector, rolled back, serves them all, as
+	// the redeal source's forker does for the searching seat.
+	oppNodes bool
+	oppForks []*searchprobe.Forker
 }
 
 // priorNet is the network in-walk priors read: nil under uniformPrior.
@@ -109,6 +120,25 @@ func (c *walkConfig) priorView() *view.View {
 	return &c.views.prior
 }
 
+// enumLimit is the searching seat's enumeration cap at an in-walk point:
+// limit, or under priorTopK every candidate (BenchCandidateLimit), for
+// rankedPrior to cut.
+func (c *walkConfig) enumLimit() int {
+	if c.priorTopK > 0 {
+		return BenchCandidateLimit
+	}
+	return c.limit
+}
+
+// candKeys is cands' keys, in order.
+func candKeys(cands []cand) []Key {
+	keys := make([]Key, len(cands))
+	for i, c := range cands {
+		keys[i] = c.key
+	}
+	return keys
+}
+
 // worldEnvs adapts a WorldSource to the tree's EnvSource.
 type worldEnvs struct {
 	src WorldSource
@@ -128,7 +158,8 @@ func (w *worldEnvs) Env(sim int) (Env, error) {
 }
 
 // engineEnv walks one world. The searching seat's searched decisions are
-// the tree's points; botpolicy.Decide answers every other decision of both
+// the tree's points -- and under Options.OpponentNodes the opponent's too
+// (oppPoint); botpolicy.Decide answers every other decision of both
 // seats (spec §1's env step), from bot streams seeded identically for every
 // simulation of the decision, so a clairvoyant clone is deterministic along
 // a path.
@@ -159,6 +190,13 @@ type engineEnv struct {
 	// actorPCG is actorBot's source, which the node cache saves and
 	// restores with pcgs.
 	actorPCG *rand.PCG
+	// oppObs[p] is opponent p's collector in this world
+	// (Options.OpponentNodes), forked on p's first decision the walk
+	// enumerates and fed by every later one. It starts empty in every
+	// world: the opponent's hand is re-dealt per world, so its references
+	// name nothing across worlds, and opponent keys name objects by card
+	// name instead (oppPoint). Nil until used.
+	oppObs []*searchprobe.Collector
 }
 
 func newEngineEnv(w World, cfg *walkConfig) (*engineEnv, error) {
@@ -310,7 +348,8 @@ func (e *engineEnv) Play(k Key) (pt *Point, err error) {
 }
 
 // advance answers decisions with the bot until the searching seat's next
-// searched decision (a point), game over, or the step cap (nil). The cap
+// searched decision (a point) -- or, under Options.OpponentNodes, an
+// opponent's (oppPoint) -- game over, or the step cap (nil). The cap
 // bounds the bot's submits only: a searched decision reached with the cap
 // exactly spent is still a point, so it expands rather than being evaluated
 // as capped.
@@ -348,23 +387,33 @@ func (e *engineEnv) advance() (*Point, error) {
 			}
 		}
 		if pd.Player == e.cfg.actor {
-			if cands, kind, _, ok, cut := enumerateCutInto(e.obs, e.e, pd, in, e.cfg.kinds, e.cfg.limit, e.cfg.autoPayment, e.cfg.enumBoard); ok {
+			if cands, kind, _, ok, cut := enumerateCutInto(e.obs, e.e, pd, in, e.cfg.kinds, e.cfg.enumLimit(), e.cfg.autoPayment, e.cfg.enumBoard); ok {
 				if cut {
 					e.cfg.stats.Truncated++
 				}
 				if e.cfg.nameKeys {
 					cands = nameKeys(e.obs, e.e, pd, cands, e.cfg.rootRefs)
 				}
+				// Under priorTopK the network keeps the point's best
+				// candidates (after nameKeys, which may merge two).
+				cands, prior, fell, before := rankedPrior(e.cfg.priorNet(), e.cfg.priorTopK, e.e, pd, in, kind, cands, e.cfg.priorView())
 				e.cur, e.cands = pd, cands
-				prior, fell := priors(e.cfg.priorNet(), e.e, pd, in, kind, cands, e.cfg.priorView())
 				if fell {
 					e.cfg.stats.PriorFallbacks++
+				}
+				if e.cfg.priorTopK > 0 {
+					countTopK(e.cfg.stats, true, before)
+					return &Point{Keys: candKeys(cands), Prior: prior, cut: cut, fell: fell, ranked: true, before: before}, nil
 				}
 				keys := make([]Key, len(cands))
 				for i, c := range cands {
 					keys[i] = c.key
 				}
 				return &Point{Keys: keys, Prior: prior, cut: cut, fell: fell}, nil
+			}
+		} else if e.cfg.oppNodes {
+			if pt := e.oppPoint(pd, in); pt != nil {
+				return pt, nil
 			}
 		}
 		if e.steps >= e.cfg.maxSteps {
@@ -379,6 +428,90 @@ func (e *engineEnv) advance() (*Point, error) {
 		e.plies++
 		e.cfg.stats.EnvSteps++
 	}
+}
+
+// oppKeyPrefix marks an opponent's candidate key (Options.OpponentNodes).
+// Two worlds can reach one tree node with different seats to act (the
+// opponent has a block to choose in one, none in the other), so the node
+// holds both seats' children; the prefix keeps them apart, and each seat's
+// are unavailable while the other acts. No other key starts with it (a
+// semantic action key's first byte is 0 or 1; payKeyPrefix and
+// MacroKeyPrefix differ).
+const oppKeyPrefix = "opp:"
+
+// oppPoint is Options.OpponentNodes at opponent pd.Player's decision pd,
+// the walk bot's answer in: the tree point there, or nil when pd is not one
+// -- not a searched kind, fewer than two candidates (same-named candidates
+// counted once), a bot answer outside the vocabulary, a translation failure
+// -- and the bot's answer is played as before.
+//
+// The candidates are the searching seat's enumerators over the opponent's
+// per-world collector (the bot's answer first, capped at the limit), in the
+// manual-payment vocabulary: the walk bot that answers the opponent pays
+// manually, so a cast is offered only once its mana floats and a tap is
+// never a candidate. Every key names its objects by card name (nameKeys
+// with nothing known at the root) behind oppKeyPrefix. The prior is the
+// network's on the OPPONENT's redacted view (priors projects pd.Player's),
+// uniform without one. Truncated and PriorFallbacks count here as at the
+// searching seat's points.
+func (e *engineEnv) oppPoint(pd *decision.Decision, in decision.Intent) *Point {
+	obs := e.oppObserver(pd.Player)
+	if obs == nil {
+		return nil
+	}
+	cands, kind, _, ok, cut := enumerateCutInto(obs, e.e, pd, in, e.cfg.kinds, e.cfg.limit, false, e.cfg.enumBoard)
+	if !ok {
+		return nil
+	}
+	if cands = nameKeys(obs, e.e, pd, cands, 0); len(cands) < 2 {
+		return nil
+	}
+	if cut {
+		e.cfg.stats.Truncated++
+	}
+	keys := make([]Key, len(cands))
+	for i := range cands {
+		cands[i].key = Key(oppKeyPrefix + string(cands[i].key))
+		keys[i] = cands[i].key
+	}
+	e.cur, e.cands = pd, cands
+	prior, fell := priors(e.cfg.priorNet(), e.e, pd, in, kind, cands, e.cfg.priorView())
+	if fell {
+		e.cfg.stats.PriorFallbacks++
+	}
+	return &Point{Keys: keys, Prior: prior, cut: cut, fell: fell, Opp: true}
+}
+
+// oppObserver is seat p's collector in this world, forked on first use; nil
+// for a seat with no fork (the searching seat, or an out-of-range seat).
+func (e *engineEnv) oppObserver(p state.PlayerID) *searchprobe.Collector {
+	if int(p) >= len(e.cfg.oppForks) || e.cfg.oppForks[p] == nil {
+		return nil
+	}
+	if e.oppObs == nil {
+		e.oppObs = make([]*searchprobe.Collector, len(e.cfg.oppForks))
+	}
+	if e.oppObs[p] == nil {
+		e.oppObs[p] = e.cfg.oppForks[p].Fork()
+	}
+	return e.oppObs[p]
+}
+
+// cloneObservers is a deep copy of a walk's opponent collectors
+// (engineEnv.oppObs). The node cache stores and resumes copies: a forked
+// collector is rolled back by the next fork, and a stored state is never
+// written again.
+func cloneObservers(obs []*searchprobe.Collector) []*searchprobe.Collector {
+	if obs == nil {
+		return nil
+	}
+	out := make([]*searchprobe.Collector, len(obs))
+	for i, c := range obs {
+		if c != nil {
+			out[i] = c.Clone()
+		}
+	}
+	return out
 }
 
 // submit plays in on the world, recovering any engine panic (the livelock
