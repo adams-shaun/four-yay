@@ -109,6 +109,11 @@ type walkFaceFacts struct {
 	// (walk_objclass.go): faceStaticHotOn, faceStaticHotOff and
 	// faceMayPlayHot, read only while the facts are fullyCurrent.
 	staticOn, staticOff, mayPlay bool
+	// flash is whether the face carries its OWN S:Mode$ CastWithFlash static
+	// (faceHasCastWithFlash): the face half of castWithFlash's fast path
+	// (legal_walk_flash.go). A pure function of f.Statics, so it is read
+	// only while the facts are fullyCurrent.
+	flash bool
 }
 
 // verifyFresh panics when a field of ff a reader may use differs from a
@@ -145,6 +150,9 @@ func (ff *walkFaceFacts) verifyFresh(f *cards.Face) {
 	got.castLabel, got.playLabel, got.manaLabel = fresh.castLabel, fresh.playLabel, fresh.manaLabel
 	if !ff.fullyCurrent(f) {
 		got.staticOn, got.staticOff, got.mayPlay = fresh.staticOn, fresh.staticOff, fresh.mayPlay
+	}
+	if !ff.staticsCurrent(f) {
+		got.flash = fresh.flash
 	}
 	// Scan verdicts have their own verifier in faceScanHas. Keep the cached
 	// value on both sides here rather than recomputing it in this whole-facts
@@ -184,7 +192,8 @@ func walkFaceFactsEqual(a, b *walkFaceFacts) bool {
 		a.trigLookBack != b.trigLookBack || a.grantsTrig != b.grantsTrig || a.trigFirst != b.trigFirst || a.trigLen != b.trigLen ||
 		a.statFirst != b.statFirst || a.statLen != b.statLen || a.replFirst != b.replFirst || a.replLen != b.replLen ||
 		a.svars != b.svars || a.svarsLen != b.svarsLen ||
-		a.staticOn != b.staticOn || a.staticOff != b.staticOff || a.mayPlay != b.mayPlay {
+		a.staticOn != b.staticOn || a.staticOff != b.staticOff || a.mayPlay != b.mayPlay ||
+		a.flash != b.flash {
 		return false
 	}
 	if (a.altCosts == nil) != (b.altCosts == nil) || len(a.altCosts) != len(b.altCosts) {
@@ -218,6 +227,14 @@ func (ff *walkFaceFacts) fullyCurrent(f *cards.Face) bool {
 // f's current keyword list.
 func (ff *walkFaceFacts) keywordsCurrent(f *cards.Face) bool {
 	return ff.kwLen == len(f.Keywords) && (ff.kwLen == 0 || ff.kwFirst == &f.Keywords[0])
+}
+
+// staticsCurrent reports whether the facts were computed over f's current
+// static list. flash (and staticOn/staticOff) depend only on that list, so a
+// reader of just those bits checks this strictly weaker guard than
+// fullyCurrent.
+func (ff *walkFaceFacts) staticsCurrent(f *cards.Face) bool {
+	return ff.statLen == len(f.Statics) && (ff.statLen == 0 || ff.statFirst == &f.Statics[0])
 }
 
 // walkSkipVerify: see derivedMemoVerify. Set by the rules test binary.
@@ -254,6 +271,7 @@ func computeWalkFaceFactsMode(f *cards.Face, includeScan bool) walkFaceFacts {
 	}
 	ff.statLen, ff.replLen, ff.svarsLen, ff.svars = len(f.Statics), len(f.Repls), len(f.SVars), svarsIdentity(f)
 	ff.staticOn, ff.staticOff, ff.mayPlay = faceStaticHotOn(f), faceStaticHotOff(f), faceMayPlayHot(f)
+	ff.flash = faceHasCastWithFlash(f)
 	if len(f.Statics) > 0 {
 		ff.statFirst = &f.Statics[0]
 	}
