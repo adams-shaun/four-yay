@@ -1041,6 +1041,10 @@ func (e *Engine) resumeTriggerDrain() {
 }
 
 func (e *Engine) askPriority(p state.PlayerID) {
+	if e.skipPass != 0 && e.skippableWindow(p) {
+		e.skipPriority()
+		return
+	}
 	var window *windowCollector
 	if e.windowDiagnostics {
 		window = newWindowCollector(p)

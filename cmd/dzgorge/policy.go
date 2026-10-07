@@ -42,6 +42,9 @@ import (
 //	                             points where it picks what is worst for the seat (PUCT on 1 - Q), its
 //	                             prior the net's on the opponent's own view, instead of gorge's bot
 //	                             answering them (azmcts Options.OpponentNodes; needs gorge/patches/0004)
+//	   :skippass                 simulation shortcut: rollout engines auto-pass every priority window
+//	                             outside a main phase with an empty stack (azmcts Options.SkipPass); the
+//	                             real game and the root decision are untouched
 //	   :mull                     the London mulligan by land count (gorge/patches/0005): keep 2-5 lands
 //	                             of 7 (also after one mulligan), after two keep unless 0 or 7, and
 //	                             bottom toward ceil(K/2) lands, highest mana value spells first. Any
@@ -76,6 +79,7 @@ type policySpec struct {
 	Mull      botpolicy.MulliganRule // :mull / :keep7; zero is gorge's 1/3 coin
 	TopK      int
 	OppNodes  bool
+	SkipPass  int
 }
 
 func parsePolicy(s string) (*policySpec, error) {
@@ -133,6 +137,11 @@ func parsePolicy(s string) (*policySpec, error) {
 			p.TopK, err = strconv.Atoi(v)
 		case "oppnodes":
 			p.OppNodes = true
+		case "skippass":
+			p.SkipPass = 1
+			if v != "" {
+				p.SkipPass, err = strconv.Atoi(v)
+			}
 		default:
 			return nil, fmt.Errorf("policy %q: unknown key %q", s, k)
 		}
@@ -205,6 +214,7 @@ func (p *policySpec) azConfig() azmcts.SeatConfig {
 	cfg.Mulligan = p.Mull
 	cfg.Search.PriorTopK = p.TopK
 	cfg.Search.OpponentNodes = p.OppNodes
+	cfg.Search.SkipPass = p.SkipPass
 	// Honest worlds only: the seat never searches the real engine's hidden zones. The
 	// prior-only student asks for no world at all; redeal just satisfies NewSeat.
 	cfg.World = azmcts.WorldRedeal

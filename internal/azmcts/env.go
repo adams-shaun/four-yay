@@ -67,6 +67,8 @@ type walkConfig struct {
 	// at a time, so one forked collector, rolled back, serves them all, as
 	// the redeal source's forker does for the searching seat.
 	oppNodes bool
+	// skipPass is Options.SkipPass.
+	skipPass int
 	oppForks []*searchprobe.Forker
 }
 
@@ -213,6 +215,7 @@ func newEngineEnv(w World, cfg *walkConfig) (*engineEnv, error) {
 	// the world's priority decisions come from its recyclable decision arena
 	// (rules.Engine.SetDecisionArena) instead of fresh allocations.
 	w.Engine.SetDecisionArena(true)
+	w.Engine.SetSkipPass(cfg.skipPass)
 	n := len(w.Engine.G.Players)
 	var board *botpolicy.Board
 	if cfg.envBoard != nil {
