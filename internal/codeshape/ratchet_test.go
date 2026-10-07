@@ -21,7 +21,8 @@ const (
 	// effects/ spanning more than 300 lines.
 	// W4 step 3's ChangeZoneAll compiler shrank effChangeZoneAll: 54 -> 53.
 	// W1a generated Engine.cloneWith's field copies from the clone tags
-	// (rules/clone_gen.go): 53 -> 52. Re-measured at W1a pool/rekey/if tags: 48. W3 dead: 45. E7 flow slices: 44.
+	// (rules/clone_gen.go): 53 -> 52. Re-measured at W1a pool/rekey/if tags: 48. W3 dead: 45. E7 flow slices: 44,
+	// then the CR 103.8a first-draw-step skip landed without locking its shrink: 41.
 	maxFuncLinesOver300 = 41
 	// engineMethodCount is the number of non-test methods on rules.Engine.
 	// W5 E5 moved combat legality onto rules/combat's Board (2159 -> 2126)
@@ -287,7 +288,8 @@ const (
 	// in rules/ and effects/, and strCodesKeyDup the sum over string keys of
 	// (distinct tables naming the key - 1): the W4 cases tables replaced the
 	// string switches, and a word named in a second table is the vocabulary
-	// splitting again. Measured on main at 00363b185.
+	// splitting again. Measured on main at 00363b185; the CR 103.8a
+	// first-draw-step skip landed without locking its shrink: -> 1259.
 	strCodesTables = 336
 	strCodesKeyDup = 1259
 )

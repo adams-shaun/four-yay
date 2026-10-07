@@ -436,6 +436,10 @@ func (e *Engine) finishUntapStep(next int) bool {
 // natural advance (advanceStep, and a BeginPhase replacement that skips the
 // upkeep step) routes the proposed step through here; the replay folds the
 // StepChange the engine actually emitted, so it needs no separate rule.
+//
+// Free function over the game, not an Engine method: it reads only
+// g.Players and g.Turn (the codeshape engineSurface ratchet counts *Engine
+// reach, and this rule needs none of it).
 func skipFirstDrawStep(g *state.Game, next state.Step) state.Step {
 	if next == state.StepDraw && len(g.Players) == 2 && g.Turn <= 1 {
 		return state.StepMain1
