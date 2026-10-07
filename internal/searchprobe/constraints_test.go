@@ -183,12 +183,50 @@ func TestConstraintCounterSparseDeadline(t *testing.T) {
 	}
 }
 
-func TestCountKeyIsUnambiguousWithOneAllocation(t *testing.T) {
-	keys := []string{
-		countKey(1, []int{23, 4}, []int{0}, 5),
-		countKey(12, []int{3, 4}, []int{0}, 5),
-		countKey(1, []int{2, 34}, []int{0}, 5),
-		countKey(1, []int{23, 4}, []int{0}, 6),
+func TestConstraintCounterPastPackedKeyBoundFallsBack(t *testing.T) {
+	// A problem with more distinct names than the packed key holds must not be
+	// rejected: it takes the string-key path. Every position is pinned, so the
+	// count is 1 and the walk stays cheap despite the wide name list.
+	n := countKeyMaxNames + 2
+	cards := make([]proposalCard, n)
+	positions := make([]positionConstraint, n)
+	for i := 0; i < n; i++ {
+		cards[i] = proposalCard{ID: state.ObjID(i + 1), Name: fmt.Sprintf("N%02d", i)}
+		positions[i] = positionConstraint{Index: i, Obj: state.ObjID(i + 1)}
+	}
+	counter, available, err := newConstraintCounter(cards, positions, nil)
+	if err != nil {
+		t.Fatalf("counter with %d distinct names rejected: %v", n, err)
+	}
+	if len(counter.names) <= countKeyMaxNames {
+		t.Fatalf("test needs more than %d names, got %d", countKeyMaxNames, len(counter.names))
+	}
+	if _, ok := countKey(0, make([]int, len(counter.names)), make([]int, len(counter.names)), 0); ok {
+		t.Fatalf("countKey packed a %d-name problem past its %d bound", len(counter.names), countKeyMaxNames)
+	}
+	if got := counter.total(available); got.Cmp(big.NewInt(1)) != 0 {
+		t.Fatalf("count = %s, want 1", got)
+	}
+}
+
+func TestCountKeyIsUnambiguousWithNoAllocation(t *testing.T) {
+	// The packed key is comparable and allocation-free; the property the
+	// string form held (four distinct states produce four distinct keys) is
+	// what makes the memo sound, and a collision here would silently return
+	// another position's count.
+	cases := [][4]any{
+		{1, []int{23, 4}, []int{0}, 5},
+		{12, []int{3, 4}, []int{0}, 5},
+		{1, []int{2, 34}, []int{0}, 5},
+		{1, []int{23, 4}, []int{0}, 6},
+	}
+	keys := make([]countKeyT, len(cases))
+	for i, c := range cases {
+		k, ok := countKey(c[0].(int), c[1].([]int), c[2].([]int), c[3].(int))
+		if !ok {
+			t.Fatalf("case %d did not pack", i)
+		}
+		keys[i] = k
 	}
 	for i := range keys {
 		for j := i + 1; j < len(keys); j++ {
@@ -198,9 +236,43 @@ func TestCountKeyIsUnambiguousWithOneAllocation(t *testing.T) {
 		}
 	}
 	if allocs := testing.AllocsPerRun(100, func() {
-		_ = countKey(12, []int{3, 4, 5, 6, 7}, []int{0}, 8)
-	}); allocs > 1 {
-		t.Fatalf("countKey allocations = %.0f, want <= 1", allocs)
+		_, _ = countKey(12, []int{3, 4, 5, 6, 7}, []int{0}, 8)
+	}); allocs != 0 {
+		t.Fatalf("countKey allocations = %.0f, want 0", allocs)
+	}
+}
+
+// TestCountKeyPackedAndStringFormsAgree holds the packed key to the string
+// fallback: the two must never disagree on distinctness, or a problem that
+// crosses countKeyMaxNames would memoise differently from one under it.
+func TestCountKeyPackedAndStringFormsAgree(t *testing.T) {
+	samples := []struct {
+		pos               int
+		remaining, unseen []int
+		other             int
+	}{
+		{0, []int{1}, []int{0}, 0},
+		{3, []int{2, 2, 1}, []int{1, 0, 0}, 7},
+		{60, []int{1, 0}, []int{0, 0}, 65535},
+	}
+	for i, s := range samples {
+		k, ok := countKey(s.pos, s.remaining, s.unseen, s.other)
+		if !ok {
+			t.Fatalf("sample %d did not pack", i)
+		}
+		str := countKeyStr(s.pos, s.remaining, s.unseen, s.other)
+		if str == "" {
+			t.Fatalf("sample %d: empty string key", i)
+		}
+		for j, o := range samples {
+			if i == j {
+				continue
+			}
+			ko, _ := countKey(o.pos, o.remaining, o.unseen, o.other)
+			if (k == ko) != (str == countKeyStr(o.pos, o.remaining, o.unseen, o.other)) {
+				t.Fatalf("samples %d and %d: packed and string forms disagree", i, j)
+			}
+		}
 	}
 }
 
