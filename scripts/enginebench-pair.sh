@@ -1,26 +1,26 @@
 #!/usr/bin/env bash
-# pair.sh BASE CAND [OUT]: a paired engine-speed comparison of two revisions.
+# enginebench-pair.sh BASE CAND [OUT]: a paired engine-speed comparison of two revisions.
 #
 # Builds BASE and CAND (any git revision, or "." for the working tree), then
 # for each row in ROWS runs REPS repetitions of BASE and CAND back to back,
 # alternating which goes first (ABBA) so load drift on a shared box falls on
 # both. Results append to OUT (default $BENCH_DIR/results/pair-<time>.jsonl),
-# labelled "base" and "cand", and summarize.py prints per-row medians and
+# labelled "base" and "cand", and enginebench-summarize.py prints per-row medians and
 # the median of the per-rep CAND/BASE ratios.
 #
-#   ROWS  ';'-separated enginebench argument strings (default: lib.sh DEFAULT_ROWS)
+#   ROWS  ';'-separated enginebench argument strings (default: enginebench-lib.sh DEFAULT_ROWS)
 #   REPS  repetitions per row (default 2: the smallest ABBA)
-#   SECS  -secs for every timed row (default: BUDGET split over every run, lib.sh)
+#   SECS  -secs for every timed row (default: BUDGET split over every run, enginebench-lib.sh)
 #   GOGC  passed through to both binaries if set
 set -euo pipefail
-. "$(dirname "$0")/lib.sh"
-base_rev=${1:?usage: pair.sh BASE CAND [OUT]}
-cand_rev=${2:?usage: pair.sh BASE CAND [OUT]}
+. "$(dirname "$0")/enginebench-lib.sh"
+base_rev=${1:?usage: enginebench-pair.sh BASE CAND [OUT]}
+cand_rev=${2:?usage: enginebench-pair.sh BASE CAND [OUT]}
 mkdir -p "$BENCH_DIR/results"
 out=${3:-$BENCH_DIR/results/pair-$(date +%Y%m%dT%H%M%S).jsonl}
 reps=${REPS:-2}
-base=$("$(dirname "$0")/build.sh" "$base_rev")
-cand=$("$(dirname "$0")/build.sh" "$cand_rev")
+base=$("$(dirname "$0")/enginebench-build.sh" "$base_rev")
+cand=$("$(dirname "$0")/enginebench-build.sh" "$cand_rev")
 echo "base $base_rev -> $base"
 echo "cand $cand_rev -> $cand"
 echo "results -> $out"
@@ -49,4 +49,4 @@ for row in "${rows[@]}"; do
 		fi
 	done
 done
-python3 "$(dirname "$0")/summarize.py" "$out"
+python3 "$(dirname "$0")/enginebench-summarize.py" "$out"

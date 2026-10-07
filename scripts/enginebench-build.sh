@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# build.sh REV [GO_BUILD_ARGS...]: build enginebench at REV and print the
+# enginebench-build.sh REV [GO_BUILD_ARGS...]: build enginebench at REV and print the
 # binary's path. REV "." is the working tree as it stands (uncommitted edits
 # included); anything else is a git revision, exported with git archive into
 # $BENCH_DIR/src/<sha> and built there, so no checkout or worktree is touched.
 # Extra arguments go to go build (for example -tags enginebench_az, or
 # -ldflags "-X github.com/adams-shaun/gorge/rules.derivedMemoVerifyFlag=1").
 set -euo pipefail
-. "$(dirname "$0")/lib.sh"
-rev=${1:?usage: build.sh REV [GO_BUILD_ARGS...]}
+. "$(dirname "$0")/enginebench-lib.sh"
+rev=${1:?usage: enginebench-build.sh REV [GO_BUILD_ARGS...]}
 shift
 mkdir -p "$BENCH_DIR/bin"
 suffix=""

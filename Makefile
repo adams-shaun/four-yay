@@ -287,7 +287,7 @@ fuzz:
 test-manabrew:
 	go test $(GO_TEST_FLAGS) -tags manabrew -count=1 ./protocol/manabrew ./internal/manabrew/... ./host/manabrewhttp ./cmd/gorged ./cmd/cardfuzz
 
-# Engine-speed benchmarking (cmd/enginebench; scripts in cmd/enginebench/scripts,
+# Engine-speed benchmarking (cmd/enginebench; scripts in scripts/enginebench-*.sh,
 # workload decks committed in cmd/enginebench/testdata/decks). Every run is
 # capped in a systemd scope and serialised on HEAVY_LOCK; binaries, results
 # and profiles go to BENCH_DIR (rebuildable scratch). Throughput is per
@@ -296,17 +296,17 @@ test-manabrew:
 #   make enginebench-profile [REV=.]           CPU + allocation profiles, tops printed
 #   make enginebench-verify [REV=.]            memo-verify-mode smoke (cache changes)
 # Knobs: ROWS="-row random -pair A;-row sampler" REPS=3 SECS=10 GOGC=...
-# BENCH_DIR HEAVY_LOCK (see cmd/enginebench/scripts/lib.sh).
+# BENCH_DIR HEAVY_LOCK (see scripts/enginebench-lib.sh).
 BASE ?= main
 CAND ?= .
 REV  ?= .
 .PHONY: enginebench-pair enginebench-profile enginebench-verify
 enginebench-pair:
-	cmd/enginebench/scripts/pair.sh $(BASE) $(CAND)
+	scripts/enginebench-pair.sh $(BASE) $(CAND)
 enginebench-profile:
-	cmd/enginebench/scripts/profile.sh $(REV)
+	scripts/enginebench-profile.sh $(REV)
 enginebench-verify:
-	cmd/enginebench/scripts/verify.sh $(REV)
+	scripts/enginebench-verify.sh $(REV)
 
 COVER_OUT  ?= coverage.out
 COVER_HTML ?= coverage.html

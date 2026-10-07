@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""summarize.py OUT.jsonl: per-row medians and paired ratios of a pair.sh run.
+"""enginebench-summarize.py OUT.jsonl: per-row medians and paired ratios of a pair.sh run.
 
 Throughput is per CPU-second, because a loaded shared box makes wall time
 include waiting for a core:

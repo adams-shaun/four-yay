@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# verify.sh [REV]: memo-verification smoke over the enginebench rows.
+# enginebench-verify.sh [REV]: memo-verification smoke over the enginebench rows.
 #
 # Builds REV (default ".") with rules.derivedMemoVerifyFlag=1, which makes the
 # engine recompute every Derived/face-scan/walk-cache memo hit and panic on a
@@ -8,11 +8,11 @@
 # Verify mode is slow (the sampler manages ~30 games in 90s).
 #
 #   ROWS  ';'-separated rows (default: sampler, random A/B, bot A)
-#   SECS  -secs for every row (default: BUDGET split over the rows, lib.sh)
+#   SECS  -secs for every row (default: BUDGET split over the rows, enginebench-lib.sh)
 set -euo pipefail
-. "$(dirname "$0")/lib.sh"
+. "$(dirname "$0")/enginebench-lib.sh"
 rev=${1:-.}
-bin=$("$(dirname "$0")/build.sh" "$rev" -ldflags "-X github.com/adams-shaun/gorge/rules.derivedMemoVerifyFlag=1")
+bin=$("$(dirname "$0")/enginebench-build.sh" "$rev" -ldflags "-X github.com/adams-shaun/gorge/rules.derivedMemoVerifyFlag=1")
 out=$BENCH_DIR/results/verify-$(date +%Y%m%dT%H%M%S).jsonl
 mkdir -p "$BENCH_DIR/results"
 echo "verify binary $bin -> $out"

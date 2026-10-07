@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# profile.sh [REV]: CPU and allocation profiles of enginebench rows.
+# enginebench-profile.sh [REV]: CPU and allocation profiles of enginebench rows.
 #
 # Builds REV (default "." -- the working tree; -memprofile needs a revision
 # that has it, 2026-10-05 or later) and runs each row in ROWS once with
@@ -10,14 +10,14 @@
 #   - the allocation top (alloc_space): the bytes that drive GC
 # Dig further with the printed `go tool pprof` commands.
 #
-#   ROWS  ';'-separated enginebench argument strings (default: lib.sh DEFAULT_ROWS)
-#   SECS  -secs for every timed row (default: BUDGET split over the rows, lib.sh)
+#   ROWS  ';'-separated enginebench argument strings (default: enginebench-lib.sh DEFAULT_ROWS)
+#   SECS  -secs for every timed row (default: BUDGET split over the rows, enginebench-lib.sh)
 #   TOP   lines per table (default 25)
 set -euo pipefail
-. "$(dirname "$0")/lib.sh"
+. "$(dirname "$0")/enginebench-lib.sh"
 rev=${1:-.}
 top=${TOP:-25}
-bin=$("$(dirname "$0")/build.sh" "$rev")
+bin=$("$(dirname "$0")/enginebench-build.sh" "$rev")
 dir=$BENCH_DIR/prof/$(date +%Y%m%dT%H%M%S)
 mkdir -p "$dir"
 cp "$bin" "$dir/enginebench"

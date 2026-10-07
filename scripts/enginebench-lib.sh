@@ -1,4 +1,4 @@
-# lib.sh: shared settings for the enginebench scripts (sourced, not run).
+# enginebench-lib.sh: shared settings for the enginebench scripts (sourced, not run).
 #
 # Every knob is an environment variable with a default:
 #   BENCH_DIR   binaries, source snapshots, results, profiles

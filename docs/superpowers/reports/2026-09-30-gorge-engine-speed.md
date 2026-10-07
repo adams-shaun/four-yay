@@ -283,9 +283,9 @@ The bbmem builds against their base `a8f1c2f25`:
 
 ```sh
 # build each commit: copies cmd/enginebench into a detached worktree and builds it
-cmd/enginebench/scripts/build.sh <label> <worktree> [enginebench_az[,enginebench_subset]]
-# one repetition of one row group, builds interleaved (edit BUILDS in the script)
-cmd/enginebench/scripts/driver.sh <rep> random|bot|copy|search|az1000
+scripts/enginebench-build.sh <label> <worktree> [enginebench_az[,enginebench_subset]]
+# a paired base-vs-candidate comparison, builds interleaved
+scripts/enginebench-pair.sh <base-rev> <cand-rev>
 python3 cmd/enginebench/analyze.py /mnt/sata/gorge-training/enginecmp/raw/results.jsonl
 ```
 
