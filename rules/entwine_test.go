@@ -165,7 +165,7 @@ func TestEntwineCorpusCostFormsAreAllPriced(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	supported := effects.Supported()
 	mana, sac := 0, 0
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		if c == nil {
 			continue
 		}

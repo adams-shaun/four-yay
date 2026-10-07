@@ -35,7 +35,7 @@ func TestChooseCardDefinedChoosersResolve(t *testing.T) {
 			carriers++
 		}
 	}
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for _, f := range c.Faces {
 			for _, sa := range f.Abilities {
 				visit(sa)

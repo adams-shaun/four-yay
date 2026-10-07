@@ -70,7 +70,7 @@ func TestXMageAbilityKeywordShapes(t *testing.T) {
 func TestXMageAbilityKeywordLinesDoNotRegress(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	checked := map[string]int{}
-	for _, card := range reg.Cards {
+	for _, card := range reg.AllCards() {
 		for _, face := range card.Faces {
 			keywords := map[string]int{}
 			onlyKeywords := true

@@ -100,7 +100,7 @@ func TestManaBrewNativeParity(t *testing.T) {
 				playerNames[i] = names[(int(seed)+i)%len(names)]
 				decks[i] = testutil.RepoDeck(t, reg, playerNames[i])
 			}
-			cfg := rules.Config{Seed: seed, Names: playerNames, Decks: decks, Tokens: reg.Tokens, NameUniverse: reg.Cards}
+			cfg := rules.Config{Seed: seed, Names: playerNames, Decks: decks, Tokens: reg.Tokens, NameUniverse: reg.AllCards()}
 
 			// Native: the production bot, seat.Bot directly.
 			oN, eN, rN := playBotParityGame(t, cfg, func(int) seat.Seat { return seat.NewBot(seed) })

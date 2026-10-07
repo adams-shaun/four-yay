@@ -27,7 +27,7 @@ func TestEmpowerClassParamCensus(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	var empower, scry, disable []string
 	var bad []string
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		var isEmpower, isScry, isDisable bool
 		for _, f := range c.Faces {
 			if f == nil {

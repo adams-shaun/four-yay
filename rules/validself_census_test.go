@@ -76,7 +76,7 @@ func TestCountValidSelfCensus(t *testing.T) {
 	}
 	seen := map[string]bool{}
 	var carriers []carrier
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for _, f := range c.Faces {
 			if f.Name == "" {
 				continue

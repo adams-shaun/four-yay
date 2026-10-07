@@ -26,7 +26,7 @@ func TestDoubleAmountCarrierCensus(t *testing.T) {
 	const doubleCarrierFiles = 37
 	reg := testutil.CorpusRegistry(t)
 	var carriers, bad []string
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for _, f := range c.Faces {
 			seen := false
 			classify := func(sa *cards.SA) {

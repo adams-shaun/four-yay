@@ -28,7 +28,7 @@ func TestWalkBlockReuseInGames(t *testing.T) {
 			names[i] = all[(int(seed)+i*5)%len(all)]
 			decks[i] = testutil.RepoDeck(t, reg, names[i])
 		}
-		e := New(Config{Seed: seed, Names: names, Decks: decks, Tokens: reg.Tokens, NameUniverse: reg.Cards})
+		e := New(Config{Seed: seed, Names: names, Decks: decks, Tokens: reg.Tokens, NameUniverse: reg.AllCards()})
 		b := newTestBot(seed)
 		e.Advance()
 		for n := 0; !e.G.Over && e.Pending() != nil && n < 6000; n++ {

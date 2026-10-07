@@ -253,7 +253,7 @@ func TestControlPlayerCensusNamesTheOtherCarriers(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	ctrl := map[string]bool{}
 	host := map[string]bool{}
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		if len(c.Faces) == 0 {
 			continue
 		}

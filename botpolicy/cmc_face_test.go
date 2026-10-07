@@ -21,7 +21,7 @@ func TestCmcOfFaceMatchesCmcOf(t *testing.T) {
 		}
 		n++
 	}
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for _, f := range c.Faces {
 			if f != nil {
 				v, ok := f.PrintedManaValue()

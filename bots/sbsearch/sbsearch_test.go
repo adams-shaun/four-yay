@@ -340,7 +340,7 @@ func TestSBSearchDecideEnvForwardsToTheSearch(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	deck := testutil.RepoDeck(t, reg, "dimir-tempo")
 	cfg := rules.Config{Seed: 20260928, Names: []string{"p0", "p1"},
-		Decks: [][]*cards.Card{deck, deck}, Tokens: reg.Tokens, NameUniverse: reg.Cards}
+		Decks: [][]*cards.Card{deck, deck}, Tokens: reg.Tokens, NameUniverse: reg.AllCards()}
 
 	var searched []gsearch.Diag
 	prev := gsearch.Watch

@@ -80,7 +80,7 @@ func TestSurveilRememberKeptCensus(t *testing.T) {
 			got[name] = true
 		}
 	}
-	for _, card := range reg.Cards {
+	for _, card := range reg.AllCards() {
 		for _, f := range card.Faces {
 			for _, sa := range f.Abilities {
 				visit(f.Name, sa)

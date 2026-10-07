@@ -56,7 +56,7 @@ func TestCardFactsMatchIR(t *testing.T) {
 	sort.Strings(sorted)
 	g := &factGen{r: r, tokenNames: map[string]string{}}
 	byFold := map[string]*cards.Card{}
-	for _, c := range r.Cards {
+	for _, c := range r.AllCards() {
 		if len(c.Faces) > 0 {
 			byFold[normName(strings.ToLower(c.Faces[0].Name))] = c
 		}

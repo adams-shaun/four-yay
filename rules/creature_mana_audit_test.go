@@ -198,7 +198,7 @@ func TestCreatureManaAbilityAudit(t *testing.T) {
 	}
 	var live, tabled int
 	seen := map[string]bool{}
-	for _, c := range cz.r.Cards {
+	for _, c := range cz.r.AllCards() {
 		if !censusNamed(c) {
 			continue
 		}

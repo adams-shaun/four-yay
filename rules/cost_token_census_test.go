@@ -188,7 +188,7 @@ func TestCostTokenCensus(t *testing.T) {
 	// from the corpus rather than hard-coding half of it. Token subtypes
 	// (Blood) are printed only on token scripts the registry may not carry, so
 	// they are added explicitly.
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for _, f := range c.Faces {
 			for _, ty := range f.Types {
 				filterBases[ty] = true
@@ -205,7 +205,7 @@ func TestCostTokenCensus(t *testing.T) {
 	varCount := map[string]bool{} // variable-count (X/Y/All) tokens, reported only
 	nTokens := 0
 
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		name := c.Faces[0].Name
 		for _, f := range c.Faces {
 			walkCostParams(f, func(raw string) {
@@ -390,7 +390,7 @@ func TestCostTokenCensusAlternativeCostStatic(t *testing.T) {
 	otherUnknown := map[string]bool{}
 	nStatics := 0
 	landGrantEvaluated := false
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		name := c.Faces[0].Name
 		for _, f := range c.Faces {
 			for _, st := range f.Statics {

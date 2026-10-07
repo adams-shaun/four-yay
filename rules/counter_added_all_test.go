@@ -15,7 +15,7 @@ func TestCounterAddedAllCarrierCensus(t *testing.T) {
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	got := map[string][]string{"CounterAddedAll": {}, "CounterTypeAddedAll": {}}
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for _, f := range c.Faces {
 			seen := map[string]bool{}
 			for _, tr := range f.Triggers {

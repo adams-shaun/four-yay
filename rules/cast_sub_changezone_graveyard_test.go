@@ -224,7 +224,7 @@ func TestSubAbilityChangeZonePreAskCensus(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	admitted, unjudged := 0, map[string]string{}
 	seen := map[string]bool{}
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		if len(c.Faces) == 0 || c.Faces[0] == nil {
 			continue
 		}
@@ -267,7 +267,7 @@ func TestSubAbilityChangeZonePreAskCensus(t *testing.T) {
 	}
 	// The census must see the corpus's several hundred chain shapes, or it is
 	// silently walking nothing (a missing .cards corpus skips the registry).
-	if len(reg.Cards) < 30000 {
-		t.Fatalf("census corpus has %d cards, want the full ~33667", len(reg.Cards))
+	if reg.Len() < 30000 {
+		t.Fatalf("census corpus has %d cards, want the full ~33667", reg.Len())
 	}
 }

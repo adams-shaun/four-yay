@@ -21,7 +21,7 @@ func TestNameUniverseSnapshotReplaysAcrossCorpusChange(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	r, err := New(Options{
 		LoadDeck:     nameLandLoader(t),
-		NameUniverse: reg.Cards,
+		NameUniverse: reg.AllCards(),
 		Sleep:        func(time.Duration, <-chan struct{}) {},
 	})
 	if err != nil {
@@ -62,7 +62,7 @@ func TestNameUniverseSnapshotReplaysAcrossCorpusChange(t *testing.T) {
 	// "!" sorts before every corpus name, forcing a changed option index
 	// rather than merely appending an unused label.
 	added := parseNameLand(t, "Name:! Replay Sentinel\nTypes:Creature\nOracle:x\n")
-	changed := append(append([]*cards.Card(nil), reg.Cards...), added)
+	changed := append(append([]*cards.Card(nil), reg.AllCards()...), added)
 	probe := state.NewGame([]string{"a", "b"})
 	probe.NameUniverse = changed
 	changedNames := effects.NameChoices(probe, "Card.nonLand", "")

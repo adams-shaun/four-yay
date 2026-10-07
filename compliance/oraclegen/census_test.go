@@ -84,8 +84,8 @@ func censusGaps(t *testing.T) map[string][]string {
 	reg := censusRegistry(t)
 	manifests := censusManifestNames(t)
 	gaps := map[string][]string{}
-	for i := range reg.Cards {
-		c := reg.Cards[i]
+	for i := range reg.AllCards() {
+		c := reg.Card(i)
 		name := strings.ToLower(strings.TrimSpace(c.Faces[0].Name))
 		inSet := false
 		for _, names := range manifests {

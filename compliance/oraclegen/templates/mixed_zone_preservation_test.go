@@ -25,7 +25,7 @@ func TestExplicitMixedZonePreservesLegacyCreature(t *testing.T) {
 	// otherwise this preservation assertion would pass without the fix.
 	first := ""
 registryOrder:
-	for _, card := range reg.Cards {
+	for _, card := range reg.AllCards() {
 		for _, face := range card.Faces {
 			for _, typ := range face.Types {
 				if strings.EqualFold(strings.TrimSpace(typ), "Creature") {

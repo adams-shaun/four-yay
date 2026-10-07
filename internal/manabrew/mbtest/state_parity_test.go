@@ -603,7 +603,7 @@ func playParityGame(t *testing.T, reg *cards.Registry, seats int, seed uint64, o
 		playerNames[i] = names[(int(seed)+i)%len(names)]
 		decks[i] = testutil.RepoDeck(t, reg, playerNames[i])
 	}
-	cfg := rules.Config{Seed: seed, Names: playerNames, Decks: decks, Tokens: reg.Tokens, NameUniverse: reg.Cards}
+	cfg := rules.Config{Seed: seed, Names: playerNames, Decks: decks, Tokens: reg.Tokens, NameUniverse: reg.AllCards()}
 	client := NewFirstLegalClient()
 	seatList := make([]seat.Seat, seats)
 	for i := range seatList {
@@ -779,7 +779,7 @@ func playLeakGame(t *testing.T, reg *cards.Registry, seats int, seed uint64, obs
 		playerNames[i] = names[(int(seed)+i)%len(names)]
 		decks[i] = testutil.RepoDeck(t, reg, playerNames[i])
 	}
-	cfg := rules.Config{Seed: seed, Names: playerNames, Decks: decks, Tokens: reg.Tokens, NameUniverse: reg.Cards}
+	cfg := rules.Config{Seed: seed, Names: playerNames, Decks: decks, Tokens: reg.Tokens, NameUniverse: reg.AllCards()}
 	client := NewFirstLegalClient()
 	seatList := make([]seat.Seat, seats)
 	for i := range seatList {
