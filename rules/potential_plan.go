@@ -422,7 +422,7 @@ func (e *Engine) potentialModeBaseCost(p state.PlayerID, id state.ObjID, f *card
 		return pay.WithSpellAbilityExtras(f, cost), true
 	case potentialModeBaseCostPlot:
 		// The plot special action pays the K:Plot parameter.
-		raw, ok := f.KeywordParam("Plot")
+		raw, ok := f.KeywordCostParam("Plot")
 		if !ok {
 			return Cost{}, false
 		}
@@ -441,7 +441,7 @@ func (e *Engine) potentialModeBaseCost(p state.PlayerID, id state.ObjID, f *card
 	case potentialModeBaseCostSurged:
 		return surgeCost(f)
 	case potentialModeBaseCostMiracle:
-		mc, ok := f.KeywordParam("Miracle")
+		mc, ok := f.KeywordCostParam("Miracle")
 		if !ok {
 			return Cost{}, false
 		}

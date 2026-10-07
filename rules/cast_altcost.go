@@ -68,7 +68,7 @@ func twoPartKickerCosts(f *cards.Face) (Cost, Cost, bool) {
 // closed here (the replicateCost direction), leaving the card's gap in the
 // coverage report rather than charging a degraded generic.
 func entwineCost(f *cards.Face) (Cost, bool) {
-	s, ok := f.KeywordParam("Entwine")
+	s, ok := f.KeywordCostParam("Entwine")
 	if !ok {
 		return Cost{}, false
 	}
@@ -80,7 +80,7 @@ func entwineCost(f *cards.Face) (Cost, bool) {
 }
 
 func surgeCost(f *cards.Face) (Cost, bool) {
-	s, ok := f.KeywordParam("Surge")
+	s, ok := f.KeywordCostParam("Surge")
 	if !ok {
 		return Cost{}, false
 	}
@@ -102,7 +102,7 @@ func isCharmSpell(f *cards.Face) bool {
 // ParseCost cannot model is withheld (the fail-closed direction
 // twoPartKickerCosts takes) rather than charged as degraded generic mana.
 func replicateCost(f *cards.Face) (Cost, bool) {
-	s, ok := f.KeywordParam("Replicate")
+	s, ok := f.KeywordCostParam("Replicate")
 	if !ok {
 		return Cost{}, false
 	}
@@ -120,7 +120,7 @@ func replicateCost(f *cards.Face) (Cost, bool) {
 // (multikickAsk) settles how many. A cost carrying a token ParseCost cannot
 // model is withheld (the replicateCost fail-closed direction).
 func multikickerCost(f *cards.Face) (Cost, bool) {
-	s, ok := f.KeywordParam("Multikicker")
+	s, ok := f.KeywordCostParam("Multikicker")
 	if !ok {
 		return Cost{}, false
 	}
@@ -141,7 +141,7 @@ func multikickerCost(f *cards.Face) (Cost, bool) {
 // accepted here and its payability decided by the ordinary offer gate
 // (nonManaCastable), exactly like any other cast cost.
 func squadCost(f *cards.Face) (Cost, bool) {
-	s, ok := f.KeywordParam("Squad")
+	s, ok := f.KeywordCostParam("Squad")
 	if !ok {
 		return Cost{}, false
 	}
@@ -278,7 +278,7 @@ func morphDownFamily(f *cards.Face) string {
 }
 
 func buybackCost(f *cards.Face) (Cost, bool) {
-	s, ok := f.KeywordParam("Buyback")
+	s, ok := f.KeywordCostParam("Buyback")
 	if !ok {
 		return Cost{}, false
 	}
@@ -334,7 +334,7 @@ func altAddCostParts(f *cards.Face) []string {
 }
 
 func harmonizeCost(f *cards.Face) (Cost, bool) {
-	s, ok := f.KeywordParam("Harmonize")
+	s, ok := f.KeywordCostParam("Harmonize")
 	if !ok {
 		return Cost{}, false
 	}
