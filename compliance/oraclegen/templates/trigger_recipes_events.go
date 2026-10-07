@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/compliance/levelb"
 	"github.com/adams-shaun/gorge/compliance/oraclegen"
 )
 
@@ -147,6 +148,8 @@ func eventTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *card
 			}
 			add(c, ok)
 		}
+	case levelb.CounterAddedSub:
+		return counterAddedRecipe(reg, f, name, t)
 	default:
 		return nil, "", false
 	}
