@@ -59,7 +59,7 @@ func TestActivateTokenCostPrelude(t *testing.T) {
 			gotToken := false
 			for _, ans := range it.XAnswers[step] {
 				for _, part := range strings.Split(ans.Value, "^") {
-					if ans.Seat == 0 && ans.Kind == "choice" && part == tc.token {
+					if ans.Seat == 0 && ans.Kind == "choice" && answerNamesToken(part, tc.token) {
 						gotToken = true
 					}
 				}
@@ -105,4 +105,21 @@ func TestActivateNICKNAMEDiscardFromHand(t *testing.T) {
 	if contains(hand, name) || !contains(graveyard, name) {
 		t.Errorf("after activation %s must be discarded: hand=%v graveyard=%v", name, hand, graveyard)
 	}
+}
+
+// answerNamesToken reports an answer that picks a token named token, either by
+// name or by the exact-ref alias an ambiguous same-name pick is spelled with
+// ("@p0:token:Goblin Token#2").
+func answerNamesToken(answer, token string) bool {
+	if answer == token {
+		return true
+	}
+	_, ref, ok := strings.Cut(answer, ":token:")
+	if !ok || !strings.HasPrefix(answer, "@") {
+		return false
+	}
+	if i := strings.LastIndexByte(ref, '#'); i >= 0 {
+		ref = ref[:i]
+	}
+	return ref == token
 }
