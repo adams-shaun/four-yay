@@ -157,6 +157,43 @@ func ValueHeadRecipeParamExpressions(params map[string]string) map[string]string
 	return map[string]string{head: strings.TrimSpace(expr)}
 }
 
+// ValueHeadGateExpression classifies the inline Count$ gate of an
+// ability/trigger/replacement SA from its already-parsed parameter map. Forge
+// gates an activated or spell ability with CheckSVar$ (and a rider with
+// ConditionCheckSVar$); when the value is itself a Count$… expression the
+// engine reads that head at run time through effects.CheckSVarHolds, so it is
+// a coverage primitive exactly like a recipe amount's head. The map is the
+// shared choke point: the printed-ability walk (Face.ValueHeads) and rules'
+// honesty gate both probe it, so attribution and the check cannot disagree.
+//
+// Deliberately keyed to the evaluator-read gate parameter only: a Count$ token
+// in SpellDescription$, Cost$ or any other parameter stays unclassified (the
+// negative-shape contract ValueHeadRecipeParamExpressions keeps). A gate whose
+// value is a plain SVar name or a number is likewise not classified.
+func ValueHeadGateExpression(params map[string]string) map[string]string {
+	if params == nil {
+		return nil
+	}
+	out := map[string]string{}
+	for _, key := range []string{"CheckSVar", "ConditionCheckSVar"} {
+		expr, ok := params[key]
+		if !ok {
+			continue
+		}
+		expr = strings.TrimSpace(expr)
+		if !strings.HasPrefix(expr, "Count$") {
+			continue
+		}
+		if head, ok := ValueHead(expr); ok {
+			out[head] = expr
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
 // ValueHeadRecipeExpressions returns nested heads and the exact numeric
 // parameter expressions an SVar recipe body passes to the evaluator.
 func ValueHeadRecipeExpressions(body string) map[string]string {
@@ -202,6 +239,14 @@ func (f *Face) ValueHeads() []string {
 			return
 		}
 		for head := range ValueHeadTokenRecipeExpressions(sa.Kind, sa.API, sa.Params) {
+			set[ValueHeadPrefix+head] = struct{}{}
+		}
+		// An inline Count$ gate (CheckSVar$/ConditionCheckSVar$) is read by
+		// effects.CheckSVarHolds at activation time, so the head it names is a
+		// coverage primitive the honesty gate must see -- otherwise a card
+		// whose gate can never be evaluated joins the playable pool and the
+		// engine fails the gate OPEN, silently ignoring the restriction.
+		for head := range ValueHeadGateExpression(sa.Params) {
 			set[ValueHeadPrefix+head] = struct{}{}
 		}
 		attr(sa.Sub, depth+1)

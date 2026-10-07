@@ -61,6 +61,20 @@ func TestValueHeadRegistryMatchesEvaluator(t *testing.T) {
 						resolves[h] = true
 					}
 				}
+				// An inline Count$ gate (CheckSVar$/ConditionCheckSVar$) is
+				// read by effects.CheckSVarHolds, and Face.ValueHeads attributes
+				// it through cards.ValueHeadGateExpression. Probe the same
+				// expressions through the same helper so a newly attributed
+				// gate head cannot go unchecked here.
+				for h, expr := range cards.ValueHeadGateExpression(sa.Params) {
+					if !referenced[h] || resolves[h] {
+						continue
+					}
+					seen[h] = true
+					if _, ok := effects.EvalCountOK(e, ctx, expr); ok {
+						resolves[h] = true
+					}
+				}
 				walkSA(sa.Sub, depth+1)
 			}
 			for _, sa := range f.Abilities {
