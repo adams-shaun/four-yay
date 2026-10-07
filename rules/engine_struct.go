@@ -9,6 +9,9 @@ import (
 )
 
 type Engine struct {
+	// prioMemo is the posed-priority option memo (prio_memo.go), per seat.
+	prioMemo []prioMemoEnt `clone:"reset"`
+
 	G                *state.Game     `clone:"deep"`
 	deckManifests    []deck.Manifest `clone:"share"`
 	endTurnRequested bool            `clone:"reset"`

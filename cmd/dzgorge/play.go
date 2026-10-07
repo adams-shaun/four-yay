@@ -8,9 +8,9 @@ import (
 	"flag"
 	"fmt"
 	"math/rand/v2"
-	"os"
 	"net/http"
 	_ "net/http/pprof"
+	"os"
 	"runtime"
 	"runtime/debug"
 	"sort"
@@ -382,6 +382,10 @@ func runPlay(args []string) int {
 	}
 	for k, v := range gonetStats() {
 		sum[k] = v
+	}
+	if os.Getenv("GORGE_PRIO_MEMO_STATS") != "" {
+		h, m, k := rules.PrioMemoStats()
+		fmt.Fprintf(os.Stderr, "prio_memo hits=%d misses=%d skips=%d\n", h, m, k)
 	}
 	js, _ := json.MarshalIndent(sum, "", " ")
 	if err := os.WriteFile(*out+".summary.json", js, 0o644); err != nil {
