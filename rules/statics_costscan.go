@@ -102,8 +102,10 @@ func (e *Engine) scanCostStatics() costStaticViews {
 	return out
 }
 
-// markCostValidTarget sets out.validTarget from the collected members.
+// markCostValidTarget sets out.validTarget from the collected members (and
+// each member's selfOnly bit, markCostSelfOnly).
 func markCostValidTarget(out *costStaticViews) {
+	markCostSelfOnly(out)
 	for _, group := range [...]struct {
 		mode  string
 		views []staticView
