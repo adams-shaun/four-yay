@@ -308,6 +308,16 @@ func submitCommit(e *Engine, d *decision.Decision, in decision.Intent) {
 	}
 	e.emit(events.Event{Kind: events.DecisionMade, Player: logged.Player, Text: made})
 	e.pending = nil
+	// The answered decision's generation is closed for new asks: flip to the
+	// other one so this Submit's handlers build into a fresh generation while
+	// d -- still read below -- stays in the one just left behind, untouched.
+	// The retire of that left-behind generation is DEFERRED, so it runs even
+	// when a tape resolution unwinds out of this function with a panic (the
+	// resolve kernel's stop-ask); a skipped retire would leave the flip
+	// unmatched and the arena growing with the game (decision_arena_live.go).
+	if a := e.decArena; a != nil && a.owner == e {
+		defer arenaFlipEra(a)()
+	}
 	if in.Announce != nil {
 		action, _ := pay.ActionFor(d, in.Announce.ActionID)
 		// The same Priority marker the planned route emits, then the ordinary

@@ -126,7 +126,10 @@ func TestPaymentPlanDecisionMadeGolden(t *testing.T) {
 		if d == nil || d.Kind != decision.KPriority {
 			t.Fatalf("pending = %#v, want priority", d)
 		}
-		in := decision.Intent{Seq: d.Seq, Player: 0, Choices: []int{passOptionIndex(t, d)}}
+		// Read the offer BEFORE Submit: a posed decision is valid only until
+		// the next Submit (decision_arena_live.go).
+		pass := passOptionIndex(t, d)
+		in := decision.Intent{Seq: d.Seq, Player: 0, Choices: []int{pass}}
 		if err := e.Submit(in); err != nil {
 			t.Fatalf("Submit manual pass: %v", err)
 		}
@@ -134,7 +137,7 @@ func TestPaymentPlanDecisionMadeGolden(t *testing.T) {
 		// Byte-exact legacy spelling ("<kind>:[<choice>]", fmt.Sprintf's exact
 		// spacing), with no payment suffix: a payment-less submission must be
 		// indistinguishable from pre-plans history.
-		want := "priority:[" + strconv.Itoa(passOptionIndex(t, d)) + "]"
+		want := "priority:[" + strconv.Itoa(pass) + "]"
 		if made != want {
 			t.Fatalf("manual DecisionMade.Text = %q, want legacy %q", made, want)
 		}

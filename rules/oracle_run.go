@@ -1374,6 +1374,11 @@ func (r *oracleRun) do(st oracleStep) error {
 		if err != nil {
 			return err
 		}
+		// Read the picked option's Kind/Label BEFORE the Submit: a posed
+		// decision is valid only until the next Submit on the engine
+		// (decision_arena_live.go), and r.submit consumes d.
+		manaStage := op == oracleOpActivate && d.Options[idx].Kind == "activate" &&
+			(st.AbilityIndex != nil || (st.Ability != "" && !oracleLabelMatches(d.Options[idx].Label, st.Ability)))
 		if err := r.submit(d, []int{idx}, st.Op); err != nil {
 			return err
 		}
@@ -1397,8 +1402,7 @@ func (r *oracleRun) do(st oracleStep) error {
 			}
 			r.extraFails = append(r.extraFails, oracleObserveMismatches(pending, *st.Observe)...)
 		}
-		if op == oracleOpActivate && d.Options[idx].Kind == "activate" &&
-			(st.AbilityIndex != nil || (st.Ability != "" && !oracleLabelMatches(d.Options[idx].Label, st.Ability))) {
+		if manaStage {
 			if err := oracleAnswerManaStage(r, st, seat, id, manaAbilities); err != nil {
 				return err
 			}

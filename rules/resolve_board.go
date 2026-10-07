@@ -296,8 +296,14 @@ func tapeRebindOwner(e *Engine, sc *Engine, arenaOn bool) {
 	if e.snapPool != nil && e.snapPool.owner == sc {
 		e.snapPool.owner = e
 	}
-	if arenaOn {
-		e.SetDecisionArena(true)
+	if arenaOn && e.decArena != nil {
+		// Keep the arena in the mode it had. The restore above put the
+		// engine's own arena pointer back (Restore's `e.decArena = arena`),
+		// so on=true is all that is needed -- calling SetDecisionArena(true)
+		// here would force SEARCH mode and switch off a live engine's
+		// per-Submit generation retirement (decision_arena_live.go), after
+		// which its decision slabs grow with the whole game.
+		e.decArena.on = true
 	}
 }
 

@@ -208,6 +208,12 @@ func NewStartingPlayerChoice(cfg Config) *Engine {
 
 func newWithRNG(cfg Config, random *rng, tossAsk bool) *Engine {
 	e := newEngineShell(cfg, random)
+	// A game built here is LIVE (New / NewStartingPlayerChoice); the shell
+	// above may have adopted a Spare's arena switched off, so switch its
+	// chunks back on under the per-Submit live contract
+	// (decision_arena_live.go). A clone or a hypothetical search engine does
+	// not come through here and keeps the off / search mode it set.
+	enableLiveArena(e)
 	e.emit(events.Event{Kind: events.GameStart, Amount: int32(len(cfg.Names))})
 	return e.genesisDeal(cfg, tossAsk)
 }

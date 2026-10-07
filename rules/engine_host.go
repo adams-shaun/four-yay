@@ -11,6 +11,15 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
+// Pending returns the decision currently posed to a seat, or nil.
+//
+// CONTRACT (decision_arena_live.go): the returned *decision.Decision, its
+// Options slice and everything they reference are valid only until the next
+// Submit (or Advance) on e. A caller that needs the decision past that point
+// must copy it, with decision.Decision.Clone() or an equivalent deep copy;
+// the pointer is into e's decision arena, whose generation is retired at the
+// Submit boundary. (A search simulation's engine, switched on with
+// SetDecisionArena, is Release-scoped instead and does not retire on Submit.)
 func (e *Engine) Pending() *decision.Decision { return e.pending }
 
 // OwnDeck returns a detached copy of p's genesis deck manifest, or nil when p
