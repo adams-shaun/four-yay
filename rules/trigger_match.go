@@ -920,7 +920,12 @@ func (e *Engine) checkTriggers(ev *events.Event, lki *state.Object,
 	// grant rules' foldEntryMove places and the draw-step half alike; task
 	// addcounter1/2 moved the entry grant onto a real CounterChange, so the
 	// old MoveZone arm double-queued the entry chapter).
-	e.checkChapterTriggers(*ev)
+	// The kind guards sit at the call sites: each callee opens with the same
+	// kind test, but the event is passed by value, and nearly every event is
+	// none of these kinds.
+	if ev.Kind == events.CounterChange {
+		e.checkChapterTriggers(*ev)
+	}
 	if ev.Kind == events.Draw {
 		e.offerMiracle(*ev)
 	}
@@ -981,17 +986,24 @@ func (e *Engine) checkTriggers(ev *events.Event, lki *state.Object,
 	// scan reads state.Player.RingTempted (the fold RingTemptsYou just made
 	// renders here BEFORE any trigger check, so level 4 sees its own
 	// temptation) and queues one entry per firing seat.
-	e.checkRingEmblemTriggers(*ev)
+	switch ev.Kind {
+	case events.DeclareAttackers, events.DeclareBlockers, events.Damage, events.RingTemptsYou:
+		e.checkRingEmblemTriggers(*ev)
+	}
 	// A chaos-ensues marker (CR 901.9, task planar-verbs): the current
 	// plane's Mode$ ChaosEnsues ability. The plane lives in ZPlanarDeck,
 	// which the per-face walk above never visits, so this synthetic scan
 	// queues it -- the checkRingEmblemTriggers precedent.
-	e.checkChaosEnsuesTriggers(*ev)
+	if ev.Kind == events.ChaosEnsues {
+		e.checkChaosEnsuesTriggers(*ev)
+	}
 	// A planeswalk (CR 901.8, task planar-verbs): the arrived-at plane's
 	// Mode$ PlaneswalkedTo and the left plane's Mode$ PlaneswalkedFrom. Both
 	// planes live in the private ZPlanarDeck zone, so this is the same
 	// synthetic-scan shape as the chaos marker above.
-	e.checkPlaneswalkTriggers(*ev)
+	if ev.Kind == events.PlanarWalk {
+		e.checkPlaneswalkTriggers(*ev)
+	}
 }
 
 // The Ring emblem's four level gates (CR 701.54c). Level N is active iff the
