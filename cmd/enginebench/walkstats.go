@@ -54,6 +54,10 @@ type walkStats struct {
 	timingPool, timingPoolSame           int
 	s5Timing, s5TimingSorc, s5TimingPool int
 	s5TimingPoolSame                     int
+	// W0 (action-walk.md §2): the W1/W2 admissibility classes.
+	w1, w1Same  int
+	w2, w2Same  int
+	w1KindsSeen [256]int // per-kind presence in a W1-admissible suffix
 	onlyPassOffered                      int
 	opts, hand, bf                       int
 	sigs                                 map[string]*sigStat
@@ -83,6 +87,29 @@ var timingKinds = [256]bool{
 var s5TimingKinds = [256]bool{
 	events.DecisionAsk: true, events.DecisionMade: true, events.Priority: true,
 	events.StepChange: true,
+}
+
+// w1Kinds is action-walk.md §2's W1Kinds: the event classes W1 admits, before
+// the per-kind conditions (an opponent's Draw, equal pools, cold combat).
+var w1Kinds = [256]bool{
+	events.DecisionAsk: true, events.DecisionMade: true, events.Priority: true,
+	events.Note: true, events.StepChange: true,
+	events.DeclareAttackers: true, events.DeclareBlockers: true, events.EndCombatReset: true,
+	events.ManaClear: true, events.Draw: true,
+}
+
+// w2Kinds is action-walk.md §2's W2Kinds: a mana-tap transition only.
+var w2Kinds = [256]bool{
+	events.DecisionAsk: true, events.DecisionMade: true, events.Priority: true,
+	events.Tap: true, events.ManaAdd: true,
+}
+
+// optsSorcerySensitive reports whether any option in the marshaled list is
+// sorcery-sensitive (play_land or a cast): W0's cheap proxy for W1's
+// sorceryDecisive (action-walk.md §2, §3.3). Over-approximates (a refused
+// sorcery leaves no option), which is the safe direction for a bench measure.
+func optsSorcerySensitive(raw string) bool {
+	return strings.Contains(raw, "\"play_land\"") || strings.Contains(raw, "\"cast\"")
 }
 
 func (m *walkStats) observe(e *rules.Engine, d *decision.Decision) {
@@ -115,6 +142,9 @@ func (m *walkStats) observe(e *rules.Engine, d *decision.Decision) {
 		var ks []events.Kind
 		var seen [256]bool
 		allQuiet, allTiming, allS5Timing := true, true, true
+		// W0 classes (action-walk.md §2).
+		allW1, allW2 := true, true
+		drawBySef, manaAddOther := false, false
 		for _, ev := range e.L.Events[pv.ev:cur.ev] {
 			k := ev.Kind
 			if !seen[k] {
@@ -129,6 +159,18 @@ func (m *walkStats) observe(e *rules.Engine, d *decision.Decision) {
 			}
 			if !s5TimingKinds[k] {
 				allS5Timing = false
+			}
+			if !w1Kinds[k] {
+				allW1 = false
+			}
+			if k == events.Draw && ev.Player == p {
+				drawBySef = true
+			}
+			if !w2Kinds[k] {
+				allW2 = false
+			}
+			if k == events.ManaAdd && ev.Player != p {
+				manaAddOther = true
 			}
 		}
 		for _, k := range ks {
@@ -173,6 +215,25 @@ func (m *walkStats) observe(e *rules.Engine, d *decision.Decision) {
 				}
 			}
 		}
+		// W0 (action-walk.md §2): W1 admits the kind set, equal pools at both
+		// asks, no Draw by the walking seat, and no sorcery-sensitive option in
+		// the previous list; W2 admits the tap set with all ManaAdd credit to
+		// the walking seat.
+		if allW1 && !drawBySef && pv.pools == cur.pools && !optsSorcerySensitive(pv.opts) {
+			m.w1++
+			if same {
+				m.w1Same++
+			}
+			for _, k := range ks {
+				m.w1KindsSeen[k]++
+			}
+		}
+		if allW2 && !manaAddOther {
+			m.w2++
+			if same {
+				m.w2Same++
+			}
+		}
 		sort.Slice(ks, func(i, j int) bool { return ks[i] < ks[j] })
 		var sb strings.Builder
 		for i, k := range ks {
@@ -214,6 +275,8 @@ func (m *walkStats) report() {
 	fmt.Fprintf(w, "walkstats:     ... and same sorcery-speed bit: %d (%.1f%%), identical %d (%.1f%%)\n", m.timingSorc, pct(m.timingSorc, m.trans), m.timingSorcSame, pct(m.timingSorcSame, m.timingSorc))
 	fmt.Fprintf(w, "walkstats:     ... and all pools equal: %d (%.1f%%), identical %d (%.1f%%)\n", m.timingPool, pct(m.timingPool, m.trans), m.timingPoolSame, pct(m.timingPoolSame, m.timingPool))
 	fmt.Fprintf(w, "walkstats: S5 exact {Priority,DecisionAsk,DecisionMade,StepChange} only: %d; same sorcery bit %d; all pools equal %d (%.1f%% of priority asks; S5 gate), identical %d (%.1f%%)\n", m.s5Timing, m.s5TimingSorc, m.s5TimingPool, pct(m.s5TimingPool, m.asks), m.s5TimingPoolSame, pct(m.s5TimingPoolSame, m.s5TimingPool))
+	fmt.Fprintf(w, "walkstats: W0/W1 admissible: %d (%.1f%% of transitions), identical %d (%.1f%%)\n", m.w1, pct(m.w1, m.trans), m.w1Same, pct(m.w1Same, m.w1))
+	fmt.Fprintf(w, "\nwalkstats: W0/W2 admissible (tap-only, all ManaAdd to the walker): %d (%.1f%% of transitions), identical %d (%.1f%%)\n", m.w2, pct(m.w2, m.trans), m.w2Same, pct(m.w2Same, m.w2))
 	fmt.Fprintf(w, "walkstats: per-kind presence (transitions containing kind: n, identical%%):\n")
 	for k := 0; k < 256; k++ {
 		if m.kindIn[k] > 0 {
