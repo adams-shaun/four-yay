@@ -78,10 +78,29 @@ func randomIntent(d *decision.Decision, r *rand.Rand) decision.Intent {
 	k := lo + r.IntN(hi-lo+1)
 	var ch []int
 	if k > 0 {
-		perm := r.Perm(n)[:k]
-		ch = make([]int, k)
-		for i, j := range perm {
-			ch[i] = pool[j]
+		perm := r.Perm(n)
+		ch = make([]int, 0, k)
+		// Options sharing a non-empty Group are mutually exclusive up to the
+		// decision's cap (a blocker blocks one attacker): walk the whole
+		// permutation and skip an option whose Group is full, so a uniform
+		// draw never submits an answer Decision.Validate rejects. Without
+		// groups this takes exactly perm[:k], as before.
+		var used map[string]int
+		for _, j := range perm {
+			if len(ch) == k {
+				break
+			}
+			o := pool[j]
+			if g := d.Options[o].Group; g != "" {
+				if used == nil {
+					used = map[string]int{}
+				}
+				if !d.GroupAdmits(used, g) {
+					continue
+				}
+				used[g]++
+			}
+			ch = append(ch, o)
 		}
 	}
 	return decision.Intent{Seq: d.Seq, Player: d.Player, Choices: ch}
