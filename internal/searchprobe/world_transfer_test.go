@@ -14,7 +14,7 @@ func TestMaterializeWorldsTransfersUniqueAndClonesRepeats(t *testing.T) {
 	names := testutil.LegacyDeckNames()
 	cfg := rules.Config{
 		Seed: 3, Names: []string{names[0], names[1]},
-		Decks: [][]*cards.Card{testutil.RepoDeck(t, reg, names[0]), testutil.RepoDeck(t, reg, names[1])},
+		Decks:  [][]*cards.Card{testutil.RepoDeck(t, reg, names[0]), testutil.RepoDeck(t, reg, names[1])},
 		Tokens: reg.Tokens, NameUniverse: reg.Universe(),
 	}
 	mk := func() World {

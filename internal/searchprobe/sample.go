@@ -98,6 +98,7 @@ func materializeWorlds(proposals []World, indices []int) []World {
 	}
 	return out
 }
+
 type SampleResult struct {
 	Worlds                                                                                 []World `json:"-"`
 	Attempts, Accepted, PrefixRejected, BudgetExhausted, Submits, Duplicates               int
