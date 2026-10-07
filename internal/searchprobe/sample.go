@@ -79,6 +79,25 @@ type World struct {
 	Engine   *rules.Engine
 	Observer *Collector
 }
+
+// materializeWorlds returns one World per index. A proposal selected once hands
+// its own engine over; the same proposal selected again is cloned so the
+// returned worlds never alias one engine. Cloning only the repeats leaves the
+// common one-selection case free of the deep clone.
+func materializeWorlds(proposals []World, indices []int) []World {
+	seen := make(map[int]bool, len(indices))
+	out := make([]World, 0, len(indices))
+	for _, i := range indices {
+		w := proposals[i]
+		if seen[i] {
+			w.Engine = w.Engine.Clone()
+		}
+		seen[i] = true
+		w.Observer = w.Observer.clone()
+		out = append(out, w)
+	}
+	return out
+}
 type SampleResult struct {
 	Worlds                                                                                 []World `json:"-"`
 	Attempts, Accepted, PrefixRejected, BudgetExhausted, Submits, Duplicates               int
@@ -564,11 +583,8 @@ func Sample(setup PublicGame, h History, opts SampleOptions) (out SampleResult, 
 			result.Duplicates++
 		}
 		seen[i] = true
-		w := proposals[i]
-		w.Engine = w.Engine.Clone()
-		w.Observer = w.Observer.clone()
-		result.Worlds = append(result.Worlds, w)
 	}
+	result.Worlds = materializeWorlds(proposals, indices)
 	return result, nil
 }
 
