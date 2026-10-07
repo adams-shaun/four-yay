@@ -10,13 +10,19 @@ import (
 	"github.com/adams-shaun/gorge/internal/testutil"
 )
 
-var corpusFull = flag.Bool("corpus-full", false, "open the whole card corpus even when the run's decks are known up front (by default such a run decodes only its decks' cards plus every token -- cards.OpenCorpusFor -- and plays byte-identical games)")
+// corpusFull is retained for callers and scripts but is now inert: the
+// subset loader is retired (S4 of the pointer-free corpus design made the
+// imaged, lazy registry the one corpus), so both a deck-seated run and
+// -corpus-full get the shared full registry. S8 deletes this flag.
+var corpusFull = flag.Bool("corpus-full", false, "INERT since S4: the whole corpus is always the shared (imaged, lazy) registry, so a deck-seated run and this flag open the same one; retained for callers, deleted in S8 (pointer-free corpus design)")
 
-// openCorpusForDecks opens dir's corpus for a run that seats only decks:
-// cards.OpenCorpusFor over every card the files name, which decodes just
-// those cards (plus every token) unless a game could then play differently,
-// and the whole SharedCorpus under -corpus-full. log, when non-nil, gets one
-// line saying which registry the run got.
+// openCorpusForDecks opens dir's corpus for a run that seats only decks.
+// cards.OpenCorpusFor used to decode just the decks' cards plus every token
+// when a game could not then play differently; S4 made it a wrapper over
+// SharedCorpus, so this now always returns the shared full registry and
+// -corpus-full changes nothing. The names are still gathered so the call
+// shape is unchanged until S8 deletes both. log, when non-nil, gets one line
+// saying which registry the run got.
 func openCorpusForDecks(dir string, decks []deck.File, log io.Writer) (*cards.Registry, error) {
 	if *corpusFull {
 		return testutil.OpenCorpusRegistry(dir)
@@ -32,7 +38,7 @@ func openCorpusForDecks(dir string, decks []deck.File, log io.Writer) (*cards.Re
 	if reg.IsSubset() {
 		fmt.Fprintf(log, "corpus: %d-card subset (+%d tokens) for %d decks\n", reg.Len(), len(reg.Tokens), len(decks))
 	} else {
-		fmt.Fprintf(log, "corpus: full, %d cards (the decks' cards need the whole name universe, or the subset could not be opened)\n", reg.Len())
+		fmt.Fprintf(log, "corpus: full, %d cards (the shared registry; the retired subset loader no longer answers here)\n", reg.Len())
 	}
 	return reg, nil
 }

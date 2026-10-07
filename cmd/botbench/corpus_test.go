@@ -10,24 +10,17 @@ import (
 )
 
 // TestSpellbenchSubsetCorpusMatchesFull plays the same small FDN spellbench
-// run on the corpus spellbenchExit opens by default and on the whole corpus
-// (-corpus-full), and requires byte-identical matches.jsonl and games.jsonl
-// (wall_ms dropped).
+// run with the default corpus handling and with -corpus-full, and requires
+// byte-identical matches.jsonl and games.jsonl (wall_ms dropped).
 //
-// The corpus open this compares used to be OpenCorpusFor's subset loader, and
-// the test also required the default run to have actually taken the subset so
-// it was not a full-vs-full comparison. S4 (perf(cards), a3b5123a3) made
-// OpenCorpusFor a wrapper over SharedCorpus: the imaged, lazy registry costs
-// the GC what a subset did, so the subset is no longer on this path and the
-// default open IS the full one. The subset loader itself is unchanged and is
-// still driven directly by cards/subset_test.go; S8 deletes it.
-//
-// The equivalence the test exists for still holds and is still worth pinning:
-// -corpus-full must not change a game. It now asserts the default open is the
-// full registry (the property that made the old subset requirement obsolete)
-// rather than a subset, so a future return of a subset open to this path
-// re-arms the subset comparison loudly instead of silently comparing
-// full-vs-full.
+// Until S4 of the pointer-free corpus design this compared a subset registry
+// against the whole corpus, because the default run decoded only its decks'
+// cards plus tokens. S4 made cards.OpenCorpusFor a wrapper over SharedCorpus
+// (the imaged, lazy registry), so both paths now open the same shared full
+// registry and the run-level subset assertion is retired. The invariant that
+// survives -- a deck-seated run's games do not depend on how its registry was
+// opened -- is still worth pinning: the default must be the shared full
+// registry, and -corpus-full must not change a single byte.
 func TestSpellbenchSubsetCorpusMatchesFull(t *testing.T) {
 	dir := corpusDirForSpellbench(t)
 	run := func(full bool) (string, string, string) {
@@ -49,16 +42,16 @@ func TestSpellbenchSubsetCorpusMatchesFull(t *testing.T) {
 	}
 	defM, defG, defLog := run(false)
 	fullM, fullG, _ := run(true)
-	// S4: the default open is the shared full registry, so the two runs are
-	// the same registry. The subset log line would mean OpenCorpusFor took the
-	// subset route again, and then this must compare subset against full.
-	if !strings.Contains(defLog, "corpus: full,") {
-		t.Fatalf("the default FDN run did not open the full registry:\n%s", defLog)
+	if !strings.Contains(defLog, "corpus: full") {
+		t.Fatalf("the default FDN run did not open the shared full registry (S4: the subset loader is retired):\n%s", defLog)
+	}
+	if strings.Contains(defLog, "-card subset") {
+		t.Errorf("the default FDN run opened a subset registry, which S4 retired:\n%s", defLog)
 	}
 	if defM != fullM {
-		t.Error("matches.jsonl differs between the default and the full corpus")
+		t.Error("matches.jsonl differs between the default and -corpus-full runs")
 	}
 	if defG != fullG {
-		t.Errorf("games.jsonl digest: default %s, full %s", defG, fullG)
+		t.Errorf("games.jsonl digest: default %s, -corpus-full %s", defG, fullG)
 	}
 }
