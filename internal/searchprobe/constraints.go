@@ -12,6 +12,15 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
+// zeroBig is the shared zero count returns for a constraint-failed branch.
+// It is NEVER written (big.Int's zero value is already canonical), and count
+// returns it from before its memo write, so it is never stored as a memo
+// value either. Every count caller only reads the result (a Cmp, a Sub
+// source, total.Set, or a Mul ARGUMENT with a fresh receiver), so sharing one
+// immutable zero is safe and removes a heap allocation on the hottest return
+// in the search seat.
+var zeroBig = new(big.Int)
+
 type proposalCard struct {
 	ID   state.ObjID
 	Name string
@@ -37,6 +46,10 @@ type deadlineConstraint struct {
 	Through int
 	Name    string
 	Count   int
+	// idx is nameIndex[Name], precomputed at construction. constraintsHold
+	// runs once per count call, millions of times on the search seat; a
+	// string-map lookup there was a measurable slice of mapaccess_faststr.
+	idx int
 }
 
 // exclusionConstraint is the deadline's dual: at most Cap copies of Name may
@@ -50,6 +63,9 @@ type exclusionConstraint struct {
 	Through int
 	Name    string
 	Cap     int
+	// idx is nameIndex[Name], precomputed at construction (see
+	// deadlineConstraint.idx).
+	idx int
 }
 
 type proposalRandom interface {
@@ -63,6 +79,9 @@ type constraintCounter struct {
 	nameIndex map[string]int
 	fixedObj  map[int]proposalCard
 	fixedName map[int]string
+	// fixedNameIdx is nameIndex[fixedName[pos]] precomputed per fixed-name
+	// position, sparing count's hot name branch a string-map lookup.
+	fixedNameIdx map[int]int
 	// unseenIndex records, per position, whether the position is an unseen
 	// one; unseenTracked records, per relevant name, whether the name is
 	// carried by at least one unseen position. The per-name unseen-remaining
@@ -76,8 +95,15 @@ type constraintCounter struct {
 	initialUnseen []int
 	deadlines     []deadlineConstraint
 	exclusions    []exclusionConstraint
-	memo          map[string]*big.Int
+	memo          map[countKeyT]*big.Int
+	memoStr       map[string]*big.Int
 	factorials    []*big.Int
+	// smallBig[i] is the immutable big.Int for i (0..n). count multiplies by a
+	// multiplicity (a known-copy or unseen-copy count, or the irrelevant-copy
+	// count) on every branch; those multiplicities are bounded by the card
+	// count, so one shared table replaces a big.NewInt per branch -- the
+	// allocation the profile charged to math/big.nat.make.
+	smallBig []*big.Int
 }
 
 type constrainedPermutation struct {
@@ -211,11 +237,15 @@ func newConstraintCounter(cards []proposalCard, positions []positionConstraint, 
 }
 
 func newConstraintCounterWithExclusions(cards []proposalCard, positions []positionConstraint, deadlines []deadlineConstraint, exclusions []exclusionConstraint) (*constraintCounter, []proposalCard, error) {
-	c := &constraintCounter{n: len(cards), fixedObj: make(map[int]proposalCard), fixedName: make(map[int]string), unseenIndex: make(map[int]bool), memo: make(map[string]*big.Int)}
+	c := &constraintCounter{n: len(cards), fixedObj: make(map[int]proposalCard), fixedName: make(map[int]string), unseenIndex: make(map[int]bool), memo: make(map[countKeyT]*big.Int), memoStr: make(map[string]*big.Int)}
 	c.factorials = make([]*big.Int, len(cards)+1)
 	c.factorials[0] = big.NewInt(1)
 	for i := 1; i <= len(cards); i++ {
 		c.factorials[i] = new(big.Int).Mul(c.factorials[i-1], big.NewInt(int64(i)))
+	}
+	c.smallBig = make([]*big.Int, len(cards)+1)
+	for i := range c.smallBig {
+		c.smallBig[i] = big.NewInt(int64(i))
 	}
 	byID := make(map[state.ObjID]proposalCard, len(cards))
 	relevant := make(map[string]bool)
@@ -296,6 +326,10 @@ func newConstraintCounterWithExclusions(cards []proposalCard, positions []positi
 	for i, name := range c.names {
 		c.nameIndex[name] = i
 	}
+	c.fixedNameIdx = make(map[int]int, len(c.fixedName))
+	for pos, name := range c.fixedName {
+		c.fixedNameIdx[pos] = c.nameIndex[name]
+	}
 	c.exactPrefix = make([][]int, len(cards)+1)
 	for i := range c.exactPrefix {
 		c.exactPrefix[i] = make([]int, len(c.names))
@@ -336,6 +370,12 @@ func newConstraintCounterWithExclusions(cards []proposalCard, positions []positi
 	}
 	c.deadlines = append([]deadlineConstraint(nil), deadlines...)
 	c.exclusions = append([]exclusionConstraint(nil), exclusions...)
+	for i := range c.deadlines {
+		c.deadlines[i].idx = c.nameIndex[c.deadlines[i].Name]
+	}
+	for i := range c.exclusions {
+		c.exclusions[i].idx = c.nameIndex[c.exclusions[i].Name]
+	}
 	return c, available, nil
 }
 
@@ -362,26 +402,36 @@ func (c *constraintCounter) count(pos int, remaining []int, unseen []int, other 
 		return c.factorials[c.n-pos]
 	}
 	if !c.constraintsHold(pos, remaining) {
-		return new(big.Int)
+		return zeroBig
 	}
 	if pos >= c.stop {
 		return c.factorials[c.n-pos]
 	}
-	key := countKey(pos, remaining, unseen, other)
-	if cached := c.memo[key]; cached != nil {
+	key, keyOK := countKey(pos, remaining, unseen, other)
+	if keyOK {
+		if cached := c.memo[key]; cached != nil {
+			return cached
+		}
+	} else if cached := c.memoStr[countKeyStr(pos, remaining, unseen, other)]; cached != nil {
 		return cached
 	}
 	total := new(big.Int)
+	// scratch is the reused receiver for every branch product. count runs
+	// millions of times on the search seat, and a fresh new(big.Int) per branch
+	// was the allocator's largest single line; a branch product is consumed by
+	// the Add on the next line and never stored, so one scratch per call is
+	// safe.
+	scratch := new(big.Int)
 	if _, ok := c.fixedObj[pos]; ok {
 		total.Set(c.count(pos+1, remaining, unseen, other))
 	} else if name := c.fixedName[pos]; name != "" {
-		i := c.nameIndex[name]
+		i := c.fixedNameIdx[pos]
 		if c.unseenIndex[pos] {
 			if unseen[i] > 0 {
 				multiplicity := unseen[i]
 				remaining[i]--
 				unseen[i]--
-				total.Mul(c.count(pos+1, remaining, unseen, other), big.NewInt(int64(multiplicity)))
+				total.Mul(c.count(pos+1, remaining, unseen, other), c.smallBig[multiplicity])
 				unseen[i]++
 				remaining[i]++
 			}
@@ -389,18 +439,16 @@ func (c *constraintCounter) count(pos int, remaining []int, unseen []int, other 
 			knownCopies := remaining[i] - unseen[i]
 			if knownCopies > 0 {
 				remaining[i]--
-				branch := new(big.Int).Mul(c.count(pos+1, remaining, unseen, other), big.NewInt(int64(knownCopies)))
+				c.mulAdd(total, scratch, c.count(pos+1, remaining, unseen, other), knownCopies)
 				remaining[i]++
-				total.Add(total, branch)
 			}
 			if unseen[i] > 0 {
 				multiplicity := unseen[i]
 				remaining[i]--
 				unseen[i]--
-				branch := new(big.Int).Mul(c.count(pos+1, remaining, unseen, other), big.NewInt(int64(multiplicity)))
+				c.mulAdd(total, scratch, c.count(pos+1, remaining, unseen, other), multiplicity)
 				unseen[i]++
 				remaining[i]++
-				total.Add(total, branch)
 			}
 		}
 	} else {
@@ -411,27 +459,36 @@ func (c *constraintCounter) count(pos int, remaining []int, unseen []int, other 
 			knownCopies := remaining[i] - unseen[i]
 			if knownCopies > 0 {
 				remaining[i]--
-				branch := new(big.Int).Mul(c.count(pos+1, remaining, unseen, other), big.NewInt(int64(knownCopies)))
+				c.mulAdd(total, scratch, c.count(pos+1, remaining, unseen, other), knownCopies)
 				remaining[i]++
-				total.Add(total, branch)
 			}
 			if unseen[i] > 0 {
 				multiplicity := unseen[i]
 				remaining[i]--
 				unseen[i]--
-				branch := new(big.Int).Mul(c.count(pos+1, remaining, unseen, other), big.NewInt(int64(multiplicity)))
+				c.mulAdd(total, scratch, c.count(pos+1, remaining, unseen, other), multiplicity)
 				unseen[i]++
 				remaining[i]++
-				total.Add(total, branch)
 			}
 		}
 		if other > 0 {
-			branch := new(big.Int).Mul(c.count(pos+1, remaining, unseen, other-1), big.NewInt(int64(other)))
-			total.Add(total, branch)
+			c.mulAdd(total, scratch, c.count(pos+1, remaining, unseen, other-1), other)
 		}
 	}
-	c.memo[key] = total
+	if keyOK {
+		c.memo[key] = total
+	} else {
+		c.memoStr[countKeyStr(pos, remaining, unseen, other)] = total
+	}
 	return total
+}
+
+// mulAdd accumulates total += count * c.smallBig[multiplicity], writing the
+// product into scratch. The branch product is consumed immediately and never
+// stored, so the same scratch is reused across every branch of one count call.
+func (c *constraintCounter) mulAdd(total, scratch, count *big.Int, multiplicity int) {
+	scratch.Mul(count, c.smallBig[multiplicity])
+	total.Add(total, scratch)
 }
 
 func (c *constraintCounter) constraintsHold(pos int, remaining []int) bool {
@@ -439,7 +496,7 @@ func (c *constraintCounter) constraintsHold(pos int, remaining []int) bool {
 		if pos < d.Through {
 			continue
 		}
-		i := c.nameIndex[d.Name]
+		i := d.idx
 		placed := c.exactPrefix[pos][i] + c.initialFree[i] - remaining[i]
 		if placed < d.Count {
 			return false
@@ -454,7 +511,7 @@ func (c *constraintCounter) constraintsHold(pos int, remaining []int) bool {
 		if pos != e.Through {
 			continue
 		}
-		i := c.nameIndex[e.Name]
+		i := e.idx
 		placed := c.exactPrefix[pos][i] + c.initialFree[i] - remaining[i]
 		if placed > e.Cap {
 			return false
@@ -463,7 +520,62 @@ func (c *constraintCounter) constraintsHold(pos int, remaining []int) bool {
 	return true
 }
 
-func countKey(pos int, remaining []int, unseen []int, other int) string {
+// countKeyMaxNames bounds the names a packed count key can hold. A shuffle's
+// name list is the distinct card names its positions, deadlines and exclusions
+// mention. A 40-game constructed search-seat histogram put almost every call
+// at 12-13 names, none at 23-29, and the run's maximum (30) on a single call;
+// Commander search poses no constrained-permutation ask at all. 64 covers the
+// measured distribution with a wide margin and, at 5+2*64 = 133 bytes, sits
+// just past Go's 128-byte inline-key threshold: the runtime then stores keys
+// off-bucket, which a three-way search-seat A/B (alloc_space, 3 runs each)
+// showed is the most compact memo layout -- 4.02 GB total versus 4.36 GB for a
+// 32-name key (69 B, inline) and 5.14 GB for a 60-name one (126 B, inline),
+// because an inline key inflates every map bucket while an indirect one does
+// not. The memo was the counter's dominant allocation. A problem past the
+// bound falls back to the string key below rather than failing, which is also
+// why the constructor does not reject one.
+const countKeyMaxNames = 64
+
+// countKeyT is countKey's packed form: a fixed-size, comparable map key with
+// no backing allocation. remaining[i] and unseen[i] never exceed the card
+// count of a shuffle (<= 60 in a constructed deck, and the sampler's own
+// budget), so a uint8 per name is enough; countKey reports keyOK=false past
+// either bound so the constructor never has to reject a problem.
+type countKeyT struct {
+	pos   uint16
+	other uint16
+	n     uint8
+	rem   [countKeyMaxNames]uint8
+	uns   [countKeyMaxNames]uint8
+}
+
+// countKey packs (pos, remaining, unseen, other) into a comparable struct, or
+// reports keyOK=false when the name list is past countKeyMaxNames (the string
+// form is then used).
+func countKey(pos int, remaining []int, unseen []int, other int) (countKeyT, bool) {
+	if len(remaining) > countKeyMaxNames || len(unseen) > countKeyMaxNames || other > 0xffff || pos > 0xffff {
+		return countKeyT{}, false
+	}
+	k := countKeyT{pos: uint16(pos), other: uint16(other), n: uint8(len(remaining))}
+	for i, v := range remaining {
+		if v > 0xff {
+			return countKeyT{}, false
+		}
+		k.rem[i] = uint8(v)
+	}
+	for i, v := range unseen {
+		if v > 0xff {
+			return countKeyT{}, false
+		}
+		k.uns[i] = uint8(v)
+	}
+	return k, true
+}
+
+// countKeyStr is countKey's unbounded fallback: the varint string form the
+// memo used before the packed key, kept only for a name list past
+// countKeyMaxNames.
+func countKeyStr(pos int, remaining []int, unseen []int, other int) string {
 	var b strings.Builder
 	b.Grow(len(remaining) + len(unseen) + 3)
 	var encoded [binary.MaxVarintLen64]byte
