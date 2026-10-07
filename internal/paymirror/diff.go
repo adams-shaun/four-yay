@@ -206,6 +206,10 @@ var excluded = map[excludedField]bool{
 	{"rules.Engine", "walkClsOwner"}:    true,
 	{"rules.Engine", "offerProbeDepth"}: true,
 	{"rules.Engine", "staticTouchGen"}:  true,
+	// The S4 own-battlefield mana-membership carry (mana_member_carry.go):
+	// a walk cache keyed on the board stamp plus a mana-relevant log cursor;
+	// Clone copies none (ownManaCarry gives a copy its own on first use).
+	{"rules.Engine", "manaCarry"}: true,
 	// The payment-plan interference carrier memo (payment_plan_interference.go),
 	// keyed by object-arena size and log length; Clone copies none.
 	{"rules.Engine", "PaymentPlanCarriers"}:       true,
