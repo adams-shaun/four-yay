@@ -68,6 +68,7 @@ const (
 	cbAffinity
 	cbPermanentCard
 	cbSpell // Spell (including derived AsStack) and SpellAbility (actual stack only)
+	cbBatchWord
 )
 
 type compiledAlt struct {
@@ -325,7 +326,11 @@ func compileSpec(spec string) *compiledSpec {
 			case compileSpecSpell:
 				a.kind = cbSpell
 			default:
-				a.kind, a.typ, a.typID, a.typSub = cbType, b, cards.InternTypeWord(b), changelingType(b)
+				if isBatchWordBase(b) {
+					a.kind = cbBatchWord
+				} else {
+					a.kind, a.typ, a.typID, a.typSub = cbType, b, cards.InternTypeWord(b), changelingType(b)
+				}
 			}
 		}
 		// Forge's base-qualified Spell.IsTargeting form (and the SpellAbility
@@ -357,6 +362,11 @@ func compileSpec(spec string) *compiledSpec {
 		cs.alts = append(cs.alts, a)
 	}
 	return cs
+}
+
+func isBatchWordBase(base string) bool {
+	code := matchesBaseCodes.Code(base)
+	return code == matchesBaseOutlaw || code == matchesBaseHistoric
 }
 
 // compiledBaseMatch is matchesBase(g, a.base, o, sc) (or, with zone set,
@@ -395,6 +405,16 @@ func compiledBaseMatch(g *state.Game, a *compiledAlt, o *state.Object, sc *SpecC
 		m = o.Face() != nil && o.Face().IsPermanent()
 	case cbSpell:
 		m = o.Zone == state.ZStack || (a.base == "Spell" && sc.AsStack)
+	case cbBatchWord:
+		base := a.base
+		for {
+			positive, negated := strings.CutPrefix(base, "non")
+			if !negated {
+				break
+			}
+			base = positive
+		}
+		m = batchWordBase(matchesBaseCodes.Code(base), o, *sc)
 	default:
 		m = hasTypeCtxSub(o, a.typ, a.typID, a.typSub, sc)
 	}
