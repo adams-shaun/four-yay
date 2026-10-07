@@ -3,6 +3,7 @@ package rules
 import (
 	"strings"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
@@ -25,9 +26,11 @@ func plotZoneWalk(w *legalWalk) {
 		return
 	}
 	f := o.Face()
-	raw, ok := f.KeywordParam("Plot")
+	raw, ok := f.KeywordCostParam("Plot")
 	if !ok {
-		raw, ok = e.derivedKeywordParamH(id, kwHeadOf("Plot"))
+		if raw, ok = e.derivedKeywordParamH(id, kwHeadOf("Plot")); ok {
+			raw = cards.KeywordCostField(raw)
+		}
 	}
 	if !ok {
 		return

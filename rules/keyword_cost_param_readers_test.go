@@ -88,50 +88,12 @@ func TestCostReadersDropTrailingKeywordFields(t *testing.T) {
 	}
 }
 
-// TestKeywordCostParamPlotMiracleAndCaptures covers the three cast_begin.go
-// reads: the Plot and Miracle branches of continueCast price their first field,
-// and the replicate/multikicker/squad captures store the first field so the
-// later payment re-parse (the ask handlers) prices the SAME string the offer
-// gate read.
-func TestKeywordCostParamPlotMiracleAndCaptures(t *testing.T) {
-	t.Parallel()
-	c, diags := cards.ParseBytes("kcp2b.txt", []byte(
-		"Name:Fixture\nTypes:Sorcery\n"+
-			"K:Plot:2 G:ReduceCost$ X:reminder plot\n"+
-			"K:Miracle:1 W:ReduceCost$ X:reminder miracle\n"+
-			"K:Replicate:3 U:ReduceCost$ X:reminder replicate\n"+
-			"K:Multikicker:2 B:ReduceCost$ X:reminder multikicker\n"+
-			"K:Squad:4 R:ReduceCost$ X:reminder squad\n"+
-			"Oracle:fixture\n"))
-	if len(diags) != 0 {
-		t.Fatalf("fixture parse diagnostics: %v", diags)
-	}
-	f := c.Faces[0]
-
-	for _, tc := range []struct {
-		head string
-		want string
-	}{
-		{"Plot", "2 G"},
-		{"Miracle", "1 W"},
-		{"Replicate", "3 U"},
-		{"Multikicker", "2 B"},
-		{"Squad", "4 R"},
-	} {
-		// Precondition: the whole-remainder read differs from the cost field,
-		// so the two accessors really select different strings here.
-		whole, ok := f.KeywordParam(tc.head)
-		if !ok || whole == tc.want {
-			t.Fatalf("precondition: KeywordParam(%q) = %q %v, want the whole remainder", tc.head, whole, ok)
-		}
-		got, ok := f.KeywordCostParam(tc.head)
-		if !ok || got != tc.want {
-			t.Errorf("KeywordCostParam(%q) = %q %v, want %q true", tc.head, got, ok, tc.want)
-		}
-		// The first field must be exactly what ParseCost prices here, with no
-		// Unknown from the trailing text.
-		if pc := ParseCost(got); len(pc.Unknown) != 0 {
-			t.Errorf("ParseCost(KeywordCostParam(%q)) carries Unknown %v", tc.head, pc.Unknown)
-		}
-	}
-}
+// TestKeywordCostParamPlotMiracleAndCaptures was removed: it only compared
+// the two accessors on a fixture face and never drove the Plot/Miracle cast
+// branches or the replicate/multikicker/squad captures, so it passed with the
+// whole non-test diff reverted. The real end-to-end coverage lives in
+// keyword_cost_param_paths_test.go (TestKeywordCostParamCapturesStoreFirstField,
+// TestKeywordCostParamPlotOfferAndCastUseFirstField,
+// TestKeywordCostParamPlotZoneWalkUsesFirstField,
+// TestKeywordCostParamPlannerPlotAndMiracleUseFirstField and
+// TestKeywordCostParamMiracleCastUsesFirstField).
