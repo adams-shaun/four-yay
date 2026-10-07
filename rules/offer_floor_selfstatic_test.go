@@ -25,6 +25,19 @@ const (
 	floorQualifiedSrc = "Name:Floor Qualified\nManaCost:5\nTypes:Creature Golem\nPT:5/5\n" +
 		"S:Mode$ ReduceCost | ValidCard$ Card.Self+Creature | Type$ Spell | Amount$ 5 | EffectZone$ All | Description$ x\nOracle:x\n"
 	floorProbeSrc = "Name:Floor Probe\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"
+	// floorTargetReducerSrc is a GENERAL (non-self) reducer whose predicate
+	// reads the chosen targets: validTarget is set and validTargetSelfOnly is
+	// false, so the floor must keep the full composition for every card.
+	floorTargetReducerSrc = "Name:Floor Target Reducer\nManaCost:2 U\nTypes:Creature Wizard\nPT:2/2\n" +
+		"S:Mode$ ReduceCost | ValidCard$ Creature | Type$ Spell | Amount$ 1 | EffectZone$ Battlefield | ValidTarget$ Creature.tapped | Description$ x\nOracle:x\n"
+	// floorMutateReduceSrc carries a self-only ReduceCost static AND the Mutate
+	// keyword, so a test can stack it BENEATH a vanilla top card. The static's
+	// Source is then the pile object; pricing any other card still sees a
+	// self-only foreign member (the merged-pile edge row).
+	floorMutateReduceSrc = "Name:Floor Mutate Reducer\nManaCost:3 G\nTypes:Creature Beast\nPT:3/3\n" +
+		"K:Mutate:1 G\n" +
+		"S:Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | Amount$ 3 | EffectZone$ All | Description$ x\nOracle:x\n"
+	floorMergedTopSrc = "Name:Floor Merged Top\nManaCost:2 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"
 )
 
 // floorPlace puts the seat-0 deck card named by src in zone z (a logged move).
@@ -84,14 +97,15 @@ func floorSelfOnlyCount(statics costStaticViews) (selfOnly, other int) {
 func TestOfferFloorSelfStatic(t *testing.T) {
 	t.Parallel()
 	type row struct {
-		name         string
-		srcs         []string // deck fixture cards besides the probe
-		setup        func(t *testing.T, e *Engine) (probe state.ObjID)
-		wantSelfOnly int  // selfOnly members the snapshot must hold
-		wantOther    int  // non-selfOnly members the snapshot must hold
-		wantTarget   bool // snapshot.validTarget precondition
-		wantRefuse   bool
-		wantCastable bool
+		name               string
+		srcs               []string // deck fixture cards besides the probe
+		setup              func(t *testing.T, e *Engine) (probe state.ObjID)
+		wantSelfOnly       int  // selfOnly members the snapshot must hold
+		wantOther          int  // non-selfOnly members the snapshot must hold
+		wantTarget         bool // snapshot.validTarget precondition
+		wantTargetSelfOnly bool // snapshot.validTargetSelfOnly precondition
+		wantRefuse         bool
+		wantCastable       bool
 	}
 	probeInHand := func(t *testing.T, e *Engine) state.ObjID { return floorPlace(t, e, floorProbeSrc, state.ZHand) }
 	rows := []row{
@@ -135,13 +149,13 @@ func TestOfferFloorSelfStatic(t *testing.T) {
 				floorPlace(t, e, floorRebukeSrc, state.ZLibrary)
 				return probeInHand(t, e)
 			},
-			wantSelfOnly: 1, wantTarget: true, wantRefuse: true},
+			wantSelfOnly: 1, wantTarget: true, wantTargetSelfOnly: true, wantRefuse: true},
 		{name: "target-conditional self static on the priced card: no floor",
 			srcs: []string{floorRebukeSrc},
 			setup: func(t *testing.T, e *Engine) state.ObjID {
 				return floorPlace(t, e, floorRebukeSrc, state.ZHand)
 			},
-			wantSelfOnly: 1, wantTarget: true, wantRefuse: false},
+			wantSelfOnly: 1, wantTarget: true, wantTargetSelfOnly: true, wantRefuse: false},
 		{name: "self static plus a general reducer: no floor",
 			srcs: []string{floorFreeGiantSrc, biomancersFamiliarSrc},
 			setup: func(t *testing.T, e *Engine) state.ObjID {
@@ -157,6 +171,21 @@ func TestOfferFloorSelfStatic(t *testing.T) {
 				return probeInHand(t, e)
 			},
 			wantOther: 1, wantRefuse: false},
+		{name: "general target-conditional reducer elsewhere: no floor",
+			srcs: []string{floorTargetReducerSrc},
+			setup: func(t *testing.T, e *Engine) state.ObjID {
+				floorPlace(t, e, floorTargetReducerSrc, state.ZBattlefield)
+				return probeInHand(t, e)
+			},
+			wantOther: 1, wantTarget: true, wantTargetSelfOnly: false, wantRefuse: false},
+		{name: "self static plus a general target reader: no floor",
+			srcs: []string{floorFreeGiantSrc, floorTargetReducerSrc},
+			setup: func(t *testing.T, e *Engine) state.ObjID {
+				floorPlace(t, e, floorFreeGiantSrc, state.ZLibrary)
+				floorPlace(t, e, floorTargetReducerSrc, state.ZBattlefield)
+				return probeInHand(t, e)
+			},
+			wantSelfOnly: 1, wantOther: 1, wantTarget: true, wantTargetSelfOnly: false, wantRefuse: false},
 		{name: "face-down self-static permanent has no printed statics: floor refuses",
 			srcs: []string{floorFreeGiantSrc},
 			setup: func(t *testing.T, e *Engine) state.ObjID {
@@ -215,5 +244,53 @@ func TestOfferFloorSelfStaticAlternateFace(t *testing.T) {
 	addMana(t, e, 0, "1R")
 	if !offered() {
 		t.Fatal("Swipe not offered with {1}{R} available")
+	}
+}
+
+// A self-only cost static printed on a card BENEATH a Merged pile (CR
+// 702.140d) is collected with the PILE object as its Source. Pricing any
+// other card still sees one self-only foreign member, so the floor must
+// refuse it exactly as it does a self-static in any other zone. This is the
+// spec's merged-pile edge row; the face-down row is in the table above.
+func TestOfferFloorSelfStaticMergedPile(t *testing.T) {
+	t.Parallel()
+	e, _, _ := newFixtureDeck(t, 9303, floorProbeSrc, floorMutateReduceSrc, floorMergedTopSrc)
+	reducer := floorPlace(t, e, floorMutateReduceSrc, state.ZHand)
+	top := putToken(t, e, 0, floorMergedTopSrc, state.ZBattlefield)
+	addMana(t, e, 0, "GG") // the reducer's Mutate cost {1}{G}: two green pays it in full
+
+	// CR 702.140a: mutate requires a non-Human creature; the vanilla Bear is
+	// the merge target. Place the reducer UNDER the Bear, so the pile's top
+	// card stays the Bear and the static is only reachable through the pile
+	// view.
+	mutateCastOnto(t, e, mutatedCastOption(t, e, reducer), top, false)
+	mutateDrain(t, e, 40)
+	// The floor reads an empty pool; clear whatever the mutate payment left
+	// (a logged ManaClear, so a replayCheck would rebuild the same state).
+	e.emit(events.Event{Kind: events.ManaClear, Player: 0})
+	e.pending = nil
+	pile := e.G.Obj(top)
+	if pile == nil || pile.Face() == nil || pile.Face().Name != card(t, floorMergedTopSrc).Faces[0].Name {
+		t.Fatalf("precondition: pile top = %+v, want the vanilla top card", pile)
+	}
+	if len(pile.MergedCards) != 1 || pile.MergedCards[0].Obj != reducer {
+		t.Fatalf("precondition: reducer not merged under the top: %+v", pile.MergedCards)
+	}
+
+	probe := floorPlace(t, e, floorProbeSrc, state.ZHand)
+	refuses, castable, statics := floorProbe(t, e, probe)
+	selfOnly, other := floorSelfOnlyCount(statics)
+	if selfOnly != 1 || other != 0 {
+		t.Fatalf("precondition: want exactly one selfOnly member, got selfOnly=%d other=%d (%+v)",
+			selfOnly, other, statics.reduce)
+	}
+	if statics.reduce[0].Source != top {
+		t.Fatalf("precondition: merged static Source = %d, want the pile %d", statics.reduce[0].Source, top)
+	}
+	if !refuses {
+		t.Errorf("offerFloorRefuses = false, want true (a self-only static on the pile must be inert)")
+	}
+	if castable {
+		t.Errorf("offerCastable = true, want false with an empty pool and no reducer for the probe")
 	}
 }
