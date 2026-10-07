@@ -19,7 +19,7 @@ func TestBackupCorpusRegistration(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	supported := effects.Supported()
 	var carriers int
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for _, f := range c.Faces {
 			if !slices.ContainsFunc(f.Keywords, func(k string) bool { return cards.KeywordHead(k) == "Backup" }) {
 				continue

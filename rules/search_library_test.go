@@ -62,7 +62,7 @@ func searchEngine(t *testing.T, reg *cards.Registry, fixtures ...string) (*Engin
 		opp[i] = mountain
 	}
 	cfg := Config{Seed: 9202, Names: []string{"searcher", "opponent"},
-		Decks: [][]*cards.Card{deck, opp}, Tokens: reg.Tokens, NameUniverse: reg.Cards}
+		Decks: [][]*cards.Card{deck, opp}, Tokens: reg.Tokens, NameUniverse: reg.AllCards()}
 	e := New(cfg)
 	e.Advance()
 	toMain1(t, e)

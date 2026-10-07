@@ -44,7 +44,7 @@ func TestAIRandomRepeatCensus(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	gotOther := map[string]bool{}
 	var gotGated []string
-	for _, card := range reg.Cards {
+	for _, card := range reg.AllCards() {
 		for _, face := range card.Faces {
 			names := make([]string, 0, len(face.SVars))
 			for name := range face.SVars {

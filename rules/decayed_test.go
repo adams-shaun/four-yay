@@ -198,7 +198,7 @@ func TestDecayedCorpusCensus(t *testing.T) {
 
 	// The printed carriers: the card face and the token script.
 	printed := map[string]bool{}
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for _, f := range c.Faces {
 			if f.HasKeyword("Decayed") {
 				printed[f.Name] = true
@@ -226,7 +226,7 @@ func TestDecayedCorpusCensus(t *testing.T) {
 	// "also affected" class a printed expansion would never cover (Gisa,
 	// Ghouls' Night Out).
 	grants := map[string]bool{}
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for _, f := range c.Faces {
 			for _, sa := range f.Abilities {
 				for _, v := range sa.Params {
@@ -251,7 +251,7 @@ func TestDecayedCorpusCensus(t *testing.T) {
 	// The filter-predicate carriers: the with/without family the effects
 	// filter list must register, or Wilhelt and Jadar match nothing.
 	filters := map[string]bool{}
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for _, f := range c.Faces {
 			for _, t := range f.Triggers {
 				for _, v := range t.Params {

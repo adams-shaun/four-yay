@@ -28,7 +28,7 @@ func TestNoBackFaceShadowsAFrontFace(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 
 	fronts := map[string]*cards.Card{}
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		if c == nil || len(c.Faces) == 0 || c.Faces[0].Name == "" {
 			continue
 		}
@@ -39,7 +39,7 @@ func TestNoBackFaceShadowsAFrontFace(t *testing.T) {
 	}
 
 	checked := 0
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		if c == nil {
 			continue
 		}

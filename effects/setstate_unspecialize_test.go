@@ -37,7 +37,7 @@ import (
 func corpusSetStateUnspecializeSA(t *testing.T) *cards.SA {
 	t.Helper()
 	reg := testutil.CorpusRegistry(t)
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for _, f := range c.Faces {
 			for _, name := range slices.Sorted(maps.Keys(f.SVars)) {
 				body := f.SVars[name]

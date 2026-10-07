@@ -246,6 +246,19 @@ var predicates = map[string]predFn{
 	"IsSuspected": func(_ *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
 		return o.Suspected
 	},
+	// IsPrepared is CR 722.3a's prepared designation, read from the status
+	// maintained by events.AlterAttribute and cleared when the permanent leaves.
+	"IsPrepared": func(_ *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
+		return o.Prepared
+	},
+	// harnessed is the Infinity Stone designation set by AlterAttribute.
+	"harnessed": func(_ *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
+		return o.Harnessed
+	},
+	// attackedThisCombat uses the event-folded attack stamp and live combat clock.
+	"attackedThisCombat": func(g *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
+		return o.AttackedCombat != 0 && o.AttackedTurn == g.Turn && o.AttackedCombat == g.CombatsThisTurn
+	},
 	// IsSaddled is CR 702.171b's until-end-of-turn designation. The turn
 	// stamp makes it expire without a cleanup event and is preserved by
 	// controller changes.
@@ -2332,8 +2345,22 @@ func matchesBase(g *state.Game, base string, o *state.Object, sc SpecContext) bo
 		// (rules/stack.go's stack kind tokens) is that machinery's own, not
 		// this one's.
 		return o.Zone == state.ZStack
+	case matchesBaseOutlaw, matchesBaseHistoric:
+		return batchWordBase(matchesBaseCodes.Code(string(base)), o, sc)
 	}
 	return hasTypeCtx(o, base, sc)
+}
+
+// batchWordBase dispatches batch-word bases through their shared evaluators.
+func batchWordBase(code matchesBaseCode, o *state.Object, sc SpecContext) bool {
+	switch code {
+	case matchesBaseOutlaw:
+		return outlawMatches(o, sc)
+	case matchesBaseHistoric:
+		return historicMatches(o, sc)
+	default:
+		return false
+	}
 }
 
 // SpecContext carries the extra state a filter spec beyond MatchesSpec's
@@ -3305,6 +3332,8 @@ const (
 	matchesBasePermanentCard
 	matchesBaseSpell
 	matchesBaseSpellAbility
+	matchesBaseOutlaw
+	matchesBaseHistoric
 )
 
 var matchesBaseCodes = state.NewStrCodes(
@@ -3315,6 +3344,8 @@ var matchesBaseCodes = state.NewStrCodes(
 	state.StrEntry[matchesBaseCode]{Key: "PermanentCard", Val: matchesBasePermanentCard},
 	state.StrEntry[matchesBaseCode]{Key: "Spell", Val: matchesBaseSpell},
 	state.StrEntry[matchesBaseCode]{Key: "SpellAbility", Val: matchesBaseSpellAbility},
+	state.StrEntry[matchesBaseCode]{Key: "Outlaw", Val: matchesBaseOutlaw},
+	state.StrEntry[matchesBaseCode]{Key: "Historic", Val: matchesBaseHistoric},
 )
 
 type hasAbilityTokenCode uint16

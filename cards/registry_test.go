@@ -129,8 +129,8 @@ func TestRegistryCacheRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadRegistry: %v", err)
 	}
-	if len(back.Cards) != len(r.Cards) {
-		t.Fatalf("cards = %d, want %d", len(back.Cards), len(r.Cards))
+	if back.Len() != r.Len() {
+		t.Fatalf("cards = %d, want %d", back.Len(), r.Len())
 	}
 	if back.Catalog() == nil || back.Catalog().Identity != wantIdentity {
 		t.Fatalf("loaded catalog identity = %+v, want %+v", back.Catalog(), wantIdentity)
@@ -156,7 +156,7 @@ func TestRegistryCacheRoundTrip(t *testing.T) {
 
 func TestRegistryAddInvalidatesAndRebuildsCatalogBindings(t *testing.T) {
 	r := fixtureRegistry(t)
-	oldFace := r.Cards[0].Faces[0]
+	oldFace := r.Card(0).Faces[0]
 	oldAbility := oldFace.Abilities[0]
 	if err := r.CompileMetadata(); err != nil {
 		t.Fatal(err)
@@ -318,10 +318,10 @@ func TestCompileDirDiagnosesCardWithNoNamedFace(t *testing.T) {
 		t.Errorf("diag msg = %q, want it to say the card has no named face", diags[0].Msg)
 	}
 
-	if len(r.Cards) != 1 {
-		t.Fatalf("Cards = %d, want 1 (the card still compiles, just flagged)", len(r.Cards))
+	if r.Len() != 1 {
+		t.Fatalf("Cards = %d, want 1 (the card still compiles, just flagged)", r.Len())
 	}
-	if r.Catalog() == nil || r.Cards[0].Faces[0].CompiledID() == 0 {
+	if r.Catalog() == nil || r.Card(0).Faces[0].CompiledID() == 0 {
 		t.Fatal("CompileDir returned an uncompiled registry")
 	}
 	cv := r.Coverage(map[string]bool{})
@@ -356,8 +356,8 @@ func TestCompileDirIgnoresNamelessAlternateFace(t *testing.T) {
 			t.Errorf("unexpected nameless-face diagnostic: %+v", d)
 		}
 	}
-	if len(r.Cards) != 2 {
-		t.Fatalf("Cards = %d, want 2", len(r.Cards))
+	if r.Len() != 2 {
+		t.Fatalf("Cards = %d, want 2", r.Len())
 	}
 	cv := r.Coverage(map[string]bool{})
 	if cv.Cards != 2 {
@@ -438,7 +438,7 @@ func TestLoadRegistryWrongVersion(t *testing.T) {
 		t.Fatal(err)
 	}
 	zw := gzip.NewWriter(f)
-	if err := gob.NewEncoder(zw).Encode(cacheFile{Version: cacheVersion - 1, Cards: r.Cards, Tokens: r.Tokens}); err != nil {
+	if err := gob.NewEncoder(zw).Encode(cacheFile{Version: cacheVersion - 1, Cards: r.AllCards(), Tokens: r.Tokens}); err != nil {
 		t.Fatal(err)
 	}
 	if err := zw.Close(); err != nil {

@@ -140,7 +140,7 @@ func TestPrepareCensusMatchesCorpus(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 
 	var measured []string
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		if c != nil && c.AlternateMode == "Prepare" {
 			measured = append(measured, prepareLabel(c))
 		}
@@ -188,7 +188,7 @@ func TestPrepareBackFaceHelperCensus(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 
 	var named int
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		if c == nil || c.AlternateMode != "Prepare" || len(c.Faces) != 2 || c.Faces[0] == nil || c.Faces[1] == nil {
 			continue
 		}

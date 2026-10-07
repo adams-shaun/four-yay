@@ -294,7 +294,7 @@ func TestCompiledFaceQueryParity(t *testing.T) {
 			checked++
 		}
 	}
-	for _, card := range r.Cards {
+	for _, card := range r.AllCards() {
 		checkCard(card)
 	}
 	for _, key := range sortedKeys(r.Tokens) {
@@ -335,7 +335,7 @@ func TestCompiledFaceQueryParity(t *testing.T) {
 	if len(gotMana) != 2 || gotMana[0] != manaA || gotMana[1] != manaB {
 		t.Fatal("bound mana pointers or order differ")
 	}
-	if empty := fixture.Cards[0].Faces[1]; empty.SpellAbility() != nil || empty.ManaAbilities() != nil {
+	if empty := fixture.Card(0).Faces[1]; empty.SpellAbility() != nil || empty.ManaAbilities() != nil {
 		t.Fatal("empty bound face lookup changed")
 	}
 }

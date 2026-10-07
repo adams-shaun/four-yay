@@ -25,7 +25,7 @@ var meldCarriers = []string{
 func TestMeldCorpusCarriers(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	found := make(map[string]bool)
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		if c == nil || len(c.Faces) == 0 || c.Faces[0] == nil {
 			continue
 		}

@@ -955,6 +955,13 @@ func (s *scan) scanCall(t *testing.T, fset *token.FileSet, fi *fnInfo, fname str
 				// are scanned into the rules namespace under their own
 				// function names.
 				callee = fun.Sel.Name
+			} else if id.Name == "scriptfacts" && pkg == "rules" && s.filePkg == "rules" {
+				// rules -> rules/scriptfacts (the 2026-10-06 rules-split): the
+				// card-fact leaf's files are scanned into the rules namespace
+				// under their own function names, so a rules bridge forwarder's
+				// call stays an attribution edge from the rules path that calls
+				// it -- the same shape as the trigmatch/pay/combat/chars cases.
+				callee = fun.Sel.Name
 			} else if id.Name == "params" && (pkg == "effects" || pkg == "rules") {
 				// effects/params, the leaf compiled-parameter package (W5
 				// E7): its files are scanned into the effects namespace

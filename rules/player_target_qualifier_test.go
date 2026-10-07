@@ -232,7 +232,7 @@ func TestValidTgtsPurePlayerCensusPinsThePlayerQualifierSets(t *testing.T) {
 	}
 	reg := censusTest.reg
 	seen := map[string]bool{}
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for _, face := range c.Faces {
 			var sas []*cards.SA
 			sas = append(sas, face.Abilities...)

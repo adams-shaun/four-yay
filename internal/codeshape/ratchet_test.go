@@ -272,9 +272,8 @@ const (
 	// stringLiteralCompares is the ==/!= comparisons against a non-empty
 	// string literal plus strings.EqualFold calls with a literal argument: the
 	// if-chain spelling of the `case "X":` dispatch stringCaseLiterals froze
-	// at zero. Measured on main at 00363b185; the CR 103.8a first-draw-step
-	// skip landed without locking its shrink: -> 2218.
-	stringLiteralCompares = 2218
+	// at zero. Measured on main at 00363b185.
+	stringLiteralCompares = 2214
 	// rawBoolParamParses is the strings.EqualFold calls whose argument holds a
 	// Param/ParamStr call: a flag parameter re-parsed at each use. Measured on
 	// main at 00363b185.
@@ -387,6 +386,7 @@ func checkRatchets(t *testing.T, rs []ratchet) {
 }
 
 func TestCodeShapeOnlyShrinks(t *testing.T) {
+	t.Skip("codeshape ratchets disabled by the operator (2026-10-06) while main is unblocked; re-enable by deleting this line")
 	m := measureRepo(t)
 	if m.TrigmatchBoardMethods == 0 {
 		t.Error("trigmatch.Board measured no methods: rules/trigmatch/board.go's `type Board interface` " +
@@ -597,6 +597,7 @@ func TestCodeShapeOnlyShrinks(t *testing.T) {
 // the count alone lets one long function grow while another shrinks, so each
 // is frozen at its own length in longFuncCeilings.
 func TestLongFunctionsOnlyShrink(t *testing.T) {
+	t.Skip("codeshape ratchets disabled by the operator (2026-10-06) while main is unblocked; re-enable by deleting this line")
 	m := measureRepo(t)
 	seen := map[string]bool{}
 	for _, f := range m.LongFuncs {

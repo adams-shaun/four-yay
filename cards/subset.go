@@ -462,7 +462,7 @@ func (s *subsetSource) lookup(key string) (*Card, bool) {
 		panic(fmt.Sprintf("cards: subset registry: compiling %q: %v", key, err))
 	}
 	rerootPaths(mini, s.dir)
-	c := mini.Cards[0]
+	c := mini.cards[0]
 	if s.faulted == nil {
 		s.faulted = map[int32]*Card{}
 	}
@@ -607,7 +607,7 @@ func OpenCorpusSubset(dir string, names []string) (*Registry, error) {
 	if err != nil {
 		abs = dir
 	}
-	r.sub = &subsetSource{sf: sf, dir: abs, ords: ords, cards: r.Cards[:len(r.Cards):len(r.Cards)]}
+	r.sub = &subsetSource{sf: sf, dir: abs, ords: ords, cards: r.cards[:len(r.cards):len(r.cards)]}
 	return r, nil
 }
 
@@ -643,7 +643,7 @@ func OpenCorpusFor(dir string, names []string) (*Registry, error) {
 		return r, nil
 	}
 	r, err := OpenCorpusSubset(dir, names)
-	if err != nil || NeedsFullNameUniverse(r.Cards, r.Tokens) {
+	if err != nil || NeedsFullNameUniverse(r.cards, r.Tokens) {
 		if err == nil {
 			r.sub.sf.f.Close()
 		}

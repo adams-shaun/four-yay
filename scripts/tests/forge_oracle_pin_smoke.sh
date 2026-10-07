@@ -62,7 +62,7 @@ STUB
 for t in java javac; do
 	printf '#!/usr/bin/env bash\necho "%s $*" >> "$STUB_LOG"\n' "$t" > "$TMP/jdk/bin/$t"
 done
-printf 'echo "runtime res=$FORGE_RES ref=$FORGE_ORACLE_REF cwd=$PWD tmp=$*" >> "$STUB_LOG"\n' >> "$TMP/jdk/bin/java"
+printf 'echo "runtime res=$FORGE_RES ref=$FORGE_ORACLE_REF cwd=$PWD tmp=$*" >> "$STUB_LOG"\nprintf "stub output\\n" > "${@: -1}"\n' >> "$TMP/jdk/bin/java"
 # systemd-run: drop its own flags up to `--`, run the rest.
 cat > "$BIN/systemd-run" <<'STUB'
 #!/usr/bin/env bash
@@ -118,7 +118,7 @@ out=$("$SETUP" --check-pin "$OREF" "$TMP/clone" 2>&1); rc=$?
 check "setup --check-pin accepts a good pin" $((rc == 0 ? 0 : 1)) "rc=$rc $out"
 
 # 4. run: both refusals fire before javac/java, and a good pin proceeds past them.
-: > "$LOG"; : > "$TMP/in.jsonl"
+: > "$LOG"; printf 'one input row\n' > "$TMP/in.jsonl"
 out=$(STUB_ANCESTOR=1 "$RUN" "$TMP/in.jsonl" "$TMP/out.jsonl" 2>&1); rc=$?
 check "run refuses a non-ancestor ref (exit 2, names the half)" $([ "$rc" = 2 ] && has "$out" "not an ancestor" && echo 0 || echo 1) "rc=$rc $out"
 reached; check "  ...before javac, java or scope" $((! $? ))
@@ -149,7 +149,7 @@ echo 'class B {}' > "$TMP/clone/forge-oracle/src/main/java/forge/oracle/B.java"
 check "a changed source recompiles" $([ "$(count javac)" = 2 ] && echo 0 || echo 1) "javac calls: $(count javac)"
 "$RUN" "$TMP/in.jsonl" "$TMP/out.jsonl" 2>&1
 check "run starts the JVM on the driver main class" \
-	$(/usr/bin/grep -q "^java .*forge.oracle.ScenarioReplay $TMP/in.jsonl $TMP/out.jsonl" "$LOG" && echo 0 || echo 1) "$(/usr/bin/grep '^java' "$LOG")"
+	$(/usr/bin/grep -qE "^java .*forge.oracle.ScenarioReplay .*/input\\.00000000 .*/output\\.00000001" "$LOG" && echo 0 || echo 1) "$(/usr/bin/grep '^java' "$LOG")"
 check "  ...with pinned runtime res and ref" \
 	$(/usr/bin/grep -qF "runtime res=$TMP/clone/forge-gui/res ref=$OREF" "$LOG" && echo 0 || echo 1)
 

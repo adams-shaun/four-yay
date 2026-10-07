@@ -36,7 +36,7 @@ func TestEveryAffectedDefinedValueIsNormalizedOrNamed(t *testing.T) {
 		}
 		got[v][card] = true
 	}
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		if c == nil || len(c.Faces) == 0 {
 			continue
 		}

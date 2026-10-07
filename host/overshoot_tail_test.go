@@ -110,7 +110,7 @@ func parkedOvershootMatch(t *testing.T, dir string) (*Registry, *table, *match, 
 		// (Note vs a real token_create) the moment it is reloaded --
 		// discovered regenerating fb-20260915T094418Z's committed fixture.
 		Tokens:       testutil.CorpusRegistry(t).Tokens,
-		NameUniverse: testutil.CorpusRegistry(t).Cards,
+		NameUniverse: testutil.CorpusRegistry(t).AllCards(),
 		Seats: func(names []string, seed uint64) []seat.Seat {
 			// defaultSeats' exact bots: seed ^ slot+1. Written from the
 			// match goroutine before the first park signals; the test never
@@ -430,7 +430,7 @@ func TestArchivedParkedTailMatchLoadsAfterRestart(t *testing.T) {
 	r2, err := New(Options{
 		LoadDeck:     commanderDeckLoader(t),
 		Tokens:       testutil.CorpusRegistry(t).Tokens,
-		NameUniverse: testutil.CorpusRegistry(t).Cards,
+		NameUniverse: testutil.CorpusRegistry(t).AllCards(),
 		Sleep:        func(time.Duration, <-chan struct{}) {},
 		Dir:          dir,
 	})

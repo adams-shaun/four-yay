@@ -237,7 +237,7 @@ func TestImpendingEndStepRemovesATimeCounterAndWakesAtTheLast(t *testing.T) {
 func TestImpendingCensusPinsCorpusCarriers(t *testing.T) {
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
-	if len(reg.Cards) == 0 {
+	if reg.Len() == 0 {
 		t.Fatal("setup: empty corpus registry; the census would pass vacuously")
 	}
 	supported := effects.Supported()
@@ -265,7 +265,7 @@ func TestImpendingCensusPinsCorpusCarriers(t *testing.T) {
 		"Overlord of the Mistmoors":    true,
 	}
 	var got []string
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for _, f := range c.Faces {
 			if f == nil || !f.HasKeyword("Impending") {
 				continue

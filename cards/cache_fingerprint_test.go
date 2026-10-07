@@ -191,7 +191,7 @@ func TestCachedPathsFollowTheOpenedDirectory(t *testing.T) {
 			t.Errorf("%s path unreadable: %v", what, err)
 		}
 	}
-	for _, c := range r.Cards {
+	for _, c := range r.AllCards() {
 		check("card", c.Path)
 	}
 	for stem, c := range r.Tokens {

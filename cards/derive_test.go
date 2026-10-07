@@ -91,8 +91,8 @@ func TestDerivedConstructionRoutesAgree(t *testing.T) {
 			}
 		}
 	}
-	compare(direct.Faces, loaded.Cards[0].Faces)
-	compare(allTypes.Faces, loaded.Cards[1].Faces)
-	compare(granted.Faces, loaded.Cards[2].Faces)
+	compare(direct.Faces, loaded.Card(0).Faces)
+	compare(allTypes.Faces, loaded.Card(1).Faces)
+	compare(granted.Faces, loaded.Card(2).Faces)
 	compare(r.Tokens["tk"].Faces, loaded.Tokens["tk"].Faces)
 }

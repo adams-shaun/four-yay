@@ -13,7 +13,7 @@ import (
 func TestLoseManaCorpusCensus(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	var got []string
-	for _, card := range reg.Cards {
+	for _, card := range reg.AllCards() {
 		for _, face := range card.Faces {
 			for _, repl := range face.Repls {
 				if repl.Event == "LoseMana" {

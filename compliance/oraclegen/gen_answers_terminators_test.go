@@ -229,9 +229,9 @@ func TestMechanismFamilyCensus(t *testing.T) {
 		counts[fam]++
 		names[fam] = append(names[fam], name)
 	}
-	for i := range reg.Cards {
-		for fi := range reg.Cards[i].Faces {
-			f := reg.Cards[i].Faces[fi]
+	for i := range reg.AllCards() {
+		for fi := range reg.Card(i).Faces {
+			f := reg.Card(i).Faces[fi]
 			if _, ok := f.KeywordParam("Kicker"); ok {
 				add("Kicker", f.Name)
 			}

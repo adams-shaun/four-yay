@@ -17,7 +17,7 @@ func TestPermissionOnlyMayTriggersAreMandatory(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	want := map[string]bool{"Strongbox Raider": true, "Whispersteel Dagger": true}
 	got := map[string]bool{}
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for _, f := range c.Faces {
 			for _, tr := range f.Triggers {
 				if tr.Params["OptionalDecider"] != "" && triggerOptionalSpec(tr) == "" {

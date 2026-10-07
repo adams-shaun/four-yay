@@ -209,6 +209,22 @@ func TestDependencyOrderHolds(t *testing.T) {
 		{module + "/rules/trigmatch", module + "/rules/pay"},
 		{module + "/rules/trigmatch", module + "/rules/combat"},
 		{module + "/rules/trigmatch", module + "/rules/resolve"},
+		// rules/scriptfacts is the pure card-fact leaf of the rules-split plan
+		// (2026-10-06): facts a card's printed text and compiled script imply,
+		// with no *rules.Engine and no game state. It sits below every rules
+		// subsystem, so it may never reach rules or any package above it.
+		// TestScriptFactsImportsStayBelowRules pins its whole direct import set;
+		// these rows name the edges the layering forbids transitively.
+		{module + "/rules/scriptfacts", module + "/rules"},
+		{module + "/rules/scriptfacts", module + "/effects"},
+		{module + "/rules/scriptfacts", module + "/events"},
+		{module + "/rules/scriptfacts", module + "/decision"},
+		{module + "/rules/scriptfacts", module + "/botpolicy"},
+		{module + "/rules/scriptfacts", module + "/rules/pay"},
+		{module + "/rules/scriptfacts", module + "/rules/chars"},
+		{module + "/rules/scriptfacts", module + "/rules/trigmatch"},
+		{module + "/rules/scriptfacts", module + "/rules/combat"},
+		{module + "/rules/scriptfacts", module + "/rules/resolve"},
 	}
 	for path, p := range pkgs {
 		if strings.HasPrefix(path, module+"/bots") {

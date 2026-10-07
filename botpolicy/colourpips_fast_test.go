@@ -13,7 +13,7 @@ func TestColourPipsASCIIMatchesSlow(t *testing.T) {
 	costs := []string{"", " ", "U", "{U}", "{2}{U}{U}", "2 U U", "W/U W/U", "{W/U}{B}", "UP", "X X G",
 		"\tR\nG\r", "{{G}}", "G}{", "C", "no cost", "1 W W W", "WU", "{R}{G} {W}", "S", "{X}{R}"}
 	reg := testutil.CorpusRegistry(t)
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for _, f := range c.Faces {
 			if f != nil {
 				costs = append(costs, f.ManaCost)

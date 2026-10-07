@@ -65,7 +65,7 @@ func TestVenturePrimitiveRegisteredForEveryCorpusCarrier(t *testing.T) {
 		t.Fatal("effects.Supported() does not name api:Venture: the primitive is not registered")
 	}
 	carriers := 0
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		if !slices.Contains(c.Primitives(), "api:Venture") {
 			continue
 		}

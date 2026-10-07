@@ -63,7 +63,7 @@ func TestCaseSolvedCorpusCensus(t *testing.T) {
 	supported := effects.Supported()
 	got := map[string]int{}
 	var carriers []string
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		before := 0
 		for _, n := range got {
 			before += n

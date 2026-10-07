@@ -185,7 +185,7 @@ func TestTriggerRememberAmountCensusEveryCarrier(t *testing.T) {
 		t.Fatalf("effects.Supported has no count:%s", head)
 	}
 	found := map[string]bool{}
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		if len(c.Faces) == 0 || c.Faces[0].Name == "" {
 			continue
 		}

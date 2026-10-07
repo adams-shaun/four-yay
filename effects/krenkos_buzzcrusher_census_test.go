@@ -28,7 +28,7 @@ var buzzcrusherSearchCensus = []string{"Krenko's Buzzcrusher"}
 func TestBuzzcrusherDestroyedLandSearchCensus(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	got := map[string]bool{}
-	for _, card := range reg.Cards {
+	for _, card := range reg.AllCards() {
 		for _, face := range card.Faces {
 			if faceHasDestroyedLandSearch(face) {
 				got[face.Name] = true

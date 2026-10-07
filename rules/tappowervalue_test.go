@@ -191,7 +191,7 @@ func TestTapPowerValueCensus(t *testing.T) {
 
 	// card name -> its TapPowerValue static.
 	found := map[string]cards.Static{}
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for _, f := range c.Faces {
 			if f == nil {
 				continue

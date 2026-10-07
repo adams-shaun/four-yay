@@ -67,7 +67,7 @@ func TestParamCodesMatchTextReads(t *testing.T) {
 			}
 		}
 	}
-	for _, card := range reg.Cards {
+	for _, card := range reg.AllCards() {
 		for _, f := range card.Faces {
 			for i := range f.Statics {
 				st := f.Statics[i]

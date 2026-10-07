@@ -92,11 +92,11 @@ func TestSubsetRegistryMatchesFull(t *testing.T) {
 	// Every 97th card, plus a split card, a transforming card, a
 	// CopyFaceFrom card and an alias, by the names a decklist would use.
 	var names []string
-	for i := 0; i < len(loaded.Cards); i += 97 {
-		names = append(names, loaded.Cards[i].Faces[0].Name)
+	for i := 0; i < loaded.Len(); i += 97 {
+		names = append(names, loaded.Card(i).Faces[0].Name)
 	}
 	var special []string
-	for _, c := range loaded.Cards {
+	for _, c := range loaded.AllCards() {
 		if len(special) >= 8 {
 			break
 		}
@@ -119,8 +119,8 @@ func TestSubsetRegistryMatchesFull(t *testing.T) {
 	if !sub.IsSubset() || loaded.IsSubset() {
 		t.Fatalf("IsSubset: subset %v full %v", sub.IsSubset(), loaded.IsSubset())
 	}
-	t.Logf("%d names -> %d subset cards (full %d), %d special", len(names), len(sub.Cards), len(loaded.Cards), len(special))
-	if n := len(sub.Cards); n == 0 || n > len(names) || n >= len(loaded.Cards) {
+	t.Logf("%d names -> %d subset cards (full %d), %d special", len(names), sub.Len(), loaded.Len(), len(special))
+	if n := sub.Len(); n == 0 || n > len(names) || n >= loaded.Len() {
 		t.Fatalf("subset holds %d cards for %d names", n, len(names))
 	}
 	for _, n := range names {
@@ -135,16 +135,16 @@ func TestSubsetRegistryMatchesFull(t *testing.T) {
 	}
 	// Subset order is corpus order.
 	pos := map[string]int{}
-	for i, c := range loaded.Cards {
+	for i, c := range loaded.AllCards() {
 		if _, ok := pos[c.Path]; !ok {
 			pos[c.Path] = i
 		}
 	}
-	if !sort.SliceIsSorted(sub.Cards, func(i, j int) bool { return pos[sub.Cards[i].Path] < pos[sub.Cards[j].Path] }) {
+	if !sort.SliceIsSorted(sub.AllCards(), func(i, j int) bool { return pos[sub.Card(i).Path] < pos[sub.Card(j).Path] }) {
 		t.Error("subset Cards is not in corpus order")
 	}
 	// A name outside the subset faults in, once.
-	outside := loaded.Cards[len(loaded.Cards)/2+1].Faces[0].Name
+	outside := loaded.Card(loaded.Len()/2 + 1).Faces[0].Name
 	got, ok := sub.Lookup(outside)
 	want, _ := loaded.Lookup(outside)
 	if !ok {
@@ -166,7 +166,7 @@ func TestSubsetRegistryMatchesFull(t *testing.T) {
 		t.Fatalf("segment index has %d names, full index %d", sf.nNames, len(loaded.byName))
 	}
 	ord := map[*Card]int32{}
-	for i, c := range loaded.Cards {
+	for i, c := range loaded.AllCards() {
 		ord[c] = int32(i)
 	}
 	for i := 0; i < sf.nNames; i++ {
@@ -197,8 +197,8 @@ func TestSubsetRebuildsMissingSegments(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(sub.Cards) != 1 || sub.Cards[0].Faces[0].Name != "Beta" {
-		t.Fatalf("subset cards = %v", sub.Cards)
+	if sub.Len() != 1 || sub.Card(0).Faces[0].Name != "Beta" {
+		t.Fatalf("subset cards = %v", sub.AllCards())
 	}
 	if _, err := os.Stat(SegmentPath(cache)); err != nil {
 		t.Fatalf("no segment file rebuilt: %v", err)

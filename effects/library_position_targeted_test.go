@@ -315,7 +315,7 @@ func TestTargetedLibraryPositionCensus(t *testing.T) {
 	seen := map[*cards.SA]bool{}
 	carriers := map[string]bool{}
 	unsupported := map[string]string{}
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for _, f := range c.Faces {
 			var walk func(sa *cards.SA)
 			walk = func(sa *cards.SA) {

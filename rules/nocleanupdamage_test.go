@@ -80,7 +80,7 @@ var noCleanupDamageCarriers = []string{
 func TestNoCleanupDamageClassCensus(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	got := map[string]bool{}
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for _, f := range c.Faces {
 			if f == nil {
 				continue
