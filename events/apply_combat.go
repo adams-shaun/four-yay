@@ -377,7 +377,11 @@ func foldEnlist(g *state.Game, e *Event) {
 	o.EnlistedCombat = g.CombatsThisTurn
 }
 
-// foldCrew folds Kind Crew into state.
+// foldCrew folds Kind Crew into state. Kind Saddle (CR 702.171) is folded here
+// too: its payload is the same (Obj the paying creature, IDs[0] the permanent
+// it paid for), and the Creature.SaddledThisTurn filter reads the same
+// per-turn pairing, so one set serves both. The set is keyed by the target
+// permanent's id, so a Vehicle's crewers and a Mount's saddlers never collide.
 func foldCrew(g *state.Game, e *Event) {
 	// CR 702.122's crew action (the `K:Crew` keyword): Obj is the CREWING
 	// creature and IDs[0] the Vehicle it crewed. The fold records the

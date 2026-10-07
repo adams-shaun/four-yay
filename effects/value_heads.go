@@ -40,6 +40,7 @@ var modelledValueHeads = []string{
 	"Converge",
 	"CountersAddedThisTurn",
 	"CreaturesAttackedThisTurn",
+	"CrewSize",
 	"Delirium",
 	"Devotion",
 	"DevotionDual",
