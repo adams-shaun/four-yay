@@ -85,7 +85,7 @@ func TestTriggerDeliriumGatePerCorpusCarrier(t *testing.T) {
 		named[name] = true
 	}
 	seen := map[string]bool{}
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		if len(deliriumTriggers(c)) > 0 {
 			seen[c.Faces[0].Name] = true
 		}

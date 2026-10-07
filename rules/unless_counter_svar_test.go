@@ -100,7 +100,7 @@ func counterUnlessSVarLines(face *cards.Face, faceIdx int) []counterUnlessSVarLi
 func classifyCounterUnlessSVarLines(t *testing.T, reg *cards.Registry) []string {
 	t.Helper()
 	var out []string
-	for _, card := range reg.Cards {
+	for _, card := range reg.AllCards() {
 		for fi, face := range card.Faces {
 			lines := counterUnlessSVarLines(face, fi)
 			if len(lines) == 0 {

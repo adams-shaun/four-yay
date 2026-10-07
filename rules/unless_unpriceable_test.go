@@ -47,7 +47,7 @@ func walkAllSAs(face *cards.Face, visit func(*cards.SA)) {
 // an SVar) counts once.
 func unpriceableCounterCards(reg *cards.Registry) []string {
 	set := map[string]struct{}{}
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for _, f := range c.Faces {
 			walkAllSAs(f, func(sa *cards.SA) {
 				if sa.API != "Counter" {
@@ -339,7 +339,7 @@ func TestParseCostPriceable(t *testing.T) {
 // direction.
 func strictUnpriceableCards(reg *cards.Registry) []string {
 	set := map[string]struct{}{}
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for _, f := range c.Faces {
 			walkAllSAs(f, func(sa *cards.SA) {
 				if sa.API == "Ward" {

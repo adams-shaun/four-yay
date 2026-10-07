@@ -19,6 +19,7 @@ import (
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/internal/bench"
 	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/replay"
 	"github.com/adams-shaun/gorge/rules"
@@ -342,8 +343,23 @@ func (t tally) consume(g *state.Game, log []events.Event, seen map[string]bool) 
 	}
 }
 
-func play(cfg rules.Config, t tally) (string, error) {
+// sparePool recycles finished games' storage (rules.Spare) between the games
+// -games runs back to back; reuse never changes a game, so the tallies stay
+// byte-identical with or without it.
+var sparePool bench.SparePool
+
+func play(cfg rules.Config, t tally) (status string, err error) {
+	spare := sparePool.Get()
+	cfg.Spare = spare
 	e := rules.New(cfg)
+	defer func() {
+		// The replay below is the finished engine's last read. A clean or
+		// capped (stalled) finish recycles -- nothing reads the engine after
+		// this function returns. Only an errored game is dropped.
+		if err == nil {
+			sparePool.Put(spare, e)
+		}
+	}()
 	mirror := e.G.Clone()
 	offset := len(e.L.Events) // New has already applied genesis/deal to the clone.
 	seen := map[string]bool{}

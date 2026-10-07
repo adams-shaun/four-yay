@@ -215,7 +215,7 @@ func (r *Registry) CompileMetadata() error {
 		}
 		return nil
 	}
-	for _, card := range r.Cards {
+	for _, card := range r.cards {
 		if err := compileCard(card); err != nil {
 			return err
 		}

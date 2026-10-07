@@ -39,7 +39,7 @@ func TestCR508CorpusRequirementsUnderAttackRestriction(t *testing.T) {
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	checked := 0
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		if len(c.Faces) != 1 {
 			continue
 		}

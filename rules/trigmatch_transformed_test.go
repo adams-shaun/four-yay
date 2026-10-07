@@ -73,7 +73,7 @@ func TestTransformedTriggerCorpusCarriers(t *testing.T) {
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	var names []string
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		if c == nil {
 			continue
 		}

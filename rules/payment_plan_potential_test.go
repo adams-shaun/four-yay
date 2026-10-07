@@ -19,7 +19,7 @@ func TestPaymentPlanPotentialUrborgGrantedIntrinsic(t *testing.T) {
 		t.Fatal("corpus card Urborg missing")
 	}
 	e, _, spell := newFixtureDeck(t, 9411, "Name:Black Plan\nManaCost:B B\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
-	e.landTypeWords = chars.CorpusLandTypeWords(reg.Cards)
+	e.landTypeWords = chars.CorpusLandTypeWords(reg.AllCards())
 	e.layer4InPool = true
 	urborg := onBoardCard(t, e, 0, urborgCard)
 	mountain := onBoard(t, e, 0, "Name:Mountain\nTypes:Basic Land Mountain\nOracle:x\n")

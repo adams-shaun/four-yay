@@ -118,7 +118,7 @@ func TestCompileDirResolvesBothFacesOfASplitCopy(t *testing.T) {
 		// name of its own to look up; find it by its first resolved face name
 		// through the registry's Cards slice instead.
 		split = nil
-		for _, c := range r.Cards {
+		for _, c := range r.AllCards() {
 			if len(c.Faces) == 2 && c.Faces[0].Name == "Zap" && c.Faces[1].Name == "Zing" {
 				split = c
 			}

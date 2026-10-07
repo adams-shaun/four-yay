@@ -444,7 +444,7 @@ func TestAggregateTapModeCensus(t *testing.T) {
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	got := map[string][]string{"TapAll": {}, "UntapAll": {}}
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for _, f := range c.Faces {
 			for _, tr := range f.Triggers {
 				if tr.Mode == "TapAll" || tr.Mode == "UntapAll" {

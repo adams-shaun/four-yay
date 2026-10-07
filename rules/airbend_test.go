@@ -347,7 +347,7 @@ func TestAirbendCensusCarriersAreServed(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	sup := effects.Supported()
 	var carriers []string
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		has := false
 		for _, p := range c.Primitives() {
 			if p == "api:Airbend" {

@@ -46,7 +46,7 @@ func paidCostEngine(t *testing.T, seat0, seat1 []string) (*Engine, Config) {
 	var cfg Config
 	for seed := uint64(9411); ; seed++ {
 		cfg = Config{Seed: seed, Names: []string{"caster", "opponent"},
-			Decks: [][]*cards.Card{d0, d1}, Tokens: reg.Tokens, NameUniverse: reg.Cards}
+			Decks: [][]*cards.Card{d0, d1}, Tokens: reg.Tokens, NameUniverse: reg.AllCards()}
 		e = New(cfg)
 		e.Advance()
 		if e.G.Active == 0 {

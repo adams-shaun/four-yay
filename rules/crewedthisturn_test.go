@@ -43,7 +43,7 @@ func TestCrewedThisTurnCensus(t *testing.T) {
 	}
 
 	got := map[string]bool{}
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for _, f := range c.Faces {
 			if faceNamesToken(f, token) {
 				got[f.Name] = true

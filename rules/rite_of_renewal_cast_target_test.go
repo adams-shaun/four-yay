@@ -142,7 +142,7 @@ func TestTargetsWithDefinedControllerParentTargetCensus(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	admitted, deferred := 0, map[string]string{}
 	seen := map[string]bool{}
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		if len(c.Faces) == 0 || c.Faces[0] == nil {
 			continue
 		}
@@ -170,8 +170,8 @@ func TestTargetsWithDefinedControllerParentTargetCensus(t *testing.T) {
 	if admitted != 7 {
 		t.Fatalf("%d TargetsWithDefinedController$ parent links are announced on cast, want exactly 7 (including every optional literal-bound link, excluding unresolvable dynamic parent-relative bounds)", admitted)
 	}
-	if len(reg.Cards) < 30000 {
-		t.Fatalf("census corpus has %d cards, want the full ~33667", len(reg.Cards))
+	if reg.Len() < 30000 {
+		t.Fatalf("census corpus has %d cards, want the full ~33667", reg.Len())
 	}
 	for name := range knownDeferredParentTargetLinks {
 		if _, ok := deferred[name]; !ok {

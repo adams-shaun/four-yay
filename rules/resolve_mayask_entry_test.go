@@ -139,7 +139,7 @@ func TestTokenEntryAskCensus(t *testing.T) {
 			}
 		}
 	}
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for _, f := range c.Faces {
 			for _, a := range f.Abilities {
 				check(f, a)

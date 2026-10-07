@@ -64,7 +64,7 @@ func TestCorpusOtherPumpStaticExcludesItsSource(t *testing.T) {
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	checked := 0
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for _, f := range c.Faces {
 			if f == nil {
 				continue

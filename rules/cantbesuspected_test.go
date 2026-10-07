@@ -194,7 +194,7 @@ func TestCantBeSuspectedClassCensus(t *testing.T) {
 
 func cantBeSuspectedCorpusCarriers(reg *cards.Registry) map[string]bool {
 	got := map[string]bool{}
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for _, f := range c.Faces {
 			if f == nil {
 				continue

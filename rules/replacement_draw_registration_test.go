@@ -80,7 +80,7 @@ func TestReplDrawClassCensus(t *testing.T) {
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	measured := map[string]string{} // name -> "Draw"/"DrawCards"
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		if len(c.Faces) == 0 {
 			continue
 		}

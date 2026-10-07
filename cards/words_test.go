@@ -13,7 +13,7 @@ func TestWordSetsMatchStringScans(t *testing.T) {
 	var faces []*Face
 	typeQ := map[string]bool{"creature": true, "CREATURE": true, "NotAType": true, "": true}
 	kwQ := map[string]bool{"flying": true, "FLASH": true, "NotAKeyword": true, "": true}
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for _, f := range c.Faces {
 			if f == nil {
 				continue
@@ -129,7 +129,7 @@ func TestTypeMaskPredicatesMatchSwitch(t *testing.T) {
 func TestCompiledTypeMaskMatchesCatalogRow(t *testing.T) {
 	reg := compiledCorpus(t)
 	n := 0
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for _, f := range c.Faces {
 			if f == nil || f.compiledCatalog == nil || f.compiledID == 0 {
 				continue

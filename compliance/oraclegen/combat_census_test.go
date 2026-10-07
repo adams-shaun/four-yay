@@ -136,8 +136,8 @@ func combatCensus(t *testing.T, inSet map[string]map[string]bool) map[string][]s
 	t.Helper()
 	reg := censusRegistry(t)
 	out := map[string][]string{}
-	for i := range reg.Cards {
-		c := reg.Cards[i]
+	for i := range reg.AllCards() {
+		c := reg.Card(i)
 		if inSet != nil {
 			name := strings.ToLower(strings.TrimSpace(c.Faces[0].Name))
 			matched := false

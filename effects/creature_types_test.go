@@ -33,7 +33,7 @@ var nonCreatureTypeTokens = map[string]bool{
 
 func TestCreatureTypeWordsCoverCorpusCreatureTypes(t *testing.T) {
 	r := testutil.CorpusRegistry(t)
-	cardsToCheck := append([]*cards.Card(nil), r.Cards...)
+	cardsToCheck := append([]*cards.Card(nil), r.AllCards()...)
 	keys := make([]string, 0, len(r.Tokens))
 	for key := range r.Tokens {
 		keys = append(keys, key)

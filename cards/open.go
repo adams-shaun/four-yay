@@ -250,7 +250,7 @@ func rerootPaths(r *Registry, dir string) {
 			}
 		}
 	}
-	for _, c := range r.Cards {
+	for _, c := range r.cards {
 		fix(c)
 	}
 	for _, c := range r.Tokens {

@@ -50,8 +50,8 @@ func compiledCorpus(t *testing.T) *Registry {
 func TestWholeCorpusCompiles(t *testing.T) {
 	r := compiledCorpus(t)
 	diags := compiled.diags
-	if len(r.Cards) < 30000 {
-		t.Fatalf("compiled %d cards, expected >30000", len(r.Cards))
+	if r.Len() < 30000 {
+		t.Fatalf("compiled %d cards, expected >30000", r.Len())
 	}
 	const budget = 20
 	if len(diags) > budget {
@@ -64,13 +64,13 @@ func TestWholeCorpusCompiles(t *testing.T) {
 		}
 		t.Fatalf("%d diagnostics, budget is %d", len(diags), budget)
 	}
-	t.Logf("compiled %d cards with %d diagnostics", len(r.Cards), len(diags))
+	t.Logf("compiled %d cards with %d diagnostics", r.Len(), len(diags))
 }
 
 func TestCorpusPrimitiveSurface(t *testing.T) {
 	r := compiledCorpus(t)
 	all := map[string]bool{}
-	for _, c := range r.Cards {
+	for _, c := range r.AllCards() {
 		for _, p := range c.Primitives() {
 			all[p] = true
 		}

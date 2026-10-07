@@ -269,7 +269,7 @@ func playReachGame(t *testing.T, reg *cards.Registry, seats int, seed uint64, cl
 		playerNames[i] = names[(int(seed)+i)%len(names)]
 		decks[i] = testutil.RepoDeck(t, reg, playerNames[i])
 	}
-	cfg := rules.Config{Seed: seed, Names: playerNames, Decks: decks, Tokens: reg.Tokens, NameUniverse: reg.Cards}
+	cfg := rules.Config{Seed: seed, Names: playerNames, Decks: decks, Tokens: reg.Tokens, NameUniverse: reg.AllCards()}
 	seats_ := make([]seat.Seat, seats)
 	for i := range seats_ {
 		base := NewTranslatingSeat("reach", int64(seed), client, nil)

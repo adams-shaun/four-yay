@@ -121,7 +121,7 @@ func TestMillReplacementCarrierCensus(t *testing.T) {
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	got := make(map[string]bool)
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		if c == nil || len(c.Faces) == 0 {
 			continue
 		}

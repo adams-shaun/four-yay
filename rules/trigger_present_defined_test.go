@@ -15,7 +15,7 @@ func TestTriggerPresentDefinedCorpusCensus(t *testing.T) {
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	var found []string
-	for _, card := range reg.Cards {
+	for _, card := range reg.AllCards() {
 		if card == nil {
 			continue
 		}

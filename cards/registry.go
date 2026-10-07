@@ -15,18 +15,18 @@ import (
 
 // Registry is the compiled corpus: every card, indexed by normalised name.
 type Registry struct {
-	Cards   []*Card
+	cards   []*Card
 	byName  map[string]*Card
 	catalog *CompiledCatalog
 
 	// Tokens holds compiled token scripts (forge-gui/res/tokenscripts),
 	// keyed by file stem — e.g. "r_1_1_goblin" — the name a card's
-	// TokenScript$ parameter references. Tokens are never Add-ed to Cards
+	// TokenScript$ parameter references. Tokens are never Add-ed to cards
 	// or byName: a token is not a card a deck can contain, and Lookup must
 	// not resolve a token's printed name to one.
 	Tokens map[string]*Card
 
-	// sub is set on a registry OpenCorpusSubset built: Cards then holds only
+	// sub is set on a registry OpenCorpusSubset built: cards then holds only
 	// the requested cards, and Lookup answers from the whole corpus's name
 	// index, decoding a card outside the subset on first use (subset.go).
 	sub *subsetSource
@@ -37,16 +37,16 @@ func NewRegistry() *Registry {
 }
 
 // Len returns the number of cards in the registry.
-func (r *Registry) Len() int { return len(r.Cards) }
+func (r *Registry) Len() int { return len(r.cards) }
 
 // Card returns the card at ordinal i.
-func (r *Registry) Card(i int) *Card { return r.Cards[i] }
+func (r *Registry) Card(i int) *Card { return r.cards[i] }
 
 // AllCards returns the cards in registry order.
-func (r *Registry) AllCards() []*Card { return r.Cards }
+func (r *Registry) AllCards() []*Card { return r.cards }
 
 // MaterializedCount returns the number of cards currently materialized.
-func (r *Registry) MaterializedCount() int { return len(r.Cards) }
+func (r *Registry) MaterializedCount() int { return len(r.cards) }
 
 // NormalizeName folds case, collapses whitespace and drops punctuation so
 // catalogue names from Scryfall match Forge script names. A "Front // Back"
@@ -77,7 +77,7 @@ func NormalizeName(s string) string {
 
 func (r *Registry) Add(c *Card) {
 	r.invalidateCatalog()
-	r.Cards = append(r.Cards, c)
+	r.cards = append(r.cards, c)
 	if r.byName == nil {
 		r.byName = map[string]*Card{}
 	}
@@ -128,7 +128,7 @@ func (r *Registry) Lookup(name string) (*Card, bool) {
 // has). Within a tier the first card wins, Add's rule; back names are still
 // indexed when no native front claims them, preserving the pre-existing lookup
 // of a transforming or split back face.
-func (r *Registry) rebuildNameIndex() { r.byName = nameIndexOf(r.Cards) }
+func (r *Registry) rebuildNameIndex() { r.byName = nameIndexOf(r.cards) }
 
 // nameIndexOf is rebuildNameIndex's tiered index over cs, as a pure function
 // so the segment file (subset.go) records exactly the index LoadRegistry
@@ -215,7 +215,7 @@ func (r *Registry) resolveCopyFaces() {
 			changed = true
 		}
 	}
-	for _, c := range r.Cards {
+	for _, c := range r.cards {
 		resolveCard(c)
 	}
 	if changed {
@@ -270,7 +270,7 @@ func (r *Registry) Save(path string) error {
 	if err := r.saveGob(path); err != nil {
 		return err
 	}
-	return writeSegments(SegmentPath(path), r.Cards, r.Tokens)
+	return writeSegments(SegmentPath(path), r.cards, r.Tokens)
 }
 
 func (r *Registry) saveGob(path string) error {
@@ -299,7 +299,7 @@ func (r *Registry) saveGob(path string) error {
 	if err != nil {
 		return fail(err)
 	}
-	if err := gob.NewEncoder(zw).Encode(cacheFile{Version: cacheVersion, Cards: r.Cards, Tokens: r.Tokens}); err != nil {
+	if err := gob.NewEncoder(zw).Encode(cacheFile{Version: cacheVersion, Cards: r.cards, Tokens: r.Tokens}); err != nil {
 		zw.Close()
 		return fail(err)
 	}
@@ -516,7 +516,7 @@ func compileScripts(dir string) ([]*Card, []Diag, error) {
 // compileTokens walks dir's tokenscripts sibling — Fetch's TokensDir — and
 // compiles every script into r.Tokens, keyed by file stem ("r_1_1_goblin").
 // Tokens share compileScripts' parse/link/intrinsics pipeline but are never
-// Add-ed to Cards or byName: a token is not a card a deck can contain, and
+// Add-ed to cards or byName: a token is not a card a deck can contain, and
 // a card's Lookup-by-name must not resolve to one. A missing tokenscripts
 // directory is not an error — plenty of fixtures (and every pre-M2r cache)
 // have no tokens at all.

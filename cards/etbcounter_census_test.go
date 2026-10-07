@@ -52,7 +52,7 @@ func TestEtbCounterConditionCensus(t *testing.T) {
 	reg := compiledCorpus(t)
 	got := map[string]bool{}
 	families := map[string]bool{}
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for fi := range c.Faces {
 			f := c.Faces[fi]
 			for _, kw := range f.Keywords {

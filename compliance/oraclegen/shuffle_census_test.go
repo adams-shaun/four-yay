@@ -46,8 +46,8 @@ func TestShuffleCompareCensus(t *testing.T) {
 		for _, c := range manifest.Cards {
 			members[strings.ToLower(strings.TrimSpace(c.Name))] = true
 		}
-		for i := range reg.Cards {
-			card := reg.Cards[i]
+		for i := range reg.AllCards() {
+			card := reg.Card(i)
 			if len(card.Faces) == 0 || !members[strings.ToLower(strings.TrimSpace(card.Faces[0].Name))] {
 				continue
 			}
