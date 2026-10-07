@@ -39,6 +39,7 @@ var modelledValueHeads = []string{
 	"Compare",
 	"Converge",
 	"CountersAddedThisTurn",
+	"CountersRemovedThisTurn",
 	"CreaturesAttackedThisTurn",
 	"CrewSize",
 	"Delirium",
