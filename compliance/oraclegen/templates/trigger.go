@@ -251,10 +251,14 @@ func triggerWithFixture(reg *cards.Registry, f *cards.Face, name string, req lev
 	if !ok {
 		return it, false, true
 	}
-	for _, d := range res.Decisions {
-		if req.Sub == "trigger.phase" && (d.GorgeKind == "trigger_order" || d.Kind == "order") {
-			sc.Steps = append(sc.Steps, oraclegen.Step{Op: "pass_to", Decision: "priority"})
-			break
+	// Only a target hidden behind a sibling's trigger_order ask needs the extra
+	// checkpoint; an item whose trigger is already on the stack keeps its steps.
+	if req.Sub == "trigger.phase" && !abilityOnStack(res.Snapshots, name, f.Name, stackSlot(req)) {
+		for _, d := range res.Decisions {
+			if d.GorgeKind == "trigger_order" {
+				sc.Steps = append(sc.Steps, oraclegen.Step{Op: "pass_to", Decision: "priority"})
+				break
+			}
 		}
 	}
 	for i := 0; i < n; i++ {

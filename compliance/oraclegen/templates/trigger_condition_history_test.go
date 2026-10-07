@@ -48,6 +48,10 @@ func TestTriggerConditionHistoryPreludes(t *testing.T) {
 				t.Fatal("precondition: no card in the graveyard to leave it")
 			}
 		}},
+		{"Lunar Convocation", "trigger#0.1", func(t *testing.T, sc oraclegen.Scenario) {
+			// "if you gained and lost life this turn": Angel's Mercy then Shock.
+			castsDistinct(t, sc, 2, "Angel's Mercy", "Shock")
+		}},
 		{"Avengers Assemble!", "trigger#0.0", func(t *testing.T, sc oraclegen.Scenario) {
 			castsDistinct(t, sc, 1, "Brave Brawler", "Pet Avengers", "Guerrilla Gorilla")
 		}},
