@@ -1,2 +1,0 @@
-{"shape":{"template":"static","op":"harness","field":"xmage","diff":"IllegalStateException: Error in unit tests: permanent ref pN:Grizzly Bears is not on the battlefield"},"key":"static | harness | xmage | IllegalStateException: Error in unit tests: permanent ref pN:Grizzly Bears is not on the battlefield","cards":1}
-{"card":"Meteor Sword","template":"static#0.0","status":"harness","api":"ChangesZone:Destroy","sets":["TLA"],"detail":"xmage: IllegalStateException: Error in unit tests: permanent ref p0:Grizzly Bears is not on the battlefield"}
