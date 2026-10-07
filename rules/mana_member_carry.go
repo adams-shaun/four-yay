@@ -22,13 +22,15 @@ type manaMemberBoardStamp struct {
 	tapeEpoch         uint64
 	objs              int
 	turn              int32
-	// events is len(e.L.Events), the derived memo's own cross-walk position.
-	// Membership reads arbitrary board state (another permanent's existence
-	// for an IsPresent$ gate, a tap gate, a controller), far more than
-	// walkObjFPOf covers, so the only sound cheap key is "no event was
-	// appended since the store". Within one priority decision reads append
-	// nothing, so lookups still hit across the decision's repeated walks.
-	events int
+	// manaRelevant is the count of mana-relevant events in the log
+	// (manaRelevantKind). Membership reads arbitrary board state the object-
+	// class fingerprint omits -- a {T} gate's tap, CR 302.6 summoning
+	// sickness, ActivationLimit$ usage, another permanent's existence for an
+	// IsPresent$ gate -- so it is keyed on the log itself: any event outside
+	// the quiet set retires every entry. A seat's own priority transition
+	// logs only Priority/DecisionAsk/DecisionMade/StepChange, so a same-seat
+	// transition still hits (legal-walk design §S0/§S4).
+	manaRelevant uint64
 }
 
 type manaMemberEntry struct {
@@ -48,6 +50,11 @@ type manaMemberCarry struct {
 	gen      uint64
 	hits     uint64
 	misses   uint64
+	// scanPos/relevant are the incremental fold of manaRelevantKind over the
+	// log (activation_count_index.go's pattern). A shorter log (a rewind or a
+	// clone's fork) resets the fold.
+	scanPos  int
+	relevant uint64
 }
 
 // sync moves the carry to cur, retiring every older entry by bumping gen.
@@ -105,6 +112,46 @@ func (c *manaMemberCarry) store(id state.ObjID, all []*cards.SA, cur manaMemberB
 	en.gen, en.objTouch, en.set = c.gen, touch, true
 }
 
+// advanceRelevant brings the mana-relevant event fold to len(evs) and returns
+// the count. The fold's position past the end of a shorter log (a rewind, or a
+// fork sharing a prefix) resets it; the stamp's other components also move on
+// a restore, so a stale count can never name a sound entry.
+func (c *manaMemberCarry) advanceRelevant(evs []events.Event) uint64 {
+	pos := c.scanPos
+	if pos > len(evs) {
+		pos, c.relevant = 0, 0
+	}
+	for i := pos; i < len(evs); i++ {
+		if manaRelevantKind(evs[i].Kind) {
+			c.relevant++
+		}
+	}
+	c.scanPos = len(evs)
+	return c.relevant
+}
+
+// manaRelevantKind reports whether a logged event can change a battlefield
+// object's mana-ability membership with payability deferred. The quiet set is
+// the seat's own priority transition (legal-walk design §S0) plus the kinds
+// that cannot reach a deferred-membership input:
+//
+//   - ManaAdd/ManaClear only move the mana pool, and the deferred list
+//     (appendAvailableManaAbilitiesGate(ignorePayable=true)) deliberately
+//     never reads the pool;
+//   - Note is a log message, TargetsChosen a targeting record, ClockTick a
+//     timestamp: none mutates a permanent's gates.
+//
+// Every other kind retires the carry; the direction is deliberate -- an
+// unlisted kind only costs a recompute.
+func manaRelevantKind(k events.Kind) bool {
+	switch k {
+	case events.Priority, events.DecisionAsk, events.DecisionMade, events.StepChange,
+		events.ManaAdd, events.ManaClear, events.Note, events.TargetsChosen, events.ClockTick:
+		return false
+	}
+	return true
+}
+
 // touchObj bumps the per-object generation at index i (id i+1).
 func (c *manaMemberCarry) touchObj(i int) {
 	if i < 0 {
@@ -128,7 +175,7 @@ func (e *Engine) manaBoardStamp() manaMemberBoardStamp {
 		tapeEpoch: uint64(e.tapeEpoch), objs: len(e.G.Objs), turn: e.G.Turn,
 	}
 	if e.L != nil {
-		s.events = len(e.L.Events)
+		s.manaRelevant = e.manaCarry.advanceRelevant(e.L.Events)
 	}
 	return s
 }

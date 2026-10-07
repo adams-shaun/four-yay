@@ -4,7 +4,7 @@
 
 **Goal:** Cut per-object mana-ability membership recomputation on the live priority walk by carrying a seat's own-battlefield membership across its walks, so enginebench `-row random` / `-row bot` games/s rise.
 
-**Architecture:** A new per-engine value cluster `manaMemberCarry` (`rules/mana_member_carry.go`) holds a dense `ObjID`-indexed entry table of deferred-payability mana-ability lists, keyed on the `BoardReadKey` board stamp plus `staticTouchGen`, `crossWalkRetires`, `turn`, `len(e.L.Events)` and a per-object touch generation. The priority walk's own-battlefield mana loop (`rules/legal_walk_battlefield.go`) reads the carry on a hit and populates it on a miss; the potential record `w.rec` is still fed on both paths. Payability is never cached — it is re-applied every walk. Verify mode recomputes every hit and panics.
+**Architecture:** A new per-engine value cluster `manaMemberCarry` (`rules/mana_member_carry.go`) holds a dense `ObjID`-indexed entry table of deferred-payability mana-ability lists, keyed on the `BoardReadKey` board stamp plus `staticTouchGen`, `crossWalkRetires`, `turn`, a mana-relevant event-log cursor (`manaRelevantKind`) and a per-object touch generation. The priority walk's own-battlefield mana loop (`rules/legal_walk_battlefield.go`) reads the carry on a hit and populates it on a miss; the potential record `w.rec` is still fed on both paths. Payability is never cached — it is re-applied every walk. Verify mode recomputes every hit and panics.
 
 **Tech Stack:** Go (no cgo, no third-party deps), gorge rules engine, enginebench.
 
@@ -30,7 +30,7 @@
 
 **Interfaces:**
 - Produces:
-  - `type manaMemberBoardStamp struct { lineage *events.Log; derivedSeq, staticTouchGen, crossWalkRetires uint64; continuousVersion int; tapeEpoch uint64; objs int; turn int32; events int }`
+  - `type manaMemberBoardStamp struct { lineage *events.Log; derivedSeq, staticTouchGen, crossWalkRetires uint64; continuousVersion int; tapeEpoch uint64; objs int; turn int32; manaRelevant uint64 }`
   - `type manaMemberEntry struct { gen, objTouch uint64; all []*cards.SA; n int32; set bool }`
   - `type manaMemberCarry struct { owner *Engine; entries []manaMemberEntry; touch []uint64; stamp manaMemberBoardStamp; stampSet bool; gen uint64; hits, misses uint64 }`
   - `func (c *manaMemberCarry) lookup(id state.ObjID, cur manaMemberBoardStamp, touch uint64) ([]*cards.SA, bool)`
@@ -140,15 +140,17 @@ type manaMemberBoardStamp struct {
 	tapeEpoch         uint64
 	objs              int
 	turn              int32
-	// events is len(e.L.Events), the derived memo's own cross-walk
-	// position. Membership reads arbitrary board state (another
-	// permanent's existence for an IsPresent$ gate, a tap gate, a
-	// controller), far more than walkObjFPOf covers, so the only sound
-	// cheap key is "no event appended since the store". Discovered when
-	// verify caught a tapped Incubation Druid whose ManaReflected gate had
-	// closed without a fingerprint change (walk_objclass.go walkObjFPOf
-	// omits o.Tapped).
-	events int
+	// manaRelevant is the count of mana-relevant events in the log
+	// (manaRelevantKind). Membership reads arbitrary board state the
+	// object-class fingerprint omits (a {T} gate's tap, CR 302.6 summoning
+	// sickness, ActivationLimit$ usage, another permanent's existence for an
+	// IsPresent$ gate), so it is keyed on the log itself: any event outside
+	// the quiet set retires every entry. A plain len(e.L.Events) was tried
+	// first and retired on the Priority/DecisionAsk/DecisionMade a seat's own
+	// transition logs, so it hit nothing (measured: 0%). The quiet set is the
+	// §S0 transition plus the kinds that cannot reach a deferred-membership
+	// input (manaRelevantKind).
+	manaRelevant uint64
 }
 
 type manaMemberEntry struct {
@@ -248,7 +250,7 @@ func (e *Engine) manaBoardStamp() manaMemberBoardStamp {
 		tapeEpoch: uint64(e.tapeEpoch), objs: len(e.G.Objs), turn: e.G.Turn,
 	}
 	if e.L != nil {
-		s.events = len(e.L.Events)
+		s.manaRelevant = e.manaCarry.advanceRelevant(e.L.Events)
 	}
 	return s
 }
@@ -689,7 +691,7 @@ git commit -m "test: mana carry is cold on clones and clone policy holds"
 - Consumes: `ManaCarryStats`.
 - Produces: a `-manacarry` flag printing per-run hit/miss and hit/decision.
 
-- [ ] **Step 1: Add the temporary read**
+- [x] **Step 1: Add the temporary read**
 
 `cmd/enginebench/manacarry.go`:
 
@@ -750,12 +752,12 @@ In `cmd/enginebench/play.go`, call `manaCarryState.observe(e)` where the
 `manaCarryReport(os.Stderr, st.Decisions)` in `runRandom` and `runBot` beside
 their `fill(...)` calls.
 
-- [ ] **Step 2: Build**
+- [x] **Step 2: Build**
 
 Run: `go build -o /tmp/manacarry-enginebench ./cmd/enginebench`
 Expected: builds.
 
-- [ ] **Step 3: Measure hit rate**
+- [x] **Step 3: Measure hit rate**
 
 Run, from `/home/sadams/projects/gorge/.worktrees/s4-census`:
 
@@ -767,24 +769,37 @@ done
 ```
 Expected: a hit rate per row.
 
-- [ ] **Step 4: Measure the walk cut**
+- [x] **Step 4: Measure the walk cut**
 
 Build a baseline binary at `8c1bb84a9` (without the carry) in a scratch
 worktree, then profile both with `-cpuprofile` on random A, random B and bot A,
 and compare the `legalActionsWalkWithWindow` cumulative time. Report
 `run  walk-cum base  walk-cum carry  cut%`.
 
-- [ ] **Step 5: Evaluate the kill**
+- [x] **Step 5: Evaluate the kill**
 
 If the walk cut is `< 4%` on random B, or the hit rate is very low, do **not**
 land the ticket as-is: move to the Approach 2 contingency in the spec
 (`docs/superpowers/specs/2026-10-07-mana-member-carry-design.md` §8) and
 narrow the board stamp to a single mana-member generation. Otherwise proceed.
 
-- [ ] **Step 6: Remove the temporary read and commit the result**
+- [x] **Step 6: Remove the temporary read and commit the result**
 
 Delete `cmd/enginebench/manacarry.go` and its wiring; record the numbers in the
 ticket report (not in the repo). Commit any carry fix.
+
+**Outcome (2026-10-07, this worktree).** The `len(e.L.Events)` key the plan
+first specified retired on the seat's own `Priority`/`DecisionAsk`/
+`DecisionMade` events and hit **0%**. Approach 2's contingency — a mana-relevant
+event-log cursor (`manaRelevantKind`: the §S0 quiet set plus `ManaAdd`/
+`ManaClear`/`Note`/`TargetsChosen`/`ClockTick`) — was implemented in its place;
+a plain `len` and a narrowed stamp were both measured and both failed
+identically, so the cursor is the shipped key. Hit rates: random A 6.0%, random
+B 5.9%, bot A 21.1%. Walk cut (CPUprofile share): random B ~0% (fails §8's 4%
+gate), bot A **~6%** (30.0/31.6/31.8% -> 27.8/29.7/29.9%). No games/s
+regression at any row (interleaved A/B). **Operator decision: land bot-only,
+deviating from §8's random-B gate** — production self-play is bot-driven; the
+deviation is recorded in the commit message and the ticket report.
 
 ---
 
