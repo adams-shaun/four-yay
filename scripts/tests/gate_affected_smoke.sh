@@ -50,21 +50,10 @@ check "environment variable cannot bypass base validation" $?
 # --- the helper itself, against the real repo --------------------------------
 filter() ( bash -c "source '$GATE'; gate_affected_default_build_pkgs" )
 
-# Precondition: cmd/autopayaudit really is build-constrained-only (if it ever
-# gains a default-build file this test's positive case is stale, not silently
-# passing).
-auto_files=$(ls "$ROOT"/cmd/autopayaudit/*.go 2>/dev/null | wc -l)
-auto_default=$(go list -e -f '{{if or .GoFiles .TestGoFiles .XTestGoFiles}}y{{end}}' \
-	"$ROOT/cmd/autopayaudit" 2>/dev/null)
-[ "$auto_files" -gt 0 ] && [ -z "$auto_default" ]
-check "precondition: cmd/autopayaudit exists and has no default-build files" $? \
-	"files=$auto_files default='$auto_default'"
-
-out=$(printf './cmd/autopayaudit\n./view\n' | filter)
-case $out in
-*./cmd/autopayaudit*) check "helper drops ./cmd/autopayaudit" 1 "out=$out" ;;
-*) check "helper drops ./cmd/autopayaudit" 0 ;;
-esac
+# cmd/autopayaudit was the instance that motivated the filter, but it now has a
+# default-build test file (c2feefbd9), so it is no longer a probe for the class:
+# the throwaway module below is.
+out=$(printf './view\n' | filter)
 case $out in
 *./view*) check "helper keeps ./view (filter is not dropping everything)" 0 ;;
 *) check "helper keeps ./view (filter is not dropping everything)" 1 "out=$out" ;;
