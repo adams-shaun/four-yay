@@ -97,6 +97,11 @@ func enumerateWhy(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decis
 type boardScratch struct {
 	b     botpolicy.Board
 	built bool
+	// actBuf is the reusable action backing nameKeys copies a candidate's
+	// actions into on the first late reference (the copy is transient: it is
+	// read only to rebuild the key, never stored), so a per-search scratch
+	// costs one action allocation per call instead of one per candidate.
+	actBuf []searchprobe.Action
 }
 
 // board is the scratch Board, allocated on first use.
@@ -245,7 +250,7 @@ func paymentActs(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decisi
 // object references past rootRefs (objects the root observation did not
 // show) become the object's card name, and candidates whose keys then
 // coincide keep the first. Only keys change; the intents are this world's.
-func nameKeys(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decision, cands []cand, rootRefs int) []cand {
+func nameKeys(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decision, cands []cand, rootRefs int, scratch *boardScratch) []cand {
 	name := func(id state.ObjID) string {
 		o := e.G.Obj(id)
 		switch {
@@ -264,7 +269,11 @@ func nameKeys(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decision,
 		}
 		return int(ref) > rootRefs
 	}
-	out := cands[:0:0]
+	out := make([]cand, 0, len(cands))
+	var buf []searchprobe.Action
+	if scratch != nil {
+		buf = scratch.actBuf
+	}
 	seen := make(map[Key]bool, len(cands)) // membership only -- never ranged.
 	for _, c := range cands {
 		srcActs := c.acts
@@ -276,9 +285,9 @@ func nameKeys(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decision,
 				srcActs = a
 			}
 		}
-		acts := append([]searchprobe.Action(nil), srcActs...)
+		acts := srcActs
 		changed := false
-		for k := range acts {
+		for k := range srcActs {
 			src, obj, atk := d.Source, state.ObjID(0), state.ObjID(0)
 			switch {
 			case c.in.Payment != nil:
@@ -291,15 +300,27 @@ func nameKeys(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decision,
 				o := d.Options[c.in.Choices[k]]
 				obj, atk = o.Obj, o.Attacker
 			}
+			ls, lo, la := late(srcActs[k].Source, src), late(srcActs[k].Obj, obj), late(srcActs[k].Attacker, atk)
+			if !ls && !lo && !la {
+				continue
+			}
+			if !changed {
+				// Copy on first actual rewrite: a candidate whose references
+				// the root observation already showed is keyed unchanged and
+				// never needs its own action backing.
+				acts = append(buf[:0], srcActs...)
+				buf = acts
+				changed = true
+			}
 			a := &acts[k]
-			if late(a.Source, src) {
-				a.Source, a.Value, changed = 0, a.Value+"|source="+name(src), true
+			if ls {
+				a.Source, a.Value = 0, a.Value+"|source="+name(src)
 			}
-			if late(a.Obj, obj) {
-				a.Obj, a.Value, changed = 0, a.Value+"|object="+name(obj), true
+			if lo {
+				a.Obj, a.Value = 0, a.Value+"|object="+name(obj)
 			}
-			if late(a.Attacker, atk) {
-				a.Attacker, a.Value, changed = 0, a.Value+"|attacker="+name(atk), true
+			if la {
+				a.Attacker, a.Value = 0, a.Value+"|attacker="+name(atk)
 			}
 		}
 		if changed {
@@ -314,6 +335,9 @@ func nameKeys(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decision,
 		}
 		seen[c.key] = true
 		out = append(out, c)
+	}
+	if scratch != nil {
+		scratch.actBuf = buf
 	}
 	return out
 }
@@ -365,7 +389,8 @@ func paymentVocabulary(obs *searchprobe.Collector, e *rules.Engine, d *decision.
 	}
 	payments := e.EnsurePaymentActions()
 	var pays, rest []cand
-	var pass *cand
+	var pass cand
+	havePass := false
 	covered := make(map[state.ObjID]bool, len(payments)) // membership only -- never ranged.
 	payAt := make(map[state.ObjID]int, len(payments))    // lookup only -- never ranged.
 	for _, a := range payments {
@@ -376,7 +401,7 @@ func paymentVocabulary(obs *searchprobe.Collector, e *rules.Engine, d *decision.
 		if err != nil {
 			return paymentVocab{}, SkipTranslate, false
 		}
-		c := cand{acts: acts, key: Key(payKeyPrefix + string(actionsKey(acts))), scoreSet: true,
+		c := cand{acts: acts, key: payActionsKey(acts), scoreSet: true,
 			in: decision.Intent{Seq: d.Seq, Player: d.Player, Payment: &decision.PaymentSelection{ActionID: a.ID, Plan: decision.ClonePaymentPlan(a.Plans[0])}}}
 		if a.BaseOptionIndex != nil {
 			c.score = []int{*a.BaseOptionIndex}
@@ -412,19 +437,25 @@ func paymentVocabulary(obs *searchprobe.Collector, e *rules.Engine, d *decision.
 		}
 		c := cand{acts: acts, key: actionsKey(acts), in: in}
 		if o.Kind == "pass" {
-			if pass == nil {
-				pass = &c
+			if !havePass {
+				pass, havePass = c, true
 			}
 			continue
 		}
 		rest = append(rest, c)
 	}
 	sortByJSON(rest)
-	v := paymentVocab{payAt: payAt, hasPass: pass != nil}
-	if pass != nil {
-		v.all = append(v.all, *pass)
+	v := paymentVocab{payAt: payAt, hasPass: havePass}
+	n := len(pays) + len(rest)
+	if havePass {
+		n++
 	}
-	v.all = append(append(v.all, pays...), rest...)
+	v.all = make([]cand, 0, n)
+	if havePass {
+		v.all = append(v.all, pass)
+	}
+	v.all = append(v.all, pays...)
+	v.all = append(v.all, rest...)
 	return v, 0, true
 }
 
@@ -469,7 +500,12 @@ func (v paymentVocab) botIndex(d *decision.Decision, bot decision.Intent) int {
 
 // botFirst is all with all[botAt] moved to the front, capped at limit.
 func botFirst(all []cand, botAt, limit int) []cand {
-	out := []cand{all[botAt]}
+	n := len(all)
+	if limit < n {
+		n = limit
+	}
+	out := make([]cand, 0, n)
+	out = append(out, all[botAt])
 	for i, c := range all {
 		if len(out) >= limit {
 			break
@@ -521,7 +557,7 @@ func newKeyMatcher(obs *searchprobe.Collector, e *rules.Engine, d *decision.Deci
 			if err != nil {
 				return nil, err
 			}
-			m.pays = append(m.pays, cand{key: Key(payKeyPrefix + string(actionsKey(acts))),
+			m.pays = append(m.pays, cand{key: payActionsKey(acts),
 				in: decision.Intent{Seq: d.Seq, Player: d.Player, Payment: &decision.PaymentSelection{ActionID: a.ID, Plan: decision.ClonePaymentPlan(a.Plans[0])}}})
 		}
 	}
@@ -665,6 +701,15 @@ func priorityBase(d *decision.Decision, bot decision.Intent) BaseKind {
 func actionsKey(acts []searchprobe.Action) Key {
 	var buf [128]byte
 	return Key(searchprobe.AppendActionsKey(buf[:0], acts))
+}
+
+// payActionsKey is a payment candidate's key -- payKeyPrefix then the
+// semantic action key -- built in one buffer, so it costs one string rather
+// than the two a concatenation of actionsKey's result would.
+func payActionsKey(acts []searchprobe.Action) Key {
+	var buf [192]byte
+	b := append(buf[:0], payKeyPrefix...)
+	return Key(searchprobe.AppendActionsKey(b, acts))
 }
 
 // priors is the candidates' prior (spec §2): uniform without a network;

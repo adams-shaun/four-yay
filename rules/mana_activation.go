@@ -783,14 +783,18 @@ func (e *Engine) availableManaAbilitiesForWindow(p state.PlayerID, id state.ObjI
 	if atPriority {
 		return all
 	}
-	out := make([]*cards.SA, 0, len(all))
+	// Filter in place: all is this call's own allocation (availableManaAbilities
+	// builds a fresh list), so compacting it keeps the same order and
+	// membership while dropping the second list the copy needed.
+	n := 0
 	for _, ma := range all {
 		if pay.InstantSpeedOnly(ma) {
 			continue
 		}
-		out = append(out, ma)
+		all[n] = ma
+		n++
 	}
-	return out
+	return all[:n]
 }
 
 func (e *Engine) activateManaFor(p state.PlayerID, source state.ObjID, cast, cumulative, atPriority bool) {

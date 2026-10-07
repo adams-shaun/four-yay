@@ -392,7 +392,7 @@ func (e *engineEnv) advance() (*Point, error) {
 					e.cfg.stats.Truncated++
 				}
 				if e.cfg.nameKeys {
-					cands = nameKeys(e.obs, e.e, pd, cands, e.cfg.rootRefs)
+					cands = nameKeys(e.obs, e.e, pd, cands, e.cfg.rootRefs, e.cfg.enumBoard)
 				}
 				// Under priorTopK the network keeps the point's best
 				// candidates (after nameKeys, which may merge two).
@@ -463,7 +463,7 @@ func (e *engineEnv) oppPoint(pd *decision.Decision, in decision.Intent) *Point {
 	if !ok {
 		return nil
 	}
-	if cands = nameKeys(obs, e.e, pd, cands, 0); len(cands) < 2 {
+	if cands = nameKeys(obs, e.e, pd, cands, 0, e.cfg.enumBoard); len(cands) < 2 {
 		return nil
 	}
 	if cut {
