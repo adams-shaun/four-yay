@@ -131,6 +131,19 @@ func arenaFlipEra(a *decisionArena) func() {
 	}
 }
 
+// enableLiveArena switches e's arena into the live-play mode: on, with the
+// two-generation per-Submit retirement, and the resolution slabs off (they
+// are Release-scoped and a live engine never Releases mid-game). newWithRNG
+// (rules/genesis.go) -- the LIVE-game constructor -- calls it after the shell
+// adopts a Spare's cleared chunks: adoptArena leaves an adopted arena
+// switched OFF (a clone may be a search simulation), but a game built by New
+// is always live, so its recycled chunks must be back on under the live
+// contract or every recycled game runs arena-off.
+func enableLiveArena(e *Engine) {
+	a := e.ownArena()
+	a.on, a.live, a.res = true, true, false
+}
+
 // arenaRelocateDecision copies d into the arena's current generation. A
 // decision posed while a commander-zone ask was pending (ask's deferral) may
 // sit in a generation the next Submit will retire before it is ever posed;
