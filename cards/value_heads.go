@@ -116,18 +116,36 @@ func ValueHeadOperands(body string) []string {
 	return out
 }
 
-// ValueHeadRecipeExpressions returns nested heads and the exact numeric
-// parameter expressions the recipe passes to the evaluator. Keep this
-// deliberately keyed to evaluator-read API/parameter pairs; scanning arbitrary
-// recipe text attributes labels in descriptions and nonnumeric parameters.
-func ValueHeadRecipeExpressions(body string) map[string]string {
-	body = strings.TrimSpace(body)
-	apiLine := strings.SplitN(body, "|", 2)[0]
-	kind, api, ok := strings.Cut(apiLine, "$")
-	if !ok || (strings.TrimSpace(kind) != "DB" && strings.TrimSpace(kind) != "AB" && strings.TrimSpace(kind) != "SP") || strings.TrimSpace(api) != "Token" {
+// ValueHeadTokenRecipeExpressions is the ONE gate and grammar for a
+// Token recipe's evaluator-read amount: the kind must be DB, AB or SP, the
+// API must be Token, and it delegates the TokenAmount$ Count$… classification
+// to ValueHeadRecipeParamExpressions. Both the SVar-body reader
+// (ValueHeadRecipeExpressions) and the printed-ability walk (Face.ValueHeads)
+// go through it, and rules' honesty gate probes the same map, so attribution
+// and the check cannot disagree about what an ability line reads.
+func ValueHeadTokenRecipeExpressions(kind, api string, params map[string]string) map[string]string {
+	kind = strings.TrimSpace(kind)
+	if kind != "DB" && kind != "AB" && kind != "SP" {
 		return nil
 	}
-	params := parseParams(body)
+	if strings.TrimSpace(api) != "Token" {
+		return nil
+	}
+	return ValueHeadRecipeParamExpressions(params)
+}
+
+// ValueHeadRecipeParamExpressions classifies the evaluator-read numeric
+// parameter of a Token recipe from its already-parsed parameter map: the
+// TokenAmount$ expression when it is a Count$ head, keyed by that head and
+// valued by the exact expression the evaluator passes to Num. It is the
+// shared choke point so an ability line's own parameter map is attributed
+// exactly as an SVar body's is. Keep this deliberately keyed to evaluator-read
+// API/parameter pairs; scanning arbitrary recipe text attributes labels in
+// descriptions and nonnumeric parameters.
+func ValueHeadRecipeParamExpressions(params map[string]string) map[string]string {
+	if params == nil {
+		return nil
+	}
 	expr, ok := params["TokenAmount"]
 	if !ok {
 		return nil
@@ -139,6 +157,18 @@ func ValueHeadRecipeExpressions(body string) map[string]string {
 	return map[string]string{head: strings.TrimSpace(expr)}
 }
 
+// ValueHeadRecipeExpressions returns nested heads and the exact numeric
+// parameter expressions an SVar recipe body passes to the evaluator.
+func ValueHeadRecipeExpressions(body string) map[string]string {
+	body = strings.TrimSpace(body)
+	apiLine := strings.SplitN(body, "|", 2)[0]
+	kind, api, ok := strings.Cut(apiLine, "$")
+	if !ok {
+		return nil
+	}
+	return ValueHeadTokenRecipeExpressions(kind, api, parseParams(body))
+}
+
 // ValueHeads lists the "count:<head>" primitives this face's REFERENCED
 // value SVars read. An SVar counts as referenced when its name appears as a
 // token in any ability line, trigger/static/replacement parameter, keyword,
@@ -146,11 +176,8 @@ func ValueHeadRecipeExpressions(body string) map[string]string {
 // included); an unreferenced body is an AI hint or dead text and never
 // reaches the evaluator. Sorted and de-duplicated.
 func (f *Face) ValueHeads() []string {
-	if len(f.SVars) == 0 {
-		return nil
-	}
-	refs := f.referencedNames()
 	set := map[string]struct{}{}
+	refs := f.referencedNames()
 	for name, body := range f.SVars {
 		if !refs[name] {
 			continue
@@ -161,6 +188,35 @@ func (f *Face) ValueHeads() []string {
 		for _, head := range ValueHeadOperands(body) {
 			set[ValueHeadPrefix+head] = struct{}{}
 		}
+	}
+	// A printed ability line (A:AB$ Token / A:SP$ Token) carries its own
+	// parameter map, and its TokenAmount$ Count$… is read at run time through
+	// Num exactly as an SVar recipe's is. The token recipe grammar above is
+	// the same one, so attribute the same heads -- otherwise a card whose
+	// amount reads an unmodelled head joins the playable pool with a gate
+	// that can never pass (Rise of the Varmints has no SVars at all, so the
+	// walk must not early-return on an empty SVar table).
+	var attr func(sa *SA, depth int)
+	attr = func(sa *SA, depth int) {
+		if sa == nil || depth > maxSVarDepth {
+			return
+		}
+		for head := range ValueHeadTokenRecipeExpressions(sa.Kind, sa.API, sa.Params) {
+			set[ValueHeadPrefix+head] = struct{}{}
+		}
+		attr(sa.Sub, depth+1)
+	}
+	for _, a := range f.Abilities {
+		attr(a, 0)
+	}
+	for i := range f.Triggers {
+		attr(f.Triggers[i].Effect, 0)
+	}
+	for i := range f.Repls {
+		attr(f.Repls[i].With, 0)
+	}
+	if len(set) == 0 {
+		return nil
 	}
 	out := make([]string, 0, len(set))
 	for k := range set {
