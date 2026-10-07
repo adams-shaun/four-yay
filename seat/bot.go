@@ -61,6 +61,15 @@ type Bot struct {
 	// onto every decision's Board like cast. The zero value is the default
 	// 1/3 coin; WithMulligan / EnableLandMulligan set another.
 	mulligan botpolicy.MulliganRule
+
+	// paymentIntent scratch (POC: heap-object attack). Reused across calls
+	// instead of the per-call d.Clone() + three maps + Options slice. A Bot
+	// is used by one goroutine at a time; nothing here escapes the call.
+	payPlans map[state.ObjID]decision.PaymentAction
+	payTo    map[int]int
+	payLeg   map[state.ObjID]bool
+	payOpts  []decision.Option
+	payCand  decision.Decision
 }
 
 // M4: a compile-time assertion that Bot keeps satisfying Seat, since
@@ -242,7 +251,13 @@ func (b *Bot) paymentIntent(brd botpolicy.Board, d *decision.Decision) (decision
 	if d == nil || d.Kind != decision.KPriority || (brd.MyTurn && !brd.IsMain) {
 		return decision.Intent{}, false
 	}
-	payable := make(map[state.ObjID]decision.PaymentAction, len(d.PaymentActions))
+	payable := b.payPlans
+	if payable == nil {
+		payable = make(map[state.ObjID]decision.PaymentAction, len(d.PaymentActions))
+		b.payPlans = payable
+	} else {
+		clear(payable)
+	}
 	for _, a := range d.PaymentActions {
 		// A plan the policy would never take must not count as payable: C8
 		// refuses a counter with no foreign spell (CounterIsDead), so its
@@ -277,10 +292,23 @@ func (b *Bot) paymentIntent(brd botpolicy.Board, d *decision.Decision) (decision
 		return decision.Intent{}, false
 	}
 
-	candidate := d.Clone()
-	candidate.Options = make([]decision.Option, 0, len(d.Options)+len(payable))
-	candidateToOriginal := make(map[int]int, len(d.Options))
-	legacyOrdinary := make(map[state.ObjID]bool, len(d.Options))
+	candidate := &b.payCand
+	*candidate = *d
+	candidate.Options = b.payOpts[:0]
+	candidateToOriginal := b.payTo
+	if candidateToOriginal == nil {
+		candidateToOriginal = make(map[int]int, len(d.Options))
+		b.payTo = candidateToOriginal
+	} else {
+		clear(candidateToOriginal)
+	}
+	legacyOrdinary := b.payLeg
+	if legacyOrdinary == nil {
+		legacyOrdinary = make(map[state.ObjID]bool, len(d.Options))
+		b.payLeg = legacyOrdinary
+	} else {
+		clear(legacyOrdinary)
+	}
 	for _, o := range d.Options {
 		// These are precisely legalActions' mana abilities. A payment plan
 		// performs the required activations atomically, so exposing one here
@@ -313,6 +341,9 @@ func (b *Bot) paymentIntent(brd botpolicy.Board, d *decision.Decision) (decision
 			PlanBacked: true,
 		})
 	}
+
+	// Keep the (possibly regrown) Options backing array for the next call.
+	b.payOpts = candidate.Options[:0]
 
 	// Use the exact policy variant (including a cast profile) on the private
 	// candidate list. Priority choices consume no RNG for hosted policies, so
