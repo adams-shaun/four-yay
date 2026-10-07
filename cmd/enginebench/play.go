@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"math/rand/v2"
 	"os"
+	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/adams-shaun/gorge/botpolicy"
@@ -12,6 +14,7 @@ import (
 	"github.com/adams-shaun/gorge/internal/bench"
 	"github.com/adams-shaun/gorge/rules"
 	"github.com/adams-shaun/gorge/seat"
+	"github.com/adams-shaun/gorge/state"
 )
 
 // Game caps. docs/015 reports gorge's random games at 36-43 turns; a game
@@ -103,7 +106,53 @@ func randomIntent(d *decision.Decision, r *rand.Rand) decision.Intent {
 			ch = append(ch, o)
 		}
 	}
+	if d.Kind == decision.KBlockers {
+		ch = fitBlockBounds(d, ch, 0)
+	}
 	return decision.Intent{Seq: d.Seq, Player: d.Player, Choices: ch}
+}
+
+// fitBlockBounds drops every chosen blocker of an attacker whose blocker
+// count falls outside its published MinBlockers/MaxBlockers bounds, and every
+// lone blocker of menace (the attacker the engine named in a rejection;
+// 0 = none), so the random player's block declaration is legal without the
+// client knowing combat rules. Dropping a block is always a legal
+// direction: Blockers asks carry Min 0.
+func fitBlockBounds(d *decision.Decision, ch []int, menace state.ObjID) []int {
+	if len(ch) == 0 {
+		return ch
+	}
+	counts := map[state.ObjID]int{}
+	for _, c := range ch {
+		counts[d.Options[c].Attacker]++
+	}
+	out := ch[:0]
+	for _, c := range ch {
+		o := d.Options[c]
+		n := counts[o.Attacker]
+		if n < o.MinBlockers || (o.MaxBlockers > 0 && n > o.MaxBlockers) || (o.Attacker == menace && n < 2) {
+			continue
+		}
+		out = append(out, c)
+	}
+	return out
+}
+
+var menaceReject = regexp.MustCompile(`attacker (\d+) with menace`)
+
+// menaceRepair turns a blockers answer the engine rejected for menace into
+// the same answer without that attacker's lone blocker.
+func menaceRepair(d *decision.Decision, in decision.Intent, err error) (decision.Intent, bool) {
+	if d.Kind != decision.KBlockers || err == nil {
+		return in, false
+	}
+	m := menaceReject.FindStringSubmatch(err.Error())
+	if m == nil {
+		return in, false
+	}
+	id, _ := strconv.Atoi(m[1])
+	in.Choices = fitBlockBounds(d, append([]int(nil), in.Choices...), state.ObjID(id))
+	return in, true
 }
 
 // playRandom plays one uniform-random game. A submit the engine rejects is
@@ -184,7 +233,12 @@ func playRandomWithPool(cfg rules.Config, st *randomStats, pool *bench.SparePool
 			}
 			ok := false
 			for try := 0; try < retries; try++ {
-				if err := e.Submit(randomIntent(d, r)); err == nil {
+				in := randomIntent(d, r)
+				err := e.Submit(in)
+				if fixed, ok := menaceRepair(d, in, err); ok {
+					err = e.Submit(fixed)
+				}
+				if err == nil {
 					ok = true
 					break
 				}
