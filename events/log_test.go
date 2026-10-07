@@ -561,16 +561,17 @@ func TestLogReserveCloneConcurrentAppendsAreIndependent(t *testing.T) {
 }
 
 // TestGrowEventsTaperKeepsTheLengthAndChain pins the post-growTaperAt half of
-// the growth policy: past growTaperAt the growth factor drops to 1.25x (the
-// clone-heavy region of a real log), and that switch must not disturb the
+// the growth policy: from growTaperAt up the growth factor drops to 1.25x (the
+// region of a deliberately presized, large-start log), and that switch must not disturb the
 // growth contract that every other grow test relies on -- growEvents returns s
 // with len exactly need, each new event lands at its own Seq, and the whole
 // stream still folds into one chain. A helper that, say, returned [len-1]
 // capacity growth on the taper path would drop the tail exactly as
 // TestGrowEventsReturnsExactlyTheNamedLength guards for the doubling path.
 func TestGrowEventsTaperKeepsTheLengthAndChain(t *testing.T) {
-	l := NewLog(5)
-	const n = 6000 // well past growTaperAt (4096): exercises the 1.25x branch
+	const start = growTaperAt + 4096
+	l := NewLogIntoHint(5, nil, start) // large start: its first grow takes the 1.25x branch
+	const n = start + 1000
 	for i := 0; i < n; i++ {
 		kind := Draw
 		if i%2 == 0 {
@@ -583,6 +584,9 @@ func TestGrowEventsTaperKeepsTheLengthAndChain(t *testing.T) {
 		if l.Events[i].Seq != uint64(i) {
 			t.Fatalf("event %d has Seq %d, want %d", i, l.Events[i].Seq, i)
 		}
+	}
+	if cap(l.Events) != start+start/growTaperDiv {
+		t.Fatalf("cap = %d, want the 1.25x taper's %d: the run never exercised the taper branch", cap(l.Events), start+start/growTaperDiv)
 	}
 	if l.HeadAt(n) != l.Head() {
 		t.Fatalf("chain desynced after taper growth: HeadAt=%s Head=%s", l.HeadAt(n), l.Head())
