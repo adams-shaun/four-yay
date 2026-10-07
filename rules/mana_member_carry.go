@@ -70,6 +70,14 @@ func (c *manaMemberCarry) entryFor(i int) *manaMemberEntry {
 		return nil
 	}
 	if i >= len(c.entries) {
+		if i < cap(c.entries) {
+			// Recycled storage (Spare.manaEntries): the exposed slots hold a
+			// spent carry's entries, all of a generation below this carry's
+			// gen (c.gen starts at the spent carry's final gen and sync bumps
+			// it before any lookup), so none can satisfy a lookup.
+			c.entries = c.entries[:i+1]
+			return &c.entries[i]
+		}
 		grown := make([]manaMemberEntry, i+1, i+1+i/2+8)
 		copy(grown, c.entries)
 		c.entries = grown
@@ -158,9 +166,15 @@ func (c *manaMemberCarry) touchObj(i int) {
 		return
 	}
 	if i >= len(c.touch) {
-		grown := make([]uint64, i+1, i+1+i/2+8)
-		copy(grown, c.touch)
-		c.touch = grown
+		if i < cap(c.touch) {
+			n := len(c.touch)
+			c.touch = c.touch[:i+1]
+			clear(c.touch[n:])
+		} else {
+			grown := make([]uint64, i+1, i+1+i/2+8)
+			copy(grown, c.touch)
+			c.touch = grown
+		}
 	}
 	c.touch[i]++
 }

@@ -81,6 +81,12 @@ type Spare struct {
 	// by the next clone so a search's per-simulation checkpoints recycle
 	// too. nil unless the kernel dropped a checkpoint.
 	tapeCkpt *Spare
+	// The spent engine's mana-membership carry storage (mana_member_carry.go)
+	// and its final generation: the next clone's carry starts cold over the
+	// same arrays at a generation above every recycled entry's.
+	manaEntries []manaMemberEntry
+	manaTouch   []uint64
+	manaGen     uint64
 	// The Engine fields tagged `pool=` (clone_gen.go): the Derived memo
 	// tables, the offer walk's scratch lists, the static memo and probe
 	// storage, the emit path's zone summaries, list arrays and trigger
@@ -131,6 +137,10 @@ func (e *Engine) Release() Spare {
 		loopHash:   e.loop.hs[:0],
 		snapObjs:   e.releaseSnapshotObjs(),
 	}
+	if e.manaCarry.owner == e {
+		sp.manaEntries, sp.manaTouch, sp.manaGen = e.manaCarry.entries[:0], e.manaCarry.touch[:0], e.manaCarry.gen
+	}
+	e.manaCarry = manaMemberCarry{}
 	sp.arena = e.releaseArena()
 	sp.hyp = e.releaseHypPool()
 	// Every `pool=` field (clone_gen.go); the walk scratch lists among them
