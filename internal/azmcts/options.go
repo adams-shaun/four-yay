@@ -124,6 +124,13 @@ type Options struct {
 	// cache off. It never changes the Result, only its cost counters, and a
 	// source whose worlds differ between simulations never uses it.
 	NodeCache int
+	// CachedWorlds K > 0 makes an honest (redeal) search PIMC-K over fixed
+	// worlds instead of one tree over a fresh deal per simulation: K deals
+	// are made once, each walked by its own tree of Sims/K simulations with
+	// one future-chance seed per tree, so the node cache applies to every
+	// tree; the roots are merged by summing visits (Q visit-weighted). 0 is
+	// off (the default), and a fixed-world source ignores it.
+	CachedWorlds int
 }
 
 // DiscountUnit is what one step of the backup discount counts.
