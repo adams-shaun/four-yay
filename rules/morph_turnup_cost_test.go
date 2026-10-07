@@ -552,42 +552,52 @@ func TestMorphTurnFaceUpBotAnswerValidates(t *testing.T) {
 // morph-family turn-up keyword parameter is refused rather than silently
 // waived, END TO END through morphFaceUpCost and the offer:
 //
-//   - an unmodelled cost token (the Disguise cost-reduction rider
-//     `R:X:...`, Fugitive Codebreaker's real printed Disguise parameter)
+//   - a genuinely unmodelled cost token (a synthetic `Y` morph parameter)
 //     leaves Cost.Unknown non-empty, so the face-down permanent offers NO
 //     turn_face_up action at all;
 //   - a variable-count non-mana part (Sac<X/Spec>) carries an announced
 //     count the turn-up flow cannot pose, so morphFaceUpCost refuses the
 //     whole action instead of paying zero objects.
 //
-// Both assertions go through morphFaceUpCost, so removing either new guard
-// from that function turns this test red (a direct ParseCost or
+// The Disguise cost-reduction rider (`R:X:...`, Fugitive Codebreaker's printed
+// parameter) used to be the Part A fixture, but that was the defect: the whole
+// KeywordParam remainder was handed to ParseCost. cards.Face.KeywordCostParam
+// now reads the cost as the first colon-field (Forge's KeywordWithCost rule),
+// so the rider's SVar name and reminder text no longer reach ParseCost and the
+// Disguise turn-up is offered for the full printed cost -- see
+// TestFugitiveCodebreakerDisguiseTurnFaceUpOffersAndChargesFullCost.
+//
+// Both assertions go through morphFaceUpCost, so removing either guard from
+// that function turns this test red (a direct ParseCost or
 // morphTurnUpCountAnnounced assertion would not).
 func TestMorphTurnUpCostFailsClosedOnUnmodelledShapes(t *testing.T) {
 	t.Parallel()
-	reg := searchTestRegistry(t)
 
-	// Part A: Fugitive Codebreaker's exact printed Disguise parameter (the
-	// one corpus carrier of a cost-reduction rider) is parsed to a cost with
-	// a non-empty Unknown, and the cast-then-turn-up flow offers no
-	// turn_face_up action for the face-down permanent.
-	raw := "5 R:X:This cost is reduced by {1} for each instant and sorcery card in your graveyard."
+	// Part A: a synthetic morph carrier whose turn-up cost is an unrecognised
+	// token. ParseCost reports the token through Cost.Unknown (and charges one
+	// phantom generic), so a face-down permanent must offer no turn_face_up
+	// action. The fixture is inline rather than a corpus card precisely because
+	// a real carrier's shaped keyword parameter is now read correctly.
+	raw := "Y"
 	if c := ParseCost(raw); len(c.Unknown) == 0 {
 		t.Fatalf("precondition: ParseCost(%q) reported no Unknown", raw)
 	}
-	e, _ := manifestEngine(t, reg, "Fugitive Codebreaker")
-	id := morphDownCast(t, e, "Fugitive Codebreaker", "disguised", "CCCR", 1)
-	// PRECONDITION: the permanent really is a face-down Disguise carrier, so
-	// the withheld offer below is about the unmodelled cost and not about a
-	// missing family flag.
-	if o := e.G.Obj(id); !o.FaceDown || o.CastFlags&state.FlagDisguised == 0 {
-		t.Fatalf("precondition: Fugitive Codebreaker faceDown=%v flags=%d, want a face-down disguised carrier", o.FaceDown, o.CastFlags)
+	reg := searchTestRegistry(t)
+	e, _ := manifestEngine(t, reg)
+	id := onBoard(t, e, 0, "Name:Unmodelled-cost morph\nTypes:Creature\nK:Morph:Y\nOracle:x\n")
+	e.emit(events.Event{Kind: events.TurnFaceDown, Obj: id})
+	e.emit(events.Event{Kind: events.CastInfo, Obj: id, Counter: events.FlagsString(state.FlagMorphed)})
+	// PRECONDITION: the permanent really is a face-down morph carrier, so the
+	// withheld offer below is about the unmodelled cost and not about a missing
+	// family flag.
+	if o := e.G.Obj(id); !o.FaceDown || o.CastFlags&state.FlagMorphed == 0 {
+		t.Fatalf("precondition: fixture faceDown=%v flags=%d, want a face-down morph carrier", o.FaceDown, o.CastFlags)
 	}
 	if _, ok := morphFaceUpCost(e.G.Obj(id)); ok {
-		t.Fatalf("morphFaceUpCost accepted the unmodelled Disguise cost %q; it must fail closed", raw)
+		t.Fatalf("morphFaceUpCost accepted the unmodelled cost %q; it must fail closed", raw)
 	}
 	if turnFaceUpOptionPresent(t, e, id) {
-		t.Fatalf("turn_face_up offered for a cost carrying an unmodelled token: the rider was silently waived")
+		t.Fatalf("turn_face_up offered for a cost carrying an unmodelled token: the token was silently waived")
 	}
 
 	// Part B: a Sac<X/Spec> part is the variable form. morphFaceUpCost reads
