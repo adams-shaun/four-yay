@@ -70,6 +70,14 @@ func (c *manaMemberCarry) entryFor(i int) *manaMemberEntry {
 		return nil
 	}
 	if i >= len(c.entries) {
+		if i < cap(c.entries) {
+			old := len(c.entries)
+			c.entries = c.entries[:i+1]
+			for k := old; k <= i; k++ {
+				c.entries[k] = manaMemberEntry{}
+			}
+			return &c.entries[i]
+		}
 		grown := make([]manaMemberEntry, i+1, i+1+i/2+8)
 		copy(grown, c.entries)
 		c.entries = grown
@@ -158,6 +166,11 @@ func (c *manaMemberCarry) touchObj(i int) {
 		return
 	}
 	if i >= len(c.touch) {
+		if i < cap(c.touch) {
+			c.touch = c.touch[:i+1]
+			c.touch[i]++
+			return
+		}
 		grown := make([]uint64, i+1, i+1+i/2+8)
 		copy(grown, c.touch)
 		c.touch = grown

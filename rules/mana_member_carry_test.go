@@ -54,6 +54,51 @@ func TestManaMemberCarryTouchObjBumps(t *testing.T) {
 	}
 }
 
+// TestManaMemberCarryReusesSpareCapacity pins the slice-growth cut: entryFor
+// and touchObj extend into capacity an earlier growth already reserved
+// instead of reallocating on every new index. The newly exposed region must
+// be zeroed (entryFor) or start at zero (touchObj), so a reused slot never
+// carries a stale value, and lower entries keep theirs.
+func TestManaMemberCarryReusesSpareCapacity(t *testing.T) {
+	var c manaMemberCarry
+	// The first growth reserves capacity well past the index it reaches.
+	e0 := c.entryFor(2)
+	e0.gen = 42
+	base := &c.entries[0]
+	for i := 3; i < cap(c.entries) && i < 64; i++ {
+		e := c.entryFor(i)
+		if e != &c.entries[i] {
+			t.Fatalf("entryFor(%d) = %p, want the reserved slot %p", i, e, &c.entries[i])
+		}
+		if e.gen != 0 || e.objTouch != 0 || e.n != 0 || e.set || e.all != nil {
+			t.Fatalf("entryFor(%d) exposed stale state: %+v", i, *e)
+		}
+	}
+	if &c.entries[0] != base {
+		t.Fatal("entryFor reallocated inside the reserved capacity")
+	}
+	if c.entries[2].gen != 42 {
+		t.Fatalf("entryFor lost an earlier entry: gen = %d", c.entries[2].gen)
+	}
+
+	var tc manaMemberCarry
+	tc.touchObj(1)
+	tc.touchObj(1)
+	touchBase := &tc.touch[0]
+	for i := 2; i < cap(tc.touch) && i < 64; i++ {
+		tc.touchObj(i)
+		if tc.touch[i] != 1 {
+			t.Fatalf("touchObj(%d) = %d, want 1 (a fresh slot starts at zero)", i, tc.touch[i])
+		}
+	}
+	if &tc.touch[0] != touchBase {
+		t.Fatal("touchObj reallocated inside the reserved capacity")
+	}
+	if tc.touch[1] != 2 {
+		t.Fatalf("touchObj lost an earlier count: %d", tc.touch[1])
+	}
+}
+
 // newManaCarryTestEngine parks a two-seat game at seat 0's main1 with real
 // Snow-Covered Swamps on the battlefield (own mana sources), via the existing
 // corpus fixture.
