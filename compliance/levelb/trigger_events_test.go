@@ -53,7 +53,7 @@ func TestEventTriggerSubFamilies(t *testing.T) {
 		{"Moonshadow", "ChangesZoneAll", map[string]string{"Origin": "Any", "Destination": "Graveyard", "ValidCards": "Card.YouOwn"}, "trigger.zone-change-residue", false, false},
 		{"all dies is dies-other", "ChangesZoneAll", map[string]string{"Origin": "Battlefield", "Destination": "Graveyard", "ValidCards": "Creature.YouCtrl"}, "trigger.dies-other", false, false},
 		{"Gardenize main1", "Phase", map[string]string{"Phase": "Main1", "ValidPlayer": "You"}, "trigger.phase", false, false},
-		{"each player's main1", "Phase", map[string]string{"Phase": "Main1", "ValidPlayer": "Player"}, "trigger.gap:Phase", true, false},
+		{"each player's main1", "Phase", map[string]string{"Phase": "Main1", "ValidPlayer": "Player"}, "trigger.phase-other", false, false},
 		{"Theorist", "Phase", map[string]string{"Phase": "Draw", "ValidPlayer": "Opponent"}, "trigger.phase", false, false},
 		{"opponent's end step", "Phase", map[string]string{"Phase": "End of Turn", "ValidPlayer": "Opponent"}, "trigger.gap:Phase", true, false},
 	} {

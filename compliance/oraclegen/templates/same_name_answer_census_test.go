@@ -95,13 +95,21 @@ func sameNameBucketRank(bucket string) int {
 //     statics) adds a self-removing-static scenario whose same-name pick is
 //     exactly resolved by an alias, so the resolved bucket grows.
 //
-// Unresolved stayed 0 in every set through all three moves; that is the
+// Re-measured once more on the level-B phase-other land: DSK unproven 32 ->
+// 33. Serving Defiant Survivor's "at the beginning of your second main phase"
+// trigger (Phase$ Main | PhaseCount$ 2 | ValidPlayer$ You) generates one new
+// scenario, Defiant Survivor/trigger#0.0, whose same-name pick is a
+// rank-derived library card (ref "p0:Wastes#N"), so no exact answer exists --
+// Unproven, not Unresolved. The item tracks the new scenario one-for-one and
+// disappears if the phase-other recipe hook is reverted.
+//
+// Unresolved stayed 0 in every set through all four moves; that is the
 // defect measure.
 var wantSameNameCensus = map[string]string{
 	"BIG": `{"alias":0,"copy":0,"unresolved":0,"unproven":1,"items":null}`,
 	"BLB": `{"alias":3,"copy":0,"unresolved":0,"unproven":4,"items":null}`,
 	"DFT": `{"alias":0,"copy":0,"unresolved":0,"unproven":3,"items":null}`,
-	"DSK": `{"alias":2,"copy":0,"unresolved":0,"unproven":32,"items":null}`,
+	"DSK": `{"alias":2,"copy":0,"unresolved":0,"unproven":33,"items":null}`,
 	"ECL": `{"alias":0,"copy":0,"unresolved":0,"unproven":5,"items":null}`,
 	"EOE": `{"alias":2,"copy":0,"unresolved":0,"unproven":1,"items":null}`,
 	"FDN": `{"alias":0,"copy":1,"unresolved":0,"unproven":2,"items":null}`,
