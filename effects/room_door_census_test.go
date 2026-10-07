@@ -18,7 +18,7 @@ func TestRoomDoorPrimitiveCorpusCensus(t *testing.T) {
 		"count:UnlockedDoors":         {},
 		"count:DistinctUnlockedDoors": {},
 	}
-	for _, card := range reg.Cards {
+	for _, card := range reg.AllCards() {
 		for _, primitive := range card.Primitives() {
 			if primitive == "api:UnlockDoor" {
 				got[primitive] = append(got[primitive], card.Faces[0].Name)

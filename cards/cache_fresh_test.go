@@ -222,8 +222,8 @@ func TestCacheIsServedForACacheOnlyDirectoryWithNoCorpusFolderOrLock(t *testing.
 	if err != nil {
 		t.Fatalf("OpenCorpusSubset on a cache-only directory: %v", err)
 	}
-	if len(sub.Cards) != 1 || sub.Cards[0].Faces[0].Name != "Island" {
-		t.Fatalf("cache-only subset cards = %v", sub.Cards)
+	if sub.Len() != 1 || sub.Card(0).Faces[0].Name != "Island" {
+		t.Fatalf("cache-only subset cards = %v", sub.AllCards())
 	}
 }
 

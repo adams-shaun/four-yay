@@ -66,7 +66,7 @@ var bargainCountCarriers = []string{
 func TestBargainCarrierCensus(t *testing.T) {
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
-	if len(reg.Cards) == 0 {
+	if reg.Len() == 0 {
 		t.Fatal("precondition: the corpus registry is empty, so the census would be vacuous")
 	}
 	// The registration itself is part of the ratchet: a revert of
@@ -78,7 +78,7 @@ func TestBargainCarrierCensus(t *testing.T) {
 		}
 	}
 	gotKW, gotBargained, gotBargain := map[string]bool{}, map[string]bool{}, map[string]bool{}
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		if c == nil || len(c.Faces) == 0 {
 			continue
 		}

@@ -122,7 +122,7 @@ func TestCR704CorpusLegendDuplicatesCannotReachPriority(t *testing.T) {
 	// Graduated: passes with the conformance flag on; runs in the ordinary lane.
 	reg := testutil.CorpusRegistry(t)
 	checked := 0
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		if len(c.Faces) != 1 {
 			continue
 		}

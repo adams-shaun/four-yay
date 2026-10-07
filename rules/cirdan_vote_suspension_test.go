@@ -44,7 +44,7 @@ func cirdanCorpusCard(t *testing.T, reg *cards.Registry, fragment string) *cards
 		return b.String()
 	}
 	var found *cards.Card
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for _, f := range c.Faces {
 			if strings.Contains(fold(f.Name), fragment) {
 				if found != nil && found != c {

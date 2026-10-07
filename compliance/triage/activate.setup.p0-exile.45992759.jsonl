@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"setup","field":"p0.exile","diff":"gorge+[] xmage+[Omit Variables]"},"key":"activate | setup | p0.exile | gorge+[] xmage+[Omit Variables]","cards":1}
-{"card":"Paradox Shaper","template":"activate#0.0","status":"diverge","api":"Phase:AlterAttribute","sets":["FRA"],"detail":"setup p0.exile: gorge \"[]\", xmage \"[Omit Variables]\""}

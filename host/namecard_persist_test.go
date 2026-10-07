@@ -84,12 +84,12 @@ func TestNameUniverseModeGatesReplay(t *testing.T) {
 	t.Parallel()
 	takeMatchSlot(t)
 	reg := testutil.CorpusRegistry(t)
-	if len(reg.Cards) == 0 {
+	if reg.Len() == 0 {
 		t.Fatal("precondition: corpus universe is empty")
 	}
 	r, err := New(Options{
 		LoadDeck:     nameLandLoader(t),
-		NameUniverse: reg.Cards,
+		NameUniverse: reg.AllCards(),
 		Sleep:        func(d time.Duration, stop <-chan struct{}) {},
 	})
 	if err != nil {

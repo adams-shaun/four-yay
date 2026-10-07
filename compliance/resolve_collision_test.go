@@ -31,7 +31,7 @@ func TestNoNewFoldedCorpusCollision(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	seen := map[string]string{}
 	var got []string
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for _, f := range c.Faces {
 			k := FoldName(f.Name)
 			if k == "" {

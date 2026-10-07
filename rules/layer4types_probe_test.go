@@ -29,7 +29,7 @@ func TestFaceStaticProbesAreConservative(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	e := &Engine{}
 	var faces []*cards.Face
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		faces = append(faces, c.Faces...)
 	}
 	stems := make([]string, 0, len(reg.Tokens))

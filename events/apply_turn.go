@@ -164,6 +164,7 @@ func foldTurnChange(g *state.Game, e *Event) {
 			g.Objs[i].DamageTakenThisTurnBy = nil
 			g.Objs[i].ActivatedThisTurn = 0
 			g.Objs[i].AttacksThisTurn = 0
+			g.Objs[i].AttackedTurn, g.Objs[i].AttackedCombat = 0, 0
 			// CR 702.100a: exerted is a per-turn fact. ExertSkipUntap is
 			// deliberately NOT reset here -- its window spans the turn
 			// boundary and is consumed at the next untap step instead.

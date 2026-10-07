@@ -47,7 +47,7 @@ func cantLoseFixture(t *testing.T, seed uint64, oppSrc string) (*Engine, Config,
 	}
 	cfg := seatZeroStart(Config{Seed: seed, Names: []string{"a", "b"},
 		Decks:  [][]*cards.Card{seatDeck, oppDeck},
-		Tokens: reg.Tokens, NameUniverse: reg.Cards})
+		Tokens: reg.Tokens, NameUniverse: reg.AllCards()})
 	e := New(cfg)
 	e.Advance()
 	heraldID := moveNamedToBattlefield(t, e, 0, "Herald of Eternal Dawn")
@@ -254,7 +254,7 @@ func TestGameLossAndGameWinPrimitivesAreRegistered(t *testing.T) {
 		}
 	}
 	carriers := 0
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		carries := map[string]bool{}
 		for _, f := range c.Faces {
 			for i := range f.Repls {

@@ -18,8 +18,8 @@ func TestCompileDirLoadsTokenScriptsByStem(t *testing.T) {
 	if err != nil || len(diags) != 0 {
 		t.Fatalf("%v %v", err, diags)
 	}
-	if len(r.Cards) != 1 {
-		t.Fatalf("tokens leaked into Cards: %d", len(r.Cards))
+	if r.Len() != 1 {
+		t.Fatalf("tokens leaked into Cards: %d", r.Len())
 	}
 	tok, ok := r.Token("r_1_1_goblin")
 	if !ok || tok.Faces[0].Name != "Goblin Token" || tok.Faces[0].Power() != 1 || tok.Faces[0].Colors != "red" {
@@ -31,7 +31,7 @@ func TestCompileDirLoadsTokenScriptsByStem(t *testing.T) {
 	if _, ok := r.Lookup("Goblin Token"); ok {
 		t.Fatal("a token is not a card: Lookup must not find it")
 	}
-	cardID := r.Cards[0].Faces[0].CompiledID()
+	cardID := r.Card(0).Faces[0].CompiledID()
 	aID := r.Tokens["c_3_3_a_phyrexian_wurm_deathtouch"].Faces[0].CompiledID()
 	zID := r.Tokens["r_1_1_goblin"].Faces[0].CompiledID()
 	if cardID != 1 || aID != 2 || zID != 3 {

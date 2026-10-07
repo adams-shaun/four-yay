@@ -13,7 +13,7 @@ import (
 func TestMustBlockNamedTargetShapeCensus(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	var supported, other []string
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for _, f := range c.Faces {
 			if f == nil {
 				continue

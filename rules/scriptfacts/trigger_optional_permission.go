@@ -1,4 +1,4 @@
-package rules
+package scriptfacts
 
 import (
 	"strings"
@@ -6,7 +6,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 )
 
-// triggerOptionalSpec is the OptionalDecider$ spec a printed trigger's CR 603.5
+// TriggerOptionalSpec is the OptionalDecider$ spec a printed trigger's CR 603.5
 // yes/no is posed under, or "" when the trigger is not optional. It is the one
 // read the placement path (triggerOptional), the resolution gate (resolveTop)
 // and the view's StackOptional share, so the three cannot disagree.
@@ -23,7 +23,7 @@ import (
 // whose every may-sentence is a play/cast permission with a this-turn/until/
 // for-as-long duration) finds exactly those two cards; every other carrier
 // keeps its election.
-func triggerOptionalSpec(t cards.Trigger) string {
+func TriggerOptionalSpec(t cards.Trigger) string {
 	spec := t.ParamStr(cards.PKOptionalDecider)
 	if spec == "" {
 		return ""

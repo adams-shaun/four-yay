@@ -25,7 +25,7 @@ func TestValueHeadRegistryMatchesEvaluator(t *testing.T) {
 	e := layerEngine(t)
 	resolves := map[string]bool{}
 	seen := map[string]bool{}
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for _, f := range c.Faces {
 			if f.Name == "" || len(f.SVars) == 0 {
 				continue

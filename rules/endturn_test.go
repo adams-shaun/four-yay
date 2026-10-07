@@ -31,7 +31,7 @@ func TestEndTurnPrimitiveRegisteredForEveryCorpusCarrier(t *testing.T) {
 		t.Fatal("effects.Supported() does not name api:EndTurn: the primitive is not registered")
 	}
 	carriers := 0
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		has := false
 		for _, p := range c.Primitives() {
 			if p == "api:EndTurn" {

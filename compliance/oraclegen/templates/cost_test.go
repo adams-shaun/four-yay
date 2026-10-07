@@ -48,7 +48,7 @@ func probeCast(t *testing.T, it oraclegen.Item) oraclegen.Step {
 func withoutStatics(reg *cards.Registry, name string) *cards.Registry {
 	muted := cards.NewRegistry()
 	muted.Tokens = reg.Tokens
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		if c.Faces[0].Name == name {
 			cc := *c
 			cc.Faces = append([]*cards.Face(nil), c.Faces...)
@@ -260,7 +260,7 @@ func TestCostStaticFailedCastStaysAGeneratedItem(t *testing.T) {
 			muted := cards.NewRegistry()
 			muted.Tokens = reg.Tokens
 			var req levelb.Requirement
-			for _, c := range reg.Cards {
+			for _, c := range reg.AllCards() {
 				if c.Faces[0].Name == name {
 					cc := *c
 					cc.Faces = append([]*cards.Face(nil), c.Faces...)

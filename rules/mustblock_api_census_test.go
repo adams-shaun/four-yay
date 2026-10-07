@@ -13,7 +13,7 @@ import (
 func TestMustBlockAPICarrierCensus(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	var got []string
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for _, f := range c.Faces {
 			if f != nil && slices.Contains(f.Primitives(), "api:MustBlock") {
 				got = append(got, f.Name)

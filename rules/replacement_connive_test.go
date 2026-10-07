@@ -76,7 +76,7 @@ func TestLeaderSuperGeniusConniveCarrierPinned(t *testing.T) {
 		t.Fatal("Leader, Super-Genius corpus face does not compile its R:Event$ Connive carrier")
 	}
 	count := 0
-	for _, card := range searchTestRegistry(t).Cards {
+	for _, card := range searchTestRegistry(t).AllCards() {
 		for _, face := range card.Faces {
 			for _, repl := range face.Repls {
 				if repl.EventKind() == cards.ReplConnive {

@@ -116,7 +116,7 @@ func TestTraceDoesNotChangeGameOrReplay(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	names := []string{"mono-red-prowess", "mono-green-stompy"}
 	decks := [][]*cards.Card{testutil.RepoDeck(t, reg, names[0]), testutil.RepoDeck(t, reg, names[1])}
-	cfg := rules.Config{Seed: 17, Names: names, Decks: decks, Tokens: reg.Tokens, NameUniverse: reg.Cards}
+	cfg := rules.Config{Seed: 17, Names: names, Decks: decks, Tokens: reg.Tokens, NameUniverse: reg.AllCards()}
 	newSeats := func() []seat.Seat { return []seat.Seat{seat.NewBot(16), seat.NewBot(19)} }
 
 	wantOutcome, wantEngine, err := playMatchOnce(cfg, []string{"bot", "bot"}, newSeats(), 200, 20000, nil, nil)

@@ -94,7 +94,7 @@ func TestXMageAbilityPrefixSelectionCorpus(t *testing.T) {
 func TestXMageAbilityPrefixesAreCorpusUnique(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	mappedFaces := 0
-	for _, card := range reg.Cards {
+	for _, card := range reg.AllCards() {
 		for _, face := range card.Faces {
 			got, why := oraclegen.XMageAbility(face)
 			if why != "" {

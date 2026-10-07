@@ -70,7 +70,7 @@ func TestFirebendingCorpusCensus(t *testing.T) {
 
 	printed := map[string]bool{}
 	var printedFaces int
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for _, f := range c.Faces {
 			if !f.HasKeyword("Firebending") {
 				continue
@@ -107,7 +107,7 @@ func TestFirebendingCorpusCensus(t *testing.T) {
 	// The keyword-grant carriers: a KW$ Firebending:<N> on any ability is the
 	// "also affected" class the printed expansion does not cover.
 	grants := map[string]bool{}
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for _, f := range c.Faces {
 			for _, sa := range f.Abilities {
 				for _, v := range sa.Params {

@@ -67,7 +67,7 @@ func sacrificeSAs(r *cards.Registry) []*cards.SA {
 		}
 		rec(sa)
 	}
-	for _, c := range r.Cards {
+	for _, c := range r.AllCards() {
 		for _, f := range c.Faces {
 			for _, a := range f.Abilities {
 				addLine(a, c.Path)

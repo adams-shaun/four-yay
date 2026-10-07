@@ -259,7 +259,7 @@ func TestDigMultipleCorpusCarriers(t *testing.T) {
 			}
 		}
 	}
-	for _, card := range reg.Cards {
+	for _, card := range reg.AllCards() {
 		for _, f := range card.Faces {
 			for _, sa := range f.Abilities {
 				if sa != nil {
