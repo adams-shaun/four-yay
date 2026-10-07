@@ -93,6 +93,9 @@ type Engine struct {
 	// windowDiagnostics is the default-off, observer-only priority sidecar
 	// gate copied from genesis Config.
 	windowDiagnostics bool `clone:"deep"`
+	// skipPass is the hypothetical-only auto-pass of quiet priority windows
+	// (skip_pass.go); set by the search's world setup, never cloned.
+	skipPass uint8 `clone:"reset"`
 	// startingLife is Config.StartingLife with the 0-means-20 convention
 	// already resolved at genesis — the value state.NewGameLife opened the
 	// game with. It is the effects.Host StartingLife backing (the

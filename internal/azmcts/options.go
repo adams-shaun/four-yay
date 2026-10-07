@@ -175,6 +175,14 @@ type Options struct {
 	// floats (a tap is never a candidate, so such a priority stays the
 	// bot's).
 	OpponentNodes bool
+	// SkipPass makes the search's world engines auto-pass every priority
+	// window outside a main phase with an empty stack (rules.Engine.SetSkipPass):
+	// no legal-action walk, payment build or bot answer is paid for it, and the
+	// window is never a searched point. A simulation shortcut: instants cast in
+	// combat or upkeep are invisible to the rollouts. Never applied to the real
+	// game's engine or the root decision. Level 2 also
+	// passes the non-active seat's empty-stack main-phase window. 0 (default) is off.
+	SkipPass int
 }
 
 // DiscountUnit is what one step of the backup discount counts.
