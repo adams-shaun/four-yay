@@ -19,6 +19,10 @@ var turnFaceUpCases = []struct {
 	{"Dog Walker", "trigger#0.0", levelb.TurnedFaceUpSub, "Dog Walker", true},
 	{"Branch of Vitu-Ghazi", "trigger#0.0", levelb.TurnedFaceUpSub, "Branch of Vitu-Ghazi", true},
 	{"Sumala Sentry", "trigger#0.0", levelb.TurnedFaceUpOtherSub, "Bolrac-Clan Basher", false},
+	// Cryptid Inspector's filter also names another permanent but the card
+	// itself is no Disguise carrier (it is a DSK payoff), so the recipe falls
+	// back to turning up a probe. Its TurnFaceUp trigger is the card's second.
+	{"Cryptid Inspector", "trigger#0.1", levelb.TurnedFaceUpSub, "Bolrac-Clan Basher", false},
 }
 
 // TestTurnFaceUpTriggerRecipeFires: each turned-face-up item generates, casts

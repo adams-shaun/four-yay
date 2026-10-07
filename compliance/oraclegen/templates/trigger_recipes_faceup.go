@@ -52,6 +52,16 @@ var turnedFaceUpDisguiseProbes = []string{
 func turnedFaceUpRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards.Trigger, sub string) (causes []triggerCause, why string, ok bool) {
 	switch sub {
 	case levelb.TurnedFaceUpSub:
+		if _, _, why := disguiseCost(f); why == "" {
+			return turnedFaceUpSelfCause(f, name)
+		}
+		// The card carries no Disguise (Cryptid Inspector's combined
+		// "CARDNAME or another permanent you control is turned face up").
+		// When its filter also accepts another permanent, turn up a probe;
+		// otherwise report the self recipe's own "not a Disguise card".
+		if causes, why, ok := turnedFaceUpOtherCause(reg, t, name); ok && why == "" {
+			return causes, "", true
+		}
 		return turnedFaceUpSelfCause(f, name)
 	case levelb.TurnedFaceUpOtherSub:
 		return turnedFaceUpOtherCause(reg, t, name)
