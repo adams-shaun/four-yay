@@ -152,6 +152,11 @@ type Board struct {
 	// the pre-refactor arithmetic, byte for byte (cast.go's castWeights).
 	// A Board nobody configured plays the default bot.
 	Cast CastWeights
+	// Mulligan is the London-mulligan rule (mulligan.go): CONFIGURATION
+	// like Cast, never filled by the adapters. The zero value,
+	// MulliganCoin, is the historical 1/3 coin and chooseDiscard bottoming;
+	// seat.Bot.WithMulligan sets another rule on every Board it decides on.
+	Mulligan MulliganRule
 	// FirstMain reports whether the current main phase is the FIRST one
 	// (main1, not main2): the Precombat feature's board half. It is filled
 	// exactly like IsMain on both adapter halves -- the projected View's
@@ -359,7 +364,9 @@ func (b Board) closesClock(p state.PlayerID, id state.ObjID, a Creature) bool {
 //     mulligans with probability 1/3 off the bot's own rng when a
 //     "mulligan" option is offered (the determinism mirror of
 //     KTriggerOptional), otherwise keeps (the "keep" option at index 0). The
-//     rng is consumed only where a real mulligan choice exists.
+//     rng is consumed only where a real mulligan choice exists. An opt-in
+//     Board.Mulligan rule (mulligan.go: the land-count heuristic, or
+//     always-keep) replaces both answers and consumes no rng.
 //   - KModes: a modal announcement or mid-resolution pick -- choose the first Min options
 //     in order (Choices [0, 1, …, Min-1]), the recorded mirror of the
 //     engine-side first-mode stand-in, no rng. This also answers an
@@ -1099,6 +1106,12 @@ func decide(b Board, d *decision.Decision, r *rand.Rand, lethalPressure, combine
 		return Clamp(d, in)
 
 	case decision.KMulligan:
+		// An opt-in rule (Board.Mulligan: the land-count heuristic or
+		// always-keep) answers both shapes without the rng (mulligan.go).
+		if c, ok := b.mulliganByRule(d); ok {
+			in.Choices = c
+			return Clamp(d, in)
+		}
 		// The London round, two shapes on one kind (rules/mulligan.go).
 		// Bottoming is a hand-retention decision, like discard.
 		if len(d.Options) > 0 && d.Options[0].Kind == "bottom" {
