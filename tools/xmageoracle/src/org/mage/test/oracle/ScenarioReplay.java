@@ -2090,12 +2090,17 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 // cost's picks come from xmage_answers. "disguised" casts the card
                 // face down for {3}; XMage selects that cast by suffixing the card
                 // name ("<card> using Disguise", DisguiseTest/CovetedFalconTest).
+                // "morphed"/"megamorphed" are the same face-down cast for the Morph
+                // and Megamorph families; XMage defines no Megamorph cast
+                // spelling, as both set SpellAbilityCastMode.MORPH, so both
+                // suffix " using Morph" (MorphAbility.java:79-88;
+                // MegamorphTest.java:24 casts "Aerie Bowmasters" that way).
                 // Every other cast_mode, and kicked, stay unsupported.
                 String mode = st.has("cast_mode") ? str(st, "cast_mode") : "";
-                if (st.has("kicked") || (st.has("cast_mode") && !"optionalcost".equals(mode) && !"disguised".equals(mode))) {
+                boolean faceDown = "morphed".equals(mode) || "megamorphed".equals(mode) || "disguised".equals(mode);
+                if (st.has("kicked") || (st.has("cast_mode") && !"optionalcost".equals(mode) && !faceDown)) {
                     throw new IllegalArgumentException("kicked/cast_mode unsupported");
                 }
-                boolean disguised = "disguised".equals(mode);
                 if (!sc0.has("xmage_answers")) {
                     answers(st, p);
                 }
@@ -2118,9 +2123,14 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 // object: a split/Room half is cast by its half name while
                 // the hand holds the whole "A // B" card (castSpelling).
                 String cardName = castSpelling(refName(str(st, "card")));
-                // A face-down Disguise cast names the SpellAbility by "using
-                // Disguise"; every plain cast names the card itself.
-                String card = disguised ? cardName + " using Disguise" : cardName;
+                // A face-down Morph/Megamorph/Disguise cast names the
+                // SpellAbility by its XMage cast spelling; every plain cast
+                // names the card itself. Morph and Megamorph share "using
+                // Morph".
+                String castSuffix = "morphed".equals(mode) || "megamorphed".equals(mode)
+                        ? " using Morph"
+                        : "disguised".equals(mode) ? " using Disguise" : "";
+                String card = cardName + castSuffix;
                 List<String> tg = targets(st);
                 if (hasAlternativeSourceCost(cardName)) {
                     // A plain cast step: gorge paid the mana cost, so decline
