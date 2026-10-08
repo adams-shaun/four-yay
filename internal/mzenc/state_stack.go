@@ -24,10 +24,13 @@ func (w *walker) processStack(f *Node, v *view.View) {
 // StateEncoder.processStackObject (StateEncoder.java:353-411). The view
 // exposes the controller and, for a spell, the printed CardView; isController
 // is emitted when the object's controller is the seat, and the cast-shape
-// ability's API stands in for upstream's sa.getRule(). The target list, the
-// kicker count, the cost tags, the selected modes, the X value and the
-// triggered-vs-activated distinction are not exposable through view.StackView,
-// so they emit nothing and the family is recorded in w.unsupported.
+// ability's API stands in for upstream's sa.getRule(). The target list IS
+// exposed by view.StackView.Targets []TargetView, but is deliberately not yet
+// wired into this skeleton; that and the family of stack-ability detail that
+// view.StackView does not expose (the kicker count, the cost tags, the selected
+// modes, the X value, the triggered-vs-activated distinction) emit nothing, and
+// each family is recorded in w.unsupported. Task 6's register owns the honest
+// reason for each.
 func (w *walker) processStackObject(f *Node, sv *view.StackView, depth int) {
 	if sv.Controller == w.seat {
 		f.AddFeature("isController")
