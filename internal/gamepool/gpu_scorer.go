@@ -85,7 +85,7 @@ func (s *FlatGPUScorer) Serve(batch []*Request) error {
 			fb.actionOwner = append(fb.actionOwner, int32(i))
 			start := len(fb.actions)
 			fb.actions = append(fb.actions, make([]float32, flatActionDim)...)
-			encodeAction(&r.Decision, o, fb.actions[start:start+flatActionDim])
+			encodeActionMZ(r, o, fb.actions[start:start+flatActionDim])
 			total++
 		}
 	}
