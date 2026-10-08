@@ -175,7 +175,8 @@ func (w *walker) processPerm(f *Node, cv *view.CardView, ch view.Chars) {
 	w.unsupported["CanAttack"] = true
 	w.unsupported["CanBlock"] = true
 	w.unsupported["PermanentFlags"] = true
-	w.unsupported["Attachments"] = true
+	// Attachments is already registered by processPlayer (player-level
+	// upstream family, Task 2); permanent attachments share the family name.
 	w.unsupported["Imprinted"] = true
 	w.unsupported["Paired"] = true
 	w.unsupported["TargetedBy"] = true

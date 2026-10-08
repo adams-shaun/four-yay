@@ -66,18 +66,27 @@ func TestProcessStatePlayerScalars(t *testing.T) {
 }
 
 func TestProcessStateBattlefieldDeterministicOrder(t *testing.T) {
-	mk := func(id state.ObjID, name string, tapped bool) view.CardView {
+	mk := func(id state.ObjID, name string, tapped bool, power int32) view.CardView {
 		return view.CardView{ID: id, Name: name, Types: "Creature", Tapped: tapped,
-			Power: 2, Toughness: 3, Keywords: []string{"Flying"}}
+			Power: power, Toughness: 3, Keywords: []string{"Flying"}}
 	}
-	// Two battlefields; within one, names must be walked SORTED, so the
-	// occurrence keys "#1"/"#2" are stable regardless of slice order.
+	// Two battlefields. Within one, TWO permanents share the name "Alpha" but
+	// differ in Tapped/Power, so the sorted walk is the only thing that pins
+	// which permanent gets the "#1" vs "#2" occurrence key. Distinct names
+	// alone would always land on their own name#1 child and never exercise the
+	// ordering; the duplicate name is what makes this test guard the sort.
 	v := view.View{Players: []view.PlayerView{
-		{ID: 0, Battlefield: []view.CardView{mk(10, "Grizzly Bears", false), mk(11, "Alpha", true)}},
+		{ID: 0, Battlefield: []view.CardView{
+			mk(10, "Alpha", false, 3),
+			mk(11, "Alpha", true, 2),
+			mk(12, "Grizzly Bears", false, 2),
+		}},
 		{ID: 1, Battlefield: nil},
 	}}
 	a := ProcessState(v, nil, 0, 0, "x")
-	// swap the two permanents; the id SET must be identical (sorted walk).
+	// swap the two SAME-NAME permanents; with a sorted walk the id set is
+	// unchanged, without it the Alpha#1/#2 occurrence keys move and the id set
+	// changes. (Sorted order is by (Name, ID), so id 10 stays Alpha#1.)
 	v.Players[0].Battlefield[0], v.Players[0].Battlefield[1] = v.Players[0].Battlefield[1], v.Players[0].Battlefield[0]
 	b := ProcessState(v, nil, 0, 0, "x")
 	if len(a) != len(b) {
@@ -88,17 +97,23 @@ func TestProcessStateBattlefieldDeterministicOrder(t *testing.T) {
 			t.Fatalf("order-dependent id set: id %d only in first", id)
 		}
 	}
-	// The exact subtree the walk must emit for the tapped Alpha creature.
-	// The battlefield nests under the player's subtree (StateEncoder
-	// processPlayer:592), so `want` hangs it under "Player".
+	// The exact subtree the walk must emit. The battlefield nests under the
+	// player's subtree (StateEncoder processPlayer:592), so `want` hangs it
+	// under "Player". Sorted by ID: id 10 is Alpha#1 (Power 3), id 11 is
+	// Alpha#2 (Tapped, Power 2); the Features engine numbers the two same-name
+	// SubFeatures calls #1 then #2.
 	want := idsFor(func(f *Node) {
 		me := f.SubFeatures("Player", true)
 		bf := me.SubFeatures("Battlefield", true)
-		pa := bf.SubFeatures("Alpha", true)
-		pa.AddFeature("Tapped")
-		pa.AddFeature("creature") // type word, lowercased
-		pa.AddNumericFeature("Power", 2, true)
-		pa.AddNumericFeature("Toughness", 3, true)
+		a1 := bf.SubFeatures("Alpha", true)
+		a1.AddFeature("creature") // type word, lowercased
+		a1.AddNumericFeature("Power", 3, true)
+		a1.AddNumericFeature("Toughness", 3, true)
+		a2 := bf.SubFeatures("Alpha", true)
+		a2.AddFeature("Tapped")
+		a2.AddFeature("creature")
+		a2.AddNumericFeature("Power", 2, true)
+		a2.AddNumericFeature("Toughness", 3, true)
 		pg := bf.SubFeatures("Grizzly Bears", true)
 		pg.AddNumericFeature("Power", 2, true)
 	})
