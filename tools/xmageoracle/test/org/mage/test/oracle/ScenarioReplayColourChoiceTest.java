@@ -1,6 +1,7 @@
 package org.mage.test.oracle;
 
 import mage.choices.ChoiceColor;
+import mage.choices.ChoiceCreatureType;
 import mage.constants.MultiplayerAttackOption;
 import mage.constants.Outcome;
 import mage.constants.RangeOfInfluence;
@@ -34,6 +35,15 @@ public final class ScenarioReplayColourChoiceTest {
         ChoiceColor c = new ChoiceColor(true);
         equal(true, p.choose(Outcome.Benefit, c, g));
         return c.getChoice();
+    }
+
+    /** The as-enters "choose a creature type" dialog (ChooseCreatureTypeEffect).
+     * A key choice over SubType descriptions; a source is not needed for the
+     * choice itself. */
+    private static String askCreatureType(TestPlayer p, Game g) {
+        ChoiceCreatureType c = new ChoiceCreatureType(g, null, true, "Choose a creature type");
+        equal(true, p.choose(Outcome.Benefit, c, g));
+        return c.getChoiceKey();
     }
 
     public static void main(String[] args) {
@@ -72,5 +82,34 @@ public final class ScenarioReplayColourChoiceTest {
         ScenarioReplay.queueChoice(q, "[choice_skip]");
         equal(TestPlayer.CHOICE_SKIP, q.getChoices().get(0));
         System.out.println("PASS [choice_skip] maps to TestPlayer.CHOICE_SKIP");
+
+        // Patchwork Banner's setup dialog: the emitted subtype name answers
+        // the key choice and is consumed, exactly like the colour case. These
+        // are the four values gorge's generator emitted on 2026-10-06.
+        for (String type : new String[] {"Human", "Elemental", "Dinosaur", "Bear"}) {
+            TestPlayer tp = new TestPlayer(new TestComputerPlayer("T", RangeOfInfluence.ONE));
+            Game tg = game(tp);
+            ScenarioReplay.queueSetupChoices(tp, type);
+            equal(type, askCreatureType(tp, tg));
+            equal(0, tp.getChoices().size());
+        }
+        System.out.println("PASS setup-placement ETB ChoiceCreatureType consumes its scripted subtype");
+
+        // A mana colour offered to the creature-type dialog is rejected with
+        // the SAME message the Level B rows reported, which is what identifies
+        // that dialog as the consumer of the first gameplay answer.
+        TestPlayer bad = new TestPlayer(new TestComputerPlayer("Bad", RangeOfInfluence.ONE));
+        Game badGame = game(bad);
+        ScenarioReplay.queueSetupChoices(bad, "White");
+        String badMessage = null;
+        try {
+            askCreatureType(bad, badGame);
+        } catch (IllegalArgumentException e) {
+            badMessage = e.getMessage();
+        }
+        if (badMessage == null || !badMessage.equals("Choice key [White] not found in []")) {
+            throw new AssertionError("expected the reported Level B message, got " + badMessage);
+        }
+        System.out.println("PASS a mana colour is rejected by ChoiceCreatureType with the reported [] message");
     }
 }

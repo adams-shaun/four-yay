@@ -1,6 +1,0 @@
-{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"IllegalArgumentException: Choice key […] not found in […]"},"key":"activate | harness | xmage | IllegalArgumentException: Choice key […] not found in […]","cards":5}
-{"card":"Cavern of Souls","template":"activate#0.1","status":"harness","api":"-","sets":["LCI"],"detail":"xmage: IllegalArgumentException: Choice key [White] not found in []"}
-{"card":"Eclipsed Realms","template":"activate#0.1","status":"harness","api":"-","sets":["ECL"],"detail":"xmage: IllegalArgumentException: Choice key [White] not found in []"}
-{"card":"Lifecraft Engine","template":"activate#0.0","status":"harness","api":"-","sets":["DFT"],"detail":"xmage: IllegalArgumentException: Choice key [Colossal Dreadmaw] not found in []"}
-{"card":"Patchwork Banner","template":"activate#0.0","status":"harness","api":"-","sets":["BLB"],"detail":"xmage: IllegalArgumentException: Choice key [White] not found in []"}
-{"card":"Secluded Courtyard","template":"activate#0.1","status":"harness","api":"-","sets":["FDN"],"detail":"xmage: IllegalArgumentException: Choice key [White] not found in []"}

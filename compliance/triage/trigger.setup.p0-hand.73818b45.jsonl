@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"setup","field":"p0.hand","diff":"gorge+[Grizzly Bears] xmage+[]"},"key":"trigger | setup | p0.hand | gorge+[Grizzly Bears] xmage+[]","cards":1}
+{"card":"Gathering Stone","template":"trigger#0.1","status":"diverge","api":"ChangesZone:PeekAndReveal+Phase:PeekAndReveal","sets":["ECL"],"detail":"setup p0.hand: gorge \"[Grizzly Bears]\", xmage \"[]\""}
