@@ -29,7 +29,7 @@ func namecardMvUniverse(t *testing.T) []*cards.Card {
 func namecardGameWithMvUniverse(t *testing.T) *state.Game {
 	t.Helper()
 	g := state.NewGame(names(2))
-	g.NameUniverse = namecardMvUniverse(t)
+	g.NameUniverse = cards.UniverseOf(namecardMvUniverse(t))
 	return g
 }
 
@@ -81,7 +81,7 @@ func TestRandomNameCardResolvesPaidXFilter(t *testing.T) {
 	// Precondition the assertion above depends on: the OTHER creature's mana
 	// value differs from X, so an unrestricted lottery could not land here
 	// deterministically AND a wrong-branch match would be visible.
-	if mv := h.g.NameUniverse[1].Faces[0].Cmc(); mv == 2 {
+	if mv := h.g.NameUniverse.Card(1).Faces[0].Cmc(); mv == 2 {
 		t.Fatalf("precondition: Hill Giant mana value = %d, want != 2", mv)
 	}
 	if ev := chosenNameEvent(h.log); ev != "Grizzly Bears" {

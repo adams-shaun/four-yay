@@ -120,7 +120,7 @@ func TestCorpusPresentZoneHiddenZones(t *testing.T) {
 		}
 		check(name, kind, zone)
 	}
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for _, face := range c.Faces {
 			if face == nil {
 				continue

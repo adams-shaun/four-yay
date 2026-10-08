@@ -55,7 +55,7 @@ func (c *Card) named() bool {
 
 func (r *Registry) Coverage(supported map[string]bool) Coverage {
 	cv := Coverage{Missing: map[string]int{}}
-	for _, c := range r.Cards {
+	for _, c := range r.AllCards() {
 		if !c.named() {
 			continue
 		}

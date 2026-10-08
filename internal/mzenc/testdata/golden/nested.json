@@ -1,0 +1,46 @@
+{
+  "name": "nested",
+  "useFeatureMap": false,
+  "ops": [
+    {
+      "op": "push",
+      "name": "Player",
+      "passToParent": true
+    },
+    {
+      "op": "push",
+      "name": "Battlefield",
+      "passToParent": false
+    },
+    {
+      "op": "feature",
+      "name": "Creature"
+    },
+    {
+      "op": "numeric",
+      "name": "Power",
+      "num": 3
+    },
+    {
+      "op": "pop"
+    },
+    {
+      "op": "feature",
+      "name": "LifeTotal"
+    },
+    {
+      "op": "pop"
+    }
+  ],
+  "indices": [
+    89567131,
+    119033613,
+    556062143,
+    692959129,
+    859203595,
+    1205807377,
+    1406162985,
+    1926989779,
+    2075380859
+  ]
+}

@@ -56,7 +56,7 @@ func TestFDNNoteSweep(t *testing.T) {
 				var res sbResult
 				seats := []seat.Seat{policies[m[0]](seed ^ 1), policies[m[1]](seed ^ 2)}
 				cfg := rules.Config{Seed: seed, Names: []string{"p0", "p1"}, Decks: [][]*cards.Card{deck, deck},
-					Tokens: reg.Tokens, NameUniverse: reg.Cards}
+					Tokens: reg.Tokens, NameUniverse: reg.Universe()}
 				_, e, err := gbench.PlayGame(cfg, seats, 200, 20000, gbench.Hooks{Submit: sbSubmitWithFallback(seats, &res)})
 				played++
 				if err != nil || e == nil {

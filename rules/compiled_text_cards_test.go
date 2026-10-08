@@ -13,7 +13,7 @@ import (
 func TestCardTextMatchesFreshWalk(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	n := 0
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		if n >= 3000 {
 			break
 		}

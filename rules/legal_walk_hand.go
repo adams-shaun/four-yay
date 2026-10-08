@@ -55,7 +55,7 @@ func (w *legalWalk) handWalk() {
 			// turn-face-up cost).
 			if ph.has(phMorph | phMegamorph | phDisguise) {
 				if fam := morphDownFamily(f); fam != "" && !e.castSuppressed(p, id) &&
-					!w.castRestricted(p, id) && e.spellTimingOK(p, id, f, sorcery) &&
+					!w.castRestricted(p, id) && w.spellTimingOK(p, id, f, sorcery) &&
 					w.offerCastable(p, id, Cost{Generic: 3}, spellScope(fam), false) {
 					*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 						Label: "Cast " + f.Name + " (face down)", Obj: id, Mode: fam})
@@ -84,7 +84,7 @@ func (w *legalWalk) handWalk() {
 		// that matches only the back face must not be missed by probing only
 		// the front (both directions are regression-tested in
 		// rules/modal_spell_face_restriction_test.go).
-		if mf := modalSpellBack(o); mf != nil && e.spellTimingOK(p, id, mf, sorcery) &&
+		if mf := modalSpellBack(o); mf != nil && w.spellTimingOK(p, id, mf, sorcery) &&
 			e.castTargetsAvailable(p, id, mf.SpellAbility()) &&
 			!w.castRestrictedAsFace(p, id, mf) {
 			if w.offerCastableAsFace(p, id, mf, pay.WithSpellAbilityExtras(mf, e.faceCost(mf)), spellScope("")) {
@@ -124,7 +124,7 @@ func (w *legalWalk) handWalk() {
 			// CR 601.2e recheck (recheckIllegal) re-runs the same face-scoped
 			// read against the ANNOUNCED targets, so offer and enforcement
 			// agree on one interpretation.
-			instant := sf.IsInstant() || e.hasKeywordH(id, kwhFlash) || e.castWithFlashAsFace(p, id, sf)
+			instant := sf.IsInstant() || e.hasKeywordH(id, kwhFlash) || w.castWithFlashAsFace(p, id, sf)
 			if (instant || sorcery) && e.splitCastTargetsAvailable(p, id, sf) &&
 				!w.castRestrictedAsFace(p, id, sf) {
 				if w.offerCastableAsFace(p, id, sf, pay.WithSpellAbilityExtras(sf, e.faceCost(sf)), spellScope("")) {
@@ -141,7 +141,7 @@ func (w *legalWalk) handWalk() {
 		// continue below reads -- a restriction matching only one face must
 		// decide only that face's offer.
 		if int(o.FaceIdx) == 0 {
-			if af := adventureSpellFace(o); af != nil && e.spellTimingOK(p, id, af, sorcery) &&
+			if af := adventureSpellFace(o); af != nil && w.spellTimingOK(p, id, af, sorcery) &&
 				e.castTargetsAvailable(p, id, af.SpellAbility()) && !w.castRestrictedAsFace(p, id, af) {
 				if w.offerCastableAsFace(p, id, af, pay.WithSpellAbilityExtras(af, ParseCost(af.ManaCost)), spellScope("")) {
 					*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
@@ -251,7 +251,7 @@ func (w *legalWalk) handWalk() {
 				}
 			}
 		}
-		if !e.spellTimingOK(p, id, f, sorcery) {
+		if !w.spellTimingOK(p, id, f, sorcery) {
 			// Quantum Reduction's permission is offered only with Teamwork.
 			teamworkFlashOffer(w, id, f)
 			// MayFlashCost (Forge's K:MayFlashCost, CR 702.8): when the ordinary
@@ -670,7 +670,7 @@ func (w *legalWalk) handWalk() {
 		// action itself only exiles; the later plot_cast announces its own
 		// targets. The free cast's later-turn gate lives in Object.PlottedTurn.
 		if ph.has(phPlot) {
-			if raw, ok := f.KeywordParam("Plot"); ok && sorcery &&
+			if raw, ok := f.KeywordCostParam("Plot"); ok && sorcery &&
 				w.offerCastable(p, id, ParseCost(raw), spellScope("plot"), false) {
 				*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 					Label: "Plot " + f.Name, Obj: id, Mode: "plot"})

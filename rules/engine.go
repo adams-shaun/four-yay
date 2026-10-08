@@ -99,14 +99,14 @@ type Config struct {
 	// must pass the same table a live match's Config did.
 	Tokens map[string]*cards.Card
 	// NameUniverse is the compiled corpus used by NameCard decisions.
-	NameUniverse []*cards.Card
+	NameUniverse *cards.Universe
 	// NamedCorpus is a compiled corpus consulted ONLY by the "copy the card
 	// named N" mechanic (CopyPermanent DefinedName$, state.Game.NamedCard),
 	// the oracle-compliance harness -- which must not gain NameCard asks
 	// its recorded verdicts predate -- supplies it without setting
 	// NameUniverse. NameUniverse is searched first, so an embedder that sets
 	// it needs no second field.
-	NamedCorpus []*cards.Card
+	NamedCorpus *cards.Universe
 	// NameUniverseNames pins a persisted match's sorted name list. A live
 	// match leaves it nil and derives it from NameUniverse at genesis.
 	NameUniverseNames []string
@@ -308,6 +308,16 @@ func submitCommit(e *Engine, d *decision.Decision, in decision.Intent) {
 	}
 	e.emit(events.Event{Kind: events.DecisionMade, Player: logged.Player, Text: made})
 	e.pending = nil
+	// The answered decision's generation is closed for new asks: flip to the
+	// other one so this Submit's handlers build into a fresh generation while
+	// d -- still read below -- stays in the one just left behind, untouched.
+	// The retire of that left-behind generation is DEFERRED, so it runs even
+	// when a tape resolution unwinds out of this function with a panic (the
+	// resolve kernel's stop-ask); a skipped retire would leave the flip
+	// unmatched and the arena growing with the game (decision_arena_live.go).
+	if a := e.decArena; a != nil && a.owner == e {
+		defer arenaFlipEra(a)()
+	}
 	if in.Announce != nil {
 		action, _ := pay.ActionFor(d, in.Announce.ActionID)
 		// The same Priority marker the planned route emits, then the ordinary

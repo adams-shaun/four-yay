@@ -37,7 +37,7 @@ func TestJobSelectRegisteredMakesCarriersFullySupported(t *testing.T) {
 		t.Fatal("kw:Job select is not registered in effects.Supported()")
 	}
 	carriers := 0
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		if !cardCarriesJobSelect(c) {
 			continue
 		}

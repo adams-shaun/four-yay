@@ -15,7 +15,9 @@ import (
 	"github.com/adams-shaun/gorge/rules"
 )
 
-// corpusMode names which corpus shim this build links.
+// corpusMode names which corpus shim this build links. One value survives:
+// every run opens the whole corpus, since S4 made cards.OpenCorpusFor a
+// wrapper over SharedCorpus and S8 deletes the subset route entirely.
 var corpusMode = "full"
 
 // The docs/015 §6 workloads.
@@ -43,10 +45,11 @@ type workload struct {
 	expectedEvents int
 }
 
-// openCorpus opens the corpus. The default is the whole corpus
-// (testutil.OpenCorpusRegistry, as every gorge bench did at a4af596); a
-// build tagged enginebench_subset (corpus_subset.go) replaces it with
-// cards.OpenCorpusFor over the workloads' card names.
+// openCorpus opens the corpus: the whole corpus, as every gorge bench did at
+// a4af596. A build tagged enginebench_subset could replace this with
+// cards.OpenCorpusFor over the workloads' card names; S4 (pointer-free corpus
+// design) made OpenCorpusFor a wrapper over SharedCorpus and S8 deletes it,
+// so the tag and its shim are gone and there is one corpus open.
 var openCorpus = func(dir string, names []string) (*cards.Registry, error) {
 	reg, err := testutil.OpenCorpusRegistry(dir)
 	if err != nil {

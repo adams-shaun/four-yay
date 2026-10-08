@@ -140,7 +140,7 @@ func (s *Setup) Build(obs *v2agent.Observation, tr *Tracker, o Options) (sh *Sha
 		Names:        []string{"p0", "p1"},
 		Decks:        [][]*cards.Card{s.Decks[0], s.Decks[1]},
 		Tokens:       s.Reg.Tokens,
-		NameUniverse: s.Reg.AllCards(),
+		NameUniverse: s.Reg.Universe(),
 	}
 	e := rules.New(cfg)
 	b := &builder{s: s, tr: tr, sh: sh, e: e, g: e.G, obs: obs, claimed: map[state.ObjID]bool{},

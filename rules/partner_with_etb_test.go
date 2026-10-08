@@ -179,7 +179,7 @@ func TestPartnerWithTargetedOpponentAnswersTheSearch(t *testing.T) {
 		deck1 = append(deck1, mountain)
 	}
 	cfg := Config{Seed: 9203, Names: []string{"searcher", "opponent"},
-		Decks: [][]*cards.Card{deck0, deck1}, Tokens: reg.Tokens, NameUniverse: reg.Cards}
+		Decks: [][]*cards.Card{deck0, deck1}, Tokens: reg.Tokens, NameUniverse: reg.Universe()}
 	e := New(cfg)
 	e.Advance()
 	toMain1(t, e)
@@ -304,7 +304,7 @@ func TestPartnerWithExpansionSearchesTheFullPartnerName(t *testing.T) {
 	reg := searchTestRegistry(t)
 	g := state.NewGame([]string{"you", "them"})
 	checked := 0
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for _, f := range c.Faces {
 			line := ""
 			for _, k := range f.Keywords {

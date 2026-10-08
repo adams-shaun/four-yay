@@ -363,21 +363,32 @@ func effCounter(h Host, c *Ctx, sa *cards.SA) {
 			continue
 		}
 		// Destination$ (Remand's "into its owner's hand instead of into that
-		// player's graveyard", Force of Will's explicit Graveyard): the zone a
-		// countered CARD goes to instead of the default graveyard. Only the
-		// three plain hand-off zones are honoured -- Battlefield (Desertion's
-		// take-control), Library and the TopOfLibrary/BottomOfLibrary forms
-		// (Memory Lapse) need control/library-position machinery a plain move
-		// cannot express, so those record a Note and take the default rather
-		// than moving a spell somewhere the card text never asked for.
+		// player's graveyard", Force of Will's explicit Graveyard, Memory
+		// Lapse's TopOfLibrary, Spell Crumple's BottomOfLibrary): the zone a
+		// countered CARD goes to instead of the default graveyard. The three
+		// plain hand-off zones (Hand/Graveyard/Exile) move straight there;
+		// the two library-position forms move to the OWNER's library and then
+		// place the card exactly with the ONE library placement helper the
+		// ChangeZone path already uses (MoveZone appends at the bottom, so the
+		// bottom form is already correct and the top form asks for the top).
+		// Battlefield (Desertion's take-control) still needs control
+		// machinery a plain move cannot express, so it (and any other word)
+		// records a Note and takes the default rather than moving a spell
+		// somewhere the card text never asked for.
 		to := state.ZGraveyard
+		libraryBottom := false
+		libraryDest := false
 		if dest := strings.TrimSpace(sa.ParamStr(cards.PKDestination)); dest != "" {
 			switch effCounterCodes.Code(string(dest)) {
 			case effCounterZone:
 				to, _ = parseZone(dest)
+			case effCounterTop:
+				to, libraryDest, libraryBottom = state.ZLibrary, true, false
+			case effCounterBottom:
+				to, libraryDest, libraryBottom = state.ZLibrary, true, true
 			default:
 				h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
-					Text: "counter destination " + dest + " is not a plain hand-off zone; the card goes to the graveyard"})
+					Text: "counter destination " + dest + " is not a hand-off or library zone; the card goes to the graveyard"})
 			}
 		}
 		// CR 702.34a: a flashback spell is exiled instead of going anywhere
@@ -405,6 +416,14 @@ func effCounter(h Host, c *Ctx, sa *cards.SA) {
 		}
 		h.Emit(events.Event{Kind: events.MoveZone, Obj: o.ID,
 			From: state.ZStack, To: to, Text: "countered"})
+		if libraryDest {
+			// MoveZone kept the card's owner and appended it at the bottom;
+			// place it from there (top form reorders, bottom form is already
+			// right but emits the same exact order -- the helper is
+			// idempotent for the bottom case). Owner, never the counter's
+			// controller: "its owner's library".
+			libraryOrderPlacement(h, o.Owner, []state.ObjID{o.ID}, libraryBottom)
+		}
 	}
 }
 
@@ -667,11 +686,15 @@ func repeatDefinedGateHolds(h Host, c *Ctx, sa *cards.SA, defined, present, comp
 type effCounterCode uint16
 
 const (
-	effCounterZone effCounterCode = iota + 1
+	effCounterZone   effCounterCode = iota + 1
+	effCounterTop                   // Destination$ TopOfLibrary
+	effCounterBottom                // Destination$ BottomOfLibrary
 )
 
 var effCounterCodes = state.NewStrCodes(
 	state.StrEntry[effCounterCode]{Key: "Hand", Val: effCounterZone},
 	state.StrEntry[effCounterCode]{Key: "Graveyard", Val: effCounterZone},
 	state.StrEntry[effCounterCode]{Key: "Exile", Val: effCounterZone},
+	state.StrEntry[effCounterCode]{Key: "TopOfLibrary", Val: effCounterTop},
+	state.StrEntry[effCounterCode]{Key: "BottomOfLibrary", Val: effCounterBottom},
 )

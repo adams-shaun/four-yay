@@ -44,7 +44,7 @@ func motherlodeBlockerEngine(t *testing.T, reg *cards.Registry) (*Engine, Config
 		opp = append(opp, mountain)
 	}
 	cfg := seatZeroStart(Config{Seed: 9713, Names: []string{"ml", "def"},
-		Decks: [][]*cards.Card{deck, opp}, Tokens: reg.Tokens, NameUniverse: reg.Cards})
+		Decks: [][]*cards.Card{deck, opp}, Tokens: reg.Tokens, NameUniverse: reg.Universe()})
 	e := New(cfg)
 	e.Advance()
 	toMain1(t, e)

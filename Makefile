@@ -90,6 +90,7 @@ help:
 	@echo "  make oracle-audit   — run the Oracle-text card audit (rules/testdata/oracle; ORACLE_RUN=<Card> to filter)"
 	@echo "  make clean-seats    — delete finished pi-agent seat dirs (~/.cache/pi-agent); dry run unless APPLY=1"
 	@echo "  make clean-worktrees — remove merged, clean .worktrees/* and their branches; dry run unless APPLY=1"
+	@echo "  make readopt-worktree NAME=<name> — re-register an orphaned .worktrees/<name> (branch wt/<name>); dry run unless APPLY=1"
 	@echo "  NOTE: make test-web / npm test needs Node >=22 (vitest 5); see web/README.md"
 
 .PHONY: build
@@ -107,6 +108,10 @@ $(BIN_DIR)/gorged: $(GO_SRC)
 	@mkdir -p $(BIN_DIR)
 	CGO_ENABLED=0 go build -o $@ ./cmd/gorged
 
+$(BIN_DIR)/botbench: $(GO_SRC)
+	@mkdir -p $(BIN_DIR)
+	CGO_ENABLED=0 go build -o $@ ./cmd/botbench
+
 .PHONY: gorged
 # gorged runs the M2a table server: perpetual bot tables served to a browser
 # at the listen address. make web builds the Svelte client it embeds first.
@@ -114,6 +119,23 @@ $(BIN_DIR)/gorged: $(GO_SRC)
 # the server is spectator-only, exactly as before the feature existed.
 gorged: $(BIN_DIR)/gorged
 	$(BIN_DIR)/gorged -decks internal/testutil/decks -tables 4 -seats 4 -pace 1.5s -format commander,constructed -vsbot
+
+# dzbroker is the experimental, tag-gated decision broker (internal/broker).
+# It batches learner decisions from many independent games into one inference
+# call with no all-games barrier, and expands one deck matchup into -multiply
+# games with distinct shuffles. The tag keeps it, its seat wrapper and its
+# dependencies out of the default build, vet and the 32-bit gate; the package
+# has an untagged stub, so importing it is always safe.
+.PHONY: dzbroker test-broker
+BROKER_DECKS ?= internal/testutil/decks
+dzbroker:
+	@mkdir -p $(BIN_DIR)
+	CGO_ENABLED=0 go build -tags broker -o $(BIN_DIR)/dzbroker ./cmd/dzbroker
+
+# test-broker runs the broker package's tests under the tag. Kept out of the
+# default `make test` for the same reason the build is.
+test-broker:
+	go test -tags broker -count=1 ./internal/broker
 
 .PHONY: traindash
 # traindash serves the read-only live training dashboard over the policynet/PPO
@@ -287,7 +309,7 @@ fuzz:
 test-manabrew:
 	go test $(GO_TEST_FLAGS) -tags manabrew -count=1 ./protocol/manabrew ./internal/manabrew/... ./host/manabrewhttp ./cmd/gorged ./cmd/cardfuzz
 
-# Engine-speed benchmarking (cmd/enginebench; scripts in cmd/enginebench/scripts,
+# Engine-speed benchmarking (cmd/enginebench; scripts in scripts/enginebench-*.sh,
 # workload decks committed in cmd/enginebench/testdata/decks). Every run is
 # capped in a systemd scope and serialised on HEAVY_LOCK; binaries, results
 # and profiles go to BENCH_DIR (rebuildable scratch). Throughput is per
@@ -296,17 +318,28 @@ test-manabrew:
 #   make enginebench-profile [REV=.]           CPU + allocation profiles, tops printed
 #   make enginebench-verify [REV=.]            memo-verify-mode smoke (cache changes)
 # Knobs: ROWS="-row random -pair A;-row sampler" REPS=3 SECS=10 GOGC=...
-# BENCH_DIR HEAVY_LOCK (see cmd/enginebench/scripts/lib.sh).
+# BENCH_DIR HEAVY_LOCK (see scripts/enginebench-lib.sh).
 BASE ?= main
 CAND ?= .
 REV  ?= .
 .PHONY: enginebench-pair enginebench-profile enginebench-verify
 enginebench-pair:
-	cmd/enginebench/scripts/pair.sh $(BASE) $(CAND)
+	scripts/enginebench-pair.sh $(BASE) $(CAND)
 enginebench-profile:
-	cmd/enginebench/scripts/profile.sh $(REV)
+	scripts/enginebench-profile.sh $(REV)
 enginebench-verify:
-	cmd/enginebench/scripts/verify.sh $(REV)
+	scripts/enginebench-verify.sh $(REV)
+
+# smoke-perf is a <5 min, report-only throughput smoke of the whole-game path:
+# four botbench scenarios (random play, random decks, heuristics vs search,
+# search vs random) comparing BASE (default main) to CAND (default the working
+# tree), pinned to GOMAXPROCS=1 on core 9. It prints each revision's output
+# live and a base/cand summary table. No perf threshold; it fails only when a
+# game does not run to completion. Opt-in, never part of `make test`.
+# Knobs: SMOKE_PERF_GAMES SMOKE_PERF_SEED SMOKE_PERF_BUDGET SMOKE_PERF_DIR.
+.PHONY: smoke-perf
+smoke-perf: $(BIN_DIR)/botbench
+	BASE=$(BASE) CAND=$(CAND) scripts/smoke-perf.sh
 
 COVER_OUT  ?= coverage.out
 COVER_HTML ?= coverage.html
@@ -399,11 +432,18 @@ clean-cards:
 # clean-seats / clean-worktrees reclaim disk from finished agent work. Both
 # are dry runs that only list what they would delete; pass APPLY=1 to delete.
 # See scripts/cleanup.sh for exactly what is kept.
-.PHONY: clean-seats clean-worktrees
+.PHONY: clean-seats clean-worktrees readopt-worktree
 clean-seats:
 	@APPLY=$(APPLY) scripts/cleanup.sh seat-cache
 clean-worktrees:
 	@APPLY=$(APPLY) scripts/cleanup.sh worktrees
+# Re-register an orphaned worktree whose branch still exists: recreate its
+# .git/worktrees/<name> metadata so a seat can commit again. Dry run unless
+# APPLY=1. NAME=<worktree-name> (the branch is wt/<name>). See
+# scripts/readopt-worktree.sh.
+readopt-worktree:
+	@[ -n "$(NAME)" ] || { echo "usage: make readopt-worktree NAME=<worktree-name> [APPLY=1]" >&2; exit 2; }
+	@APPLY=$(APPLY) scripts/readopt-worktree.sh "$(NAME)"
 
 .PHONY: ledger
 ## ledger: rebuild the judge-lane issue ledger the agent dashboard renders

@@ -6,6 +6,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/state"
@@ -19,12 +20,12 @@ import (
 func TestNameChoicesCacheMatchesUncachedOnCorpus(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	g := state.NewGame(names(2))
-	g.NameUniverse = reg.Cards
-	g.NameUniverseNames = NameUniverseNames(reg.Cards)
-	if again := NameUniverseNames(reg.Cards); &again[0] != &g.NameUniverseNames[0] {
+	g.NameUniverse = reg.Universe()
+	g.NameUniverseNames = NameUniverseNames(reg.Universe())
+	if again := NameUniverseNames(reg.Universe()); &again[0] != &g.NameUniverseNames[0] {
 		t.Fatal("NameUniverseNames recomputed for the same universe")
 	}
-	if !slices.Equal(g.NameUniverseNames, buildNameUniverseNames(reg.Cards)) {
+	if !slices.Equal(g.NameUniverseNames, cards.UniverseOf(reg.AllCards()).Names()) {
 		t.Fatal("memoised universe names differ from a fresh build")
 	}
 	specs := []string{"", "Card.nonLand", "Card.nonBasic", "Creature", "Card.Creature",
@@ -65,7 +66,7 @@ func TestNameChoicesCacheMatchesUncachedOnCorpus(t *testing.T) {
 // TestNameChoicesCacheConcurrent exercises the process-wide memo from
 // parallel games (botbench's shape); run under -race.
 func TestNameChoicesCacheConcurrent(t *testing.T) {
-	universe := namecardUniverse(t)
+	universe := cards.UniverseOf(namecardUniverse(t))
 	var wg sync.WaitGroup
 	for w := 0; w < 8; w++ {
 		wg.Add(1)

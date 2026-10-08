@@ -20,6 +20,14 @@
 //
 // The wall clock is read only to report elapsed time; no game, decision or
 // seed reads it (internal/archtest's time allowlist names this command).
+//
+// Baseline break, 2026-10-06: the random and bot rows now recycle a finished
+// game's log and object arrays into the next game through a shared
+// internal/bench.SparePool (rules.Spare), the way production self-play does.
+// The rows therefore no longer include a per-game events.NewLogInto /
+// state.NewGameInto allocation, so their turns/s and games/s are not
+// comparable to runs before this date; re-measure a baseline rather than
+// diffing across it. The clone/step/sampler rows are unchanged.
 package main
 
 import (
@@ -53,7 +61,7 @@ type result struct {
 	HeapMB      float64 `json:"heap_live_mb"`
 	ScanHeapMB  float64 `json:"scan_heap_mb"`
 	HeapObjects int64   `json:"heap_objects"`
-	Corpus      string  `json:"corpus"`   // "full" or "subset"
+	Corpus      string  `json:"corpus"`   // "full" (the only value since S4 retired the subset loader)
 	Secs        float64 `json:"secs"`     // wall seconds of the timed region
 	CPU         float64 `json:"cpu_secs"` // process CPU seconds (user+sys) of the timed region
 	Err         string  `json:"err,omitempty"`

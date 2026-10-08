@@ -1,0 +1,59 @@
+{
+  "name": "featuremap",
+  "useFeatureMap": true,
+  "ops": [
+    {
+      "op": "feature",
+      "name": "Card"
+    },
+    {
+      "op": "numeric",
+      "name": "Power",
+      "num": 3
+    },
+    {
+      "op": "push",
+      "name": "Battlefield",
+      "passToParent": true
+    },
+    {
+      "op": "feature",
+      "name": "Tapped"
+    },
+    {
+      "op": "pop"
+    }
+  ],
+  "indices": [
+    89567131,
+    958721639,
+    1060391685,
+    1317040883,
+    1340005339,
+    1667764761,
+    1681102289
+  ],
+  "map": {
+    "89567131": [
+      "-1/Battlefield#1"
+    ],
+    "958721639": [
+      "-1/Card#1"
+    ],
+    "1060391685": [
+      "89567131/Tapped#1"
+    ],
+    "1317040883": [
+      "-1/Power@1#1"
+    ],
+    "1340005339": [
+      "-1/Tapped#1"
+    ],
+    "1667764761": [
+      "-1/Power@0#1"
+    ],
+    "1681102289": [
+      "-1/Power@2#1"
+    ]
+  }
+}

@@ -64,7 +64,7 @@ func TestAdamantCountBodyCensus(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	got := map[string]bool{}
 	modelled := ModelledValueHeads()
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for fi := range c.Faces {
 			for _, s := range faceStrings(c.Faces[fi]) {
 				for _, body := range extractAdamantBodies(s) {
@@ -100,7 +100,7 @@ func TestCommaWithCountersTypeCarrierCensus(t *testing.T) {
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	got := map[string]bool{}
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for fi := range c.Faces {
 			if faceHasCommaWithCountersType(c.Faces[fi]) {
 				got[c.Faces[0].Name] = true

@@ -38,7 +38,7 @@ type GroupKey func(*Card) string
 func (r *Registry) CoverageBy(supported map[string]bool, key GroupKey) []CoverageGroup {
 	idx := map[string]int{}
 	var out []CoverageGroup
-	for _, c := range r.Cards {
+	for _, c := range r.AllCards() {
 		if !c.named() {
 			continue
 		}

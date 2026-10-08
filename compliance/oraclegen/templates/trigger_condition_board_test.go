@@ -161,7 +161,7 @@ func TestTriggerConditionBoardFixtures(t *testing.T) {
 func TestTriggerConditionBoardSkips(t *testing.T) {
 	reg := loadGenRegistry(t)
 	for _, tc := range []struct{ name, key, want string }{
-		{"Paradox Shaper", "trigger#0.0", "engine predicate unread (!IsPrepared)"},
+		{"Paradox Shaper", "trigger#0.0", "turn history (Count$ValidSelf Card.!IsPrepared)"},
 		{"Case of the Market Melee", "trigger#0.2", "needs a solved Case"},
 	} {
 		card, ok := reg.Lookup(tc.name)

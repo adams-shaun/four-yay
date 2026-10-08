@@ -216,7 +216,7 @@ func TestRepoDeckGamesReplayExactly(t *testing.T) {
 			names[i] = all[(int(seed)+i)%len(all)]
 			decks[i] = testutil.RepoDeck(t, reg, names[i])
 		}
-		cfg := Config{Seed: seed, Names: names, Decks: decks, Tokens: reg.Tokens, NameUniverse: reg.Cards,
+		cfg := Config{Seed: seed, Names: names, Decks: decks, Tokens: reg.Tokens, NameUniverse: reg.Universe(),
 			// R-8.4: Mulligans must travel in the same Config replay is handed;
 			// this replay-exactness test exercises the round so a concession of
 			// mutating it silently would be caught here (M2d-1).

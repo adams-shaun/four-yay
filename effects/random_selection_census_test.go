@@ -84,7 +84,7 @@ func TestRandomSelectionCensus(t *testing.T) {
 	var gotNum []string
 	gotChoices := map[string]string{}
 	gotDivided := map[string]string{}
-	for _, card := range reg.Cards {
+	for _, card := range reg.AllCards() {
 		for _, face := range card.Faces {
 			eachFaceSA(face, func(key string, sa *cards.SA) {
 				key = face.Name + "/" + key

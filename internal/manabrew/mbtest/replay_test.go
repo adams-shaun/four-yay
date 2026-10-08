@@ -49,7 +49,7 @@ func TestManaBrewReplayEquivalent(t *testing.T) {
 		decks := make([][]*cards.Card, seats)
 		decks[0] = testutil.RepoDeck(t, reg, playerNames[0])
 		decks[1] = testutil.RepoDeck(t, reg, playerNames[1])
-		cfg := rules.Config{Seed: seed, Names: playerNames, Decks: decks, Tokens: reg.Tokens, NameUniverse: reg.Cards}
+		cfg := rules.Config{Seed: seed, Names: playerNames, Decks: decks, Tokens: reg.Tokens, NameUniverse: reg.Universe()}
 
 		e1 := playOneReplayGame(t, cfg, seed)
 		re, err := replay.Replay(e1.L, cfg)

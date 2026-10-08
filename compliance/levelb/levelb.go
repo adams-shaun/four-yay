@@ -177,6 +177,9 @@ func classifyTrigger(f *cards.Face, t *cards.Trigger) (sub, gap string, covered 
 	if sub, ok := classifyEventTrigger(t); ok {
 		return sub, "", false
 	}
+	if sub, ok := classifyPhaseOther(t); ok {
+		return sub, "", false
+	}
 	if sub, ok := classifyTapCombatTrigger(f, t); ok {
 		return sub, "", false
 	}

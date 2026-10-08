@@ -78,7 +78,7 @@ func TestRegistrySpecializeCorpusFaces(t *testing.T) {
 		t.Errorf("unsupported Specialize rider diagnostics = %v, want exactly AdditionalActivationZone$ and ReduceCost$", unsupported)
 	}
 	count := 0
-	for _, c := range r.Cards {
+	for _, c := range r.AllCards() {
 		if c.AlternateMode != "Specialize" {
 			continue
 		}

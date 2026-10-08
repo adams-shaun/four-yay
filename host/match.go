@@ -299,7 +299,7 @@ func (m *match) sidecar() sidecar {
 	return sidecar{Table: string(m.table.cfg.ID), Match: m.k, Seed: m.seed, Seats: m.seats, Names: m.cfg.Names,
 		PlayerNames: m.cfg.PlayerNames, Decks: m.decks, Spectator: m.table.cfg.Spectator.String(), State: m.state, Result: m.result, Winner: m.winner,
 		Head: m.head, Events: events, Turns: m.e.G.Turn, Reason: m.reason, Mulligans: m.cfg.Mulligans,
-		NameUniverse:      len(m.cfg.NameUniverse) > 0,
+		NameUniverse:      m.cfg.NameUniverse.Len() > 0,
 		NameUniverseNames: append([]string(nil), m.e.G.NameUniverseNames...),
 		Format:            Format(m.cfg.Format), StartingLife: m.cfg.StartingLife, Commanders: m.cfg.Commanders, BotPolicy: m.table.cfg.BotPolicy,
 		Refusals: m.refusals, Fallbacks: m.fallbacks, RootRefusals: m.rootRefusals}
@@ -817,8 +817,15 @@ func (r *Registry) play(ctx context.Context, t *table, m *match) (final string) 
 				// d is the decision this intent answers. It is read before the
 				// Submit because a successful Submit consumes it; on a refusal
 				// the pending decision survives and the ladder's next rung
-				// answers the same d.
+				// answers the same d. A successful Submit also RETIRES the
+				// arena generation d lives in before it returns
+				// (decision_arena_live.go), so the feed's post-Submit record
+				// needs an owned copy taken here, while d is still valid.
 				d := m.e.Pending()
+				var drec *decision.Decision
+				if d != nil && m.feeds != nil {
+					drec = d.Clone()
+				}
 				if e := m.e.Submit(in); e != nil {
 					refused = true
 					return e
@@ -827,7 +834,7 @@ func (r *Registry) play(ctx context.Context, t *table, m *match) (final string) 
 				// Record the ACCEPTED intent (which may be a refusal-ladder
 				// rung, not the seat's first answer) on the actor's feed, after
 				// the Submit that took it (§5.2 Record).
-				m.feeds.record(d, in)
+				m.feeds.record(drec, in)
 				if e := r.afterBurst(t, m, before); e != nil { // Tasks 11, 12
 					return fmt.Errorf("persist: %w", e)
 				}

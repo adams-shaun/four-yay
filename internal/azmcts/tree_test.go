@@ -19,12 +19,16 @@ type fakeNode struct {
 	terminal bool
 	capped   bool
 	err      error // Play into this path always fails with err
+	opp      bool  // an opponent's point (Options.OpponentNodes)
 }
 
 type fakeGame struct {
 	nodes    map[string]fakeNode
 	failOnce map[string]error     // Play into this path fails once, then plays normally
 	rootFor  func(sim int) *Point // per-world root offer (availability); nil = nodes[""]
+	// offerAt, when it returns keys, is a per-world offer at an in-walk
+	// point (availability below the root), with a uniform prior.
+	offerAt func(sim int, path string) []Key
 }
 
 type fakeEnv struct {
@@ -57,7 +61,12 @@ func (f *fakeEnv) Play(k Key) (*Point, error) {
 	if n.terminal || n.capped {
 		return nil, nil
 	}
-	return &Point{Keys: n.keys, Prior: n.prior}, nil
+	if f.g.offerAt != nil {
+		if keys := f.g.offerAt(f.sim, f.path); keys != nil {
+			return &Point{Keys: keys, Prior: uniform(len(keys)), Opp: n.opp}, nil
+		}
+	}
+	return &Point{Keys: n.keys, Prior: n.prior, Opp: n.opp}, nil
 }
 
 func (f *fakeEnv) Leaf() Leaf {

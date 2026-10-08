@@ -28,7 +28,7 @@ func corpusTextValues(reg *cards.Registry) []string {
 			params(a.Params)
 		}
 	}
-	all := append([]*cards.Card(nil), reg.Cards...)
+	all := append([]*cards.Card(nil), reg.AllCards()...)
 	for _, t := range reg.Tokens {
 		all = append(all, t)
 	}

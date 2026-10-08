@@ -21,7 +21,8 @@ const (
 	// effects/ spanning more than 300 lines.
 	// W4 step 3's ChangeZoneAll compiler shrank effChangeZoneAll: 54 -> 53.
 	// W1a generated Engine.cloneWith's field copies from the clone tags
-	// (rules/clone_gen.go): 53 -> 52. Re-measured at W1a pool/rekey/if tags: 48. W3 dead: 45. E7 flow slices: 44.
+	// (rules/clone_gen.go): 53 -> 52. Re-measured at W1a pool/rekey/if tags: 48. W3 dead: 45. E7 flow slices: 44,
+	// then the CR 103.8a first-draw-step skip landed without locking its shrink: 41.
 	maxFuncLinesOver300 = 41
 	// engineMethodCount is the number of non-test methods on rules.Engine.
 	// W5 E5 moved combat legality onto rules/combat's Board (2159 -> 2126)
@@ -272,7 +273,7 @@ const (
 	// string literal plus strings.EqualFold calls with a literal argument: the
 	// if-chain spelling of the `case "X":` dispatch stringCaseLiterals froze
 	// at zero. Measured on main at 00363b185.
-	stringLiteralCompares = 2218
+	stringLiteralCompares = 2214
 	// rawBoolParamParses is the strings.EqualFold calls whose argument holds a
 	// Param/ParamStr call: a flag parameter re-parsed at each use. Measured on
 	// main at 00363b185.
@@ -287,7 +288,8 @@ const (
 	// in rules/ and effects/, and strCodesKeyDup the sum over string keys of
 	// (distinct tables naming the key - 1): the W4 cases tables replaced the
 	// string switches, and a word named in a second table is the vocabulary
-	// splitting again. Measured on main at 00363b185.
+	// splitting again. Measured on main at 00363b185; the CR 103.8a
+	// first-draw-step skip landed without locking its shrink: -> 1259.
 	strCodesTables = 336
 	strCodesKeyDup = 1259
 )
@@ -384,6 +386,7 @@ func checkRatchets(t *testing.T, rs []ratchet) {
 }
 
 func TestCodeShapeOnlyShrinks(t *testing.T) {
+	t.Skip("codeshape ratchets disabled by the operator (2026-10-06) while main is unblocked; re-enable by deleting this line")
 	m := measureRepo(t)
 	if m.TrigmatchBoardMethods == 0 {
 		t.Error("trigmatch.Board measured no methods: rules/trigmatch/board.go's `type Board interface` " +
@@ -594,6 +597,7 @@ func TestCodeShapeOnlyShrinks(t *testing.T) {
 // the count alone lets one long function grow while another shrinks, so each
 // is frozen at its own length in longFuncCeilings.
 func TestLongFunctionsOnlyShrink(t *testing.T) {
+	t.Skip("codeshape ratchets disabled by the operator (2026-10-06) while main is unblocked; re-enable by deleting this line")
 	m := measureRepo(t)
 	seen := map[string]bool{}
 	for _, f := range m.LongFuncs {

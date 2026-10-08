@@ -22,6 +22,7 @@ import "embed"
 //go:embed ability_class.go
 //go:embed affected_defined.go
 //go:embed breakdown.go
+//go:embed cache_canon.go
 //go:embed card_probes.go
 //go:embed compiled_catalog.go
 //go:embed compiled_codes.go
@@ -121,11 +122,13 @@ import "embed"
 //go:embed parse.go
 //go:embed primitive.go
 //go:embed registry.go
+//go:embed registry_lazy.go
 //go:embed saga.go
 //go:embed slot.go
 //go:embed strtab.go
 //go:embed subset.go
 //go:embed tokens.go
+//go:embed universe.go
 //go:embed validate.go
 //go:embed value_heads.go
 //go:embed words.go

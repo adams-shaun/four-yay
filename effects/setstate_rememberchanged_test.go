@@ -33,7 +33,7 @@ import (
 func corpusMegatronTransformSA(t *testing.T) *cards.SA {
 	t.Helper()
 	reg := testutil.CorpusRegistry(t)
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		if len(c.Faces) == 0 || !strings.HasPrefix(c.Faces[0].Name, "Megatron, Tyrant") {
 			continue
 		}

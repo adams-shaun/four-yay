@@ -37,7 +37,7 @@ func TestPaymentPlanPricesCountAmountWithDerivedTypes(t *testing.T) {
 			append([]*cards.Card{nexus}, mountainDeck(t, 39)...),
 		},
 		Tokens:       map[string]*cards.Card{},
-		NameUniverse: []*cards.Card{spellCard, post, nexus},
+		NameUniverse: cards.UniverseOf([]*cards.Card{spellCard, post, nexus}),
 	})
 	e := New(cfg)
 	e.Advance()

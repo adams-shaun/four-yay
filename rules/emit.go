@@ -17,7 +17,21 @@ import (
 // own emit (from inside effects.Resolve) already logged whatever needed
 // logging. Otherwise the event is logged and folded into state exactly as
 // before, and checkTriggers then looks for anything it just made true.
+func deferAttackTriggerCheck(kind events.Kind, declarationActive bool) bool {
+	return kind == events.DeclareAttackers && declarationActive
+}
+
+func triggerCheckEvent(stored events.Event, tokenMintWant state.ObjID) events.Event {
+	if stored.Kind == events.TokenCreate || stored.Kind == events.CardToken {
+		stored.Obj = tokenMintWant
+	}
+	return stored
+}
+
 func (e *Engine) emit(ev events.Event) events.Event {
+	// E1 (emit-action.md): objects minted during this event are compared
+	// against this count to raise the pool gates (the mint scan below).
+	objsBefore := len(e.G.Objs)
 	if suppressSuspectedEvent(e, ev) {
 		return ev
 	} // CR 702.157
@@ -236,8 +250,7 @@ func (e *Engine) emit(ev events.Event) events.Event {
 	switch ev.Kind {
 	case events.MoveZone, events.Draw, events.PutOnStack, events.ControlChange:
 		if o := e.G.Obj(ev.Obj); o != nil {
-			cp := o.CloneDeep()
-			lki = e.arenaObject(&cp)
+			lki = e.cloneDeepArenaObject(o)
 			if o.Zone == state.ZBattlefield && o.Face() != nil {
 				lkiPower, lkiToughness = e.Power(o.ID), e.Toughness(o.ID)
 				lkiPTValid = true
@@ -348,6 +361,17 @@ func (e *Engine) emit(ev events.Event) events.Event {
 		// Other permanents' "enters tapped / with a counter" replacements
 		// apply to a token's entry too (rules/token_entry_replacements.go).
 		e.applyTokenEntryUpdates(tokenMintWant)
+	}
+	// E1 (emit-action.md): any object minted during this event (a token, a
+	// named-card or permanent copy, an ability wrapper) is a card the genesis
+	// census never saw, so raise this match's pool gates on it BEFORE the
+	// refreshes below. The raise is monotone and a pure function of the log,
+	// so a replay reaches the same gates at every position; the objsBefore
+	// compare covers every mint path without a per-kind list.
+	for id := objsBefore + 1; id <= len(e.G.Objs); id++ {
+		if o := e.G.Obj(state.ObjID(id)); o != nil && o.Card != nil {
+			e.notePoolCard(o.Card)
+		}
 	}
 	e.recordTurnLedgers(stored, abilityMintWant)
 	if stackCopyMintWant != 0 && e.G.Obj(stackCopyMintWant) != nil {
@@ -624,11 +648,10 @@ func (e *Engine) emit(ev events.Event) events.Event {
 		// matcher would see Obj == 0 and ValidCard$ could not read the entering
 		// token. Hand it a COPY carrying the minted id; stored itself is
 		// already logged and must stay byte-identical for replay.
-		check := stored
-		if stored.Kind == events.TokenCreate || stored.Kind == events.CardToken {
-			check.Obj = tokenMintWant
+		check := triggerCheckEvent(stored, tokenMintWant)
+		if !deferAttackTriggerCheck(stored.Kind, len(e.declaredAttackers) > 0) {
+			e.checkTriggers(&check, lki, lkiPower, lkiToughness, lkiPTValid)
 		}
-		e.checkTriggers(&check, lki, lkiPower, lkiToughness, lkiPTValid)
 		// A pushed spell proposal's own target choice (CR 601.2c): remember
 		// which queue entries it produced so abortCast can drop them if the
 		// cast is reversed (CR 733.1 -- see pendingCast.proposalTriggers).

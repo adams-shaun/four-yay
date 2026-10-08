@@ -159,6 +159,9 @@ func (r *Registry) Catalog() *CompiledCatalog {
 	if r == nil {
 		return nil
 	}
+	if r.lazy != nil {
+		return r.lazy.catalog()
+	}
 	return r.catalog
 }
 
@@ -215,7 +218,7 @@ func (r *Registry) CompileMetadata() error {
 		}
 		return nil
 	}
-	for _, card := range r.Cards {
+	for _, card := range r.cards {
 		if err := compileCard(card); err != nil {
 			return err
 		}

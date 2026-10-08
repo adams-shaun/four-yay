@@ -51,7 +51,7 @@ func TestUntapChoiceHeadIsClassifiedSupported(t *testing.T) {
 			"the effects/kw_untap_choice.go registration is gone or was renamed")
 	}
 	carriers := 0
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		if !slices.Contains(c.Primitives(), untapChoiceHead) {
 			continue
 		}
@@ -65,7 +65,7 @@ func TestUntapChoiceHeadIsClassifiedSupported(t *testing.T) {
 		t.Errorf("corpus carriers of the untap-choice sentence = %d, want 45 (the measured count at this corpus pin)", carriers)
 	}
 	for _, name := range untapChoiceCarrierNames {
-		if !slices.ContainsFunc(reg.Cards, func(c *cards.Card) bool { return c.Faces[0].Name == name }) {
+		if !slices.ContainsFunc(reg.AllCards(), func(c *cards.Card) bool { return c.Faces[0].Name == name }) {
 			t.Fatalf("precondition: corpus lost carrier %q entirely", name)
 		}
 	}

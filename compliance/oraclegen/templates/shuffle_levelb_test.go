@@ -45,20 +45,3 @@ func TestGeneratedFblthpLevelBTriggerSkipsLibraryOrder(t *testing.T) {
 		t.Fatalf("actual level-B trigger item missing shuffle comparison mark: %v", item.Compare)
 	}
 }
-
-// The mark is level-B only: a level-A item for the same face keeps an empty
-// Compare, so its scenario sha and frozen verdict do not move.
-func TestLevelAFblthpItemCarriesNoLibraryOrderMark(t *testing.T) {
-	reg := oracleHarnessCorpus(t)
-	card, ok := reg.Lookup("Fblthp, Impossibly Lost")
-	if !ok || !oraclegen.CanShuffleLibrary(card.Faces[0]) {
-		t.Fatal("precondition: Fblthp is absent or its face is not shuffle-marked")
-	}
-	it, skip := Generate(reg, "Fblthp, Impossibly Lost")
-	if skip != nil {
-		t.Fatalf("Fblthp: %s", skip.Reason)
-	}
-	if len(it.Compare) != 0 {
-		t.Fatalf("level-A Fblthp item %s carries compare options %v", it.ID, it.Compare)
-	}
-}

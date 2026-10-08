@@ -49,7 +49,7 @@ func TestAZSeatDoesNotReEquipForever(t *testing.T) {
 	const seed = 90000003
 	cfg := buildGameConfig(seed, names, decks, nil, false)
 	cfg.Tokens = reg.Tokens
-	cfg.NameUniverse = reg.Cards
+	cfg.NameUniverse = reg.Universe()
 	// runMatrixTraced's per-seat seed derivation: seat s gets seed^(s+1).
 	seats := []seat.Seat{policies["bot"](seed ^ 1), policies["az"](seed ^ 2)}
 	o, _, err := playMatchOnce(cfg, []string{"bot", "az"}, seats, 200, 3000, nil, nil)

@@ -182,7 +182,7 @@ func TestMelekValidSpellReductionAlreadyWorks(t *testing.T) {
 func withoutMelekReduction(reg *cards.Registry) *cards.Registry {
 	muted := cards.NewRegistry()
 	muted.Tokens = reg.Tokens
-	for _, card := range reg.Cards {
+	for _, card := range reg.AllCards() {
 		if card.Faces[0].Name == melekName {
 			copyCard := *card
 			copyCard.Faces = append([]*cards.Face(nil), card.Faces...)

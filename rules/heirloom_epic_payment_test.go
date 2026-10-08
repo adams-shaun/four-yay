@@ -94,7 +94,7 @@ func TestCreatureManaTypedActivationPermission(t *testing.T) {
 func TestTapCreaturesForManaCorpusCensus(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	var names []string
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for _, f := range c.Faces {
 			for _, a := range f.Abilities {
 				if a.Params["TapCreaturesForMana"] != "" {

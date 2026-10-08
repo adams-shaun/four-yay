@@ -35,7 +35,7 @@ var genericChoicePlayerTgtsClass = map[string]bool{
 func TestGenericChoicePlayerTgtsCensus(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	got := map[string]bool{}
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		if c == nil || len(c.Faces) == 0 || c.Faces[0] == nil {
 			continue
 		}

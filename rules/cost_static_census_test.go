@@ -191,7 +191,7 @@ func TestCostStaticCensus(t *testing.T) {
 		}
 		f.EachSVarAbility(walk)
 	}
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for _, f := range c.Faces {
 			for _, ty := range f.Types {
 				typeWords[ty] = true
@@ -854,7 +854,7 @@ func TestCostStaticCensus(t *testing.T) {
 
 	var rows []ccRow
 	saRows := 0
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		playable := len(reg.Unsupported(c, supported)) == 0
 		name := c.Faces[0].Name
 		for _, f := range c.Faces {

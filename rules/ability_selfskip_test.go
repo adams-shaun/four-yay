@@ -27,7 +27,7 @@ func TestAbilitySelfSkipTurnsCensus(t *testing.T) {
 		"Magosi, the Waterveil=1",
 	}
 	var got []string
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for _, f := range c.Faces {
 			for _, ab := range f.Abilities {
 				if ab.Kind != "AB" {

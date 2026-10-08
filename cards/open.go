@@ -46,7 +46,9 @@ func CachePath(dir string) string { return cachePathFor(dir, CompilerFingerprint
 // cache left behind by an older cacheVersion is decoded, rejected and the
 // whole corpus recompiled on EVERY process start -- measured at ~0.6 s CPU
 // and ~740 MB allocated per botbench/test process. A write failure (a
-// read-only corpus) is ignored; the compiled registry is still returned.
+// read-only corpus) is ignored; the imaged registry is still returned, built
+// in memory from the eager one, so a read-only .cards keeps the pointer-free
+// footprint.
 func OpenCorpus(dir string) (*Registry, error) {
 	return openCorpus(dir, CompilerFingerprint)
 }
@@ -103,9 +105,27 @@ func openCorpus(dir, fingerprint string) (*Registry, error) {
 	if err != nil {
 		return nil, err
 	}
-	_ = r.Save(cache)
+	if err := r.Save(cache); err == nil {
+		// Serve the imaged registry the cache now holds, so a recompile
+		// costs the GC no more than a cache hit does.
+		if lr, err := LoadRegistry(cache); err == nil {
+			rerootPaths(lr, dir)
+			PruneCaches(dir, cache)
+			return lr, nil
+		}
+	}
 	PruneCaches(dir, cache)
-	return r, nil
+	// Save failed (read-only corpus) or the just-written cache could not be
+	// read back: serve an imaged registry built in memory, so a read-only
+	// .cards still gets S4's pointer-free footprint. buildImage reads only
+	// printed/derived fields, which the eager registry has, so this image is
+	// byte-identical to the gob route (TestImageCorpusOracle).
+	lr, err := imagedRegistry(r.AllCards(), r.Tokens)
+	if err != nil {
+		return r, nil // last-resort eager fallback; keep the open working
+	}
+	rerootPaths(lr, dir)
+	return lr, nil
 }
 
 // cacheFresh reports whether cache is a usable IR cache for dir: it exists
@@ -238,22 +258,13 @@ func rerootPaths(r *Registry, dir string) {
 	if err != nil {
 		return
 	}
-	fix := func(c *Card) {
-		if c == nil {
-			return
-		}
-		for _, sub := range []string{"cardsfolder", "tokenscripts"} {
-			seg := string(filepath.Separator) + sub + string(filepath.Separator)
-			if i := strings.LastIndex(c.Path, seg); i >= 0 {
-				c.Path = filepath.Join(abs, c.Path[i+1:])
-				return
-			}
-		}
+	if r.lazy != nil {
+		r.lazy.root = abs
 	}
-	for _, c := range r.Cards {
-		fix(c)
+	for _, c := range r.cards {
+		rerootCard(c, abs)
 	}
 	for _, c := range r.Tokens {
-		fix(c)
+		rerootCard(c, abs)
 	}
 }

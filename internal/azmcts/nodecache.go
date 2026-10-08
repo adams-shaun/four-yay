@@ -184,6 +184,9 @@ func (c *nodeCache) simulate(top *node, sim int, opts Options, st *Stats) error 
 			}
 		}
 		sel := selectEdge(nd, pt, opts)
+		if pt.Opp {
+			st.OppPoints++
+		}
 		nodes, path = append(nodes, nd), append(path, sel)
 		if sel.next == nil {
 			break
@@ -266,6 +269,9 @@ func (c *nodeCache) simulate(top *node, sim int, opts Options, st *Stats) error 
 		sel.next.pt, sel.next.clk = next, clockOf(env, len(path))
 		sel.next.n, sel.next.w = 1, l.V
 		st.Expanded++
+		if next.Opp {
+			st.OppExpanded++
+		}
 		commit(nodes, path, marks, append(clock, sel.next.clk), l.V, opts, st)
 		st.Unavailable += unavail
 		c.offer(sel.next, env, true, st)
@@ -296,6 +302,7 @@ func skipped(nodes []*node, st *Stats) {
 		if n.pt.fell {
 			st.PriorFallbacks++
 		}
+		countTopK(st, n.pt.ranked, n.pt.before)
 	}
 }
 
@@ -326,6 +333,10 @@ type envState struct {
 	// actor is the auto-pay actor bot's source (engineEnv.actorPCG); nil
 	// without autoPayment.
 	actor *rand.PCG
+	// oppObs are copies of the walk's opponent collectors
+	// (engineEnv.oppObs, cloneObservers); nil without OpponentNodes or
+	// before the walk met an opponent's decision.
+	oppObs []*searchprobe.Collector
 }
 
 func (f *fixedEnvs) Save(env Env, final bool) (snap any, err error) {
@@ -333,7 +344,8 @@ func (f *fixedEnvs) Save(env Env, final bool) (snap any, err error) {
 	if !ok || ee.e == nil || ee.cur == nil || ee.capped {
 		return nil, errors.New("azmcts: the node cache saves an engine env at a point")
 	}
-	s := &envState{e: ee.e, obs: ee.obs, hyp: ee.hyp, cands: ee.cands, steps: ee.steps, plies: ee.plies, root: ee.root, pcgs: make([]rand.PCG, len(ee.pcgs))}
+	s := &envState{e: ee.e, obs: ee.obs, hyp: ee.hyp, cands: ee.cands, steps: ee.steps, plies: ee.plies, root: ee.root, pcgs: make([]rand.PCG, len(ee.pcgs)),
+		oppObs: cloneObservers(ee.oppObs)}
 	for i, p := range ee.pcgs {
 		s.pcgs[i] = *p
 	}
@@ -398,6 +410,7 @@ func (f *fixedEnvs) Resume(snap any) (env Env, err error) {
 		e: e, obs: s.obs.Clone(), hyp: s.hyp, cfg: f.cfg,
 		rngs: rngs, pcgs: pcgs, board: board,
 		cur: e.Pending(), cands: s.cands, steps: s.steps, plies: s.plies, root: s.root,
+		oppObs: cloneObservers(s.oppObs),
 	}
 	if s.actor != nil {
 		a := *s.actor

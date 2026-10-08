@@ -35,7 +35,7 @@ func TestPaymentPlanOnePassMatchesReferenceOverAutoPayGameKernelLegacy(t *testin
 	for seed := uint64(0); (st.decisions < 400 || st.offered < 100) && seed < 16; seed++ {
 		names := []string{all[int(seed)%len(all)], all[(int(seed)+3)%len(all)]}
 		decks := [][]*cards.Card{testutil.RepoDeck(t, reg, names[0]), testutil.RepoDeck(t, reg, names[1])}
-		onePassDriveGame(t, Config{Seed: 5550101 + seed, Names: names, Decks: decks, Tokens: reg.Tokens, NameUniverse: reg.Cards}, seed, &st)
+		onePassDriveGame(t, Config{Seed: 5550101 + seed, Names: names, Decks: decks, Tokens: reg.Tokens, NameUniverse: reg.Universe()}, seed, &st)
 	}
 	t.Logf("legacy: %+v", st)
 	if st.decisions < 200 || st.offered < 50 || st.planned < 20 {

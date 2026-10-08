@@ -75,7 +75,7 @@ func TestEveryOfferedPriorityOptionActs(t *testing.T) {
 	for g := 0; g+1 < len(all); g += 2 {
 		names := []string{all[g], all[g+1]}
 		decks := [][]*cards.Card{testutil.RepoDeck(t, reg, all[g]), testutil.RepoDeck(t, reg, all[g+1])}
-		cfg := Config{Seed: uint64(9100 + g), Names: names, Decks: decks, Tokens: reg.Tokens, NameUniverse: reg.Cards}
+		cfg := Config{Seed: uint64(9100 + g), Names: names, Decks: decks, Tokens: reg.Tokens, NameUniverse: reg.Universe()}
 		e := New(cfg)
 		e.Advance()
 		b := newTestBot(uint64(g) + 3)

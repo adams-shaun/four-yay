@@ -1,0 +1,557 @@
+package mzenc
+
+import (
+	"regexp"
+	"sort"
+	"strconv"
+	"strings"
+
+	"github.com/adams-shaun/gorge/state"
+	"github.com/adams-shaun/gorge/view"
+)
+
+// DefaultTableSize is MageZero v0.2's Features.TABLE_SIZE (Integer.MAX_VALUE).
+const DefaultTableSize int64 = 2_147_483_647
+
+// actionTypeNames mirrors ActionEncoder.ActionType.toString(), the six
+// decision-type feature names (StateEncoder.processState:639).
+var actionTypeNames = [6]string{"PRIORITY", "CHOOSE_NUM", "BLANK", "CHOOSE_TARGET", "MAKE_CHOICE", "CHOOSE_USE"}
+
+// stepName maps the projected view step string (state.Step.String()) to the
+// upstream TurnStepType name used as a global phase feature. Keys are exactly
+// state.Step.String()'s spellings, held there by TestStepNameCoversAllSteps,
+// so they cannot drift from the state package. Only the steps StateEncoder
+// emits a name for are listed.
+var stepName = map[string]string{
+	"untap":             "UNTAP",
+	"upkeep":            "UPKEEP",
+	"draw":              "DRAW",
+	"main1":             "PRECOMBAT_MAIN",
+	"begin-combat":      "BEGIN_COMBAT",
+	"declare-attackers": "DECLARE_ATTACKERS",
+	"declare-blockers":  "DECLARE_BLOCKERS",
+	"combat-damage":     "COMBAT_DAMAGE",
+	"end-combat":        "END_COMBAT",
+	"main2":             "POSTCOMBAT_MAIN",
+	"end":               "END_TURN",
+	"cleanup":           "CLEANUP",
+}
+
+var (
+	uuidTagRE = regexp.MustCompile(` \[[0-9a-f]+\]`)
+	angleRE   = regexp.MustCompile("<[^>]*>")
+)
+
+// cleanString ports StateEncoder.cleanString (StateEncoder.java:682-689):
+// remove " [hex]" UUID tags and every <...> span.
+func cleanString(s string) string {
+	if s == "" {
+		return s
+	}
+	s = uuidTagRE.ReplaceAllString(s, "")
+	return angleRE.ReplaceAllString(s, "")
+}
+
+type walker struct {
+	e      *Encoder
+	seat   state.PlayerID
+	active state.PlayerID
+	ch     view.Chars
+	names  map[state.ObjID]string
+	// v is the view being walked; cards indexes every CardView the view
+	// carries by object id (lookup only, never ranged) so a bare-id link
+	// (Imprinted, Paired, ExiledCards, a stack target) resolves to the card it
+	// names; attachedTo and attachedPlayer are the attachment fan-out from
+	// CardView.AttachedTo / AttachedPlayer, each list in (Name, ID) order.
+	v              *view.View
+	cards          map[state.ObjID]*view.CardView
+	attachedTo     map[state.ObjID][]*view.CardView
+	attachedPlayer map[state.PlayerID][]*view.CardView
+	// emitted records the feature families actually produced and unsupported
+	// records those the walk cannot express. Both are nil on the hot path
+	// (ProcessState) so no map is allocated there; only ProcessStateReport
+	// sets them. emit and note are the sole writers.
+	emitted     map[string]bool
+	unsupported map[string]bool
+}
+
+// emit records that a feature family was produced. It is a no-op when the
+// walker carries no emitted map (the ProcessState hot path), so the recording
+// costs one nil check and allocates nothing.
+func (w *walker) emit(family string) {
+	if w.emitted != nil {
+		w.emitted[family] = true
+	}
+}
+
+// note records that a feature family is unsupported. Like emit, it is a no-op
+// when the walker carries no unsupported map (the ProcessState hot path), so
+// the recording costs one nil check and allocates nothing.
+func (w *walker) note(family string) {
+	if w.unsupported != nil {
+		w.unsupported[family] = true
+	}
+}
+
+// manaPoolKeys and manaPoolNames are the fixed colour order processMana
+// (StateEncoder.java:438-444) reads a pool in, spelled as gorGE's Pool map
+// keys (internal/policynet's poolKeys: "W","U","B","R","G","C").
+var (
+	manaPoolKeys  = [...]string{"W", "U", "B", "R", "G", "C"}
+	manaPoolNames = [...]string{"WhiteMana", "BlueMana", "BlackMana", "RedMana", "GreenMana", "ColorlessMana"}
+)
+
+// processManaPool ports StateEncoder.processMana (StateEncoder.java:438-444):
+// the six fixed colour features under the caller's "ManaPool" subtree. The map
+// is iterated in the fixed key order, never ranged, so the emission order (and
+// therefore nothing hashed) cannot vary with map iteration order.
+func (w *walker) processManaPool(f *Node, pool map[string]int32) {
+	w.emit(famManaPool)
+	for i, k := range manaPoolKeys {
+		f.AddNumericFeature(manaPoolNames[i], int(pool[k]), true)
+	}
+}
+
+// processPlayer ports the scalar half of StateEncoder.processPlayer
+// (StateEncoder.java:543-619): the active/decision flags, life total, library
+// count, hand count and mana pool. Families Task 2 cannot expose are recorded
+// in w.unsupported and emit nothing. isDecisionPlayer is pv.ID == seat.
+func (w *walker) processPlayer(f *Node, pv *view.PlayerView, isDecisionPlayer bool) {
+	if pv.ID == w.active {
+		f.AddFeature("IsActivePlayer")
+		w.emit(famIsActivePlayer)
+	}
+	if isDecisionPlayer {
+		f.AddFeature("IsDecisionPlayer")
+		w.emit(famIsDecisionPlayer)
+	}
+	f.AddNumericFeature("LifeTotal", int(pv.Life), true)
+	w.emit(famLifeTotal)
+	if !pv.LandDropSpent {
+		f.AddFeature("CanPlayLand")
+		w.emit(famCanPlayLand)
+	}
+	f.AddNumericFeature("LibraryCount", pv.LibrarySize, true)
+	w.emit(famLibraryCount)
+	w.processPlayerAttachments(f, pv)
+	w.processPlayerCounters(f, pv)
+	w.processManaPool(f.SubFeatures("ManaPool", false), pv.Pool)
+
+	// battlefield (StateEncoder.java:590-593): the per-permanent family,
+	// nested under the player's subtree exactly as upstream.
+	w.processBattlefield(f.SubFeatures("Battlefield", true), pv, w.ch)
+
+	// graveyard then hand (StateEncoder.java:596-608). perfectInfo is always
+	// true for the public entry, so every player's Hand is walked and no
+	// CardsInHand scalar is emitted.
+	w.processGraveyard(f.SubFeatures("Graveyard", true), pv, w.ch)
+	w.processHand(f.SubFeatures("Hand", true), pv, w.ch)
+
+	// command zone (StateEncoder.java:610-611): after hand, exactly as
+	// upstream. processCommandZone creates the "CommandZone" subtree itself.
+	w.processCommandZone(f, pv, w.ch)
+
+	w.note(famDayNight)
+	w.note(famInPayManaMode)
+	w.note(famActivating)
+	w.note(famMicroDecisions)
+	// global families the view exposes but no walker consumes yet.
+	w.note(famGlobalWatchers)
+}
+
+// processCommandZone ports StateEncoder.processCommandZone
+// (StateEncoder.java:458-497) for the commander roster. Upstream creates the
+// per-player "CommandZone" subtree once (StateEncoder.java:610) and, for each
+// command object, a "Commander" subtree carrying the commander's name as a
+// feature, then walks the commander card via processCard. view.PlayerView
+// carries no emblem list, so the Emblem half of the upstream walk is recorded
+// unsupported and emits nothing.
+//
+// The roster (pv.Commanders) is sorted by (Name, ID) on a fresh copy so the
+// traversal is a pure function of the roster and never of the projected slice
+// order. The copy is deliberate: it reorders nothing the caller holds.
+func (w *walker) processCommandZone(f *Node, pv *view.PlayerView, ch view.Chars) {
+	w.emit(famCommandZone)
+	w.note(famEmblem)
+	cz := f.SubFeatures("CommandZone", false)
+	if len(pv.Commanders) == 0 {
+		return
+	}
+	comms := make([]view.CardView, len(pv.Commanders))
+	copy(comms, pv.Commanders)
+	sort.Slice(comms, func(i, j int) bool {
+		if comms[i].Name != comms[j].Name {
+			return comms[i].Name < comms[j].Name
+		}
+		return comms[i].ID < comms[j].ID
+	})
+	for i := range comms {
+		cv := &comms[i]
+		com := cz.SubFeatures("Commander", true)
+		com.AddFeature(cv.Name)
+		w.processCard(com.SubFeatures(cv.Name, true), cv, true)
+	}
+}
+
+// processBattlefield ports StateEncoder.processBattlefield
+// (StateEncoder.java:330-340): walk one seat's permanents under the fixed
+// "Battlefield" subtree. Upstream sorts by Permanent.getValue—a name+id key—
+// so gorGE sorts a fresh copy by (Name, ID) and never relies on the incoming
+// slice order. The copy is deliberate: it reorders nothing the caller holds,
+// and it is what makes the "#1"/"#2" duplicate-name occurrence keys stable.
+func (w *walker) processBattlefield(f *Node, pv *view.PlayerView, ch view.Chars) {
+	w.emit(famBattlefield)
+	if len(pv.Battlefield) == 0 {
+		return
+	}
+	perms := make([]view.CardView, len(pv.Battlefield))
+	copy(perms, pv.Battlefield)
+	sort.Slice(perms, func(i, j int) bool {
+		if perms[i].Name != perms[j].Name {
+			return perms[i].Name < perms[j].Name
+		}
+		return perms[i].ID < perms[j].ID
+	})
+	for i := range perms {
+		cv := &perms[i]
+		w.processPerm(f.SubFeatures(cv.Name, true), cv, ch)
+	}
+}
+
+// maxAttachDepth bounds the attachment recursion so a malformed (cyclic)
+// AttachedTo chain in a synthetic view cannot loop; a real chain is far
+// shallower.
+const maxAttachDepth = 16
+
+// processPerm ports StateEncoder.processPermBattlefield (StateEncoder.java:
+// 177-305) for the families the view carries. Upstream first walks the static
+// card via processCard (types, colours, subtypes, mana value), then the dynamic
+// layer, attachments, imprinted, paired, the permanent's own exile zone,
+// TargetedBy, the unique status flags and finally the creature block. The
+// dynamic type/colour/subtype and dynamic ability lists are not expressible
+// through view.CardView and stay unsupported.
+func (w *walker) processPerm(f *Node, cv *view.CardView, ch view.Chars) {
+	w.processPermDepth(f, cv, 0)
+}
+
+func (w *walker) processPermDepth(f *Node, cv *view.CardView, depth int) {
+	w.emit(famPermanent)
+	w.processCard(f, cv, true)
+	if cv.Tapped {
+		f.AddFeature("Tapped")
+	}
+	w.note(famDynamicTypes)
+	w.note(famDynamicAbilities)
+
+	w.processPermAttachments(f, cv, depth)
+	w.processPermImprinted(f, cv)
+	w.processPermPaired(f, cv)
+	w.processPermExile(f, cv)
+	w.processTargetedBy(f, cv)
+	w.processPermFlags(f, cv)
+
+	if isCreatureType(cv.Types) {
+		w.emit(famCreature)
+		if cv.SummonSick {
+			f.AddFeature("SummoningSick")
+		}
+		if canAttack(cv) {
+			f.AddFeature("CanAttack")
+			w.emit(famCanAttack)
+		}
+		if canBlock(cv) {
+			f.AddFeature("CanBlock")
+			w.emit(famCanBlock)
+		}
+		if cv.Attacking {
+			f.AddFeature("Attacking")
+			for _, bid := range cv.BlockedBy {
+				if name := w.names[bid]; name != "" {
+					f.AddFeature(name + " Blocking")
+				}
+			}
+		}
+		f.AddNumericFeature("Damage", int(cv.Damage), true)
+		f.AddNumericFeature("Power", int(cv.Power), true)
+		f.AddNumericFeature("Toughness", int(cv.Toughness), true)
+	}
+	// keywords (the ability-rule token analogue): lowercased, in view order.
+	for _, kw := range cv.Keywords {
+		f.AddFeature(strings.ToLower(kw))
+	}
+}
+
+// isCreatureType reports whether a CardView's space-joined type line carries
+// the Creature card type, the view-analogue of upstream p.isCreature(game).
+func isCreatureType(types string) bool {
+	for _, t := range strings.Fields(types) {
+		if t == "Creature" {
+			return true
+		}
+	}
+	return false
+}
+
+// permanentTypes are the card types that make a card a permanent
+// (upstream c.isPermanent()).
+var permanentTypes = [...]string{"Creature", "Artifact", "Enchantment", "Land", "Planeswalker", "Battle"}
+
+// isPermanentType reports whether a CardView's space-joined type line carries
+// any permanent card type, the view-analogue of upstream c.isPermanent().
+func isPermanentType(types string) bool {
+	for _, t := range strings.Fields(types) {
+		for _, p := range permanentTypes {
+			if t == p {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// manaBraceForm strips the optional {..} braces Forge sometimes renders a
+// cost in, so "..{U} {U}.." tokenises as the space-separated notation the
+// counter reads. It mirrors policynet's manaBraceForm.
+var manaBraceForm = strings.NewReplacer("{", " ", "}", " ")
+
+// manaValue is a minimal port of internal/policynet's mvOf (option.go): the
+// mana value of a Forge-notation cost ("U U" -> 2, "R" -> 1, "" -> 0). It
+// handles the shapes view.CardView.ManaCost carries: a plain pip, a generic
+// integer, X (0 off the stack, CR 202.3b), and a monocolour hybrid twobrid
+// ("2/W"/"2W" -> its generic face, CR 202.4b); every other symbolic token
+// (hybrid, Phyrexian) counts as one pip.
+func manaValue(cost string) int {
+	cost = strings.TrimSpace(manaBraceForm.Replace(cost))
+	if cost == "" || strings.EqualFold(cost, "no cost") {
+		return 0
+	}
+	mv := 0
+	for _, tok := range strings.Fields(cost) {
+		if tok == "X" {
+			continue
+		}
+		if len(tok) == 1 && strings.ContainsRune("WUBRGC", rune(tok[0])) {
+			mv++
+			continue
+		}
+		if n, err := strconv.Atoi(tok); err == nil && n >= 0 {
+			mv += n
+			continue
+		}
+		if v, ok := twobridManaValue(tok); ok {
+			mv += v
+			continue
+		}
+		mv++
+	}
+	return mv
+}
+
+// twobridManaValue recognises Forge's concatenated ("2W") and slash ("2/W")
+// monocolour-hybrid spellings and returns the generic face, copied from
+// policynet's twobridManaValue.
+func twobridManaValue(sym string) (int, bool) {
+	generic, col := "", ""
+	if left, right, ok := strings.Cut(sym, "/"); ok {
+		generic, col = left, right
+	} else {
+		i := 0
+		for i < len(sym) && sym[i] >= '0' && sym[i] <= '9' {
+			i++
+		}
+		if i == 0 {
+			return 0, false
+		}
+		generic, col = sym[:i], sym[i:]
+	}
+	if len(col) != 1 || !strings.ContainsRune("WUBRGC", rune(col[0])) {
+		return 0, false
+	}
+	v, err := strconv.Atoi(generic)
+	if err != nil || v < 0 {
+		return 0, false
+	}
+	return v, true
+}
+
+// processCard ports the view-exposed subset of StateEncoder.processCard
+// (StateEncoder.java:134-175): the universal "Card" tag, the "Permanent" tag
+// for a permanent card type, each card-type word (lowercased for gorGE), the
+// printed mana value, and the card's name recorded in w.names (Task 3's
+// BlockedBy walk reads it).
+//
+// view.CardView.Types is the space-joined type line, card types and subtypes
+// together; subtypeWord splits it, so the type words come first, then the
+// colour set (processColors), then the subtypes, as upstream orders them.
+// passToParent mirrors upstream's
+// `if(!f.passToParent) return` guard: a card node not created pass-to-parent
+// emits nothing.
+func (w *walker) processCard(f *Node, cv *view.CardView, passToParent bool) {
+	if !passToParent {
+		return
+	}
+	w.emit(famCard)
+	w.names[cv.ID] = cv.Name
+	f.AddFeature("Card")
+	if isPermanentType(cv.Types) {
+		f.AddFeature("Permanent")
+	}
+	for _, t := range strings.Fields(cv.Types) {
+		if !subtypeWord(t) {
+			f.AddFeature(strings.ToLower(t))
+		}
+	}
+	w.processColors(f, cv)
+	for _, t := range strings.Fields(cv.Types) {
+		if subtypeWord(t) {
+			f.AddFeature(strings.ToLower(t))
+			w.emit(famSubtypes)
+		}
+	}
+	f.AddNumericFeature("ManaValue", manaValue(cv.ManaCost), true)
+}
+
+// processCardInZone ports StateEncoder.processCardInZone (StateEncoder.java:306-329):
+// processCard, then the zone's static/activated/triggered ability walks. The
+// view carries no ability list, so the ability walks are not exposable and the
+// CardAbilities family is recorded unsupported; only the card features are
+// emitted.
+func (w *walker) processCardInZone(f *Node, cv *view.CardView, zone string, ch view.Chars) {
+	w.processCard(f, cv, f.passToParent)
+	w.note(famCardAbilities)
+}
+
+// processGraveyard ports StateEncoder.processGraveyard
+// (StateEncoder.java:341-345): walk the sorted graveyard cards under the
+// caller's "Graveyard" subtree. Upstream uses getCardsSorted, so gorGE sorts a
+// fresh copy by (Name, ID) and never relies on the incoming slice order.
+func (w *walker) processGraveyard(f *Node, pv *view.PlayerView, ch view.Chars) {
+	w.emit(famGraveyard)
+	w.processCardList(f, pv.Graveyard, "graveyard", ch)
+}
+
+// processHand ports StateEncoder.processHand (StateEncoder.java:347-351): walk
+// the sorted hand cards under the caller's "Hand" subtree.
+func (w *walker) processHand(f *Node, pv *view.PlayerView, ch view.Chars) {
+	w.emit(famHand)
+	w.processCardList(f, pv.Hand, "hand", ch)
+}
+
+// processCardList shares processGraveyard/processHand: sort a fresh copy of
+// cards by (Name, ID) (upstream getCardsSorted), create the card's name
+// subtree, and walk it in zone. The copy is deliberate: it reorders nothing
+// the caller holds and gives a deterministic traversal independent of the
+// incoming list order.
+func (w *walker) processCardList(f *Node, cards []view.CardView, zone string, ch view.Chars) {
+	if len(cards) == 0 {
+		return
+	}
+	sorted := make([]view.CardView, len(cards))
+	copy(sorted, cards)
+	sort.Slice(sorted, func(i, j int) bool {
+		if sorted[i].Name != sorted[j].Name {
+			return sorted[i].Name < sorted[j].Name
+		}
+		return sorted[i].ID < sorted[j].ID
+	})
+	for i := range sorted {
+		cv := &sorted[i]
+		w.processCardInZone(f.SubFeatures(cv.Name, true), cv, zone, ch)
+	}
+}
+
+// processExile ports the flat-view analogue of StateEncoder.processExile /
+// processExileZone (StateEncoder.java:425-437): the root "Exile" subtree, one
+// wrapper per exile zone, and each zone's cards walked via processCardInZone in
+// getCardsSorted order. Upstream keys the wrapper by the zone's name; gorGE's
+// view.PlayerView.Exile is a single flat list that carries no zone name, so the
+// port emits ONE deterministic "ExileZone" wrapper and records the lost
+// per-zone-name dimension as the famExileZoneNames caveat at this walk site.
+// Every player's exiled cards are gathered and sorted by (Name, ID) so the
+// traversal is a pure function of the card set and never of player/slice order.
+func (w *walker) processExile(f *Node, v *view.View) {
+	w.emit(famExile)
+	w.note(famExileZoneNames)
+	ex := f.SubFeatures("Exile", true)
+	var all []view.CardView
+	for i := range v.Players {
+		all = append(all, v.Players[i].Exile...)
+	}
+	if len(all) == 0 {
+		return
+	}
+	sort.Slice(all, func(i, j int) bool {
+		if all[i].Name != all[j].Name {
+			return all[i].Name < all[j].Name
+		}
+		return all[i].ID < all[j].ID
+	})
+	z := ex.SubFeatures("ExileZone", true)
+	for i := range all {
+		cv := &all[i]
+		w.processCardInZone(z.SubFeatures(cv.Name, true), cv, "exile", w.ch)
+	}
+}
+
+// ProcessState walks an omniscient gorGE view and returns the MageZero
+// feature-id set for the given decision. It passes nil emitted and unsupported
+// maps so the hot path allocates no coverage bookkeeping; ProcessStateReport is
+// the recording entry point.
+func ProcessState(v view.View, ch view.Chars, seat state.PlayerID, decisionType int, decisionsText string) map[int32]struct{} {
+	ids, _ := processState(v, ch, seat, decisionType, decisionsText, nil, nil)
+	return ids
+}
+
+// processState is the shared walk. emitted and unsupported are both nil on the
+// hot path and the walker's emit/note calls are no-ops then; ProcessStateReport
+// supplies both maps and reads them back.
+func processState(v view.View, ch view.Chars, seat state.PlayerID, decisionType int, decisionsText string, emitted, unsupported map[string]bool) (map[int32]struct{}, map[string]bool) {
+	e := NewEncoder(DefaultTableSize)
+	w := &walker{e: e, seat: seat, active: v.Active, ch: ch, v: &v,
+		names: map[state.ObjID]string{}, emitted: emitted, unsupported: unsupported}
+	w.indexCards()
+	// Pre-register every battlefield permanent's name before any player or
+	// permanent is walked: processPerm resolves a BlockedBy id through
+	// w.names, and a blocker may sit on a later player's battlefield (or be
+	// walked after its attacker within one), so the lookup must not depend on
+	// walk order. Plain deterministic loops, no map range.
+	for i := range v.Players {
+		bf := v.Players[i].Battlefield
+		for j := range bf {
+			w.names[bf[j].ID] = bf[j].Name
+		}
+	}
+
+	root := w.e.Root()
+	// globals (StateEncoder.java:634-641)
+	if name, ok := stepName[v.Step]; ok {
+		root.AddFeature(name)
+		w.emit(famTurnStep)
+	}
+	if decisionType >= 0 && decisionType < len(actionTypeNames) {
+		root.AddFeature(actionTypeNames[decisionType])
+		w.emit(famDecisionType)
+	}
+	root.AddFeature(cleanString(decisionsText))
+	w.emit(famDecisionsText)
+
+	// stack (StateEncoder.java:647): the root "Stack" subtree, always created
+	// even when empty, walked bottom to top.
+	w.processStack(root, &v)
+
+	// exile (StateEncoder.java:425-437): the root "Exile" subtree over the
+	// flat per-player exile lists.
+	w.processExile(root, &v)
+
+	// each player, in v.Players order: the seat under "Player", every other
+	// seat under "Opponent" (StateEncoder.java:657-661).
+	for i := range v.Players {
+		pv := &v.Players[i]
+		if pv.ID == seat {
+			w.processPlayer(root.SubFeatures("Player", true), pv, true)
+		} else {
+			w.processPlayer(root.SubFeatures("Opponent", true), pv, false)
+		}
+	}
+	return e.IDs(), w.unsupported
+}

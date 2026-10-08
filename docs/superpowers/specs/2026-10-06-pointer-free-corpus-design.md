@@ -532,7 +532,11 @@ II-a, II-b, II-c and II-d from §2.7, one ticket each, each opened only by §7's
 
 - **Remove:**
   - `OpenCorpusSubset`, `OpenCorpusFor`, `IsSubset`
-  - the `enginebench_subset` tag and `cmd/enginebench/corpus_subset.go`
+  - ~~the `enginebench_subset` tag and `cmd/enginebench/corpus_subset.go`~~
+    (done early: main's `Fix subset corpus test` pull-forward deleted the tag and
+    the shim, since S4 had already made `OpenCorpusFor` a wrapper over
+    `SharedCorpus` and the tag could only produce a shim that reported a
+    fallback that was no longer a fallback)
   - the eager `Registry.Catalog()` global build if no test still needs it
   - `SameParamMap`/`ParamMapIdentity` (only if II-a landed)
   - the gob type registrations

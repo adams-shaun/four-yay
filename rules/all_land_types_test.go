@@ -26,7 +26,7 @@ func allLandTypesEngine(t *testing.T, reg *cards.Registry, names ...string) *Eng
 	e := New(seatZeroStart(Config{
 		Seed: 42, Names: []string{"land types", "opponent"},
 		Decks: [][]*cards.Card{deck, opponent}, Tokens: reg.Tokens,
-		NameUniverse: reg.Cards,
+		NameUniverse: reg.Universe(),
 	}))
 	e.Advance()
 	toMain1(t, e)

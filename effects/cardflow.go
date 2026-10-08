@@ -2037,7 +2037,7 @@ func effNameCard(h Host, c *Ctx, sa *cards.SA) {
 	valid := sa.ParamStr(cards.PKValidCards)
 	chooseFromList := sa.ParamStr(cards.PKChooseFromList)
 	chooseFromDefined := sa.ParamStr(cards.PKChooseFromDefinedCards)
-	universeBacked := len(h.Game().NameUniverse) > 0
+	universeBacked := h.Game().NameUniverse.Len() > 0
 	random := strings.EqualFold(sa.ParamStr(cards.PKAtRandom), "True")
 	// The resolving context's numeric-RHS resolver (paid X, a published
 	// StoreSVar) is threaded into the eligible-name filter so a dynamic

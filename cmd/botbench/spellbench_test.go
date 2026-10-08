@@ -156,7 +156,7 @@ func TestSpellbenchTacticalDeterministic(t *testing.T) {
 				var res sbResult
 				seats := []seat.Seat{policies[pol](seed ^ 1), policies["sb-heuristic"](seed ^ 2)}
 				cfg := rules.Config{Seed: seed, Names: []string{"p0", "p1"}, Decks: [][]*cards.Card{deck, deck},
-					Tokens: reg.Tokens, NameUniverse: reg.Cards}
+					Tokens: reg.Tokens, NameUniverse: reg.Universe()}
 				o, e, err := gbench.PlayGame(cfg, seats, 200, 20000, gbench.Hooks{Submit: sbSubmitWithFallback(seats, &res)})
 				if err != nil {
 					t.Fatalf("%s on %s: %v", pol, deckID, err)

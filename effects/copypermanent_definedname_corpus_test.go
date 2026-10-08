@@ -47,7 +47,7 @@ func TestCopyPermanentDefinedNameRealCorpus(t *testing.T) {
 		effectFound = true
 
 		h := newHost(t, 2)
-		h.g.NameUniverse = reg.Cards
+		h.g.NameUniverse = reg.Universe()
 		src := h.g.AddObject(explorer, 0)
 		src.Zone = state.ZBattlefield
 		h.g.SetZone(state.ZBattlefield, 0, []state.ObjID{src.ID})

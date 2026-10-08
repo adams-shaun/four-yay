@@ -593,7 +593,7 @@ func playGame(reg *cards.Registry, decks []genDeck, seed uint64, maxTurns, maxIn
 	// Only a COMPLETED game reaches the replay verification (every stall kind
 	// returns early), and a completed game never crossed the cap, so the cap
 	// is inert on the replay; a cap-aborted game is never verified.
-	cfg := rules.Config{Names: names, Decks: dk, Tokens: reg.Tokens, Seed: seed, NameUniverse: reg.AllCards(),
+	cfg := rules.Config{Names: names, Decks: dk, Tokens: reg.Tokens, Seed: seed, NameUniverse: reg.Universe(),
 		LoopGuard: objectCapGuard(maxObjects)}
 	var o gbench.Outcome
 	var e *rules.Engine

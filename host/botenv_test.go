@@ -320,11 +320,19 @@ func submitEnvStep(t *testing.T, r *Registry, tbl *table, m *match, pd *parkedDe
 	err := m.locked(func() error {
 		before := len(m.e.L.Events)
 		d := m.e.Pending()
+		// A posed decision is valid only until the next Submit on the engine
+		// that posed it (decision_arena_live.go); the feed is recorded after
+		// the Submit, so it needs an owned copy taken here, exactly as the
+		// production play loop's feed does (host/match.go).
+		var drec *decision.Decision
+		if d != nil {
+			drec = d.Clone()
+		}
 		if e := m.e.Submit(pd.in); e != nil {
 			return e
 		}
 		m.afterSubmit(before)
-		m.feeds.record(d, pd.in)
+		m.feeds.record(drec, pd.in)
 		return r.afterBurst(tbl, m, before)
 	})
 	if err != nil {

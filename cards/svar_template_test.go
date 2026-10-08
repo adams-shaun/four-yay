@@ -38,7 +38,7 @@ func TestResolveSVarTemplateMatchesFreshParse(t *testing.T) {
 			reflect.DeepEqual(a.Params, b.Params) && same(a.Sub, b.Sub)
 	}
 	n := 0
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for _, f := range c.Faces {
 			if f == nil {
 				continue

@@ -29,10 +29,10 @@ func nameCardEngine(t *testing.T, hand ...string) (*Engine, *cards.Registry) {
 		deck[i] = mountain
 	}
 	e := New(Config{Seed: 1, Names: []string{"a", "b"},
-		Decks: [][]*cards.Card{deck, deck}, NameUniverse: reg.Cards})
+		Decks: [][]*cards.Card{deck, deck}, NameUniverse: reg.Universe()})
 	// Precondition: the universe must actually be wired, or every assertion
 	// below would pass vacuously against the no-universe fallback.
-	if len(e.G.NameUniverse) == 0 {
+	if e.G.NameUniverse.Len() == 0 {
 		t.Fatal("precondition: NameUniverse not wired from Config")
 	}
 	for p := state.PlayerID(0); p < 2; p++ {

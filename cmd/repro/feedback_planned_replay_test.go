@@ -40,7 +40,7 @@ func TestPaymentPlanAuditFeedbackCaptureReplaysPlannedIntents(t *testing.T) {
 		return host.Deck{Name: name, Cards: cards}, nil
 	}
 	r, err := host.New(host.Options{
-		LoadDeck: load, Tokens: reg.Tokens, NameUniverse: reg.Cards,
+		LoadDeck: load, Tokens: reg.Tokens, NameUniverse: reg.Universe(),
 		Seats: func(_ []string, seed uint64) []seat.Seat {
 			return []seat.Seat{seat.NewBot(seed ^ 1).EnableAutoPayMana(), seat.NewBot(seed ^ 2).EnableAutoPayMana()}
 		},

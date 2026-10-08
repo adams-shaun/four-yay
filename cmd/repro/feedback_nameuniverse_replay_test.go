@@ -97,7 +97,7 @@ func TestFeedbackSnapshotReplaysAUniverseBackedMatch(t *testing.T) {
 	}
 	t.Chdir(root)
 	reg := testutil.CorpusRegistry(t)
-	if len(reg.Cards) == 0 {
+	if reg.Len() == 0 {
 		t.Fatal("precondition: corpus universe is empty")
 	}
 	deck := nameUniverseDeckCards(t, reg)
@@ -110,7 +110,7 @@ func TestFeedbackSnapshotReplaysAUniverseBackedMatch(t *testing.T) {
 	r, err := host.New(host.Options{
 		LoadDeck:     load,
 		Tokens:       reg.Tokens,
-		NameUniverse: reg.Cards,
+		NameUniverse: reg.Universe(),
 		Seats: func(seatNames []string, seed uint64) []seat.Seat {
 			return []seat.Seat{seat.NewBot(seed ^ 1), seat.NewBot(seed ^ 2)}
 		},

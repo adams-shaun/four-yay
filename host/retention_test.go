@@ -195,14 +195,14 @@ func TestFinishedMatchesReleaseEngine(t *testing.T) {
 func TestArchivedIndexHoldsNoNameUniverse(t *testing.T) {
 	takeMatchSlot(t)
 	reg := testutil.CorpusRegistry(t)
-	if len(reg.Cards) == 0 {
+	if reg.Len() == 0 {
 		t.Fatal("precondition: corpus universe is empty")
 	}
 	dir := t.TempDir()
 	opts := Options{
 		Dir:          dir,
 		LoadDeck:     nameLandLoader(t),
-		NameUniverse: reg.Cards,
+		NameUniverse: reg.Universe(),
 		Sleep:        func(time.Duration, <-chan struct{}) {},
 	}
 	r, err := New(opts)

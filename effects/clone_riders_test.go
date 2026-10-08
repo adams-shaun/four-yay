@@ -52,7 +52,7 @@ func TestCloneKillerCosplayCopiesNamedCard(t *testing.T) {
 	if cosplay == nil || bear == nil || forest == nil {
 		t.Fatal("missing corpus cards")
 	}
-	h.g.NameUniverse = reg.Cards
+	h.g.NameUniverse = reg.Universe()
 	a, b := h.g.AddObject(cosplay, 0).ID, h.g.AddObject(forest, 0).ID
 	h.g.SetZone(state.ZBattlefield, 0, []state.ObjID{a, b})
 	h.g.Obj(a).Zone, h.g.Obj(b).Zone = state.ZBattlefield, state.ZBattlefield

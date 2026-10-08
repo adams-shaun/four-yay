@@ -111,6 +111,22 @@ func (r *walkBlockRec) recordMembers(zi int, all []*cards.SA) {
 	r.memberSpans[zi] = potentialManaSpan{start: int32(start), end: int32(len(r.members)), walked: true}
 }
 
+// filterPayableMana applies the live-pool payability gate to a deferred
+// membership list, writing into dst (which must not alias all).
+func (e *Engine) filterPayableMana(dst, all []*cards.SA, p state.PlayerID, o *state.Object, id state.ObjID) []*cards.SA {
+	out := dst[:0]
+	for _, ma := range all {
+		cc := e.compiledCostOf(ma.ParamStr(cards.PKCost))
+		if mf := e.manaFactsOf(ma); mf != nil {
+			cc = mf.cost
+		}
+		if e.manaCostPayable(p, o, id, cc, nil) {
+			out = append(out, ma)
+		}
+	}
+	return out
+}
+
 // ownManaMembers is the mana section's membership walk for the seat's own
 // battlefield object id (zone position zi) in a recording walk: the
 // membership with the payability gate deferred -- PotentialMana's list,
@@ -121,16 +137,7 @@ func (w *legalWalk) ownManaMembers(dst []*cards.SA, zi int, o *state.Object, id 
 	e, p := w.e, w.p
 	all := e.appendAvailableManaAbilitiesGate(dst, &w.actionStatics, p, id, true)
 	w.rec.recordMembers(zi, all)
-	out := all[:0]
-	for _, ma := range all {
-		cc := e.compiledCostOf(ma.ParamStr(cards.PKCost))
-		if mf := e.manaFactsOf(ma); mf != nil {
-			cc = mf.cost
-		}
-		if e.manaCostPayable(p, o, id, cc, nil) {
-			out = append(out, ma)
-		}
-	}
+	out := e.filterPayableMana(dst, all, p, o, id)
 	if walkCacheVerify {
 		if want := e.appendAvailableManaAbilities(nil, &w.actionStatics, p, id); !slices.EqualFunc(want, out, pay.SameManaAbility) {
 			panic(fmt.Sprintf("rules: recorded mana membership of %d filtered to %d abilities, the walk's has %d", id, len(out), len(want)))

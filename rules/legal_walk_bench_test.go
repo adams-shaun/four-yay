@@ -143,7 +143,7 @@ func TestLegalWalkDigest(t *testing.T) {
 		seat := []string{all[i], all[(i+7)%len(all)]}
 		games = append(games, game{Config{Seed: 81000 + uint64(i), Names: seat,
 			Decks:  [][]*cards.Card{testutil.RepoDeck(t, reg, seat[0]), testutil.RepoDeck(t, reg, seat[1])},
-			Tokens: reg.Tokens, NameUniverse: reg.Cards}, uint64(900 + i)})
+			Tokens: reg.Tokens, NameUniverse: reg.Universe()}, uint64(900 + i)})
 	}
 	legacy := testutil.LegacyDeckNames()
 	for i := 0; i < 4; i++ {
@@ -155,7 +155,7 @@ func TestLegalWalkDigest(t *testing.T) {
 			decks = append(decks, testutil.RepoDeck(t, reg, n))
 		}
 		games = append(games, game{Config{Seed: 82000 + uint64(i), Names: seat, Decks: decks,
-			Tokens: reg.Tokens, NameUniverse: reg.Cards}, uint64(950 + i)})
+			Tokens: reg.Tokens, NameUniverse: reg.Universe()}, uint64(950 + i)})
 	}
 	for _, g := range repoCommanderGames {
 		games = append(games, game{Config{Seed: g.seed, Names: []string{g.file, g.opp},

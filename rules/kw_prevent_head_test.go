@@ -21,7 +21,7 @@ func TestPreventSentenceHeadsRegisteredForEveryCorpusCarrier(t *testing.T) {
 	}
 	counts := make([]int, len(heads))
 	carriers := 0
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for _, primitive := range c.Primitives() {
 			for i, head := range heads {
 				if primitive != head.primitive {

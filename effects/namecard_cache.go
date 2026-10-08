@@ -36,11 +36,11 @@ type sliceKey struct {
 	n     int
 }
 
-func cardsKey(u []*cards.Card) sliceKey {
-	if len(u) == 0 {
+func cardsKey(u *cards.Universe) sliceKey {
+	if u.Len() == 0 {
 		return sliceKey{}
 	}
-	return sliceKey{first: &u[0], n: len(u)}
+	return sliceKey{first: u, n: u.Len()}
 }
 
 func namesKey(s []string) sliceKey {
@@ -67,7 +67,6 @@ const nameCacheLimit = 256
 
 var nameCache struct {
 	mu       sync.Mutex
-	universe map[sliceKey][]string
 	filtered map[nameFilterKey][]string
 	// shared marks every names slice this cache handed out, so the options
 	// memo only ever keys on a list whose identity is stable and immutable.
@@ -77,7 +76,6 @@ var nameCache struct {
 
 // resetNameCacheLocked drops every memo. The caller holds nameCache.mu.
 func resetNameCacheLocked() {
-	nameCache.universe = nil
 	nameCache.filtered = nil
 	nameCache.shared = nil
 	nameCache.options = nil
@@ -94,34 +92,13 @@ func rememberSharedLocked(names []string) {
 }
 
 // NameUniverseNames returns the sorted, distinct primary-face-name list a
-// live match snapshots at genesis. The result is memoised per universe and
-// SHARED: callers must treat it as read-only.
-func NameUniverseNames(universe []*cards.Card) []string {
-	if len(universe) == 0 {
-		return buildNameUniverseNames(universe)
-	}
-	k := cardsKey(universe)
+// live match snapshots at genesis (cards.Universe.Names, memoised on the
+// universe). The result is SHARED: callers must treat it as read-only.
+func NameUniverseNames(universe *cards.Universe) []string {
+	out := universe.Names()
 	nameCache.mu.Lock()
-	if out, ok := nameCache.universe[k]; ok {
-		nameCache.mu.Unlock()
-		return out
-	}
-	nameCache.mu.Unlock()
-	out := buildNameUniverseNames(universe)
-	out = out[:len(out):len(out)]
-	nameCache.mu.Lock()
-	defer nameCache.mu.Unlock()
-	if prev, ok := nameCache.universe[k]; ok {
-		return prev // a concurrent builder won; keep one identity.
-	}
-	if len(nameCache.universe) >= nameCacheLimit {
-		resetNameCacheLocked()
-	}
-	if nameCache.universe == nil {
-		nameCache.universe = make(map[sliceKey][]string)
-	}
-	nameCache.universe[k] = out
 	rememberSharedLocked(out)
+	nameCache.mu.Unlock()
 	return out
 }
 

@@ -93,7 +93,7 @@ func controlRedirectOf(c *cards.Card) string {
 func TestControlRedirectCensus(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	got := map[string]string{}
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		if c == nil || len(c.Faces) == 0 || c.Faces[0] == nil {
 			continue
 		}

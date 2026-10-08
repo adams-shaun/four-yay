@@ -120,6 +120,65 @@ func (f *Face) KeywordParam(head string) (string, bool) {
 	return "", false
 }
 
+// KeywordCostParam returns the cost field of a KeywordWithCost keyword.
+//
+// Forge's KeywordWithCost.parse (forge-game/.../keyword/KeywordWithCost.java:22)
+// reads the cost as the FIRST colon-separated field of the parameter, with an
+// optional "|…" tail cut off:
+//
+//	String[] allDetails = details.split(":");
+//	costString = allDetails[0].split("\\|", 2)[0].trim();
+//
+// so "Disguise:5 R:X:This cost is reduced by …" costs {5}{R} and the trailing
+// fields are the ReduceCost$ SVar name and its reminder text (CardFactoryUtil
+// .java:2764-2779). KeywordParam returns the WHOLE remainder — the right value
+// for a keyword whose parameter is not a cost — and handing that remainder to
+// ParseCost pollutes it with the trailing fields (a shaped Disguise read as
+// 20 phantom generic plus Unknown, so the turn-up fails closed).
+//
+// The KeywordWithCost family in Keyword.java (Bestow, Buyback, Disguise,
+// Entwine, Flashback, Fortify, Harmonize, Madness, Megamorph, Miracle, Morph,
+// Multikicker, Mutate, Plot, Replicate, Specialize, Squad, Surge) all put the
+// cost first, so they may use this accessor. The per-keyword expander for
+// Equip/Fortify already reads the first field locally (cards/kw_equip.go:25-45,
+// "the first field is exactly the cost … measured over all 646 raw K:Equip
+// lines at the corpus pin"); this is that rule lifted into one home.
+//
+// Heads that must NEVER use it, because Forge's keyword class puts a value
+// before the cost:
+//   - Suspend (K:Suspend:5:W) leads with the suspend time, read at
+//     rules/cast_altcost.go:628.
+//   - Impending (K:Impending:N:cost) leads with the time counter count, read
+//     by keywordAltCost (rules/cast_altcost.go:161-168).
+//   - Kicker (K:Kicker:1 R:1 G) carries two independently payable parts,
+//     read at rules/cast_altcost.go:29/45.
+//
+// ok mirrors KeywordParam's: the keyword is printed at all ("Flash" -> "",
+// true; absent -> "", false).
+func (f *Face) KeywordCostParam(head string) (string, bool) {
+	s, ok := f.KeywordParam(head)
+	if !ok {
+		return "", false
+	}
+	return KeywordCostField(s), true
+}
+
+// KeywordCostField applies the KeywordWithCost.parse cost read (the first
+// colon-field, cut at "|") to an already-extracted keyword parameter. It is
+// KeywordCostParam's split, exported so a reader holding a derived/granted
+// keyword line (not a Face) reads the same field rather than re-implementing
+// the rule. See KeywordCostParam for the grammar and the heads that must not
+// use it.
+func KeywordCostField(param string) string {
+	if i := strings.IndexByte(param, ':'); i >= 0 {
+		param = param[:i]
+	}
+	if i := strings.IndexByte(param, '|'); i >= 0 {
+		param = param[:i]
+	}
+	return strings.TrimSpace(param)
+}
+
 // SpellAbility is the SP$ ability a card casts with, if any.
 func (f *Face) SpellAbility() *SA {
 	if f.compiledCatalog != nil && f.compiledID != 0 && int(f.compiledID) <= len(f.compiledCatalog.Faces) {

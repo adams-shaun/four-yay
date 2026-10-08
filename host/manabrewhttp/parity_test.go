@@ -135,7 +135,7 @@ func parityRegistry(t *testing.T) *host.Registry {
 			return host.Deck{Name: name, Cards: cs}, nil
 		},
 		Tokens:       reg.Tokens,
-		NameUniverse: reg.Cards,
+		NameUniverse: reg.Universe(),
 		Sleep:        func(time.Duration, <-chan struct{}) {},
 		ThinkTimeout: 0, // no caretaker may answer on a bot's behalf
 	})

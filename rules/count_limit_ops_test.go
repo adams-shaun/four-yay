@@ -30,7 +30,7 @@ func TestCountLimitOpsClampCorpusWide(t *testing.T) {
 	e := layerEngine(t)
 	bodies, evaluated := 0, 0
 	var bad []string
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for _, f := range c.Faces {
 			names := make([]string, 0, len(f.SVars))
 			for name := range f.SVars {

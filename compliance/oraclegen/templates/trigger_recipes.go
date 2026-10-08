@@ -208,6 +208,9 @@ func baseTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards
 		if causes, why, ok := castFamilyRecipe(reg, f, name, t, sub); ok {
 			return causes, why
 		}
+		if causes, why, ok := phaseOtherCauses(reg, f, name, t, sub); ok {
+			return causes, why
+		}
 		if causes, why, ok := tapCombatRecipe(reg, f, name, t, sub); ok {
 			return causes, why
 		}

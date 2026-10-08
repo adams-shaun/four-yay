@@ -173,25 +173,17 @@ func buildImage(cards []*Card, tokens map[string]*Card) (*Image, error) {
 	for _, k := range keys {
 		im.Tokens = append(im.Tokens, TokenRec{b.str(k), b.card(tokens[k])})
 	}
-	// The name index is deterministic and preserves first-card-wins semantics.
-	first := map[string]uint32{}
+	// The name index is Lookup's: nameIndexOf's tiered first-wins index
+	// (native fronts before every other face), recorded as ordinals.
+	ordOf := make(map[*Card]uint32, len(cards))
 	for i, c := range cards {
-		if c == nil {
-			continue
+		if _, dup := ordOf[c]; !dup {
+			ordOf[c] = uint32(i)
 		}
-		for _, f := range c.Faces {
-			if f == nil {
-				continue
-			}
-			for _, name := range append([]string{f.Name}, f.Aliases...) {
-				n := NormalizeName(name)
-				if n != "" {
-					if _, ok := first[n]; !ok {
-						first[n] = uint32(i)
-					}
-				}
-			}
-		}
+	}
+	first := map[string]uint32{}
+	for k, c := range nameIndexOf(cards) {
+		first[k] = ordOf[c]
 	}
 	nk := make([]string, 0, len(first))
 	for k := range first {
@@ -222,12 +214,36 @@ func buildImage(cards []*Card, tokens map[string]*Card) (*Image, error) {
 	for _, name := range frontNames {
 		im.FirstOrd = append(im.FirstOrd, NameOrd{b.str(name), fronts[name]})
 	}
-	raw, err := im.CanonicalBytes()
+	// CorpusHash is the corpus's canonical identity: the SHA-256 of the
+	// canonical gob bytes the persisted cache is written from, NOT a second
+	// gob walk over the pointer-free image rows. cache_canon.go's
+	// GobEncode/GobDecode pairs are the one encoder for the IR cache, so the
+	// image cannot drift from it: any field or map-order rule that changes the
+	// persisted bytes changes this digest too. im.CanonicalBytes stays the
+	// pointer-free oracle (image_test.go compares it across builds).
+	canon, err := canonicalCorpusGob(cards, tokens)
 	if err != nil {
 		return nil, err
 	}
-	im.Hdr.CorpusHash = sha256.Sum256(raw)
+	im.Hdr.CorpusHash = sha256.Sum256(canon)
 	return im, nil
+}
+
+// canonicalCorpusGob returns the deterministic gob encoding of the corpus in
+// its persisted cache shape (cacheFile). It is the ONE canonical corpus byte
+// form: saveGob writes exactly these bytes (gzipped) and buildImage derives
+// Image.Hdr.CorpusHash from them, so the cache and the image share one
+// encoder. cacheFile.GobEncode sorts its Tokens map and each Card's
+// Params/SVars maps (cache_canon.go).
+func canonicalCorpusGob(cards []*Card, tokens map[string]*Card) ([]byte, error) {
+	cf := cacheFile{Version: cacheVersion, Cards: cards, Tokens: tokens}
+	var buf bytes.Buffer
+	// &cf: cacheFile's GobEncode is on the pointer receiver, and gob refuses
+	// an unaddressable top-level value that only *T encodes (see saveGob).
+	if err := gob.NewEncoder(&buf).Encode(&cf); err != nil {
+		return nil, fmt.Errorf("encode corpus: %w", err)
+	}
+	return buf.Bytes(), nil
 }
 
 // CanonicalBytes encodes the ordered, pointer-free row representation.

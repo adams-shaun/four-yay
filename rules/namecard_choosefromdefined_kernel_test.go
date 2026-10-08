@@ -21,7 +21,7 @@ import (
 func kr2NameEngine(t *testing.T) *Engine {
 	t.Helper()
 	reg := testutil.CorpusRegistry(t)
-	return kr2EngineWith(t, 2, func(c *Config) { c.NameUniverse = reg.Cards })
+	return kr2EngineWith(t, 2, func(c *Config) { c.NameUniverse = reg.Universe() })
 }
 
 func TestNameCardChooseFromDefinedIsStrict(t *testing.T) {

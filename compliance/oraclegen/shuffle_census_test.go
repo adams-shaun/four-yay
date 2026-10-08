@@ -46,12 +46,21 @@ func TestShuffleCompareCensus(t *testing.T) {
 		for _, c := range manifest.Cards {
 			members[strings.ToLower(strings.TrimSpace(c.Name))] = true
 		}
-		for i := range reg.Cards {
-			card := reg.Cards[i]
+		for i := range reg.AllCards() {
+			card := reg.Card(i)
 			if len(card.Faces) == 0 || !members[strings.ToLower(strings.TrimSpace(card.Faces[0].Name))] {
 				continue
 			}
 			for fi := range card.Faces {
+				if card.Faces[fi].Name == "Fblthp, Impossibly Lost" {
+					if !CanShuffleLibrary(card.Faces[fi]) {
+						t.Fatal("precondition: Fblthp face must shuffle a card into a library")
+					}
+					item := NewItem(card.Faces[fi], card.Faces[fi].Name, "trigger#0.0", 1, Scenario{})
+					if len(item.Compare) != 1 || item.Compare[0] != CompareNoLibraryOrder {
+						t.Errorf("generated Fblthp item missing comparison mark: %v", item.Compare)
+					}
+				}
 				if CanShuffleLibrary(card.Faces[fi]) {
 					got[set] = append(got[set], card.Faces[fi].Name)
 					break

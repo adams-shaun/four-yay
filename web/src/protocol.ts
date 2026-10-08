@@ -379,6 +379,33 @@ export interface CardView {
    * (carried into botpolicy.Card as plain data, never the view type).
    */
   produces?: ManaProduction | null;
+  /**
+   * Flags are the permanent's status designations (CardFlag bits), straight
+   * from the state.Object fields the engine folds from events: suspected,
+   * renowned, monstrous, harnessed, solved, cloaked, the Ring-bearer, a
+   * morph/disguise cast and the unlocked Room doors. Public facts like the
+   * tap state; zero (omitted) on every ordinary card, so a view without any
+   * of them serialises byte-identically to before the field existed.
+   */
+  flags?: number;
+  /**
+   * Imprinted lists the cards this permanent imprinted (state.Object.Imprinted,
+   * CR 607.2a), Paired the creature it is soulbond-paired with (0 = none), and
+   * ExiledCards the cards it exiled that are still in exile (the Oblivion
+   * Ring link). They are bare object ids: the cards themselves are the
+   * CardViews of whichever zone list they sit in, so a reader resolves them
+   * there and a hidden card stays hidden. All omitted when empty.
+   */
+  imprinted?: number[];
+  paired?: number;
+  exiled_cards?: number[];
+  /**
+   * AttachedToPlayer is true when this Aura/Curse is attached to the player
+   * AttachedPlayer rather than to a permanent (AttachedTo stays 0); the
+   * bool disambiguates seat 0 from "no player", the omitted zero.
+   */
+  attached_to_player?: boolean;
+  attached_player?: number;
 }
 
   /**
@@ -667,6 +694,22 @@ export interface PlayerView {
    */
   completed_dungeons: number;
   /**
+   * Counters are the player's own counters by kind (poison, energy,
+   * experience, ...; state.Player.Counters). Public like the life total;
+   * omitted when the seat holds none, so a view without player counters
+   * serialises byte-identically to before this field existed.
+   */
+  counters?: Record<string, number>;
+  /**
+   * LandDropSpent is true when the seat may not play another land this
+   * turn by the land-drop count alone (lands played this turn has reached
+   * the allowance, Exploration-style extras included): the negation of
+   * MageZero's CanPlayLand, stated this way so the ordinary state -- a land
+   * still playable -- is the omitted zero. Timing (whose turn, which step,
+   * the stack) is deliberately not folded in: the fact is the count's.
+   */
+  land_drop_spent?: boolean;
+  /**
    * HasInitiative is the CR 726.1 initiative designation: true for the one
    * player who currently has it. Public for every seat -- like the monarch,
    * the designation is open information and drives attacking decisions. It
@@ -748,6 +791,19 @@ export interface StackView {
    */
   optional: boolean;
   decider?: number | null;
+  /**
+   * X is the announced value of X for this spell or ability (CR 107.3), 0
+   * (omitted) when it has none; Kicks is how many times it was kicked
+   * (CR 702.33 / 702.43: 1 for a plain kicked cast, the multikicker count
+   * otherwise), 0 for a copy or an unkicked cast; Modes are the SVar names
+   * of the sub-abilities a modal spell or trigger chose (CR 601.2b), in
+   * execution order. Public cast-time facts every seat can read off the
+   * stack; all omitted when empty, so an ordinary stack object serialises
+   * byte-identically to before these fields existed.
+   */
+  x?: number;
+  kicks?: number;
+  modes?: string[];
 }
 
   /**

@@ -436,6 +436,10 @@ func (e *Engine) finishUntapStep(next int) bool {
 // natural advance (advanceStep, and a BeginPhase replacement that skips the
 // upkeep step) routes the proposed step through here; the replay folds the
 // StepChange the engine actually emitted, so it needs no separate rule.
+//
+// Free function over the game, not an Engine method: it reads only
+// g.Players and g.Turn (the codeshape engineSurface ratchet counts *Engine
+// reach, and this rule needs none of it).
 func skipFirstDrawStep(g *state.Game, next state.Step) state.Step {
 	if next == state.StepDraw && len(g.Players) == 2 && g.Turn <= 1 {
 		return state.StepMain1
@@ -1037,6 +1041,10 @@ func (e *Engine) resumeTriggerDrain() {
 }
 
 func (e *Engine) askPriority(p state.PlayerID) {
+	if e.skipPass != 0 && e.skippableWindow(p) {
+		e.skipPriority()
+		return
+	}
 	var window *windowCollector
 	if e.windowDiagnostics {
 		window = newWindowCollector(p)
@@ -1048,7 +1056,7 @@ func (e *Engine) askPriority(p state.PlayerID) {
 		// Byte-identical to fmt.Sprintf("turn %d, %s — %s has priority",
 		// ...) without fmt's boxing: every priority walk builds it.
 		Prompt:  e.priorityPrompt(p),
-		Options: e.legalActionsWithWindow(p, window),
+		Options: e.priorityOptions(p, window),
 	}
 	if window != nil {
 		d.WindowReasons = window.finish(d.Options)

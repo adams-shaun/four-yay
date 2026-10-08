@@ -63,7 +63,7 @@ func TestMustBlockCensusCarriersAreNotBlockedByTheKeyword(t *testing.T) {
 	reg := searchTestRegistry(t)
 	supported := effects.Supported()
 	var carriers, keywordBlocked []string
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		has := false
 		for _, f := range c.Faces {
 			for _, k := range f.Keywords {

@@ -32,6 +32,13 @@ type Spare struct {
 	events  []events.Event
 	objs    []state.Object
 	intents []decision.Intent
+	// engine is the spent engine's own struct, reused as the target of the
+	// next CloneInto (POC: heap-object attack). The struct is large (~2 KB)
+	// and was the single biggest flat allocation of the search: every
+	// simulation heap-allocated a fresh *Engine. cloneWith writes the whole
+	// struct (G/L/rng/loop set, cloneEngineFields setting every other field),
+	// so a recycled struct carries no stale state. nil for a plain Clone.
+	engine *Engine
 	// Release recycles events and objs lazily: their first evDirty /
 	// objDirty slots may still hold the spent engine's history (every slot
 	// past them is zero), and the consumer zeroes whatever it does not
@@ -81,6 +88,12 @@ type Spare struct {
 	// by the next clone so a search's per-simulation checkpoints recycle
 	// too. nil unless the kernel dropped a checkpoint.
 	tapeCkpt *Spare
+	// The spent engine's mana-membership carry storage (mana_member_carry.go)
+	// and its final generation: the next clone's carry starts cold over the
+	// same arrays at a generation above every recycled entry's.
+	manaEntries []manaMemberEntry
+	manaTouch   []uint64
+	manaGen     uint64
 	// The Engine fields tagged `pool=` (clone_gen.go): the Derived memo
 	// tables, the offer walk's scratch lists, the static memo and probe
 	// storage, the emit path's zone summaries, list arrays and trigger
@@ -131,6 +144,10 @@ func (e *Engine) Release() Spare {
 		loopHash:   e.loop.hs[:0],
 		snapObjs:   e.releaseSnapshotObjs(),
 	}
+	if e.manaCarry.owner == e {
+		sp.manaEntries, sp.manaTouch, sp.manaGen = e.manaCarry.entries[:0], e.manaCarry.touch[:0], e.manaCarry.gen
+	}
+	e.manaCarry = manaMemberCarry{}
 	sp.arena = e.releaseArena()
 	sp.hyp = e.releaseHypPool()
 	// Every `pool=` field (clone_gen.go); the walk scratch lists among them
@@ -170,6 +187,7 @@ func (e *Engine) Release() Spare {
 		sp.tapeCkpt = &ts
 	}
 	e.tapeSpare = Spare{}
+	sp.engine = e
 	return sp
 }
 
@@ -208,6 +226,12 @@ func NewStartingPlayerChoice(cfg Config) *Engine {
 
 func newWithRNG(cfg Config, random *rng, tossAsk bool) *Engine {
 	e := newEngineShell(cfg, random)
+	// A game built here is LIVE (New / NewStartingPlayerChoice); the shell
+	// above may have adopted a Spare's arena switched off, so switch its
+	// chunks back on under the per-Submit live contract
+	// (decision_arena_live.go). A clone or a hypothetical search engine does
+	// not come through here and keeps the off / search mode it set.
+	enableLiveArena(e)
 	e.emit(events.Event{Kind: events.GameStart, Amount: int32(len(cfg.Names))})
 	return e.genesisDeal(cfg, tossAsk)
 }
@@ -305,7 +329,7 @@ func newEngineShell(cfg Config, random *rng) *Engine {
 	e.G.NameUniverse = cfg.NameUniverse
 	e.G.NamedCorpus = cfg.NamedCorpus
 	e.G.NameUniverseNames = append([]string(nil), cfg.NameUniverseNames...)
-	if len(e.G.NameUniverseNames) == 0 && len(cfg.NameUniverse) > 0 {
+	if len(e.G.NameUniverseNames) == 0 && cfg.NameUniverse.Len() > 0 {
 		e.G.NameUniverseNames = effects.NameUniverseNames(cfg.NameUniverse)
 	}
 	e.manaExpendedTurn = e.G.Turn

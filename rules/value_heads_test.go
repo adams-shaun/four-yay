@@ -25,9 +25,9 @@ func TestValueHeadRegistryMatchesEvaluator(t *testing.T) {
 	e := layerEngine(t)
 	resolves := map[string]bool{}
 	seen := map[string]bool{}
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		for _, f := range c.Faces {
-			if f.Name == "" || len(f.SVars) == 0 {
+			if f.Name == "" {
 				continue
 			}
 			referenced := map[string]bool{}
@@ -40,6 +40,53 @@ func TestValueHeadRegistryMatchesEvaluator(t *testing.T) {
 			// An off-zone object: the source a count reads, without a
 			// battlefield presence that would grow every later census.
 			id := e.G.AddObject(c, 0).ID
+			ctx := &effects.Ctx{Source: id, Controller: 0, SVars: f.SVars}
+
+			// Printed ability lines carry their own TokenAmount$ Count$…,
+			// read through Num exactly as an SVar recipe's is. Probe the
+			// same expressions Face.ValueHeads attributes, through the same
+			// cards.ValueHeadTokenRecipeExpressions gate, so a newly
+			// attributed head cannot go unchecked here.
+			var walkSA func(sa *cards.SA, depth int)
+			walkSA = func(sa *cards.SA, depth int) {
+				if sa == nil || depth > 32 {
+					return
+				}
+				for h, expr := range cards.ValueHeadTokenRecipeExpressions(sa.Kind, sa.API, sa.Params) {
+					if !referenced[h] || resolves[h] {
+						continue
+					}
+					seen[h] = true
+					if _, ok := effects.EvalCountOK(e, ctx, expr); ok {
+						resolves[h] = true
+					}
+				}
+				// An inline Count$ gate (CheckSVar$/ConditionCheckSVar$) is
+				// read by effects.CheckSVarHolds, and Face.ValueHeads attributes
+				// it through cards.ValueHeadGateExpression. Probe the same
+				// expressions through the same helper so a newly attributed
+				// gate head cannot go unchecked here.
+				for h, expr := range cards.ValueHeadGateExpression(sa.Params) {
+					if !referenced[h] || resolves[h] {
+						continue
+					}
+					seen[h] = true
+					if _, ok := effects.EvalCountOK(e, ctx, expr); ok {
+						resolves[h] = true
+					}
+				}
+				walkSA(sa.Sub, depth+1)
+			}
+			for _, sa := range f.Abilities {
+				walkSA(sa, 0)
+			}
+			for i := range f.Triggers {
+				walkSA(f.Triggers[i].Effect, 0)
+			}
+			for i := range f.Repls {
+				walkSA(f.Repls[i].With, 0)
+			}
+
 			names := make([]string, 0, len(f.SVars))
 			for name := range f.SVars {
 				names = append(names, name)
@@ -62,6 +109,7 @@ func TestValueHeadRegistryMatchesEvaluator(t *testing.T) {
 				for _, h := range cards.ValueHeadOperands(body) {
 					set[h] = struct{}{}
 				}
+				recipeExpressions := cards.ValueHeadRecipeExpressions(body)
 				if len(set) == 0 {
 					continue
 				}
@@ -70,17 +118,19 @@ func TestValueHeadRegistryMatchesEvaluator(t *testing.T) {
 					heads = append(heads, h)
 				}
 				sort.Strings(heads)
-				ctx := &effects.Ctx{Source: id, Controller: 0, SVars: f.SVars}
 				for _, h := range heads {
 					if !referenced[h] || resolves[h] {
 						continue
 					}
 					seen[h] = true
 					probe := body
-					if h != outer {
-						// An operand head is read through its own bare
-						// Count$ expression at run time, so that is the
-						// body whose resolution this check verifies.
+					if expression, nested := recipeExpressions[h]; nested {
+						// A recipe parameter is passed to Num as this exact
+						// expression, not evaluated as a bare SVar body.
+						probe = expression
+					} else if h != outer {
+						// An arithmetic operand head is read through its own
+						// bare Count$ expression at run time.
 						probe = "Count$" + h
 					}
 					if _, ok := effects.EvalCountOK(e, ctx, strings.TrimSpace(probe)); ok {

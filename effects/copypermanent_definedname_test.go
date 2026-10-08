@@ -19,7 +19,7 @@ func TestCopyPermanentDefinedNameCopiesTheNamedCard(t *testing.T) {
 	h := newHost(t, 2)
 	src := ufBattlefield(t, h, "Name:Mutable Explorer\nManaCost:2 G\nTypes:Creature Shapeshifter\nPT:1/1\nOracle:x\n")
 	muta := mkCard(t, "Name:Mutavault\nManaCost:no cost\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ C\nOracle:x\n")
-	h.g.NameUniverse = []*cards.Card{muta}
+	h.g.NameUniverse = cards.UniverseOf([]*cards.Card{muta})
 	// Precondition: the universe actually resolves the name the script uses.
 	// Without this the assertion below would be vacuous (a missing universe
 	// would make the effect return with a Note, not mint).
@@ -75,7 +75,7 @@ func TestCopyPermanentDefinedNameUnknownIsLoud(t *testing.T) {
 	h := newHost(t, 2)
 	src := ufBattlefield(t, h, "Name:Spell\nTypes:Sorcery\nOracle:x\n")
 	// Universe present but does not contain the named card.
-	h.g.NameUniverse = []*cards.Card{mkCard(t, "Name:Something Else\nTypes:Land\nOracle:x\n")}
+	h.g.NameUniverse = cards.UniverseOf([]*cards.Card{mkCard(t, "Name:Something Else\nTypes:Land\nOracle:x\n")})
 	line := "SP$ CopyPermanent | DefinedName$ Mutavault"
 	Resolve(h, &Ctx{Source: src, Controller: 0}, sa(t, line))
 	for i := range h.g.Objs {

@@ -394,17 +394,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 		}
 		targets = cands[:1]
 	case supportsChoice:
-		chooser := c.Controller
-		for _, t := range c.Remembered {
-			if t.IsPlayer {
-				chooser = t.Player
-				break
-			}
-			if o := g.Obj(t.Obj); o != nil {
-				chooser = o.Controller
-				break
-			}
-		}
+		chooser := copyChooser(g, c, cp.ChooserRemembered)
 		// Choices$ names a CARD FILTER, not a Defined$ selector (Forge's
 		// CopyPermanent Choices$ is "the pool the chooser picks from"), so
 		// it is spelled with the established `Defined$ Valid <filter>` form
@@ -413,7 +403,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 		// by the remembered friend. Passing the bare filter as a Defined$
 		// selector would fall through Defined's per-member fallback to the
 		// resolving SOURCE, offering the chooser the spell itself.
-		pick := DefinedSpec(h, c, "Valid Creature.RememberedPlayerCtrl")
+		pick := DefinedSpec(h, c, "Valid "+cp.ChoiceFilter)
 		d := &decision.Decision{Player: chooser, Kind: decision.KChoose, Min: 1, Max: 1,
 			Source: c.Source, ResumeKind: "copypermanent_choice", ResumeSA: sa,
 			Prompt: "Choose a creature to copy"}
@@ -426,9 +416,11 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 		if len(d.Options) == 0 {
 			return
 		}
-		if cp.TokenAttacking == "" {
-			// (A TokenAttacking$ rider emits its own Notes before the ask,
-			// outside preNotes, so that shape stays on the legacy path.)
+		{
+			// (A TokenAttacking$ rider's own Notes are emitted before the ask
+			// and again by the re-run after the answer: only its rare
+			// no-defender diagnostics repeat, and the copy is still minted
+			// from the answered pick.)
 			if ans, ok := AskTape(h, d); ok {
 				// The resolution kernel's answer in hand: the
 				// "copypermanent_choice" re-entry, after the Notes its re-run
@@ -1027,3 +1019,20 @@ var copyPermanentAtEOTTrigCodes = state.NewStrCodes(
 	state.StrEntry[copyPermanentAtEOTTrigCode]{Key: "Sacrifice", Val: copyPermanentAtEOTTrigSacrifice},
 	state.StrEntry[copyPermanentAtEOTTrigCode]{Key: "Exile", Val: copyPermanentAtEOTTrigExile},
 )
+
+// copyChooser is Chooser$ Remembered's chooser: the first remembered player,
+// or the controller of the first remembered object still known; otherwise
+// (or when the spec does not name a remembered chooser) the controller.
+func copyChooser(g *state.Game, c *Ctx, remembered bool) state.PlayerID {
+	if remembered {
+		for _, t := range c.Remembered {
+			if t.IsPlayer {
+				return t.Player
+			}
+			if o := g.Obj(t.Obj); o != nil {
+				return o.Controller
+			}
+		}
+	}
+	return c.Controller
+}

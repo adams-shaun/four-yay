@@ -543,7 +543,7 @@ func (e *Engine) verifyActiveStatics(mode string, got []staticView) {
 
 func staticViewSame(g, w staticView) bool {
 	return g.Source == w.Source && g.Controller == w.Controller && g.ChosenNumber == w.ChosenNumber &&
-		g.chosenNumberBound == w.chosenNumberBound && maps.Equal(g.Params, w.Params) && maps.Equal(g.SVars, w.SVars)
+		g.chosenNumberBound == w.chosenNumberBound && g.selfOnly == w.selfOnly && maps.Equal(g.Params, w.Params) && maps.Equal(g.SVars, w.SVars)
 }
 
 // offBattlefieldStaticsInert reports whether every static on o, found in

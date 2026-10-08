@@ -32,6 +32,12 @@ type legalWalk struct {
 	outHW         int
 	costStatics   costStaticSource
 	actionStatics actionStaticSource
+	// flashBoardBit/flashBoardSet are the board half of castWithFlash's fast
+	// path (legal_walk_flash.go): len(activeStatics("CastWithFlash")) != 0,
+	// read once per walk outside any face probe. The set flag distinguishes
+	// "not read yet" from "read, false".
+	flashBoardSet bool
+	flashBoardBit bool
 	// rec records this walk's pool-independent blocks (a priority walk);
 	// reuse serves them to a potential walk at the same state
 	// (walk_block_reuse.go). At most one is set.
@@ -73,7 +79,7 @@ func (w *legalWalk) offerCastable(p state.PlayerID, id state.ObjID, base Cost, s
 	// pricing() counts the pool read the block-reuse recorder relies on, so
 	// the floor refusal reads it too even though it only refuses at hyp nil.
 	pool := w.pricing()
-	if w.offerFloorRefuses(&statics, p, &base, scope) {
+	if w.offerFloorRefuses(&statics, p, id, &base, scope) {
 		if walkSkipVerify && w.e.offerCastableUsing(statics, p, id, &base, scope, ability, pool) {
 			panic(fmt.Sprintf("rules: offer floor refusal for obj %d (%+v) disagrees with offerCastableUsing", id, base))
 		}
@@ -94,8 +100,12 @@ func (w *legalWalk) offerCastable(p state.PlayerID, id state.ObjID, base Cost, s
 //
 //   - the floating pool prices the offer (hyp nil, no RestrictedMana), so
 //     the priced pool is p's Pool;
-//   - no RaiseCost/ReduceCost/SetCost static is in the walk's snapshot (so
-//     no ValidTarget$ member either), and an ability scope carries no own
+//   - no RaiseCost/ReduceCost/SetCost static in the walk's snapshot can price
+//     id: the snapshot is empty, or every member is `ValidCard$ Card.Self`
+//     sourced by another object (costStaticsInertFor), which costStaticGate
+//     denies target-independently -- so no ValidTarget$ member can apply
+//     either and the potential-target retry is futile. Statics on id itself
+//     (its own Card.Self reduction) keep the full composition. And an ability scope carries no own
 //     ReduceCost$ (ownManaReduction's only source): costModifiersCompose
 //     returns costMods{}, which has no floor (hasFloorP), so the floor test
 //     runs, and the potential-target retry, the Sac<X> sweep (no announced
@@ -109,8 +119,8 @@ func (w *legalWalk) offerCastable(p state.PlayerID, id state.ObjID, base Cost, s
 //     pricing tax 0 against the whole graveyard bounds the floor from below.
 //
 // walkSkipVerify runs offerCastableUsing on every refusal.
-func (w *legalWalk) offerFloorRefuses(statics *costStaticViews, p state.PlayerID, base *Cost, scope costScope) bool {
-	if w.hyp != nil || len(statics.raise) != 0 || len(statics.reduce) != 0 || len(statics.set) != 0 || statics.validTarget ||
+func (w *legalWalk) offerFloorRefuses(statics *costStaticViews, p state.PlayerID, id state.ObjID, base *Cost, scope costScope) bool {
+	if w.hyp != nil || !costStaticsInertFor(statics, id) ||
 		len(base.LifeX) != 0 || base.Waterbend != 0 || base.WaterbendX || base.XMin != 0 || base.Life < 0 || base.Snow < 0 {
 		return false
 	}

@@ -14,7 +14,7 @@ import (
 func TestGethsSummonsExplicitGraveyardSubIsAnnounceable(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	var root, sub *cards.SA
-	for _, c := range reg.Cards {
+	for _, c := range reg.AllCards() {
 		if len(c.Faces) > 0 && c.Faces[0] != nil && c.Faces[0].Name == "Geth's Summons" {
 			for _, ability := range c.Faces[0].Abilities {
 				if ability != nil && ability.Sub != nil && ability.Sub.API == "ChangeZone" {

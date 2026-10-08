@@ -101,7 +101,7 @@ func TestImageCorpusOracle(t *testing.T) {
 				if e != nil {
 					t.Fatalf("finishDecoded ordinal %d: %v", lo+j, e)
 				}
-				sameCard(t, "ordinal", mini.Cards[0], full.Cards[lo+j])
+				sameCard(t, "ordinal", mini.Card(0), full.Card(lo+j))
 			}
 		})
 	}
@@ -123,8 +123,8 @@ func TestImageCorpusOracle(t *testing.T) {
 	}
 	for i, r := range img.Cards {
 		p := img.str(r.Path)
-		if filepath.IsAbs(p) || p != full.Cards[i].Path {
-			t.Fatalf("card %d path %q not relative round-trip of %q", i, p, full.Cards[i].Path)
+		if filepath.IsAbs(p) || p != full.Card(i).Path {
+			t.Fatalf("card %d path %q not relative round-trip of %q", i, p, full.Card(i).Path)
 		}
 	}
 }

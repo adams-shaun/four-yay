@@ -152,7 +152,7 @@ func TestAutopayManaCensus(t *testing.T) {
 	}
 	cz := newAutopayCensus(t)
 	var rows []censusRow
-	for _, c := range cz.r.Cards {
+	for _, c := range cz.r.AllCards() {
 		if !censusNamed(c) {
 			continue
 		}
@@ -268,7 +268,7 @@ func (cz *autopayCensus) loadTokenRefs() {
 	split := func(r rune) bool {
 		return !(r == '_' || r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9')
 	}
-	for _, c := range cz.r.Cards {
+	for _, c := range cz.r.AllCards() {
 		note := func(s string) {
 			for _, w := range strings.FieldsFunc(s, split) {
 				if _, ok := cz.r.Tokens[w]; ok {
@@ -359,7 +359,7 @@ func (cz *autopayCensus) buildBase() {
 	driveToStep(t, e, 1, 0, state.StepMain1)
 	// The layer-4 land-type grant path is armed by the corpus vocabulary, the
 	// way a universe-backed match arms it.
-	e.landTypeWords = chars.CorpusLandTypeWords(cz.r.Cards)
+	e.landTypeWords = chars.CorpusLandTypeWords(cz.r.Universe())
 	for _, k := range []string{"relic", "relic", "relic", "charm", "charm", "elf", "elf", "legend"} {
 		id := censusPlace(e, cz.support[k], 0, state.ZBattlefield, 0)
 		if k == "legend" {
@@ -2147,7 +2147,7 @@ func (cz *autopayCensus) writeKillSwitches(csvPath, mdPath string) {
 			break
 		}
 	}
-	for _, c := range cz.r.Cards {
+	for _, c := range cz.r.AllCards() {
 		if censusNamed(c) {
 			visit("card", c.Faces[0].Name, c)
 		}
@@ -2232,7 +2232,7 @@ func (cz *autopayCensus) writeDeckImpact(path string, rows []censusRow) {
 				not = append(not, key+" ("+st.class+")")
 			}
 		}
-		for _, c := range cz.r.Cards {
+		for _, c := range cz.r.AllCards() {
 			if !censusNamed(c) || !censusHas(cz.decks[c], name) {
 				continue
 			}

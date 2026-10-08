@@ -432,10 +432,8 @@ func addTapXTypeAnswers(answers [][]oraclegen.XAnswer, step int, cost string, de
 		// individually; the compound answer XAnswersForScenario encodes for the
 		// same batch is dropped by dropCostCompound.
 		var tokenPicks []string
-		for k, pick := range d.Picks {
-			if k < len(d.ObjectPicks) {
-				pick = xmageTokenName(pick, d.ObjectPicks[k])
-			}
+		for k := range d.Picks {
+			pick := observedCostPick(d, k)
 			if isTokenPick(pick) {
 				tokenPicks = append(tokenPicks, pick)
 				continue
@@ -498,9 +496,11 @@ func dropCostCompound(answers [][]oraclegen.XAnswer, step int, decisions []rules
 		if d.Step != step || d.Seat != 0 || d.Kind != "choose_n" || len(d.Picks) < 2 || !allCostPicks(d) {
 			continue
 		}
-		compound := strings.Join(d.Picks, "^")
+		// The scenario spells a same-name pick by its exact ref
+		// (oraclegen.JoinedChoice); the plain-name join covers the rest.
+		compound, joined := strings.Join(d.Picks, "^"), oraclegen.JoinedChoice(d)
 		for i, answer := range answers[step] {
-			if answer.Seat == 0 && answer.Kind == "choice" && strings.EqualFold(answer.Value, compound) {
+			if answer.Seat == 0 && answer.Kind == "choice" && (strings.EqualFold(answer.Value, compound) || strings.EqualFold(answer.Value, joined)) {
 				answers[step] = append(answers[step][:i], answers[step][i+1:]...)
 				break
 			}
