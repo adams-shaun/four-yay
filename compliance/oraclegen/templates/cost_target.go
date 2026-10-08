@@ -121,7 +121,7 @@ func stackTargetFilter(f *cards.Face) string {
 // elfBeholdFixture chooses a known, printable Elf from the corpus rather than
 // requiring each BeholdExile type to have a card-specific entry.
 func elfBeholdFixture(reg *cards.Registry) []string {
-	cardsInOrder := append([]*cards.Card(nil), reg.Cards...)
+	cardsInOrder := append([]*cards.Card(nil), reg.AllCards()...)
 	sort.Slice(cardsInOrder, func(i, j int) bool {
 		return cardsInOrder[i].Faces[0].Name < cardsInOrder[j].Faces[0].Name
 	})
