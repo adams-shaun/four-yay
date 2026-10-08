@@ -11,16 +11,30 @@
 // `go test`.
 //
 // The StateEncoder walkers now turn a gorGE view into feature names: the
-// globals (step, decision type, decisions text), the stack, the flat exile
-// list, and each player's scalars, mana pool, battlefield permanents, hand and
-// graveyard. As of 2026-10-07 that walker emits 17 of the design §5 feature
-// families and records the other 24 as unsupportedFeatures, because the gorGE
-// view projection does not yet carry them (colours, subtypes, dynamic
-// types/abilities, CanAttack/CanBlock, permanent flags, attachments,
-// imprinted/paired/targeted-by/ability lists, player counters, day/night,
-// watchers and the rest). TestExtractorCoverageRatchetMatches holds both
-// directions, and TestProcessStateIsDeterministic plus TestProcessStateNoMapRange
-// pin that the walk is a pure, map-order-independent function of the view.
+// globals (step, decision type, decisions text), the stack (targets, kicks, X
+// and chosen modes included), the flat exile list, and each player's scalars,
+// counters, land-drop state, mana pool, attachments, battlefield permanents
+// (colours, subtypes, flags, attachments, imprinted/paired/own-exile links,
+// TargetedBy, CanAttack/CanBlock), hand, graveyard and command zone. As of
+// 2026-10-08 that walker emits 31 of the 42 design §5 families (counting the
+// caveat entries) and records the other 11 as unsupportedFeatures:
+//
+//   - the engine has no such state: DayNight, GlobalWatchers (spells cast /
+//     life gained / life lost / tokens created this turn), InPayManaMode,
+//     Activating, MicroDecisions (casting is atomic here), Emblem (emblems are
+//     continuous effects, not objects);
+//   - the view would need a layered or per-card text projection it should not
+//     pay for on the hot path or on every wire card: DynamicTypes (layer-4/5
+//     types and colours), DynamicAbilities, CardAbilities (rule-text lists);
+//   - caveats whose view shape cannot carry the upstream key: ExileZoneNames
+//     (one flat exile list), StackCostTags (no per-cast cost-tag map).
+//
+// Colours are the WUBRG symbols of the printed mana cost and CanAttack /
+// CanBlock are derived from tapped / summoning-sick / haste / defender, so a
+// colour indicator, a token's own colour and a "can't attack/block" static are
+// not reflected. TestExtractorCoverageRatchetMatches holds both directions,
+// and TestProcessStateIsDeterministic plus TestProcessStateNoMapRange pin that
+// the walk is a pure, map-order-independent function of the view.
 //
 // See docs/superpowers/specs/2026-10-07-mzenc-design.md and
 // docs/superpowers/plans/2026-10-07-mzenc-hash-port.md.
