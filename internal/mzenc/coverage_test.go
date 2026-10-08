@@ -63,7 +63,7 @@ func coverageView() view.View {
 		},
 		Stack: []view.StackView{
 			{ID: 100, Name: "Lightning Bolt", Kind: "spell", Controller: 0,
-				Card:    &bolt,
+				Card: &bolt, X: 2, Kicks: 1, Modes: []string{"DBDamage"},
 				Targets: []view.TargetView{{Obj: 10, Label: "Any target"}}},
 		},
 	}

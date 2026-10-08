@@ -20,6 +20,10 @@ const (
 	famStack              = "Stack"
 	famStackTargets       = "StackTargets"
 	famStackAbilityDetail = "StackAbilityDetail"
+	// famStackCostTags is a caveat, not an upstream §5 family: StateEncoder's
+	// "*_CostTag" features (CardUtil.getSourceCostsTagsMap) have no view
+	// counterpart, so processStackDetail records the gap and emits nothing.
+	famStackCostTags = "StackCostTags"
 
 	// exile (per zone)
 	famExile = "Exile"
@@ -82,6 +86,7 @@ var specFamilies = map[string]bool{
 	famStack:              true,
 	famStackTargets:       true,
 	famStackAbilityDetail: true,
+	famStackCostTags:      true,
 	famExile:              true,
 	famExileZoneNames:     true,
 	famIsActivePlayer:     true,
@@ -125,17 +130,17 @@ var specFamilies = map[string]bool{
 // fails if a registered family is ever emitted or a walk site writes a family
 // that is not registered.
 var unsupportedFeatures = map[string]string{
-	famStackAbilityDetail: "view.StackView carries no Kicks / CostTag / selected-modes / XValue detail",
-	famExileZoneNames:     "view.PlayerView.Exile is one flat list with no per-zone name, so upstream's per-zone exile nesting is not reproducible",
-	famDayNight:           "the view carries no day/night state",
-	famInPayManaMode:      "the view carries no in-pay-mana-mode flag",
-	famActivating:         "the view carries no activating flag",
-	famMicroDecisions:     "the view carries no ChosenTargets / ChosenChoices / UseChoices / AmountChoices sequences",
-	famEmblem:             "view.PlayerView carries no command-zone emblem list, so upstream's Emblem walk is not reproducible",
-	famGlobalWatchers:     "the view carries no global watcher counters (SpellsCastThisTurn, LifeGained/Lost, TokensCreated)",
-	famDynamicTypes:       "view.CardView carries no dynamic type / colour / subtype projection",
-	famDynamicAbilities:   "view.CardView carries no dynamic permanent-ability list",
-	famCardAbilities:      "the view carries no static / activated / triggered ability list",
+	famStackCostTags:    "view.StackView carries no per-cast cost-tag map, so upstream's *_CostTag features are not reproducible",
+	famExileZoneNames:   "view.PlayerView.Exile is one flat list with no per-zone name, so upstream's per-zone exile nesting is not reproducible",
+	famDayNight:         "the view carries no day/night state",
+	famInPayManaMode:    "the view carries no in-pay-mana-mode flag",
+	famActivating:       "the view carries no activating flag",
+	famMicroDecisions:   "the view carries no ChosenTargets / ChosenChoices / UseChoices / AmountChoices sequences",
+	famEmblem:           "view.PlayerView carries no command-zone emblem list, so upstream's Emblem walk is not reproducible",
+	famGlobalWatchers:   "the view carries no global watcher counters (SpellsCastThisTurn, LifeGained/Lost, TokensCreated)",
+	famDynamicTypes:     "view.CardView carries no dynamic type / colour / subtype projection",
+	famDynamicAbilities: "view.CardView carries no dynamic permanent-ability list",
+	famCardAbilities:    "the view carries no static / activated / triggered ability list",
 }
 
 // ProcessStateReport runs the SAME walk as ProcessState but additionally

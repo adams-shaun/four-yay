@@ -199,6 +199,9 @@ func TestViewMarshalsClosed(t *testing.T) {
 		"id": true, "kind": true, "name": true, "text": true,
 		"controller": true, "source": true, "targets": true, "card": true,
 		"optional": true, "decider": true,
+		// x, kicks and modes are the stack object's public cast-time
+		// announcements (X, times kicked, chosen modal sub-abilities).
+		"x": true, "kicks": true, "modes": true,
 	})
 
 	// Half 2: the omniscient projection this type produces actually shows

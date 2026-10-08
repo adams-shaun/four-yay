@@ -275,3 +275,26 @@ func TestAttachmentCycleTerminates(t *testing.T) {
 		view.CardView{ID: 2, Name: "B", Types: "Creature", AttachedTo: 1},
 	)
 }
+
+func TestStackCastDetail(t *testing.T) {
+	v := view.View{Stack: []view.StackView{
+		{ID: 50, Name: "Fireball", Kind: "spell", X: 3, Kicks: 2, Modes: []string{"DBPump", "DBDraw"}},
+		{ID: 51, Name: "Plain", Kind: "spell"},
+	}}
+	got := ProcessState(v, nil, 0, 0, "x")
+	hasAll(t, "cast detail", got, idsFor(func(f *Node) {
+		so := f.SubFeatures("Stack", false).SubFeatures("Fireball", true)
+		so.AddNumericFeature("Kicks", 2, false)
+		so.AddNumericFeature("XValue", 3, false)
+		m := so.SubFeatures("modes", false)
+		m.AddFeature("DBPump")
+		m.AddFeature("DBDraw")
+	}))
+	absent(t, "plain spell", got, func(f *Node, leaf bool) {
+		so := f.SubFeatures("Stack", false).SubFeatures("Plain", true)
+		if leaf {
+			so.AddFeature("Kicks@0")
+			so.AddFeature("XValue@0")
+		}
+	})
+}

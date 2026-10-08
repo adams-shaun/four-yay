@@ -40,5 +40,30 @@ func (w *walker) processStackObject(f *Node, sv *view.StackView, depth int) {
 		f.AddFeature(sv.Card.SpellAPI)
 	}
 	w.processStackTargets(f, sv)
-	w.note(famStackAbilityDetail)
+	w.processStackDetail(f, sv)
+}
+
+// processStackDetail ports the cast-detail block of processStackObject (java:
+// 376-404): the Kicks count, the chosen modal sub-abilities under a non-pooling
+// "modes" subtree, and XValue, all with callParent false as upstream. Chosen
+// modes are the sub-abilities' SVar names (gorGE's analogue of an effect's
+// text). The "*_CostTag" features (java:380-387) are the one part the view does
+// not carry; they are the famStackCostTags caveat.
+func (w *walker) processStackDetail(f *Node, sv *view.StackView) {
+	if sv.Kicks > 0 {
+		f.AddNumericFeature("Kicks", int(sv.Kicks), false)
+		w.emit(famStackAbilityDetail)
+	}
+	w.note(famStackCostTags)
+	if len(sv.Modes) > 0 {
+		mf := f.SubFeatures("modes", false)
+		for _, m := range sv.Modes {
+			mf.AddFeature(cleanString(m))
+		}
+		w.emit(famStackAbilityDetail)
+	}
+	if sv.X > 0 {
+		f.AddNumericFeature("XValue", int(sv.X), false)
+		w.emit(famStackAbilityDetail)
+	}
 }
