@@ -438,7 +438,8 @@ func TestLoadRegistryWrongVersion(t *testing.T) {
 		t.Fatal(err)
 	}
 	zw := gzip.NewWriter(f)
-	if err := gob.NewEncoder(zw).Encode(cacheFile{Version: cacheVersion - 1, Cards: r.AllCards(), Tokens: r.Tokens}); err != nil {
+	cf := cacheFile{Version: cacheVersion - 1, Cards: r.AllCards(), Tokens: r.Tokens}
+	if err := gob.NewEncoder(zw).Encode(&cf); err != nil {
 		t.Fatal(err)
 	}
 	if err := zw.Close(); err != nil {
