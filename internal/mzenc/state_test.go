@@ -296,3 +296,32 @@ func TestProcessStateWatchersFromFields(t *testing.T) {
 		}
 	}
 }
+
+// TestProcessStateExileZones pins the flat-view exile walk. Upstream
+// processExile/processExileZone (StateEncoder.java:425-437) nests each zone's
+// cards under the zone's name; view.PlayerView.Exile is one flat list with no
+// per-zone name, so the port cannot reproduce that nesting. It emits ONE
+// deterministic "ExileZone" wrapper under the root "Exile" subtree and records
+// the per-zone-name gap as the ExileZoneNames caveat, then walks each exiled
+// card via processCardInZone under its cleaned name.
+func TestProcessStateExileZones(t *testing.T) {
+	v := view.View{Players: []view.PlayerView{
+		{ID: 0, Exile: []view.CardView{{ID: 30, Name: "Exiled Card", Types: "Sorcery"}}},
+	}}
+	got := ProcessState(v, nil, 0, 0, "x")
+	want := idsFor(func(f *Node) {
+		ex := f.SubFeatures("Exile", true)
+		// upstream nests by exile-zone name; the view exposes a flat list, so
+		// the zone name is not available -- record unsupported, emit the card
+		// directly under a fixed "ExileZone" subfeature.
+		z := ex.SubFeatures("ExileZone", true)
+		c := z.SubFeatures("Exiled Card", true)
+		c.AddFeature("Card")
+		c.AddFeature("sorcery")
+	})
+	for id := range want {
+		if _, ok := got[id]; !ok {
+			t.Fatalf("missing exile id %d", id)
+		}
+	}
+}

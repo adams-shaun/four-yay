@@ -23,6 +23,11 @@ const (
 
 	// exile (per zone)
 	famExile = "Exile"
+	// famExileZoneNames is a caveat, not an upstream §5 family: the gorGE view
+	// exposes one flat exile list with no per-zone name, so processExile cannot
+	// reproduce StateEncoder's per-zone nesting. It is a walk site's recorded
+	// gap and stays on the register so the ratchet holds the hole honestly.
+	famExileZoneNames = "ExileZoneNames"
 
 	// player / opponent
 	famIsActivePlayer   = "IsActivePlayer"
@@ -73,6 +78,7 @@ var specFamilies = map[string]bool{
 	famStackTargets:       true,
 	famStackAbilityDetail: true,
 	famExile:              true,
+	famExileZoneNames:     true,
 	famIsActivePlayer:     true,
 	famIsDecisionPlayer:   true,
 	famLifeTotal:          true,
@@ -115,7 +121,7 @@ var specFamilies = map[string]bool{
 var unsupportedFeatures = map[string]string{
 	famStackTargets:       "view.StackView.Targets is exposed but not yet walked into the stack-ability target family",
 	famStackAbilityDetail: "view.StackView carries no Kicks / CostTag / selected-modes / XValue detail",
-	famExile:              "the walker does not yet walk exile zones (view.PlayerView.Exile)",
+	famExileZoneNames:     "view.PlayerView.Exile is one flat list with no per-zone name, so upstream's per-zone exile nesting is not reproducible",
 	famPlayerCounters:     "view.PlayerView exposes no player-counter map",
 	famDayNight:           "the view carries no day/night state",
 	famCanPlayLand:        "the view carries no land-drop-availability flag",

@@ -130,7 +130,6 @@ func (w *walker) processPlayer(f *Node, pv *view.PlayerView, isDecisionPlayer bo
 	w.unsupported[famMicroDecisions] = true
 	w.unsupported[famAttachments] = true
 	// global families the view exposes but no walker consumes yet.
-	w.unsupported[famExile] = true
 	w.unsupported[famCommandZone] = true
 	w.unsupported[famGlobalWatchers] = true
 }
@@ -395,6 +394,39 @@ func (w *walker) processCardList(f *Node, cards []view.CardView, zone string, ch
 	}
 }
 
+// processExile ports the flat-view analogue of StateEncoder.processExile /
+// processExileZone (StateEncoder.java:425-437): the root "Exile" subtree, one
+// wrapper per exile zone, and each zone's cards walked via processCardInZone in
+// getCardsSorted order. Upstream keys the wrapper by the zone's name; gorGE's
+// view.PlayerView.Exile is a single flat list that carries no zone name, so the
+// port emits ONE deterministic "ExileZone" wrapper and records the lost
+// per-zone-name dimension as the famExileZoneNames caveat at this walk site.
+// Every player's exiled cards are gathered and sorted by (Name, ID) so the
+// traversal is a pure function of the card set and never of player/slice order.
+func (w *walker) processExile(f *Node, v *view.View) {
+	w.emit(famExile)
+	w.unsupported[famExileZoneNames] = true
+	ex := f.SubFeatures("Exile", true)
+	var all []view.CardView
+	for i := range v.Players {
+		all = append(all, v.Players[i].Exile...)
+	}
+	if len(all) == 0 {
+		return
+	}
+	sort.Slice(all, func(i, j int) bool {
+		if all[i].Name != all[j].Name {
+			return all[i].Name < all[j].Name
+		}
+		return all[i].ID < all[j].ID
+	})
+	z := ex.SubFeatures("ExileZone", true)
+	for i := range all {
+		cv := &all[i]
+		w.processCardInZone(z.SubFeatures(cv.Name, true), cv, "exile", w.ch)
+	}
+}
+
 // ProcessState walks an omniscient gorGE view and returns the MageZero
 // feature-id set for the given decision. It passes a nil emitted map so the
 // hot path allocates no coverage bookkeeping; ProcessStateReport is the
@@ -439,6 +471,10 @@ func processState(v view.View, ch view.Chars, seat state.PlayerID, decisionType 
 	// stack (StateEncoder.java:647): the root "Stack" subtree, always created
 	// even when empty, walked bottom to top.
 	w.processStack(root, &v)
+
+	// exile (StateEncoder.java:425-437): the root "Exile" subtree over the
+	// flat per-player exile lists.
+	w.processExile(root, &v)
 
 	// each player, in v.Players order: the seat under "Player", every other
 	// seat under "Opponent" (StateEncoder.java:657-661).
