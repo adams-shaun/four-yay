@@ -150,6 +150,8 @@ func eventTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *card
 		}
 	case levelb.CounterAddedSub:
 		return counterAddedRecipe(reg, name, t)
+	case levelb.TurnedFaceUpSub, levelb.TurnedFaceUpOtherSub:
+		return turnedFaceUpRecipe(reg, f, name, t, sub)
 	default:
 		return nil, "", false
 	}
