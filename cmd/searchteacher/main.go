@@ -25,6 +25,7 @@ import (
 	"github.com/adams-shaun/gorge/internal/policynet"
 	"github.com/adams-shaun/gorge/internal/searchprobe"
 	"github.com/adams-shaun/gorge/internal/searchseat"
+	"github.com/adams-shaun/gorge/internal/spellbench"
 	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/internal/traceboard"
 	"github.com/adams-shaun/gorge/rules"
@@ -142,6 +143,9 @@ func run(args []string, stdout, progress io.Writer) error {
 	oracle := fs.Bool("oracle", false, "CHEATING ceiling: search one clone of the actual engine (true hidden zones and future chance) instead of sampled worlds")
 	comparePotential := fs.Bool("compare-potential-actions", false, "measurement only: replay with the seat's potential-action walk (the pre-2026-09-21 capture) and report the rejections it alone decides; the labels are byte-identical either way")
 	noLandExclusion := fs.Bool("no-land-exclusion", false, "measurement only: sample without the declined-land-drop exclusion (the pre-2026-09-21 proposal; reproduces that sampler's label corpus byte for byte)")
+	catalogFlag := fs.String("catalog", "", "comma list of SpellBench catalogs (fdn-limited, pauper-kernel, repo-constructed): play every within-catalog pairing; decks are named catalog/id")
+	holdoutFlag := fs.String("holdout", "", "with -catalog: comma list of catalog/id decks held out (see -holdout-mode)")
+	holdoutMode := fs.String("holdout-mode", "exclude", "with -holdout: exclude = drop every pairing with a held-out deck (training corpus); only = keep just those pairings (unseen-deck test)")
 	pairsFlag := fs.String("pairs", "", "restrict to comma list of a:b pairs (default: the ten approved pairs)")
 	outPath := fs.String("out", "", "JSONL of GameRecords (new file)")
 	valueCheckpoint := fs.String("value-checkpoint", "", "score non-terminal rollout leaves with this policynet checkpoint's value head instead of the material heuristic (needs -horizon > 0 and a checkpoint trained with -value-weight > 0)")
@@ -248,6 +252,32 @@ func run(args []string, stdout, progress io.Writer) error {
 			}
 			pairs = append(pairs, pair{a, b})
 		}
+	} else if *catalogFlag != "" {
+		held := map[string]bool{}
+		for _, h := range strings.Split(*holdoutFlag, ",") {
+			if h != "" {
+				held[h] = true
+			}
+		}
+		for _, dir := range strings.Split(*catalogFlag, ",") {
+			ids, err := spellbench.CatalogIDs("decks/" + dir)
+			if err != nil {
+				return err
+			}
+			for i := range ids {
+				for j := i + 1; j < len(ids); j++ {
+					a, b := dir+"/"+ids[i], dir+"/"+ids[j]
+					h := held[a] || held[b]
+					if (*holdoutMode == "only") != h {
+						continue
+					}
+					pairs = append(pairs, pair{a, b})
+				}
+			}
+		}
+		if len(pairs) == 0 {
+			return fmt.Errorf("-catalog %q -holdout-mode %s: no pairings", *catalogFlag, *holdoutMode)
+		}
 	} else {
 		for i := range approvedDecks {
 			for j := i + 1; j < len(approvedDecks); j++ {
@@ -257,11 +287,11 @@ func run(args []string, stdout, progress io.Writer) error {
 	}
 	setups := make([]searchprobe.PublicGame, len(pairs))
 	for i, p := range pairs {
-		da, err := testutil.LoadRepoDeck(reg, p.a)
+		da, err := loadDeck(reg, p.a)
 		if err != nil {
 			return err
 		}
-		db, err := testutil.LoadRepoDeck(reg, p.b)
+		db, err := loadDeck(reg, p.b)
 		if err != nil {
 			return err
 		}
@@ -546,6 +576,14 @@ func teach(setup searchprobe.PublicGame, h *searchprobe.History, collector *sear
 	dr.ChosenDiffersFromBot = true
 	rec.Overrides++
 	return in, true
+}
+
+// loadDeck resolves a repo deck name, or a SpellBench catalog/id.
+func loadDeck(reg *cards.Registry, name string) ([]*cards.Card, error) {
+	if dir, id, ok := strings.Cut(name, "/"); ok {
+		return spellbench.Deck(reg, "decks/"+dir, id)
+	}
+	return testutil.LoadRepoDeck(reg, name)
 }
 
 func wald(p float64, n int) float64 {
