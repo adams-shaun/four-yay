@@ -13,9 +13,18 @@
 #
 # This script is the safe counterpart: it recreates the metadata dir
 # (gitdir -> the worktree's `.git` file, commondir -> ../..,
-# HEAD -> refs/heads/wt/<name>) and rebuilds the index from HEAD, leaving the
-# working tree (committed and uncommitted changes alike) untouched. It never
-# clobbers an existing registration and never touches the branch.
+# HEAD -> refs/heads/wt/<name>, config.worktree -> `bare = false`) and rebuilds
+# the index from HEAD, leaving the working tree (committed and uncommitted
+# changes alike) untouched. It never clobbers an existing registration and
+# never touches the branch.
+#
+# config.worktree matters because the shared .git/config here carries
+# core.bare=true and extensions.worktreeConfig=true: every live worktree stays
+# non-bare only through its own per-worktree config.worktree. Without it the
+# readopted tree reads core.bare=true and `git reset` / `git status` die with
+# "this operation must be run in a work tree". The file is written
+# unconditionally (git ignores it when extensions.worktreeConfig is unset) and
+# the shared config is never read or modified.
 #
 # Refuses when: the worktree directory or its `.git` file is missing, the
 # metadata dir already exists, the worktree's `.git` file points somewhere
@@ -52,6 +61,7 @@ mkdir -p "$md"
 printf '%s\n' "$wt/.git" >"$md/gitdir"
 printf '../..\n' >"$md/commondir"
 printf 'ref: refs/heads/%s\n' "$branch" >"$md/HEAD"
+printf '[core]\n\tbare = false\n' >"$md/config.worktree"
 # Rebuild the index from HEAD without touching the working tree. `git status`
 # before this reads an empty index and reports every tracked file as staged for
 # deletion; a mixed reset restores the true committed state.
