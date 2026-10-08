@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"harness","field":"both","diff":"checkpoint \"step N (pass_to)\" vs \"step N (pass_to)\""},"key":"trigger | harness | both | checkpoint \"step N (pass_to)\" vs \"step N (pass_to)\"","cards":1}
+{"card":"Lunar Convocation","template":"trigger#0.1","status":"harness","api":"Phase:LoseLife+Phase:Token","sets":["BLB"],"detail":"both: checkpoint \"step 4 (pass_to)\" vs \"step 5 (pass_to)\""}
