@@ -22,13 +22,12 @@ import (
 // goroutine to call the driver; it segfaulted nondeterministically (no Go
 // trace) mid-run and at process exit.
 //
-// The encoder is a deterministic placeholder: the gorge view is NOT yet mapped
-// onto the flat net's 2048-wide state / 128-wide action surfaces (that mapping
-// belongs to policynet's v2 encoder), so the state and action vectors here are
-// a pure function of the decision's observable identity, not of its content.
-// The GPU result is therefore a throughput harness, not a policy: a chosen
-// option the engine would refuse falls back to the request's wrapped bot, so
-// games still play legally.
+// The state vector is the mzenc MageZero feature-id set folded multi-hot into
+// the flat net's 2048-wide surface (encodeStateMZ). The 128-wide action vectors
+// are still a deterministic placeholder keyed on option identity (encodeAction),
+// so the GPU result remains a throughput harness rather than a trained policy:
+// a chosen option the engine would refuse falls back to the request's wrapped
+// bot, so games still play legally.
 type FlatGPUScorer struct {
 	jobs  chan gpuJob
 	ready chan error
@@ -81,7 +80,7 @@ func (s *FlatGPUScorer) Serve(batch []*Request) error {
 	total := 0
 	for i, r := range batch {
 		fb.offsets[i] = int32(total)
-		encodeState(&r.Decision, r.SeatIdx, fb.states[i*flatStateDim:(i+1)*flatStateDim])
+		encodeStateMZ(r, fb.states[i*flatStateDim:(i+1)*flatStateDim])
 		for _, o := range r.Decision.Options {
 			fb.actionOwner = append(fb.actionOwner, int32(i))
 			start := len(fb.actions)
