@@ -317,6 +317,18 @@ type PlayerView struct {
 	Dungeon *DungeonView `json:"dungeon,omitempty"`
 	// CompletedDungeons is the number of dungeons this seat has completed.
 	CompletedDungeons int32 `json:"completed_dungeons"`
+	// Counters are the player's own counters by kind (poison, energy,
+	// experience, ...; state.Player.Counters). Public like the life total;
+	// omitted when the seat holds none, so a view without player counters
+	// serialises byte-identically to before this field existed.
+	Counters map[string]int32 `json:"counters,omitempty"`
+	// LandDropSpent is true when the seat may not play another land this
+	// turn by the land-drop count alone (lands played this turn has reached
+	// the allowance, Exploration-style extras included): the negation of
+	// MageZero's CanPlayLand, stated this way so the ordinary state -- a land
+	// still playable -- is the omitted zero. Timing (whose turn, which step,
+	// the stack) is deliberately not folded in: the fact is the count's.
+	LandDropSpent bool `json:"land_drop_spent,omitempty"`
 	// HasInitiative is the CR 726.1 initiative designation: true for the one
 	// player who currently has it. Public for every seat -- like the monarch,
 	// the designation is open information and drives attacking decisions. It
@@ -635,6 +647,19 @@ func projectInto(dst *View, g *state.Game, ch Chars, viewer state.PlayerID, d *d
 			HasInitiative:     g.IsInitiative(p.ID),
 			CommanderCasts:    casts,
 		}
+		if len(p.Counters) > 0 {
+			ctr := prev.Counters
+			if ctr == nil {
+				ctr = make(map[string]int32, len(p.Counters))
+			} else {
+				clear(ctr)
+			}
+			for _, c := range p.Counters {
+				ctr[c.Kind] = c.N
+			}
+			pv.Counters = ctr
+		}
+		pv.LandDropSpent = landDropSpent(ch, p)
 		if dungeon := g.Obj(p.DungeonObj); dungeon != nil && dungeon.Zone == state.ZCommand && dungeon.Face() != nil {
 			dv := prev.Dungeon
 			if dv == nil {
@@ -1098,4 +1123,14 @@ func firstWord(s string) string {
 // whole word; a placeholder inside a larger word is not.
 func isWordByte(c byte) bool {
 	return c >= '0' && c <= '9' || c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z'
+}
+
+// landDropSpent answers PlayerView.LandDropSpent: the engine's own land-drop
+// allowance when ch offers it (the optional LandDropOpen capability, which
+// folds in the "additional land" grants), else the plain one-drop count.
+func landDropSpent(ch Chars, p *state.Player) bool {
+	if d, ok := ch.(interface{ LandDropOpen(state.PlayerID) bool }); ok {
+		return !d.LandDropOpen(p.ID)
+	}
+	return p.LandsPlayed >= 1
 }

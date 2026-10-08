@@ -183,6 +183,11 @@ func TestViewMarshalsClosed(t *testing.T) {
 		// zone one. It is filled for every seat except the viewer's own and is
 		// nil when nothing classifiable is revealed (omitempty drops it).
 		"archetype": true,
+		// counters (the seat's own poison/energy/... counts) and
+		// land_drop_spent (the land-drop allowance is used up) are public
+		// per-seat scalars derived from state.Player, never a hidden-zone
+		// carrier and never a card list.
+		"counters": true, "land_drop_spent": true,
 	})
 	// StackView is public (R3) so it is a lesser leak surface, but the
 	// reflection is the same shape and cheap, so it is pinned too. The two
