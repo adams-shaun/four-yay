@@ -3,6 +3,7 @@ package mzenc
 import (
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/adams-shaun/gorge/state"
@@ -91,12 +92,17 @@ func (w *walker) processPlayer(f *Node, pv *view.PlayerView, isDecisionPlayer bo
 	}
 	f.AddNumericFeature("LifeTotal", int(pv.Life), true)
 	f.AddNumericFeature("LibraryCount", pv.LibrarySize, true)
-	f.AddNumericFeature("CardsInHand", pv.HandSize, true)
 	w.processManaPool(f.SubFeatures("ManaPool", false), pv.Pool)
 
 	// battlefield (StateEncoder.java:590-593): the per-permanent family,
 	// nested under the player's subtree exactly as upstream.
 	w.processBattlefield(f.SubFeatures("Battlefield", true), pv, w.ch)
+
+	// graveyard then hand (StateEncoder.java:596-608). perfectInfo is always
+	// true for the public entry, so every player's Hand is walked and no
+	// CardsInHand scalar is emitted.
+	w.processGraveyard(f.SubFeatures("Graveyard", true), pv, w.ch)
+	w.processHand(f.SubFeatures("Hand", true), pv, w.ch)
 
 	w.unsupported["PlayerCounters"] = true
 	w.unsupported["DayNight"] = true
@@ -205,11 +211,167 @@ func keywordOf(cv *view.CardView, kw string) bool {
 	return false
 }
 
+// permanentTypes are the card types that make a card a permanent
+// (upstream c.isPermanent()).
+var permanentTypes = [...]string{"Creature", "Artifact", "Enchantment", "Land", "Planeswalker", "Battle"}
+
+// isPermanentType reports whether a CardView's space-joined type line carries
+// any permanent card type, the view-analogue of upstream c.isPermanent().
+func isPermanentType(types string) bool {
+	for _, t := range strings.Fields(types) {
+		for _, p := range permanentTypes {
+			if t == p {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// manaBraceForm strips the optional {..} braces Forge sometimes renders a
+// cost in, so "..{U} {U}.." tokenises as the space-separated notation the
+// counter reads. It mirrors policynet's manaBraceForm.
+var manaBraceForm = strings.NewReplacer("{", " ", "}", " ")
+
+// manaValue is a minimal port of internal/policynet's mvOf (option.go): the
+// mana value of a Forge-notation cost ("U U" -> 2, "R" -> 1, "" -> 0). It
+// handles the shapes view.CardView.ManaCost carries: a plain pip, a generic
+// integer, X (0 off the stack, CR 202.3b), and a monocolour hybrid twobrid
+// ("2/W"/"2W" -> its generic face, CR 202.4b); every other symbolic token
+// (hybrid, Phyrexian) counts as one pip.
+func manaValue(cost string) int {
+	cost = strings.TrimSpace(manaBraceForm.Replace(cost))
+	if cost == "" || strings.EqualFold(cost, "no cost") {
+		return 0
+	}
+	mv := 0
+	for _, tok := range strings.Fields(cost) {
+		if tok == "X" {
+			continue
+		}
+		if len(tok) == 1 && strings.ContainsRune("WUBRGC", rune(tok[0])) {
+			mv++
+			continue
+		}
+		if n, err := strconv.Atoi(tok); err == nil && n >= 0 {
+			mv += n
+			continue
+		}
+		if v, ok := twobridManaValue(tok); ok {
+			mv += v
+			continue
+		}
+		mv++
+	}
+	return mv
+}
+
+// twobridManaValue recognises Forge's concatenated ("2W") and slash ("2/W")
+// monocolour-hybrid spellings and returns the generic face, copied from
+// policynet's twobridManaValue.
+func twobridManaValue(sym string) (int, bool) {
+	generic, col := "", ""
+	if left, right, ok := strings.Cut(sym, "/"); ok {
+		generic, col = left, right
+	} else {
+		i := 0
+		for i < len(sym) && sym[i] >= '0' && sym[i] <= '9' {
+			i++
+		}
+		if i == 0 {
+			return 0, false
+		}
+		generic, col = sym[:i], sym[i:]
+	}
+	if len(col) != 1 || !strings.ContainsRune("WUBRGC", rune(col[0])) {
+		return 0, false
+	}
+	v, err := strconv.Atoi(generic)
+	if err != nil || v < 0 {
+		return 0, false
+	}
+	return v, true
+}
+
+// processCard ports the view-exposed subset of StateEncoder.processCard
+// (StateEncoder.java:134-175): the universal "Card" tag, the "Permanent" tag
+// for a permanent card type, each card-type word (lowercased for gorGE), the
+// printed mana value, and the card's name recorded in w.names (Task 3's
+// BlockedBy walk reads it).
+//
+// Subtypes are not exposed by view.CardView, so none are emitted and the
+// family is recorded unsupported. passToParent mirrors upstream's
+// `if(!f.passToParent) return` guard: a card node not created pass-to-parent
+// emits nothing.
+func (w *walker) processCard(f *Node, cv *view.CardView, passToParent bool) {
+	if !passToParent {
+		return
+	}
+	w.names[cv.ID] = cv.Name
+	f.AddFeature("Card")
+	if isPermanentType(cv.Types) {
+		f.AddFeature("Permanent")
+	}
+	for _, t := range strings.Fields(cv.Types) {
+		f.AddFeature(strings.ToLower(t))
+	}
+	f.AddNumericFeature("ManaValue", manaValue(cv.ManaCost), true)
+	w.unsupported["Subtypes"] = true
+}
+
+// processCardInZone ports StateEncoder.processCardInZone (StateEncoder.java:306-329):
+// processCard, then the zone's static/activated/triggered ability walks. The
+// view carries no ability list, so the ability walks are not exposable and the
+// CardAbilities family is recorded unsupported; only the card features are
+// emitted.
+func (w *walker) processCardInZone(f *Node, cv *view.CardView, zone string, ch view.Chars) {
+	w.processCard(f, cv, f.passToParent)
+	w.unsupported["CardAbilities"] = true
+}
+
+// processGraveyard ports StateEncoder.processGraveyard
+// (StateEncoder.java:341-345): walk the sorted graveyard cards under the
+// caller's "Graveyard" subtree. Upstream uses getCardsSorted, so gorGE sorts a
+// fresh copy by (Name, ID) and never relies on the incoming slice order.
+func (w *walker) processGraveyard(f *Node, pv *view.PlayerView, ch view.Chars) {
+	w.processCardList(f, pv.Graveyard, "graveyard", ch)
+}
+
+// processHand ports StateEncoder.processHand (StateEncoder.java:347-351): walk
+// the sorted hand cards under the caller's "Hand" subtree.
+func (w *walker) processHand(f *Node, pv *view.PlayerView, ch view.Chars) {
+	w.processCardList(f, pv.Hand, "hand", ch)
+}
+
+// processCardList shares processGraveyard/processHand: sort a fresh copy of
+// cards by (Name, ID) (upstream getCardsSorted), create the card's name
+// subtree, and walk it in zone. The copy is deliberate: it reorders nothing
+// the caller holds and gives a deterministic traversal independent of the
+// incoming list order.
+func (w *walker) processCardList(f *Node, cards []view.CardView, zone string, ch view.Chars) {
+	if len(cards) == 0 {
+		return
+	}
+	sorted := make([]view.CardView, len(cards))
+	copy(sorted, cards)
+	sort.Slice(sorted, func(i, j int) bool {
+		if sorted[i].Name != sorted[j].Name {
+			return sorted[i].Name < sorted[j].Name
+		}
+		return sorted[i].ID < sorted[j].ID
+	})
+	for i := range sorted {
+		cv := &sorted[i]
+		w.processCardInZone(f.SubFeatures(cv.Name, true), cv, zone, ch)
+	}
+}
+
 // ProcessState walks an omniscient gorGE view and returns the MageZero
 // feature-id set for the given decision.
 func ProcessState(v view.View, ch view.Chars, seat state.PlayerID, decisionType int, decisionsText string) map[int32]struct{} {
 	e := NewEncoder(DefaultTableSize)
-	w := &walker{e: e, seat: seat, active: v.Active, ch: ch, unsupported: map[string]bool{}}
+	w := &walker{e: e, seat: seat, active: v.Active, ch: ch,
+		names: map[state.ObjID]string{}, unsupported: map[string]bool{}}
 	root := w.e.Root()
 	// globals (StateEncoder.java:634-641)
 	if name, ok := stepName[v.Step]; ok {

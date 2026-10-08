@@ -48,7 +48,8 @@ func TestProcessStatePlayerScalars(t *testing.T) {
 		me := f.SubFeatures("Player", true)
 		me.AddNumericFeature("LifeTotal", 20, true)
 		me.AddNumericFeature("LibraryCount", 53, true)
-		me.AddNumericFeature("CardsInHand", 7, true)
+		// No CardsInHand: perfectInfo (the always-omniscient public entry)
+		// walks every Hand instead (StateEncoder.java:601), Task 4.
 		me.AddFeature("IsActivePlayer")
 		me.AddFeature("IsDecisionPlayer")
 		mp := me.SubFeatures("ManaPool", false)
@@ -56,7 +57,6 @@ func TestProcessStatePlayerScalars(t *testing.T) {
 		opp := f.SubFeatures("Opponent", true)
 		opp.AddNumericFeature("LifeTotal", 18, true)
 		opp.AddNumericFeature("LibraryCount", 60, true)
-		opp.AddNumericFeature("CardsInHand", 5, true)
 	})
 	for id := range want {
 		if _, ok := got[id]; !ok {
@@ -120,6 +120,40 @@ func TestProcessStateBattlefieldDeterministicOrder(t *testing.T) {
 	for id := range want {
 		if _, ok := a[id]; !ok {
 			t.Fatalf("missing battlefield id %d", id)
+		}
+	}
+}
+
+func TestProcessStateHandAndGraveyard(t *testing.T) {
+	v := view.View{Players: []view.PlayerView{
+		{ID: 0,
+			Hand:      []view.CardView{{ID: 20, Name: "Counterspell", Types: "Instant", ManaCost: "U U"}},
+			Graveyard: []view.CardView{{ID: 21, Name: "Bolt", Types: "Instant", ManaCost: "R"}},
+		},
+		{ID: 1, Hand: []view.CardView{{ID: 22, Name: "Forest", Types: "Land"}}},
+	}}
+	got := ProcessState(v, nil, 0, 0, "x")
+
+	want := idsFor(func(f *Node) {
+		me := f.SubFeatures("Player", true)
+		h := me.SubFeatures("Hand", true)
+		hc := h.SubFeatures("Counterspell", true)
+		hc.AddFeature("Card")
+		hc.AddFeature("instant")
+		hc.AddNumericFeature("ManaValue", 2, true)
+		gy := me.SubFeatures("Graveyard", true)
+		gc := gy.SubFeatures("Bolt", true)
+		gc.AddFeature("Card")
+		gc.AddFeature("instant")
+		// perfectInfo: the opponent's hand is walked too.
+		oh := f.SubFeatures("Opponent", true).SubFeatures("Hand", true)
+		oc := oh.SubFeatures("Forest", true)
+		oc.AddFeature("Card")
+		oc.AddFeature("land")
+	})
+	for id := range want {
+		if _, ok := got[id]; !ok {
+			t.Fatalf("missing hand/graveyard id %d", id)
 		}
 	}
 }
