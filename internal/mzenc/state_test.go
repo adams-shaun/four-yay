@@ -297,6 +297,52 @@ func TestProcessStateWatchersFromFields(t *testing.T) {
 	}
 }
 
+// TestProcessStateIsDeterministic pins that ProcessState is a pure function of
+// the View: two identical walks must produce the identical id set. It is a
+// regression trap for any walk that ranges a Go map to build ids — map
+// iteration order is randomised per range, so such a walk would build a
+// different feature ORDER (and, for occurrence-keyed siblings, a different id
+// set) across runs. The sorted walks make this hold today; if this ever fails,
+// find the map range that reached an id and fix the WALK, never the test.
+func TestProcessStateIsDeterministic(t *testing.T) {
+	v := coverageView()
+	a := ProcessState(v, nil, 0, 0, "x")
+	b := ProcessState(v, nil, 0, 0, "x")
+	if len(a) != len(b) {
+		t.Fatalf("nondeterministic: %d vs %d", len(a), len(b))
+	}
+	for id := range a {
+		if _, ok := b[id]; !ok {
+			t.Fatalf("nondeterministic: id %d", id)
+		}
+	}
+}
+
+// TestProcessStateNoMapRange is the practical no-map-range guard. Go randomises
+// map iteration order on every range, so a walk that ranged a map-valued View
+// field (e.g. PlayerView.Pool) to BUILD ids would return a different id set
+// across iterations and flake the determinism gate. ProcessState does not: the
+// mana pool is read in the fixed manaPoolKeys order, and no other map-valued
+// field reaches an id. This calls the walker 50 times over a view whose Pool
+// maps are populated (coverageView sets {"W":2,"U":1} for the seat) and asserts
+// the id set is byte-identical every time, which a map-backed walk cannot
+// reliably pass. It is a behavioural guard, not a source-scanning AST test.
+func TestProcessStateNoMapRange(t *testing.T) {
+	v := coverageView()
+	want := ProcessState(v, nil, 0, 0, "x")
+	for i := 0; i < 50; i++ {
+		got := ProcessState(v, nil, 0, 0, "x")
+		if len(got) != len(want) {
+			t.Fatalf("iteration %d: id-set size varies %d vs %d — a map range reached an id", i, len(got), len(want))
+		}
+		for id := range want {
+			if _, ok := got[id]; !ok {
+				t.Fatalf("iteration %d: id %d missing — a map range reached an id", i, id)
+			}
+		}
+	}
+}
+
 // TestProcessStateExileZones pins the flat-view exile walk. Upstream
 // processExile/processExileZone (StateEncoder.java:425-437) nests each zone's
 // cards under the zone's name; view.PlayerView.Exile is one flat list with no
