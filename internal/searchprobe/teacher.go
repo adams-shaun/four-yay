@@ -490,8 +490,9 @@ func bitHas(b []uint64, i int) bool { return b[i>>6]&(1<<(uint(i)&63)) != 0 }
 // same blocker (same option Group -- one attacker per blocker) removed, then
 // the bot's answer minus each of its own pairs. Capped at limit.
 //
-// Decision.Validate does not see the whole-declaration rules the engine
-// enforces (CR 509.1a MinMaxBlocker bounds, CR 509.1b block charges), and one
+// Decision.Validate enforces the published per-attacker CR 509.1a
+// MinBlockers/MaxBlockers bounds, but not the live-board rules the engine
+// enforces (CR 509.1a board-aware bounds, CR 509.1b block charges), and one
 // candidate the engine rejects makes TeacherChoice fail the WHOLE decision,
 // so a candidate is kept only when Validate passes, the Required quota is
 // met, decision.FitRequired would leave it unchanged (the repair the bot's

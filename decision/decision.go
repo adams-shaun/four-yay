@@ -1357,6 +1357,28 @@ func (d *Decision) Validate(in Intent) error {
 			return fmt.Errorf("blocker %d cannot block multiple attackers outside BlockAllDefined pairs", d.Options[c].Obj)
 		}
 	}
+	// CR 509.1a / CR 702.111b: the per-attacker team bound each option
+	// publishes (MinBlockers/MaxBlockers, which the rules layer folds Menace
+	// into) is enforced here so a lone blocker of a Menace or Min$ 2
+	// attacker is refused before Submit, and the client re-answers. Map-free
+	// (a declaration names few blockers, so the count scans the choices).
+	if d.Kind == KBlockers {
+		for _, c := range in.Choices {
+			o := d.Options[c]
+			n := 0
+			for _, c2 := range in.Choices {
+				if d.Options[c2].Attacker == o.Attacker {
+					n++
+				}
+			}
+			if n < o.MinBlockers {
+				return fmt.Errorf("attacker %d must be blocked by at least %d creatures (got %d)", o.Attacker, o.MinBlockers, n)
+			}
+			if o.MaxBlockers > 0 && n > o.MaxBlockers {
+				return fmt.Errorf("attacker %d accepts at most %d blockers (got %d)", o.Attacker, o.MaxBlockers, n)
+			}
+		}
+	}
 	if d.DistinctTypePicks && !d.DistinctTypesFit(in.Choices) {
 		return fmt.Errorf("chosen cards cannot be assigned distinct types")
 	}

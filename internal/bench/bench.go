@@ -352,7 +352,19 @@ func PlayGame(cfg rules.Config, seats []seat.Seat, maxTurns, maxIntents int, hoo
 			}
 			if !consumed {
 				if err := e.Submit(in); err != nil {
-					return nil, nil, fmt.Errorf("seed %d, intent %d: %w", cfg.Seed, n, err)
+					// Preserve-and-reject: a refused Submit leaves the
+					// pending decision intact. Re-ask the seat through the
+					// same refusal ladder the hosted match runs, so an
+					// engine-illegal answer is a re-answer rather than a
+					// fatal error. A search seat's feed already recorded its
+					// answer, so it is left to its own repair (the
+					// historical fatal path).
+					if searchFeed(feeds, d.Player) != nil {
+						return nil, nil, fmt.Errorf("seed %d, intent %d: %w", cfg.Seed, n, err)
+					}
+					if ferr := reanswerRefused(e, seats, d, in); ferr != nil {
+						return nil, nil, fmt.Errorf("seed %d, intent %d: %w", cfg.Seed, n, ferr)
+					}
 				}
 			}
 			n++
@@ -385,6 +397,38 @@ func PlayGame(cfg rules.Config, seats []seat.Seat, maxTurns, maxIntents int, hoo
 		return finish(Outcome{StallOn: "intents", Turns: e.G.Turn, Intents: n})
 	}
 	return finish(outcomeFrom(e, n))
+}
+
+// reanswerRefused is PlayGame's refusal ladder, the driver-side mirror of the
+// hosted match's BP-06 ladder (host/match.go): after the engine refuses a
+// Submit the pending decision survives, so the seat is asked once more -- if
+// it opts in with bots.RefusalAnswerer -- and then the shared bots.Fallbacks
+// are tried in order. The first intent the engine accepts wins; nil means one
+// of them was accepted. The seat's answer to the ORIGINAL decision is passed
+// through as refused. The board is built once for the deciding seat, the same
+// way a BoardSeat's board is built.
+func reanswerRefused(e *rules.Engine, seats []seat.Seat, d *decision.Decision, refused decision.Intent) error {
+	brd := botpolicy.NewBoard(len(seats))
+	botpolicy.BoardFromGameInto(e.G, e, d.Player, &brd)
+	var candidates []decision.Intent
+	if ra, ok := seats[d.Player].(bots.RefusalAnswerer); ok {
+		v := view.Project(e.G, e, d.Player, d)
+		v.Round = view.RoundOf(e.G, e.L.Events)
+		candidates = append(candidates, ra.AnswerRefused(v, *d, refused))
+	}
+	candidates = append(candidates, bots.Fallbacks(d, brd, int(d.Player))...)
+	var last error
+	for _, c := range candidates {
+		err := e.Submit(c)
+		if err == nil {
+			return nil
+		}
+		last = err
+	}
+	if last == nil {
+		last = fmt.Errorf("no refusal fallback for decision %s", d.Kind)
+	}
+	return last
 }
 
 // searchFeed is the deciding seat's feed, or nil when that seat is not a
