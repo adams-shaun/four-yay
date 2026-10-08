@@ -114,11 +114,18 @@ var quietCoveredSections = map[string]bool{
 	"add": true,
 }
 
-// quietVerify runs the proof alongside every walk and panics when the proof
-// says quiet while the walk offered a non-mana option (§4.1). It is on in
-// the rules test binary (derivedMemoVerifyFlag, set by enginebench-verify
-// and the test binary) or with GORGE_QUIET_VERIFY=1.
-var quietVerify = derivedMemoVerifyFlag != "" || os.Getenv("GORGE_QUIET_VERIFY") != ""
+// quietVerifyOn reports whether the proof runs alongside every walk and
+// panics when it says quiet while the walk offered a non-mana option (§4.1).
+//
+// It is a function, not a package var, because the rules test binary turns
+// verify mode on in rules/derivedmemo_verify_test.go's init() by setting the
+// in-process derivedMemoVerify; a package-level var initializer runs BEFORE
+// that init, so it would read the zero value and the rules test binary would
+// never cross-check the proof. Reading derivedMemoVerify at each call keeps
+// the test binary and enginebench-verify (derivedMemoVerifyFlag) both live.
+func quietVerifyOn() bool {
+	return derivedMemoVerify || derivedMemoVerifyFlag != "" || os.Getenv("GORGE_QUIET_VERIFY") != ""
+}
 
 // seatQuiet is quietBlocker(p) == qbNone.
 func (e *Engine) seatQuiet(p state.PlayerID) bool {
@@ -176,6 +183,18 @@ func (e *Engine) quietBlocker(p state.PlayerID) quietBlockerID {
 }
 
 // quietBoardBlocker reads the board-wide flags of §2.2 once per window.
+//
+// Deviation from the "no maps, no strings" proof-path rule, stated
+// deliberately: two reads here touch a Params map or a string -- the
+// MayPlay$ param scan over active Continuous statics and the AddKeyword head
+// compare in quietActiveKWGrantBlocker. §2.2's board-flag reader REQUIRES
+// them (there is no compiled S2 bit for an arbitrary MayPlay$/AddKeyword
+// carrier in v1), and both run on the already-built active() summaries the
+// walk shares, not on a raw script re-parse. They are the proof's most
+// expensive part, so quietBlocker runs this reader LAST, only for a window
+// every per-object section left open (see the ordering note in quietBlocker).
+// The no-allocation half of the rule holds: both reads are value copies out
+// of existing tables and allocate nothing.
 func (e *Engine) quietBoardBlocker(p state.PlayerID) quietBlockerID {
 	ces := e.active()
 	sum := e.activeSummaryOf(ces)

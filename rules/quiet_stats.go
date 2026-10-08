@@ -83,7 +83,7 @@ func quietNow() int64 {
 	return quietClock()
 }
 func quietStatsEnabled() bool {
-	return quietVerify || quietStatsFlag != ""
+	return quietVerifyOn() || quietStatsFlag != ""
 }
 
 // QuietStatsLinked reports whether the link-time stats flag was set, so a
@@ -143,7 +143,7 @@ func (e *Engine) quietTally(p state.PlayerID, opts []decision.Option, blocker qu
 		}
 		if nonMana {
 			quietMismatches.Add(1)
-			if quietVerify {
+			if quietVerifyOn() {
 				o := opts[firstNonManaOption(opts)]
 				name := ""
 				if obj := e.G.Obj(o.Obj); obj != nil && obj.Face() != nil {

@@ -159,6 +159,11 @@ func TestQuietProofFixtures(t *testing.T) {
 		name    string
 		build   func(t *testing.T) (*Engine, state.PlayerID)
 		blocker quietBlockerID
+		// nonOpen drives the fixture past Main1 to Begin-Combat before the
+		// probe, so the timing class under test is instant speed rather than
+		// sorcery timing. A row that relies on instantSpeed MUST set this, or
+		// it proves nothing about the non-sorcery branch.
+		nonOpen bool
 	}
 	rows := []tc{
 		{
@@ -176,6 +181,37 @@ func TestQuietProofFixtures(t *testing.T) {
 				return e, 0
 			},
 			blocker: qbHandSpell,
+		},
+		{
+			// The spec's "instant-speed castable at a non-sorcery window": a
+			// {U} creature with printed Flash, against one untapped land, at
+			// Begin-Combat. A creature is not an instant, so the ONLY reason
+			// the walk offers it is instantSpeed (the Flash branch); a proof
+			// that read sorcery timing alone would wrongly call this quiet.
+			name: "flash creature affordable at a non-sorcery window blocks via instantSpeed",
+			build: func(t *testing.T) (*Engine, state.PlayerID) {
+				c := lookup(t, reg, "Brinebarrow Intruder")
+				e := quietBaseLandWith(t, reg, "Island", []*cards.Card{c})
+				addHand(t, e, 0, c)
+				return e, 0
+			},
+			blocker: qbHandSpell,
+			nonOpen: true,
+		},
+		{
+			// Counter-row for the Flash row: a plain {U} SORCERY at the same
+			// non-sorcery window is NOT castable, so the proof stays quiet.
+			// It proves the non-open window is real (the timing class
+			// actually changed) rather than a Main1 probe mislabelled.
+			name: "plain sorcery at a non-sorcery window is quiet",
+			build: func(t *testing.T) (*Engine, state.PlayerID) {
+				c := lookup(t, reg, "Divination")
+				e := quietBaseWith(t, reg, []*cards.Card{c})
+				addHand(t, e, 0, c)
+				return e, 0
+			},
+			blocker: qbNone,
+			nonOpen: true,
 		},
 		{
 			name: "flashback card in graveyard blocks",
@@ -307,6 +343,12 @@ func TestQuietProofFixtures(t *testing.T) {
 	for _, row := range rows {
 		t.Run(row.name, func(t *testing.T) {
 			e, p := row.build(t)
+			if row.nonOpen {
+				driveToStep(t, e, e.G.Turn, 0, state.StepBeginCombat)
+				if e.G.Step.IsMain() {
+					t.Fatal("nonOpen precondition: still at a main step; the row is not testing instant speed")
+				}
+			}
 			opts, quiet, _ := quietContract(t, e, p)
 			if got := e.quietBlocker(p); got != row.blocker {
 				t.Fatalf("quietBlocker = %s, want %s\nturn %d step %v options: %v",
@@ -331,12 +373,22 @@ func quietBase(t *testing.T, reg *cards.Registry) *Engine {
 }
 
 // quietBaseWith is quietBase with the named extra cards seated in seat 0's
-// deck (so addZone/addHand can pull one out).
+// deck (so addZone/addHand can pull one out). Seat 0's battlefield land is a
+// Plains.
 func quietBaseWith(t *testing.T, reg *cards.Registry, extras []*cards.Card) *Engine {
 	t.Helper()
+	return quietBaseLandWith(t, reg, "Plains", extras)
+}
+
+// quietBaseLandWith is quietBaseWith with the chosen untapped battlefield
+// basic, so a fixture whose card needs a coloured source (a blue Flash
+// creature, say) can actually be offered by the walk and not only by the
+// proof's colour-blind mana ceiling.
+func quietBaseLandWith(t *testing.T, reg *cards.Registry, land string, extras []*cards.Card) *Engine {
+	t.Helper()
 	mountain := lookup(t, reg, "Mountain")
-	plains := lookup(t, reg, "Plains")
-	deck0 := append([]*cards.Card{plains}, extras...)
+	basic := lookup(t, reg, land)
+	deck0 := append([]*cards.Card{basic}, extras...)
 	for len(deck0) < 40 {
 		deck0 = append(deck0, mountain)
 	}
@@ -348,14 +400,14 @@ func quietBaseWith(t *testing.T, reg *cards.Registry, extras []*cards.Card) *Eng
 		Decks: [][]*cards.Card{deck0, deck1}})
 	e.Advance()
 	toMain1(t, e)
-	// Empty seat 0's hand, then seat the Plains untapped on the battlefield.
+	// Empty seat 0's hand, then seat the untapped battlefield land.
 	for _, id := range append([]state.ObjID{}, e.G.Zone(state.ZHand, 0)...) {
 		e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: state.ZHand, To: state.ZLibrary})
 	}
-	pid := pullByName(t, e, 0, "Plains")
+	pid := pullByName(t, e, 0, land)
 	e.emit(events.Event{Kind: events.MoveZone, Obj: pid, From: state.ZLibrary, To: state.ZBattlefield})
 	if o := e.G.Obj(pid); o == nil || o.Zone != state.ZBattlefield || o.Tapped {
-		t.Fatalf("quietBase precondition: Plains %d is not an untapped battlefield land: %+v", pid, o)
+		t.Fatalf("quietBase precondition: %s %d is not an untapped battlefield land: %+v", land, pid, o)
 	}
 	return e
 }
@@ -434,7 +486,12 @@ func shardName(shard int) string {
 
 // sweepShard visits every shards'th card by index, places it on the
 // battlefield, in hand and in the graveyard in turn, and asserts the §2.1
-// contract on both seats at both a sorcery-open and a non-open window.
+// contract on both seats at both a sorcery-open and a non-open window. The
+// own seat is probed at seat 0's turn-1 Main1 (sorcery-open) and then again
+// at Begin-Combat, the same turn with no sorcery timing (so the
+// instantSpeed fact and the !sorceryOpen branch of abQuietBlocked are
+// actually exercised for the card's own seat); each window is probed for
+// seat 0 and seat 1.
 func sweepShard(t *testing.T, reg *cards.Registry, n, shard, shards int) {
 	t.Helper()
 	mountain, ok := reg.Lookup("Mountain")
@@ -451,17 +508,116 @@ func sweepShard(t *testing.T, reg *cards.Registry, n, shard, shards int) {
 		if e == nil {
 			continue
 		}
-		for _, zone := range []state.Zone{state.ZBattlefield, state.ZHand, state.ZGraveyard} {
-			id := moveByNameQuiet(t, e, 0, name, zone)
-			if id == 0 {
-				continue
-			}
-			for p := state.PlayerID(0); p < 2; p++ {
-				quietSweepCheck(t, e, p, name, zone)
-			}
-			moveQuiet(e, id, zone, state.ZLibrary)
+		// Sorcery-open window: seat 0's turn-1 Main1.
+		sweepPositions(t, e, name)
+		// Non-open window for the same board: Begin-Combat, no sorcery
+		// timing. A tolerant driver answers any incidental ask (an ETB type
+		// choice, a discard) so the probe still lands on a real non-main
+		// step; the contract is asserted against whatever board results. A
+		// card whose own effect ends the game has no non-open window to
+		// probe, so it is skipped rather than failed.
+		if quietDriveToNonMain(t, e) {
+			sweepPositions(t, e, name)
 		}
 	}
+}
+
+// sweepPositions moves the card under test through the battlefield, hand and
+// graveyard positions and checks the contract for both seats at each.
+func sweepPositions(t *testing.T, e *Engine, name string) {
+	t.Helper()
+	for _, zone := range []state.Zone{state.ZBattlefield, state.ZHand, state.ZGraveyard} {
+		id := moveByNameQuiet(t, e, 0, name, zone)
+		if id == 0 {
+			continue
+		}
+		for p := state.PlayerID(0); p < 2; p++ {
+			quietSweepCheck(t, e, p, name, zone)
+		}
+		moveQuiet(e, id, zone, state.ZLibrary)
+	}
+}
+
+// quietDriveToNonMain drives the active seat from its Main1 to Begin-Combat
+// (a real non-sorcery window for the current active player), answering any
+// incidental decision. It is tolerant where driveToStep fatals because a
+// corpus card's ETB can pose a type choice or a discard mid-drive; answering
+// it naively keeps the window reachable without changing the probe's
+// meaning. It returns false when the game ended or otherwise left the main
+// step for a step the probe cannot use, so the caller skips the pass.
+func quietDriveToNonMain(t *testing.T, e *Engine) bool {
+	t.Helper()
+	step := e.G.Step
+	for i := 0; i < 4000; i++ {
+		if e.G.Step != step {
+			if e.G.Over || e.G.Step.IsMain() {
+				return false
+			}
+			return true
+		}
+		if e.G.Over {
+			return false
+		}
+		d := e.Pending()
+		if d == nil {
+			e.Advance()
+			d = e.Pending()
+		}
+		if d == nil {
+			t.Fatal("no decision pending while driving to a non-main step")
+		}
+		switch d.Kind {
+		case decision.KPriority:
+			idx := -1
+			for _, o := range d.Options {
+				if o.Kind == "pass" {
+					idx = o.Index
+				}
+			}
+			if idx < 0 {
+				t.Fatalf("priority decision with no pass option: %+v", d)
+			}
+			if err := e.Submit(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{idx}}); err != nil {
+				t.Fatalf("submit pass: %v", err)
+			}
+		case decision.KAttackers, decision.KBlockers:
+			if err := e.Submit(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: nil}); err != nil {
+				t.Fatalf("submit %s: %v", d.Kind, err)
+			}
+		case decision.KTriggerOrder:
+			picks := make([]int, 0, len(d.Options))
+			for _, o := range d.Options {
+				picks = append(picks, o.Index)
+			}
+			if err := e.Submit(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: picks}); err != nil {
+				t.Fatalf("submit trigger order: %v", err)
+			}
+		default:
+			// An incidental ask (a type/name choice, a discard, a scry):
+			// answer the minimum number of options so the drive completes. It
+			// happens before the step boundary the probe reads, so the board
+			// it leaves is the board both the proof and the walk see.
+			if len(d.Options) == 0 {
+				t.Fatalf("incidental decision %s with no options: %+v", d.Kind, d)
+			}
+			k := d.Min
+			if k < 1 {
+				k = 1
+			}
+			if k > len(d.Options) {
+				k = len(d.Options)
+			}
+			picks := make([]int, k)
+			for j := 0; j < k; j++ {
+				picks[j] = d.Options[j].Index
+			}
+			if err := e.Submit(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: picks}); err != nil {
+				t.Fatalf("submit %s: %v", d.Kind, err)
+			}
+		}
+	}
+	t.Fatal("did not reach a non-main step within the pass budget")
+	return false
 }
 
 // moveByNameQuiet is moveByName without the fatal: a card that is neither in
