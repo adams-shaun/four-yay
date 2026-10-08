@@ -115,7 +115,6 @@ func TestTriggerConditionNonPhase(t *testing.T) {
 func TestTriggerConditionSkipsAreNamed(t *testing.T) {
 	reg := loadGenRegistry(t)
 	for _, tc := range []struct{ name, key, want string }{
-		{"Lunar Convocation", "trigger#0.1", "trigger condition: turn history (PlayerCountPropertyYou$LifeLostThisTurn/Times)"},
 		{"Fearless Swashbuckler", "trigger#0.0", "trigger condition: SVar gate (SVar$Y/Plus)"},
 		{"Clandestine Meddler", "trigger#0.1", "trigger condition: attacker property"},
 		{"Tolsimir, Midnight's Light", "trigger#0.1", "trigger condition: self state"},

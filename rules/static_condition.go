@@ -26,6 +26,7 @@ const (
 	condEnduringStory
 	condFerocious
 	condEvolve
+	condMaxSpeed
 )
 
 var staticConditionCodes = state.NewStrCodes(
@@ -40,6 +41,7 @@ var staticConditionCodes = state.NewStrCodes(
 	state.StrEntry[staticCondition]{Key: "EnduringStory", Val: condEnduringStory},
 	state.StrEntry[staticCondition]{Key: "Ferocious", Val: condFerocious},
 	state.StrEntry[staticCondition]{Key: "Evolve", Val: condEvolve},
+	state.StrEntry[staticCondition]{Key: "MaxSpeed", Val: condMaxSpeed},
 )
 
 func init() {
@@ -56,4 +58,13 @@ func staticConditionOf(sv staticView) staticCondition {
 		return condBlank
 	}
 	return staticCondition(c)
+}
+
+// staticIsMaxSpeed reports whether a printed static is a "Max speed --" line
+// (Condition$ MaxSpeed, CR 702.179e), read through the compiled code. The layer
+// walk skips such a static's AddAbility$: rules/speed.go's maxSpeedAbilities
+// offers it (kind granted), so emitting it there too would offer it twice.
+func staticIsMaxSpeed(st cards.Static) bool {
+	c, ok := st.ParamCode(cards.PKCondition)
+	return ok && staticCondition(c) == condMaxSpeed
 }

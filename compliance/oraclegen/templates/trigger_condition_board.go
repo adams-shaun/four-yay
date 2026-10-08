@@ -56,6 +56,11 @@ func triggerConditionFixtures(reg *cards.Registry, f *cards.Face, t *cards.Trigg
 	if check := t.ParamStr(cards.PKCheckSVar); check != "" {
 		built, _ := activationSVarPrelude(reg, f, check, t.ParamStr(cards.PKSVarCompare))
 		out = append(out, built...)
+		body := strings.TrimSpace(f.SVars[check])
+		if body == "" {
+			body = check
+		}
+		out = append(out, historyPreludes(reg, f.Name, body, staticCountFrom(t.ParamStr(cards.PKSVarCompare)))...)
 		out = append(out, opponentComparisonFixtures(f, check, t.ParamStr(cards.PKSVarCompare))...)
 	}
 	return out

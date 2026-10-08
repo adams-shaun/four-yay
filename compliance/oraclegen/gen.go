@@ -832,18 +832,18 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSt
 		}
 	}
 	routing := newAnswerRouting(ds)
+	// Setup ETB replacement choices (colour or creature type) are answered
+	// before XMage places the seeded permanents, so they must LEAD step zero's
+	// answer stream: the driver queues them before build() and XMage's as-enters
+	// dialog consumes the head of the choice queue. Collect them apart rather
+	// than appending in decision order, which would put a step-0 gameplay
+	// answer that happens to precede the setup decision (Lifecraft Engine's
+	// crew pick) in front of the as-enters dialog. Prepended after the loop.
+	var setupAnswers []XAnswer
 	for i, d := range ds {
 		if d.Step < 0 {
-			// Setup ETB replacement choices are answered before XMage places the
-			// seeded permanents. Keep them in step zero's answer stream with a
-			// distinct kind so the driver can queue them before build().
-			if d.Resume == "etb" && d.Kind == "choose_n" && len(d.Picks) == 1 && len(d.PickKinds) == 1 && d.PickKinds[0] == "color" {
-				// Setup answers are read from xmage_answers[0] before build(),
-				// even when the scenario has no gameplay steps.
-				if len(out) == 0 {
-					out = append(out, nil)
-				}
-				out[0] = append(out[0], XAnswer{d.Seat, "setup_choice", d.Picks[0]})
+			if IsSetupChoice(d) {
+				setupAnswers = append(setupAnswers, XAnswer{d.Seat, "setup_choice", d.Picks[0]})
 				any = true
 			}
 			continue
@@ -1137,6 +1137,14 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSt
 	}
 	if !any {
 		return nil
+	}
+	if len(setupAnswers) > 0 {
+		// Setup answers are read from xmage_answers[0] before build(), even
+		// when the scenario has no gameplay steps.
+		if len(out) == 0 {
+			out = append(out, nil)
+		}
+		out[0] = append(setupAnswers, out[0]...)
 	}
 	return out
 }

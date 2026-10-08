@@ -37,6 +37,15 @@ mkdir -p "$R"
 git -C "$R" init -q -b main
 git -C "$R" -c user.name=t -c user.email=t@t commit -q --allow-empty -m base
 git -C "$R" worktree add -q -b wt/n "$R/.worktrees/n" main
+# Production shape: the shared config is bare and defers non-bareness to each
+# worktree's own config.worktree (see readopt-worktree.sh header).
+git -C "$R" config extensions.worktreeConfig true
+git -C "$R" config core.bare true
+printf '[core]\n\tbare = false\n' >"$R/.git/worktrees/n/config.worktree"
+git -C "$R/.worktrees/n" status --porcelain >/dev/null 2>&1
+check "live worktree's git status works under core.bare=true + worktreeConfig (precondition)" $?
+[ "$(git -C "$R" config --get core.bare)" = true ]
+check "shared config really has core.bare=true (precondition)" $?
 echo committed >"$R/.worktrees/n/f"
 git -C "$R/.worktrees/n" add f
 git -C "$R/.worktrees/n" -c user.name=t -c user.email=t@t commit -q -m "n work"
@@ -80,6 +89,12 @@ for f in gitdir commondir HEAD; do
 done
 grep -qx "ref: refs/heads/wt/n" "$MD/HEAD"
 check "HEAD names the branch" $?
+grep -q 'bare = false' "$MD/config.worktree"
+check "apply wrote config.worktree with bare = false" $?
+[ "$(git -C "$R/.worktrees/n" rev-parse --is-bare-repository 2>&1)" = false ]
+check "re-adopted worktree is not bare" $?
+git -C "$R/.worktrees/n" reset -q
+check "git reset succeeds in the re-adopted worktree" $?
 git -C "$R/.worktrees/n" status --porcelain >"$TMP/status.txt" 2>&1
 check "git status in the re-adopted worktree succeeds" $? "$(cat "$TMP/status.txt")"
 grep -qx '?? u' "$TMP/status.txt"

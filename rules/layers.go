@@ -298,7 +298,7 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 						// whose body is missing or is not an AB degrades to no grant
 						// in grantedAbilities (the same totality every SVar
 						// resolution takes), so no validation is needed here.
-						if st.HasParam(cards.PKAddAbility) {
+						if st.HasParam(cards.PKAddAbility) && !staticIsMaxSpeed(st) {
 							ga := base
 							ga.Layer = LAbilities
 							ga.AddAbilities = statList(st, "AddAbility")

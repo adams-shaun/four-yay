@@ -231,11 +231,14 @@ func triggerWithFixture(reg *cards.Registry, f *cards.Face, name string, req lev
 	if probe == nil {
 		probe = c.steps
 	}
-	// A cast cause leaves only the spell on the stack, and resolve clears
-	// triggers as well, so the probe retries with both players passing once:
-	// the spell resolves and the trigger it caused is on the stack.
+	// A cast cause leaves only the spell on the stack. Passing resolves it,
+	// but simultaneous sibling triggers wait behind trigger_order; pass_to
+	// answers that ask and exposes the queued abilities without resolving them.
 	passes := []oraclegen.Step{{Op: "pass", Seat: 0}, {Op: "pass", Seat: 1}}
-	for _, steps := range [][]oraclegen.Step{probe, append(append([]oraclegen.Step(nil), probe...), passes...)} {
+	settled := append(append([]oraclegen.Step(nil), probe...), passes...)
+	checkpoint := append(append([]oraclegen.Step(nil), settled...), oraclegen.Step{Op: "pass_to", Decision: "priority"})
+	ordered := append(append([]oraclegen.Step(nil), probe...), oraclegen.Step{Op: "pass_to", Decision: "priority"})
+	for _, steps := range [][]oraclegen.Step{probe, settled, checkpoint, ordered} {
 		if _, res, ok := oraclegen.Settle(reg, triggerScenario(f, name, c, req, steps, fx)); ok && abilityOnStack(res.Snapshots, name, f.Name, stackSlot(req)) {
 			fired = true
 			break
@@ -248,6 +251,16 @@ func triggerWithFixture(reg *cards.Registry, f *cards.Face, name string, req lev
 	n, res, ok := oraclegen.Settle(reg, sc)
 	if !ok {
 		return it, false, true
+	}
+	// Only a target hidden behind a sibling's trigger_order ask needs the extra
+	// checkpoint; an item whose trigger is already on the stack keeps its steps.
+	if req.Sub == "trigger.phase" && !abilityOnStack(res.Snapshots, name, f.Name, stackSlot(req)) {
+		for _, d := range res.Decisions {
+			if d.GorgeKind == "trigger_order" {
+				sc.Steps = append(sc.Steps, oraclegen.Step{Op: "pass_to", Decision: "priority"})
+				break
+			}
+		}
 	}
 	for i := 0; i < n; i++ {
 		sc.Steps = append(sc.Steps, oraclegen.Step{Op: "resolve"})
