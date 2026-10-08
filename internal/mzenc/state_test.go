@@ -35,6 +35,36 @@ func TestProcessStateGlobals(t *testing.T) {
 	}
 }
 
+func TestProcessStatePlayerScalars(t *testing.T) {
+	v := view.View{
+		Players: []view.PlayerView{
+			{ID: 0, Life: 20, LibrarySize: 53, HandSize: 7, Pool: map[string]int32{"W": 2}},
+			{ID: 1, Life: 18, LibrarySize: 60, HandSize: 5},
+		},
+	}
+	got := ProcessState(v, nil, 0, 0, "x")
+
+	want := idsFor(func(f *Node) {
+		me := f.SubFeatures("Player", true)
+		me.AddNumericFeature("LifeTotal", 20, true)
+		me.AddNumericFeature("LibraryCount", 53, true)
+		me.AddNumericFeature("CardsInHand", 7, true)
+		me.AddFeature("IsActivePlayer")
+		me.AddFeature("IsDecisionPlayer")
+		mp := me.SubFeatures("ManaPool", false)
+		mp.AddNumericFeature("WhiteMana", 2, true)
+		opp := f.SubFeatures("Opponent", true)
+		opp.AddNumericFeature("LifeTotal", 18, true)
+		opp.AddNumericFeature("LibraryCount", 60, true)
+		opp.AddNumericFeature("CardsInHand", 5, true)
+	})
+	for id := range want {
+		if _, ok := got[id]; !ok {
+			t.Fatalf("missing player id %d", id)
+		}
+	}
+}
+
 func TestCleanStringStripsUUIDTagsAndAngleBrackets(t *testing.T) {
 	cases := map[string]string{
 		"Lightning Bolt [1a2b3c]": "Lightning Bolt",

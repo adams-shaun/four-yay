@@ -52,15 +52,59 @@ func cleanString(s string) string {
 type walker struct {
 	e           *Encoder
 	seat        state.PlayerID
+	active      state.PlayerID
 	names       map[state.ObjID]string
 	unsupported map[string]bool
+}
+
+// manaPoolKeys and manaPoolNames are the fixed colour order processMana
+// (StateEncoder.java:438-444) reads a pool in, spelled as gorGE's Pool map
+// keys (internal/policynet's poolKeys: "W","U","B","R","G","C").
+var (
+	manaPoolKeys  = [...]string{"W", "U", "B", "R", "G", "C"}
+	manaPoolNames = [...]string{"WhiteMana", "BlueMana", "BlackMana", "RedMana", "GreenMana", "ColorlessMana"}
+)
+
+// processManaPool ports StateEncoder.processMana (StateEncoder.java:438-444):
+// the six fixed colour features under the caller's "ManaPool" subtree. The map
+// is iterated in the fixed key order, never ranged, so the emission order (and
+// therefore nothing hashed) cannot vary with map iteration order.
+func (w *walker) processManaPool(f *Node, pool map[string]int32) {
+	for i, k := range manaPoolKeys {
+		f.AddNumericFeature(manaPoolNames[i], int(pool[k]), true)
+	}
+}
+
+// processPlayer ports the scalar half of StateEncoder.processPlayer
+// (StateEncoder.java:543-619): the active/decision flags, life total, library
+// count, hand count and mana pool. Families Task 2 cannot expose are recorded
+// in w.unsupported and emit nothing. isDecisionPlayer is pv.ID == seat.
+func (w *walker) processPlayer(f *Node, pv *view.PlayerView, isDecisionPlayer bool) {
+	if pv.ID == w.active {
+		f.AddFeature("IsActivePlayer")
+	}
+	if isDecisionPlayer {
+		f.AddFeature("IsDecisionPlayer")
+	}
+	f.AddNumericFeature("LifeTotal", int(pv.Life), true)
+	f.AddNumericFeature("LibraryCount", pv.LibrarySize, true)
+	f.AddNumericFeature("CardsInHand", pv.HandSize, true)
+	w.processManaPool(f.SubFeatures("ManaPool", false), pv.Pool)
+
+	w.unsupported["PlayerCounters"] = true
+	w.unsupported["DayNight"] = true
+	w.unsupported["CanPlayLand"] = true
+	w.unsupported["InPayManaMode"] = true
+	w.unsupported["Activating"] = true
+	w.unsupported["MicroDecisions"] = true
+	w.unsupported["Attachments"] = true
 }
 
 // ProcessState walks an omniscient gorGE view and returns the MageZero
 // feature-id set for the given decision.
 func ProcessState(v view.View, ch view.Chars, seat state.PlayerID, decisionType int, decisionsText string) map[int32]struct{} {
 	e := NewEncoder(DefaultTableSize)
-	w := &walker{e: e, seat: seat, unsupported: map[string]bool{}}
+	w := &walker{e: e, seat: seat, active: v.Active, unsupported: map[string]bool{}}
 	root := w.e.Root()
 	// globals (StateEncoder.java:634-641)
 	if name, ok := stepName[v.Step]; ok {
@@ -70,5 +114,16 @@ func ProcessState(v view.View, ch view.Chars, seat state.PlayerID, decisionType 
 		root.AddFeature(actionTypeNames[decisionType])
 	}
 	root.AddFeature(cleanString(decisionsText))
+
+	// each player, in v.Players order: the seat under "Player", every other
+	// seat under "Opponent" (StateEncoder.java:657-661).
+	for i := range v.Players {
+		pv := &v.Players[i]
+		if pv.ID == seat {
+			w.processPlayer(root.SubFeatures("Player", true), pv, true)
+		} else {
+			w.processPlayer(root.SubFeatures("Opponent", true), pv, false)
+		}
+	}
 	return e.IDs()
 }
