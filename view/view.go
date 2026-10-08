@@ -1127,10 +1127,13 @@ func isWordByte(c byte) bool {
 
 // landDropSpent answers PlayerView.LandDropSpent: the engine's own land-drop
 // allowance when ch offers it (the optional LandDropOpen capability, which
-// folds in the "additional land" grants), else the plain one-drop count.
+// folds in the "additional land" grants). A Chars without the capability
+// (searchprobe's capture wrapper hides it) leaves the field unprojected, so
+// the observation, its digests and the sampler's world matching are the same
+// as before the field existed.
 func landDropSpent(ch Chars, p *state.Player) bool {
 	if d, ok := ch.(interface{ LandDropOpen(state.PlayerID) bool }); ok {
 		return !d.LandDropOpen(p.ID)
 	}
-	return p.LandsPlayed >= 1
+	return false
 }

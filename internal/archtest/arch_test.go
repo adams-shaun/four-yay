@@ -131,6 +131,9 @@ func TestTimeIsImportedOnlyByTheHost(t *testing.T) {
 		module + "/cmd/sbv2local":     true,
 		module + "/cmd/searchbench":   true,
 		module + "/cmd/enginebench":   true,
+		module + "/cmd/dzgorge":       true,
+		module + "/internal/gamepool": true,
+		module + "/internal/broker":   true,
 		module + "/host/manabrewhttp": true,
 	}
 	for path, p := range packages(t) {
