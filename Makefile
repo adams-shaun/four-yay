@@ -107,6 +107,10 @@ $(BIN_DIR)/gorged: $(GO_SRC)
 	@mkdir -p $(BIN_DIR)
 	CGO_ENABLED=0 go build -o $@ ./cmd/gorged
 
+$(BIN_DIR)/botbench: $(GO_SRC)
+	@mkdir -p $(BIN_DIR)
+	CGO_ENABLED=0 go build -o $@ ./cmd/botbench
+
 .PHONY: gorged
 # gorged runs the M2a table server: perpetual bot tables served to a browser
 # at the listen address. make web builds the Svelte client it embeds first.
@@ -307,6 +311,17 @@ enginebench-profile:
 	scripts/enginebench-profile.sh $(REV)
 enginebench-verify:
 	scripts/enginebench-verify.sh $(REV)
+
+# smoke-perf is a <5 min, report-only throughput smoke of the whole-game path:
+# four botbench scenarios (random play, random decks, heuristics vs search,
+# search vs random) comparing BASE (default main) to CAND (default the working
+# tree), pinned to GOMAXPROCS=1 on core 9. It prints each revision's output
+# live and a base/cand summary table. No perf threshold; it fails only when a
+# game does not run to completion. Opt-in, never part of `make test`.
+# Knobs: SMOKE_PERF_GAMES SMOKE_PERF_SEED SMOKE_PERF_BUDGET SMOKE_PERF_DIR.
+.PHONY: smoke-perf
+smoke-perf: $(BIN_DIR)/botbench
+	BASE=$(BASE) CAND=$(CAND) scripts/smoke-perf.sh
 
 COVER_OUT  ?= coverage.out
 COVER_HTML ?= coverage.html
