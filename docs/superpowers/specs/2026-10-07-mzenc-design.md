@@ -87,7 +87,8 @@ Port `Features.java` op-for-op. The load-bearing details, with Java line refs:
 - **`stateRefresh`** (`Features.java:146-152`) zeroes occurrence counts but
   keeps the node graph, so nodes are reused across states.
 - Output is a Java `HashSet<Integer>` — a set, so colliding indices collapse.
-  Go: `map[uint32]struct{}` (ids are `0 .. TABLE_SIZE-1`).
+  Go: `map[int32]struct{}` — the id is a Java `int`, so the `MinInt64` lattice
+  in §4 can make it negative; mirror it rather than clamping to uint.
 - `FeatureMap` / `useFeatureMap` / `uuid`→key map (`Features.java:117-118`,
   `156-168`) are ported only for the research/logging path; the id computation
   does not need them.
