@@ -132,7 +132,7 @@ func (w *walker) processPlayer(f *Node, pv *view.PlayerView, isDecisionPlayer bo
 	// global families the view exposes but no walker consumes yet.
 	w.unsupported[famExile] = true
 	w.unsupported[famCommandZone] = true
-	w.unsupported[famWatchers] = true
+	w.unsupported[famGlobalWatchers] = true
 }
 
 // processBattlefield ports StateEncoder.processBattlefield

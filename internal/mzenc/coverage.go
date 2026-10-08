@@ -41,7 +41,7 @@ const (
 	famGraveyard        = "Graveyard"
 	famHand             = "Hand"
 	famCommandZone      = "CommandZone"
-	famWatchers         = "Watchers"
+	famGlobalWatchers   = "GlobalWatchers"
 
 	// permanent / card
 	famCard             = "Card"
@@ -89,7 +89,7 @@ var specFamilies = map[string]bool{
 	famGraveyard:          true,
 	famHand:               true,
 	famCommandZone:        true,
-	famWatchers:           true,
+	famGlobalWatchers:     true,
 	famCard:               true,
 	famPermanent:          true,
 	famCreature:           true,
@@ -124,7 +124,7 @@ var unsupportedFeatures = map[string]string{
 	famMicroDecisions:     "the view carries no ChosenTargets / ChosenChoices / UseChoices / AmountChoices sequences",
 	famAttachments:        "view.CardView exposes AttachedTo but not the attachment fan-out MageZero walks",
 	famCommandZone:        "the walker does not yet walk the command zone",
-	famWatchers:           "the view carries no global watcher counters (SpellsCastThisTurn, LifeGained/Lost, TokensCreated)",
+	famGlobalWatchers:     "the view carries no global watcher counters (SpellsCastThisTurn, LifeGained/Lost, TokensCreated)",
 	famColors:             "view.CardView exposes ManaCost, not a colour set",
 	famSubtypes:           "view.CardView.Types carries card types, not the subtype list",
 	famDynamicTypes:       "view.CardView carries no dynamic type / colour / subtype projection",

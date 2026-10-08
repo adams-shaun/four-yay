@@ -274,3 +274,25 @@ func TestProcessStateStackDepth(t *testing.T) {
 		}
 	}
 }
+
+// TestProcessStateWatchersFromFields is the honest gate for the static/global
+// remainder families Task 7 owns: GlobalWatchers, DayNight and CanPlayLand.
+// view.PlayerView / view.View carry NO watcher counters, NO day/night state and
+// NO land-drop-availability flag (confirmed by reading view/view.go), so the
+// walker CANNOT emit any of them. The assertion is deliberately positive in
+// BOTH directions: each family MUST be in the register (a silent drop would
+// hide the gap) AND the walker must NOT emit it (an emission would be a false
+// claim of support). The brief's original `emitted[fam] && !unsupported[fam]`
+// form passes trivially when the family is absent from the register entirely,
+// so it is not sufficient as a gate.
+func TestProcessStateWatchersFromFields(t *testing.T) {
+	emitted, unsupported := ProcessStateReport(coverageView(), nil, 0, 0, "x")
+	for _, fam := range []string{"GlobalWatchers", "DayNight", "CanPlayLand"} {
+		if !unsupported[fam] {
+			t.Errorf("family %q not registered unsupported: a view cannot carry it, so a missing register entry is a silent claim of support", fam)
+		}
+		if emitted[fam] {
+			t.Errorf("family %q reported emitted, but no view field carries it", fam)
+		}
+	}
+}
