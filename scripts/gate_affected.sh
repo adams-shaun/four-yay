@@ -40,7 +40,47 @@ gate_affected_default_build_pkgs() {
   return 0
 }
 
-# When sourced by scripts/tests/gate_affected_smoke.sh, expose the helper
+# Split the top-level ./rules tests into two concurrent `go test -run` patterns
+# (see the call site below). Output: exactly two regexes, one per line, whose
+# union is every top-level test. A test is bucketed by the character after
+# "Test", buckets are balanced by test count, and the character set comes from
+# `go test -list`, so a new test under an existing first character is always
+# covered. Any surprise in the listing (empty list, a name shorter than five
+# characters, no characters) returns nonzero and the caller falls back to the
+# single unsplit run, so a malformed list can never silently drop a test.
+#
+# Measured 2026-10-08 (this box, 4 cores, `systemd-run ... CPUQuota=400%`,
+# rules test binary pre-warmed): one `go test -p=1 -skip ... ./rules` 84 s at
+# 241% CPU (the package does NOT saturate the cores: 1693 tests call
+# t.Parallel, the rest run serially); the same run split two ways finished in
+# 62 s wall (shards 59.5 s / 55.0 s, counts 3264 / 3267). Listing and splitting
+# costs ~1 s.
+rules_shard_patterns_from_list() {
+  local list chars
+  list=$(cat)
+  [ -n "$list" ] || return 1
+  printf '%s\n' "$list" | awk 'length($0) < 5 { exit 1 }' || return 1
+  chars=$(printf '%s\n' "$list" | cut -c5 | sort | uniq -c | sort -rn)
+  printf '%s\n' "$chars" | awk '
+    function esc(c) { gsub(/[][\\^-]/, "\\\\&", c); return c }
+    { cnt[NR] = $1; ch[NR] = $2 }
+    END {
+      l0 = l1 = 0
+      for (i = 1; i <= NR; i++) {
+        if (l0 <= l1) { c0 = c0 esc(ch[i]); l0 += cnt[i] }
+        else          { c1 = c1 esc(ch[i]); l1 += cnt[i] }
+      }
+      print "^Test[" c0 "]"
+      print "^Test[" c1 "]"
+    }'
+}
+
+rules_shard_run_patterns() {
+  go test -list '.*' ./rules/ 2>/dev/null | /usr/bin/grep '^Test' \
+    | rules_shard_patterns_from_list
+}
+
+# When sourced by scripts/tests/gate_affected_smoke.sh, expose the helpers
 # without running the gate. Detect sourcing structurally: an environment
 # variable must never bypass the gate when the script is executed normally.
 if (return 0 2>/dev/null); then return 0; fi
@@ -102,7 +142,7 @@ echo "gate_affected: rules + $(echo $others)$([ $traj = 1 ] && echo ' + cardfuzz
 # took 18.8 s / 68 cpu-s, peak RSS 3.7 GiB (under the 8 GiB scope). The quota,
 # not the flag, is the ceiling -- at 800% the extra -p is real parallelism.
 GOMAXPROCS=6 go vet -p=6 $others ./rules & v=$!
-# Build the ./rules test binary ONCE before the three concurrent rules runs.
+# Build the ./rules test binary ONCE before the concurrent rules runs.
 # They are separate `go test` processes, and a process does not see a compile
 # another one is still running, so each used to compile and link the same
 # (large) test variant itself. Measured under a 200% cpu cap after a rules
@@ -115,7 +155,24 @@ wait "$v" || rc=1
 wait "$w" || rc=1
 [ "$rc" = 0 ] || exit 1
 
-go test -p=1 -skip "^($global|$kr8|$postmerge)$" ./rules/ & a=$!
+# The main ./rules run is the longest single test job in the gate and it does
+# not use the whole scope quota (241% of 400% measured above), so split it in
+# two by test name and run the halves concurrently. `-skip` still removes the
+# process-global tests (they run in their own gate or post-merge); the two
+# `-run` patterns are a complete, disjoint partition of every remaining test
+# (verified by construction in rules_shard_run_patterns, which falls back to
+# the unsplit run if it cannot list the tests). Both shards keep -p=1 so the
+# number of test binaries does not grow: the two short Kr8 runs (b, c) have
+# finished by the time the long shards are at their peak.
+shard1=; shard2=
+{ read -r shard1; read -r shard2; } < <(rules_shard_run_patterns) || true
+if [ -n "$shard1" ] && [ -n "$shard2" ]; then
+  go test -p=1 -skip "^($global|$kr8|$postmerge)$" -run "$shard1" ./rules/ & a1=$!
+  go test -p=1 -skip "^($global|$kr8|$postmerge)$" -run "$shard2" ./rules/ & a2=$!
+else
+  go test -p=1 -skip "^($global|$kr8|$postmerge)$" ./rules/ & a1=$!
+  a2=
+fi
 go test -p=1 -run '^TestKr8WorldsInFuzzGames$' ./rules/ & b=$!
 go test -p=1 -run '^TestKr8HeadsCheckpointAll$' ./rules/ & c=$!
 # -p=6: the $others packages are independent test binaries; with -p=1 they
@@ -123,8 +180,8 @@ go test -p=1 -run '^TestKr8HeadsCheckpointAll$' ./rules/ & c=$!
 # the `$others` set alone under the gate scope (800% quota, test results
 # expired with `go clean -testcache`): -p=2 62.3 s, -p=4 40.8 s, -p=6 32.5 s,
 # peak RSS ~1.0 GiB. At most six others binaries run here (the two Kr8 runs
-# have already finished, ./rules is one binary), so the scope stays well
-# under its 8 GiB MemoryMax.
+# have already finished, ./rules is two concurrent shards), so the scope stays
+# well under its 8 GiB MemoryMax.
 GOMAXPROCS=6 go test -p=6 -skip "^($global)$" $others & d=$!
 # Event-text changes (any new or reworded event) move the committed
 # overshoot capture and the searchprobe digests; e2e19ebae and 5fa9f31a both
@@ -135,7 +192,7 @@ wait "$b" || rc=1
 wait "$c" || rc=1
 go test -p=1 ./internal/searchprobe/ & e=$!
 go test -p=1 -run '^TestCommittedOvershootCaptureReplaysToTheParkedAsk$' ./host/ & f=$!
-pids="$a $d $e $f"
+pids="$a1 $a2 $d $e $f"
 if [ "$traj" = 1 ]; then
   go test -p=1 -run '^(TestRoundTenFindings|TestForbiddenRitualRepeatYesFinding)$' ./cmd/cardfuzz/ & g=$!
   pids="$pids $g"
