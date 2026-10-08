@@ -1,0 +1,23 @@
+{
+  "name": "cardinality",
+  "useFeatureMap": false,
+  "ops": [
+    {
+      "op": "feature",
+      "name": "Card"
+    },
+    {
+      "op": "feature",
+      "name": "Card"
+    },
+    {
+      "op": "feature",
+      "name": "Card"
+    }
+  ],
+  "indices": [
+    318978810,
+    958721639,
+    1626968197
+  ]
+}

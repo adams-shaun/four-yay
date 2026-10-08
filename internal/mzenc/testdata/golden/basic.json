@@ -1,0 +1,36 @@
+{
+  "name": "basic",
+  "useFeatureMap": false,
+  "ops": [
+    {
+      "op": "feature",
+      "name": "Card"
+    },
+    {
+      "op": "numeric",
+      "name": "LifeTotal",
+      "num": 3
+    },
+    {
+      "op": "push",
+      "name": "Battlefield",
+      "passToParent": true
+    },
+    {
+      "op": "feature",
+      "name": "Tapped"
+    },
+    {
+      "op": "pop"
+    }
+  ],
+  "indices": [
+    89567131,
+    452859805,
+    643745186,
+    958721639,
+    1060391685,
+    1340005339,
+    1420592543
+  ]
+}
