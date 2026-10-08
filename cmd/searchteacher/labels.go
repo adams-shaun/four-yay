@@ -96,6 +96,12 @@ type LabelRecord struct {
 	// Extras is the pn12 extension (schema 3, -label-extras only); nil and
 	// omitted otherwise, so a schema 2 corpus is byte-identical to before.
 	Extras *policynet.LabelExtras `json:"extras,omitempty"`
+	// RescoreValues (-rescore-worlds only, measurement) are the same
+	// candidates' means from an independent search with RescoreWorlds worlds
+	// and a different sample seed, recorded after the label is fixed. Nil
+	// when the flag is off or that search could not cover the decision.
+	RescoreValues []float64 `json:"rescore_values,omitempty"`
+	RescoreWorlds int       `json:"rescore_worlds,omitempty"`
 }
 
 // LabelCandidate is one evaluated candidate answer: its option set (the
