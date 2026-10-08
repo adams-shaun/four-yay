@@ -65,6 +65,50 @@ func TestProcessStatePlayerScalars(t *testing.T) {
 	}
 }
 
+func TestProcessStateBattlefieldDeterministicOrder(t *testing.T) {
+	mk := func(id state.ObjID, name string, tapped bool) view.CardView {
+		return view.CardView{ID: id, Name: name, Types: "Creature", Tapped: tapped,
+			Power: 2, Toughness: 3, Keywords: []string{"Flying"}}
+	}
+	// Two battlefields; within one, names must be walked SORTED, so the
+	// occurrence keys "#1"/"#2" are stable regardless of slice order.
+	v := view.View{Players: []view.PlayerView{
+		{ID: 0, Battlefield: []view.CardView{mk(10, "Grizzly Bears", false), mk(11, "Alpha", true)}},
+		{ID: 1, Battlefield: nil},
+	}}
+	a := ProcessState(v, nil, 0, 0, "x")
+	// swap the two permanents; the id SET must be identical (sorted walk).
+	v.Players[0].Battlefield[0], v.Players[0].Battlefield[1] = v.Players[0].Battlefield[1], v.Players[0].Battlefield[0]
+	b := ProcessState(v, nil, 0, 0, "x")
+	if len(a) != len(b) {
+		t.Fatalf("order-dependent id set: %d vs %d", len(a), len(b))
+	}
+	for id := range a {
+		if _, ok := b[id]; !ok {
+			t.Fatalf("order-dependent id set: id %d only in first", id)
+		}
+	}
+	// The exact subtree the walk must emit for the tapped Alpha creature.
+	// The battlefield nests under the player's subtree (StateEncoder
+	// processPlayer:592), so `want` hangs it under "Player".
+	want := idsFor(func(f *Node) {
+		me := f.SubFeatures("Player", true)
+		bf := me.SubFeatures("Battlefield", true)
+		pa := bf.SubFeatures("Alpha", true)
+		pa.AddFeature("Tapped")
+		pa.AddFeature("creature") // type word, lowercased
+		pa.AddNumericFeature("Power", 2, true)
+		pa.AddNumericFeature("Toughness", 3, true)
+		pg := bf.SubFeatures("Grizzly Bears", true)
+		pg.AddNumericFeature("Power", 2, true)
+	})
+	for id := range want {
+		if _, ok := a[id]; !ok {
+			t.Fatalf("missing battlefield id %d", id)
+		}
+	}
+}
+
 func TestCleanStringStripsUUIDTagsAndAngleBrackets(t *testing.T) {
 	cases := map[string]string{
 		"Lightning Bolt [1a2b3c]": "Lightning Bolt",
