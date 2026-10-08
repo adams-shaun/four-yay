@@ -33,6 +33,9 @@ func classifyEventTrigger(t *cards.Trigger) (sub string, ok bool) {
 	if sub, ok := classifyCounterTrigger(t); ok {
 		return sub, true
 	}
+	if sub, ok := classifyTurnFaceUpTrigger(t); ok {
+		return sub, true
+	}
 	switch t.ModeKind() {
 	case cards.TriggerChangesZone, cards.TriggerChangesZoneAll:
 		// Any non-self Battlefield->Graveyard trigger, whichever side, type

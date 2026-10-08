@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"resolve","field":"permanents","diff":"$CARD gorge+[2/2] xmage+[1/1]"},"key":"trigger | resolve | permanents | $CARD gorge+[2/2] xmage+[1/1]","cards":1}
+{"card":"Perimeter Enforcer","template":"trigger#0.1","status":"diverge","api":"ChangesZone:Pump+TurnFaceUp:Pump","sets":["MKM"],"detail":"step 1 (resolve) permanents: gorge \"c0 o0 Perimeter Enforcer [creature detective human] {W} 2/2\", xmage \"c0 o0 Perimeter Enforcer [creature detective human] {W} 1/1\""}
