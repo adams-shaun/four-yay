@@ -250,3 +250,27 @@ func TestStepNameCoversAllSteps(t *testing.T) {
 		}
 	}
 }
+
+// TestProcessStateStackDepth pins the stack skeleton's traversal: view.View.Stack
+// is bottom-to-top (index 0 the bottom), each object's subtree is keyed by its
+// cleaned name and carries Depth 1,2,... bottom-to-top (upstream processStack,
+// StateEncoder.java:413-424).
+func TestProcessStateStackDepth(t *testing.T) {
+	v := view.View{Stack: []view.StackView{
+		{ID: 100, Name: "Lightning Bolt"},
+		{ID: 101, Name: "Counterspell"},
+	}}
+	got := ProcessState(v, nil, 0, 0, "x")
+	want := idsFor(func(f *Node) {
+		st := f.SubFeatures("Stack", false)
+		a := st.SubFeatures("Lightning Bolt", true)
+		a.AddNumericFeature("Depth", 1, false)
+		b := st.SubFeatures("Counterspell", true)
+		b.AddNumericFeature("Depth", 2, false)
+	})
+	for id := range want {
+		if _, ok := got[id]; !ok {
+			t.Fatalf("missing stack id %d", id)
+		}
+	}
+}

@@ -394,6 +394,10 @@ func ProcessState(v view.View, ch view.Chars, seat state.PlayerID, decisionType 
 	}
 	root.AddFeature(cleanString(decisionsText))
 
+	// stack (StateEncoder.java:647): the root "Stack" subtree, always created
+	// even when empty, walked bottom to top.
+	w.processStack(root, &v)
+
 	// each player, in v.Players order: the seat under "Player", every other
 	// seat under "Opponent" (StateEncoder.java:657-661).
 	for i := range v.Players {
