@@ -39,6 +39,9 @@ func coverageView() view.View {
 						SummonSick: true, Keywords: []string{"Flying"}},
 					{ID: 11, Name: "Sol Ring", Types: "Artifact", Tapped: true},
 				},
+				Commanders: []view.CardView{
+					{ID: 40, Name: "Krenko, Mob Boss", Types: "Creature"},
+				},
 			},
 			{
 				ID:          1,

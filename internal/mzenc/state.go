@@ -122,6 +122,10 @@ func (w *walker) processPlayer(f *Node, pv *view.PlayerView, isDecisionPlayer bo
 	w.processGraveyard(f.SubFeatures("Graveyard", true), pv, w.ch)
 	w.processHand(f.SubFeatures("Hand", true), pv, w.ch)
 
+	// command zone (StateEncoder.java:610-611): after hand, exactly as
+	// upstream. processCommandZone creates the "CommandZone" subtree itself.
+	w.processCommandZone(f, pv, w.ch)
+
 	w.unsupported[famPlayerCounters] = true
 	w.unsupported[famDayNight] = true
 	w.unsupported[famCanPlayLand] = true
@@ -130,8 +134,41 @@ func (w *walker) processPlayer(f *Node, pv *view.PlayerView, isDecisionPlayer bo
 	w.unsupported[famMicroDecisions] = true
 	w.unsupported[famAttachments] = true
 	// global families the view exposes but no walker consumes yet.
-	w.unsupported[famCommandZone] = true
 	w.unsupported[famGlobalWatchers] = true
+}
+
+// processCommandZone ports StateEncoder.processCommandZone
+// (StateEncoder.java:458-497) for the commander roster. Upstream creates the
+// per-player "CommandZone" subtree once (StateEncoder.java:610) and, for each
+// command object, a "Commander" subtree carrying the commander's name as a
+// feature, then walks the commander card via processCard. view.PlayerView
+// carries no emblem list, so the Emblem half of the upstream walk is recorded
+// unsupported and emits nothing.
+//
+// The roster (pv.Commanders) is sorted by (Name, ID) on a fresh copy so the
+// traversal is a pure function of the roster and never of the projected slice
+// order. The copy is deliberate: it reorders nothing the caller holds.
+func (w *walker) processCommandZone(f *Node, pv *view.PlayerView, ch view.Chars) {
+	w.emit(famCommandZone)
+	w.unsupported[famEmblem] = true
+	cz := f.SubFeatures("CommandZone", false)
+	if len(pv.Commanders) == 0 {
+		return
+	}
+	comms := make([]view.CardView, len(pv.Commanders))
+	copy(comms, pv.Commanders)
+	sort.Slice(comms, func(i, j int) bool {
+		if comms[i].Name != comms[j].Name {
+			return comms[i].Name < comms[j].Name
+		}
+		return comms[i].ID < comms[j].ID
+	})
+	for i := range comms {
+		cv := &comms[i]
+		com := cz.SubFeatures("Commander", true)
+		com.AddFeature(cv.Name)
+		w.processCard(com.SubFeatures(cv.Name, true), cv, true)
+	}
 }
 
 // processBattlefield ports StateEncoder.processBattlefield

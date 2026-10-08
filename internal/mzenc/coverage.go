@@ -46,7 +46,12 @@ const (
 	famGraveyard        = "Graveyard"
 	famHand             = "Hand"
 	famCommandZone      = "CommandZone"
-	famGlobalWatchers   = "GlobalWatchers"
+	// famEmblem is a caveat family, not an upstream §5 bullet: StateEncoder's
+	// processCommandZone also walks command-zone Emblems (StateEncoder.java:
+	// 461-471, 486-495), but view.PlayerView exposes no emblem list, so the
+	// walk site records the gap on the register and emits nothing.
+	famEmblem         = "Emblem"
+	famGlobalWatchers = "GlobalWatchers"
 
 	// permanent / card
 	famCard             = "Card"
@@ -95,6 +100,7 @@ var specFamilies = map[string]bool{
 	famGraveyard:          true,
 	famHand:               true,
 	famCommandZone:        true,
+	famEmblem:             true,
 	famGlobalWatchers:     true,
 	famCard:               true,
 	famPermanent:          true,
@@ -129,7 +135,7 @@ var unsupportedFeatures = map[string]string{
 	famActivating:         "the view carries no activating flag",
 	famMicroDecisions:     "the view carries no ChosenTargets / ChosenChoices / UseChoices / AmountChoices sequences",
 	famAttachments:        "view.CardView exposes AttachedTo but not the attachment fan-out MageZero walks",
-	famCommandZone:        "the walker does not yet walk the command zone",
+	famEmblem:             "view.PlayerView carries no command-zone emblem list, so upstream's Emblem walk is not reproducible",
 	famGlobalWatchers:     "the view carries no global watcher counters (SpellsCastThisTurn, LifeGained/Lost, TokensCreated)",
 	famColors:             "view.CardView exposes ManaCost, not a colour set",
 	famSubtypes:           "view.CardView.Types carries card types, not the subtype list",

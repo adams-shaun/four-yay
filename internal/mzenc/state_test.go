@@ -343,6 +343,58 @@ func TestProcessStateNoMapRange(t *testing.T) {
 	}
 }
 
+// TestProcessStateCommandZone pins the commander roster walk. Upstream
+// processCommandZone (StateEncoder.java:458-497) iterates the command zone:
+// under the player's "CommandZone" subtree it creates a "Commander" subtree,
+// adds the commander's name as a feature there, then walks the commander card
+// (processCard). Emblems are not projected by view.PlayerView, so they are
+// recorded unsupported and emit nothing.
+func TestProcessStateCommandZone(t *testing.T) {
+	v := view.View{Players: []view.PlayerView{
+		{ID: 0, Commanders: []view.CardView{{ID: 40, Name: "Krenko, Mob Boss", Types: "Creature"}}},
+		{ID: 1},
+	}}
+	got := ProcessState(v, nil, 0, 0, "x")
+	want := idsFor(func(f *Node) {
+		me := f.SubFeatures("Player", true)
+		cz := me.SubFeatures("CommandZone", false)
+		com := cz.SubFeatures("Commander", true)
+		com.AddFeature("Krenko, Mob Boss")
+		c := com.SubFeatures("Krenko, Mob Boss", true)
+		c.AddFeature("Card")
+		c.AddFeature("creature")
+	})
+	for id := range want {
+		if _, ok := got[id]; !ok {
+			t.Fatalf("missing command-zone id %d", id)
+		}
+	}
+}
+
+// TestProcessStateCommandZoneSortedDeterministic guards the multi-commander
+// sort: the roster order is not load-bearing for the id set (the name is the
+// subtree key and the sort is by (Name, ID)), but a walk that ranged a map or
+// trusted the incoming slice order could still move occurrence keys. Two
+// identical rosters in swapped order must produce the identical id set.
+func TestProcessStateCommandZoneSortedDeterministic(t *testing.T) {
+	a := view.CardView{ID: 40, Name: "Krenko, Mob Boss", Types: "Creature"}
+	b := view.CardView{ID: 41, Name: "Ashling the Pilgrim", Types: "Creature"}
+	v := view.View{Players: []view.PlayerView{
+		{ID: 0, Commanders: []view.CardView{a, b}},
+	}}
+	first := ProcessState(v, nil, 0, 0, "x")
+	v.Players[0].Commanders[0], v.Players[0].Commanders[1] = v.Players[0].Commanders[1], v.Players[0].Commanders[0]
+	second := ProcessState(v, nil, 0, 0, "x")
+	if len(first) != len(second) {
+		t.Fatalf("command-zone id set order-dependent: %d vs %d", len(first), len(second))
+	}
+	for id := range first {
+		if _, ok := second[id]; !ok {
+			t.Fatalf("command-zone id set order-dependent: id %d", id)
+		}
+	}
+}
+
 // TestProcessStateExileZones pins the flat-view exile walk. Upstream
 // processExile/processExileZone (StateEncoder.java:425-437) nests each zone's
 // cards under the zone's name; view.PlayerView.Exile is one flat list with no
