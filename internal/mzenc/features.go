@@ -1,9 +1,3 @@
-// Package mzenc is a byte-identical Go port of MageZero v0.2's feature encoder
-// (XMage fork WillWroble/mage @ master cb7e9c6f, package mage.player.ai.encoder).
-//
-// This file ports the hash core: Features.mix64/hash64/indexFor. See
-// docs/superpowers/specs/2026-10-07-mzenc-design.md and
-// docs/superpowers/plans/2026-10-07-mzenc-hash-port.md.
 package mzenc
 
 import (

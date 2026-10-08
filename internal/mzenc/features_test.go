@@ -59,3 +59,24 @@ func TestSubFeatureKeyedByOccurrenceAndReusedAfterRefresh(t *testing.T) {
 		t.Fatalf("after StateRefresh the X#1 node must be reused")
 	}
 }
+
+// TestEncoderIsDeterministic guards the pure-function contract: the id set is
+// a function of the op sequence alone. The repo-wide no-clock/no-rand rule is
+// enforced by internal/archtest.
+func TestEncoderIsDeterministic(t *testing.T) {
+	build := func() map[int32]struct{} {
+		e := NewEncoder(defaultTable)
+		e.Root().AddNumericFeature("Power", 7, true)
+		e.Root().SubFeatures("Hand", true).AddFeature("Card")
+		return e.IDs()
+	}
+	a, b := build(), build()
+	if len(a) != len(b) {
+		t.Fatalf("nondeterministic id count: %d vs %d", len(a), len(b))
+	}
+	for id := range a {
+		if _, ok := b[id]; !ok {
+			t.Fatalf("nondeterministic: id %d missing on the second run", id)
+		}
+	}
+}
