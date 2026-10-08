@@ -32,6 +32,13 @@ type Spare struct {
 	events  []events.Event
 	objs    []state.Object
 	intents []decision.Intent
+	// engine is the spent engine's own struct, reused as the target of the
+	// next CloneInto (POC: heap-object attack). The struct is large (~2 KB)
+	// and was the single biggest flat allocation of the search: every
+	// simulation heap-allocated a fresh *Engine. cloneWith writes the whole
+	// struct (G/L/rng/loop set, cloneEngineFields setting every other field),
+	// so a recycled struct carries no stale state. nil for a plain Clone.
+	engine *Engine
 	// Release recycles events and objs lazily: their first evDirty /
 	// objDirty slots may still hold the spent engine's history (every slot
 	// past them is zero), and the consumer zeroes whatever it does not
@@ -180,6 +187,7 @@ func (e *Engine) Release() Spare {
 		sp.tapeCkpt = &ts
 	}
 	e.tapeSpare = Spare{}
+	sp.engine = e
 	return sp
 }
 

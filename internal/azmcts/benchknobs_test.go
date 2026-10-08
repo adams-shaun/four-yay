@@ -249,10 +249,10 @@ func TestNameKeysNameLateObjects(t *testing.T) {
 	if !ok {
 		t.Fatal("no candidates")
 	}
-	if got := nameKeys(obs, e, d, cands, obs.Introduced()); !reflect.DeepEqual(got, cands) {
+	if got := nameKeys(obs, e, d, cands, obs.Introduced(), nil); !reflect.DeepEqual(got, cands) {
 		t.Fatal("keys of root-observed objects changed")
 	}
-	named := nameKeys(obs, e, d, cands, 0)
+	named := nameKeys(obs, e, d, cands, 0, nil)
 	renamed := 0
 	for _, c := range named {
 		orig, err := obs.Actions(d, c.in)
@@ -270,5 +270,29 @@ func TestNameKeysNameLateObjects(t *testing.T) {
 	}
 	if renamed == 0 {
 		t.Fatal("nothing renamed")
+	}
+}
+
+// TestNameKeysScratchIsInvisible pins the heap-object POC cut: nameKeys copies
+// a candidate's actions transiently into a reusable boardScratch.actBuf to
+// rebuild its key, so a scratch reused across calls (the buffer regrows) must
+// return exactly what nameKeys with no scratch returns. With the whole
+// decision late (rootRefs 0) every object candidate takes the copy path in one
+// call, exercising the in-call buffer reuse.
+func TestNameKeysScratchIsInvisible(t *testing.T) {
+	cfg := testConfig(t, "mono-red-prowess", "mono-blue-tempo", testSeed)
+	e, d, bot := botPosition(t, cfg, decision.KPriority, 4, 6000)
+	obs := searchprobe.NewCollector(0)
+	cands, _, _, ok, _ := enumerateCut(obs, e, d, bot, AllKinds(), BenchCandidateLimit, false)
+	if !ok {
+		t.Fatal("no candidates")
+	}
+	want := nameKeys(obs, e, d, cands, 0, nil)
+	scratch := new(boardScratch)
+	if got := nameKeys(obs, e, d, cands, 0, scratch); !reflect.DeepEqual(got, want) {
+		t.Fatalf("scratch nameKeys differs: %+v, want %+v", got, want)
+	}
+	if got := nameKeys(obs, e, d, cands, 0, scratch); !reflect.DeepEqual(got, want) {
+		t.Fatalf("reused-scratch nameKeys differs: %+v, want %+v", got, want)
 	}
 }
