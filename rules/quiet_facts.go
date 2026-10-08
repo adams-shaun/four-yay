@@ -1,0 +1,337 @@
+package rules
+
+import (
+	"strings"
+
+	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/state"
+)
+
+// The quiet-seat proof's per-face facts (design
+// docs/superpowers/specs/2026-10-08-quiet-seat-walk-skip-design.md, §2.4,
+// §2.5, §3.1). They are compiled once per face, in the same constructor as
+// the other walkFaceFacts, under the same currentFor guards, so a face whose
+// ability or keyword list was replaced after the table was built reads as a
+// miss.
+//
+// Every field over-approximates "may offer": a fact set too generously only
+// costs coverage, never soundness. Nothing here computes an option; the
+// proof built on it only ever shows that none can exist.
+
+// quietZones is the number of zone summaries per face: the five zones the
+// battlefield ability loop visits (legal_walk_battlefield.go:169, in its
+// order).
+const quietZones = 5
+
+// quietZoneIndex maps a walk zone to its abQuiet slot, or -1 for a zone the
+// ability loop does not visit.
+func quietZoneIndex(z state.Zone) int {
+	switch z {
+	case state.ZBattlefield:
+		return 0
+	case state.ZStack:
+		return 1
+	case state.ZGraveyard:
+		return 2
+	case state.ZHand:
+		return 3
+	case state.ZExile:
+		return 4
+	}
+	return -1
+}
+
+// abQuietZone summarizes one face's non-mana activated abilities whose
+// ActivationZone$ admits one zone. Every admitting ability is bucketed by
+// whether its cost needs {T}, and the bucket records the minimum mana floor
+// and whether every member is sorcery-speed-only.
+type abQuietZone struct {
+	any      bool // some ability admits this zone
+	nonMana  bool // some admitting ability's cost has a part the bound cannot price
+	hasAny   bool // floorAny is set
+	hasTap   bool // floorTap is set
+	floorAny int32
+	floorTap int32
+	sorcAny  bool // every no-{T} admitting ability is SorcerySpeed$ True
+	sorcTap  bool // every {T} admitting ability is SorcerySpeed$ True
+}
+
+// quietFaceFacts are the spell-half and ability-half facts the quiet proof
+// reads. They live on walkFaceFacts.quiet.
+type quietFaceFacts struct {
+	// Spell classifier (§2.5).
+	isLand       bool
+	instantSpeed bool
+	castOpen     bool
+	castFloor    int32
+
+	// Graveyard recast routes a face can open (Flashback, Escape, Unearth,
+	// Disturb, Jump-start, Retrace, Embalm, Eternalize, Scavenge, Encore,
+	// Harmonize, Mayhem, Aftermath) -- any of these is a blocker for that
+	// card in a graveyard.
+	recastKW bool
+	// Exile recast routes a face can open (Warp, Foretell, Plot, Suspend).
+	exileCastKW bool
+
+	// manaMax is the most units ONE activation of any printed mana ability
+	// yields (an over-count when a face prints several); manaIndeterminate
+	// reports a printed mana ability whose amount the projection cannot
+	// price, which makes the mana ceiling unbounded.
+	manaMax           int32
+	manaIndeterminate bool
+
+	abQuiet [quietZones]abQuietZone
+}
+
+// quietGraveHeads are the keyword heads that open a cast from the graveyard.
+var quietGraveHeads = [...]kwHead{
+	kwhFlashback, kwhEscape, kwhRetrace, kwhJumpStart, kwhMayhem, kwhHarmonize, kwhWarp,
+}
+
+// quietGraveHeadNames are the same heads plus the parameterless/derived
+// graveyard keywords read by altcast_modes and cast_altcost (Unearth,
+// Disturb, Embalm, Eternalize, Scavenge, Encore, Aftermath). They are read
+// as printed keyword heads; a face carrying any one is a graveyard blocker.
+var quietGraveHeadNames = [...]string{
+	"Unearth", "Disturb", "Embalm", "Eternalize", "Scavenge", "Encore", "Aftermath",
+}
+
+// quietExileHeads are the keyword heads that open a cast from exile.
+var quietExileHeads = [...]kwHead{kwhWarp, kwhForetell}
+
+// quietExileHeadNames are the parameterless exile-recast keywords read as
+// printed heads.
+var quietExileHeadNames = [...]string{"Plot", "Suspend"}
+
+// computeQuietFaceFacts builds the quiet facts for f. It is a pure function
+// of the face, like every other walkFaceFacts member. hasAltCosts reports
+// whether the face carries a compiled alternative-cost keyword entry (the
+// walkFaceFacts.altCosts family), which is castOpen for the same reason.
+func computeQuietFaceFacts(f *cards.Face, hasAltCosts bool) quietFaceFacts {
+	var q quietFaceFacts
+	q.isLand = f.IsLand()
+	q.castFloor = f.Cmc()
+	q.instantSpeed = f.IsInstant() || f.HasKeyword("Flash") || mayFlashSacFace(f) || faceHasCastWithFlash(f)
+	q.castOpen = hasAltCosts || quietCastOpen(f)
+	if len(f.Keywords) > 0 {
+		for _, h := range quietGraveHeads {
+			if f.KeywordLinesHaveHead(h.S, h.ID) {
+				q.recastKW = true
+			}
+		}
+		for _, h := range quietGraveHeadNames {
+			if hd := kwHeadOf(h); f.KeywordLinesHaveHead(hd.S, hd.ID) {
+				q.recastKW = true
+			}
+		}
+		for _, h := range quietExileHeads {
+			if f.KeywordLinesHaveHead(h.S, h.ID) {
+				q.exileCastKW = true
+			}
+		}
+		for _, h := range quietExileHeadNames {
+			if hd := kwHeadOf(h); f.KeywordLinesHaveHead(hd.S, hd.ID) {
+				q.exileCastKW = true
+			}
+		}
+	}
+	quietManaFacts(f, &q)
+	quietAbilityFacts(f, &q)
+	return q
+}
+
+// quietCastOpen reports the §2.5 castOpen conditions: any shape whose real
+// cost could be lower than the printed mana value, or that could replace the
+// mana cost. When in doubt it answers true.
+func quietCastOpen(f *cards.Face) bool {
+	if f == nil {
+		return true
+	}
+	if isNoManaCost(f.ManaCost) {
+		return true
+	}
+	c := ParseCost(f.ManaCost)
+	if len(c.Phyrexian) > 0 || len(c.HybridPhyrexian) > 0 {
+		return true
+	}
+	if len(c.Unknown) > 0 || len(c.Withheld) > 0 {
+		return true
+	}
+	for _, h := range quietCastOpenHeads {
+		if f.HasKeyword(h) {
+			return true
+		}
+	}
+	for i := range f.Statics {
+		switch f.Statics[i].Mode {
+		case "AlternativeCost", "SetCost", "ReduceCost":
+			return true
+		}
+		// A self-carried may-play static (Omniscience, Conspiracy Unraveler)
+		// is the second source alternativeCosts reads while the card is still
+		// in hand: it may replace the mana cost with a cheaper or free one.
+		// Any of the may-play cost keys is enough; when in doubt, castOpen.
+		for _, k := range quietMayPlayCostKeys {
+			if _, ok := f.Statics[i].Params[k]; ok {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// quietMayPlayCostKeys are the may-play static parameters that can substitute
+// or remove a cast's mana cost.
+var quietMayPlayCostKeys = [...]string{"MayPlay", "MayPlayAltManaCost", "MayPlayWithoutManaCost"}
+
+// quietCastOpenHeads are keyword heads whose presence can open a cheaper or
+// substituted HAND cast, so the proof treats the face as unpriced. It follows
+// the design's §2.5 list; anything else is when-in-doubt castOpen. The
+// graveyard/exile recast family (Flashback, Escape, Unearth, Disturb, Embalm,
+// Eternalize, Scavenge, Encore, Aftermath, Retrace, Jump-start, Mayhem,
+// Harmonize, Warp, Suspend, Foretell, Plot) is NOT here: those keywords open a
+// cast from another zone with its own blocker (recastKW/exileCastKW), not a
+// cheaper hand cast, and marking them castOpen wrongly blocked every hand card
+// that prints one.
+var quietCastOpenHeads = [...]string{
+	"Convoke", "Delve", "Improvise", "Affinity", "Emerge", "Evoke", "Surge",
+	"Spectacle", "Prowl", "Madness", "Ninjutsu", "Dash", "Bargain", "Offspring",
+	"Blitz", "Sneak", "Web-slinging", "Kicker",
+	// Conditional flash / cost-permission riders: the face is castable on a
+	// timing or cost the plain classifier cannot price.
+	"Teamwork", "MayFlashSac", "MayFlashCost",
+}
+
+// quietManaFacts fills manaMax / manaIndeterminate from the face's printed
+// mana abilities.
+func quietManaFacts(f *cards.Face, q *quietFaceFacts) {
+	mp := f.ManaProduction()
+	var sum int32
+	for i := range mp.Colour {
+		sum += mp.Colour[i]
+	}
+	// The colourless slot above already includes the one-unit
+	// unmodelled-colour convention; an "Any" with an empty Colour vector
+	// still yields at least one unit through that slot. Guard the corner
+	// where the fold produced nothing at all.
+	if sum == 0 && mp.Any {
+		sum = 1
+	}
+	q.manaMax = sum
+	q.manaIndeterminate = mp.Indeterminate
+}
+
+// quietAbilityFacts fills abQuiet over the face's non-mana activated
+// abilities. A mana ability is excluded exactly as the ability loop excludes
+// it (cards.IsManaAbilityAPI && !loyalty); a loyalty-marked mana ability IS
+// offered by the loop, so it stays in the summary.
+func quietAbilityFacts(f *cards.Face, q *quietFaceFacts) {
+	for _, ab := range f.Abilities {
+		if ab == nil || ab.Kind != "AB" {
+			continue
+		}
+		if cards.IsManaAbilityAPI(ab.API) && !loyaltyAbilityText(ab) {
+			continue
+		}
+		mask := abilityZoneMask(ab)
+		c := ParseCost(ab.ParamStr(cards.PKCost))
+		floor, tap, nonMana := quietCostFloor(&c)
+		sorc := strings.EqualFold(strings.TrimSpace(ab.ParamStr(cards.PKSorcerySpeed)), "True")
+		for z := 0; z < quietZones; z++ {
+			if mask&(1<<uint(quietZoneBit(z))) == 0 {
+				continue
+			}
+			aq := &q.abQuiet[z]
+			aq.any = true
+			if nonMana {
+				aq.nonMana = true
+			}
+			if tap {
+				if !aq.hasTap {
+					aq.floorTap, aq.hasTap, aq.sorcTap = floor, true, sorc
+				} else {
+					if floor < aq.floorTap {
+						aq.floorTap = floor
+					}
+					aq.sorcTap = aq.sorcTap && sorc
+				}
+			} else {
+				if !aq.hasAny {
+					aq.floorAny, aq.hasAny, aq.sorcAny = floor, true, sorc
+				} else {
+					if floor < aq.floorAny {
+						aq.floorAny = floor
+					}
+					aq.sorcAny = aq.sorcAny && sorc
+				}
+			}
+		}
+	}
+}
+
+// quietZoneBit maps an abQuiet slot back to the state.Zone bit it summarizes.
+func quietZoneBit(slot int) state.Zone {
+	switch slot {
+	case 0:
+		return state.ZBattlefield
+	case 1:
+		return state.ZStack
+	case 2:
+		return state.ZGraveyard
+	case 3:
+		return state.ZHand
+	case 4:
+		return state.ZExile
+	}
+	return state.ZBattlefield
+}
+
+// quietCostFloor is the §2.4 cost classifier over a compiled cost: the mana
+// floor with X = 0, whether the cost needs {T}, and whether any part cannot
+// be priced (nonMana). Any field of cost.Cost not explicitly classified here
+// means nonMana -- TestQuietCostClassifierCoversCostFields fails the build
+// when the struct gains a field this switch does not name.
+func quietCostFloor(c *Cost) (floor int32, tap, nonMana bool) {
+	if c == nil {
+		return 0, false, false
+	}
+	floor = c.Generic + int32(len(c.Hybrid)) + int32(len(c.Twobrid)) + c.Snow
+	for i := 0; i < len(c.Colored); i++ {
+		floor += c.Colored[i]
+	}
+	tap = c.Tap
+	if c.Life != 0 || len(c.Phyrexian) > 0 || c.XMin != 0 || c.Waterbend != 0 || c.WaterbendX ||
+		c.Untap || len(c.Sac) > 0 || len(c.Discard) > 0 || len(c.SubCounter) > 0 ||
+		len(c.AddCounter) > 0 || len(c.Exile) > 0 || len(c.ExileFromTop) > 0 ||
+		len(c.Reveal) > 0 || len(c.RevealOrChoose) > 0 || len(c.RevealChosen) > 0 ||
+		len(c.Behold) > 0 || len(c.TapPermanent) > 0 || len(c.UntapPermanent) > 0 ||
+		len(c.Blight) > 0 || len(c.Exert) > 0 || c.Forage || len(c.Draw) > 0 ||
+		len(c.Energy) > 0 || len(c.LifeX) > 0 || c.LifeHalfUp || len(c.DamageYou) > 0 ||
+		len(c.GainLife) > 0 || len(c.Return) > 0 || len(c.PutToLib) > 0 ||
+		len(c.MoveToGrave) > 0 || len(c.Mill) > 0 || len(c.Evidence) > 0 ||
+		len(c.RollDice) > 0 || len(c.Withheld) > 0 || len(c.Unknown) > 0 {
+		nonMana = true
+	}
+	// X is announced separately; a cost that needs an X has no fixed floor.
+	if c.X != 0 {
+		nonMana = true
+	}
+	return floor, tap, nonMana
+}
+
+// quietCostFieldNames is the explicit allowlist of cost.Cost fields the
+// classifier reads. The classify test reflects over cost.Cost and fails when
+// a field is not named here (so a new cost component cannot silently read as
+// free).
+var quietCostFieldNames = map[string]bool{
+	"Colored": true, "Generic": true, "Life": true, "X": true, "XMin": true,
+	"Hybrid": true, "Phyrexian": true, "Twobrid": true, "HybridPhyrexian": true,
+	"Snow": true, "Waterbend": true, "WaterbendX": true, "Tap": true, "Untap": true,
+	"Sac": true, "Discard": true, "SubCounter": true, "AddCounter": true,
+	"Exile": true, "ExileFromTop": true, "Reveal": true, "RevealOrChoose": true,
+	"RevealChosen": true, "Behold": true, "TapPermanent": true, "UntapPermanent": true,
+	"Blight": true, "Exert": true, "Forage": true, "Draw": true, "Energy": true,
+	"LifeX": true, "LifeHalfUp": true, "DamageYou": true, "GainLife": true,
+	"Return": true, "PutToLib": true, "MoveToGrave": true, "Mill": true,
+	"Evidence": true, "RollDice": true, "Withheld": true, "Unknown": true,
+}
