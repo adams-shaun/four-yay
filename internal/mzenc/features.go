@@ -69,10 +69,11 @@ type Encoder struct {
 	root          *Node
 	vec           map[int32]struct{}
 	UseFeatureMap bool
+	fm            *FeatureMap
 }
 
 func NewEncoder(table int64) *Encoder {
-	e := &Encoder{table: table, vec: map[int32]struct{}{}}
+	e := &Encoder{table: table, vec: map[int32]struct{}{}, fm: NewFeatureMap()}
 	e.root = &Node{
 		name: "root", seed: globalSeed, enc: e,
 		occurrences: map[string]int{},
@@ -85,8 +86,20 @@ func NewEncoder(table int64) *Encoder {
 func (e *Encoder) Root() *Node             { return e.root }
 func (e *Encoder) IDs() map[int32]struct{} { return e.vec }
 
+// FeatureMap returns the research table. It is only populated when
+// UseFeatureMap was set before the ops ran.
+func (e *Encoder) FeatureMap() *FeatureMap { return e.fm }
+
 func (e *Encoder) addIndex(h uint64, key string, n *Node) {
-	e.vec[indexFor(h, e.table)] = struct{}{}
+	idx := indexFor(h, e.table)
+	e.vec[idx] = struct{}{}
+	if e.UseFeatureMap {
+		ns := int32(-1)
+		if n.parent != nil {
+			ns = indexFor(hash64(n.name, n.parent.seed), e.table)
+		}
+		e.fm.AddFeature(key, ns, idx)
+	}
 }
 
 // Node mirrors Features: a feature node with its own occurrence counts and

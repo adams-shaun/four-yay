@@ -16,9 +16,10 @@ type oracleOp struct {
 }
 
 type golden struct {
-	Name    string     `json:"name"`
-	Ops     []oracleOp `json:"ops"`
-	Indices []int32    `json:"indices"`
+	Name    string              `json:"name"`
+	Ops     []oracleOp          `json:"ops"`
+	Indices []int32             `json:"indices"`
+	Map     map[string][]string `json:"map"`
 }
 
 func boolOr(p *bool, def bool) bool {
@@ -28,10 +29,9 @@ func boolOr(p *bool, def bool) bool {
 	return *p
 }
 
-// replay mirrors FeaturesProbe: a fresh tree per vector, ops in file order.
-func replay(t *testing.T, ops []oracleOp) map[int32]struct{} {
+// applyOps mirrors FeaturesProbe: ops in file order onto one tree.
+func applyOps(t *testing.T, e *Encoder, ops []oracleOp) {
 	t.Helper()
-	e := NewEncoder(defaultTable)
 	stack := []*Node{e.Root()}
 	top := func() *Node { return stack[len(stack)-1] }
 	for _, op := range ops {
@@ -50,6 +50,13 @@ func replay(t *testing.T, ops []oracleOp) map[int32]struct{} {
 			t.Fatalf("unknown op %q", op.Op)
 		}
 	}
+}
+
+// replay mirrors FeaturesProbe: a fresh tree per vector.
+func replay(t *testing.T, ops []oracleOp) map[int32]struct{} {
+	t.Helper()
+	e := NewEncoder(defaultTable)
+	applyOps(t, e, ops)
 	return e.IDs()
 }
 
