@@ -113,6 +113,24 @@ func (d *Decision) validateRef(in Intent) error {
 			return fmt.Errorf("blocker %d cannot block multiple attackers outside BlockAllDefined pairs", d.Options[c].Obj)
 		}
 	}
+	// CR 509.1a / CR 702.111b: the published per-attacker team bound. The
+	// map-based reference count of the map-free Validate.
+	if d.Kind == KBlockers {
+		counts := make(map[state.ObjID]int, len(in.Choices))
+		for _, c := range in.Choices {
+			counts[d.Options[c].Attacker]++
+		}
+		for _, c := range in.Choices {
+			o := d.Options[c]
+			n := counts[o.Attacker]
+			if n < o.MinBlockers {
+				return fmt.Errorf("attacker %d must be blocked by at least %d creatures (got %d)", o.Attacker, o.MinBlockers, n)
+			}
+			if o.MaxBlockers > 0 && n > o.MaxBlockers {
+				return fmt.Errorf("attacker %d accepts at most %d blockers (got %d)", o.Attacker, o.MaxBlockers, n)
+			}
+		}
+	}
 	// The cumulative-budget rule (Decision.MaxSum): the chosen options'
 	// Value fields sum to at most MaxSum. This is a general wire contract --
 	// the field says nothing about cards or mana values, only that the picked

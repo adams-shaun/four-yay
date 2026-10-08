@@ -54,6 +54,10 @@ type SeatConfig struct {
 	// Worlds is the redeal source's K (RedealSource): 0 deals a fresh world
 	// per simulation. Ignored by the clairvoyant source.
 	Worlds int
+	// Mulligan is the London-mulligan rule of the seat's own bot (seat.Bot.
+	// WithMulligan), which answers every KMulligan ask (the round is never
+	// searched). The zero value is the default bot's 1/3 coin.
+	Mulligan botpolicy.MulliganRule
 }
 
 // DefaultSeatConfig is the eval seat with the spec's knobs.
@@ -127,6 +131,17 @@ var (
 // NewSeat builds one seat of one game. seed is the per-seat seed the bench
 // derives; net nil is generation 0.
 func NewSeat(seed uint64, net *policynet.Model, cfg SeatConfig) (*Seat, error) {
+	s, err := newSeat(seed, net, cfg)
+	if err == nil && cfg.Mulligan != botpolicy.MulliganCoin {
+		// Applied to the seat's own bot after newSeat builds it, so the
+		// default seat's construction (and the autopay bot) is untouched.
+		s.def = s.def.WithMulligan(cfg.Mulligan)
+	}
+	return s, err
+}
+
+// newSeat is NewSeat before the SeatConfig.Mulligan rule.
+func newSeat(seed uint64, net *policynet.Model, cfg SeatConfig) (*Seat, error) {
 	if err := cfg.Search.Validate(net); err != nil {
 		return nil, err
 	}
@@ -139,7 +154,15 @@ func NewSeat(seed uint64, net *policynet.Model, cfg SeatConfig) (*Seat, error) {
 	default:
 		return nil, fmt.Errorf("azmcts: world source %q: want %s or %s", cfg.World, WorldClairvoyant, WorldRedeal)
 	}
-	return &Seat{def: seat.NewBot(seed), seed: seed, net: net, cfg: cfg}, nil
+	def := seat.NewBot(seed)
+	if cfg.Search.AutoPayment {
+		// The seat's own answers (candidate 0, every unsearched decision) come
+		// from the auto-pay bot, as the walk's do (env.go): a manual bot's
+		// answer before a cast is a mana tap, which the auto-payment
+		// vocabulary never offers, so every cast decision would be skipped.
+		def = def.EnableAutoPayMana()
+	}
+	return &Seat{def: def, seed: seed, net: net, cfg: cfg}, nil
 }
 
 // Decide is the plain Seat half: the wrapped bot.

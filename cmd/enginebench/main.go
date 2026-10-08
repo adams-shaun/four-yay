@@ -61,7 +61,7 @@ type result struct {
 	HeapMB      float64 `json:"heap_live_mb"`
 	ScanHeapMB  float64 `json:"scan_heap_mb"`
 	HeapObjects int64   `json:"heap_objects"`
-	Corpus      string  `json:"corpus"`   // "full" or "subset"
+	Corpus      string  `json:"corpus"`   // "full" (the only value since S4 retired the subset loader)
 	Secs        float64 `json:"secs"`     // wall seconds of the timed region
 	CPU         float64 `json:"cpu_secs"` // process CPU seconds (user+sys) of the timed region
 	Err         string  `json:"err,omitempty"`

@@ -21,6 +21,8 @@ import "testing"
 // (abilityloss_memo.go).
 func init() {
 	derivedMemoVerify = true
+	prioMemoVerify = true
+	prioMemoOff = false
 	pricedCandidatesVerify = true
 	castsOnlyWalkVerify = true
 	potentialMembersVerify = true

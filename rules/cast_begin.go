@@ -277,7 +277,7 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		// CR 701.34a: the plot ACTION pays the K:Plot colon parameter. Not a
 		// cast: payCast's plot branch intercepts before the stack push, and
 		// continueCast never reaches the target/push stages for this mode.
-		if raw, ok := f.KeywordParam("Plot"); ok {
+		if raw, ok := f.KeywordCostParam("Plot"); ok {
 			cost = ParseCost(raw)
 		}
 	case castModePlotCast:
@@ -339,11 +339,12 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		}
 	case castModeMiracle:
 		// Task 18: a Miracle cast pays the printed Miracle cost (CR 702.93d) in
-		// place of the card's normal cost. KeywordParam is read off the face;
+		// place of the card's normal cost. KeywordCostParam reads the keyword's
+		// first colon-field off the face;
 		// a missing keyword (offer routed here only from a Miracle offer, and
 		// only while the card is in hand) falls back to the empty cost so a
 		// stale cast cannot strand.
-		if mc, ok := f.KeywordParam("Miracle"); ok {
+		if mc, ok := f.KeywordCostParam("Miracle"); ok {
 			cost = ParseCost(mc)
 		} else {
 			cost = Cost{}
@@ -671,30 +672,30 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 			e.cast.suspendTimeX, e.cast.suspendMinX = true, sc.minTime
 		}
 	}
-	// Replicate (CR 702.55a): the cost is carried as its raw keyword
+	// Replicate (CR 702.55a): the cost field is carried as its raw keyword
 	// parameter and re-parsed by replicateAsk and the answer handler -- a
 	// string survives the intent boundary's pendingCast Clone without
 	// deep-copying cost slices, and ParseCost is deterministic.
 	if opt.Mode == "replicated" {
 		if _, ok := replicateCost(f); ok {
-			e.cast.replicateParam, e.cast.replicateSet = f.KeywordParam("Replicate")
+			e.cast.replicateParam, e.cast.replicateSet = f.KeywordCostParam("Replicate")
 		}
 	}
-	// Multikicker (CR 702.43): the cost is carried as its raw keyword
+	// Multikicker (CR 702.43): the cost field is carried as its raw keyword
 	// parameter and re-parsed by multikickAsk and the answer handler -- the
 	// same string-survives-Clone convention the replicate capture above
 	// documents.
 	if opt.Mode == "multikicked" {
 		if _, ok := multikickerCost(f); ok {
-			e.cast.multikickParam, e.cast.multikickSet = f.KeywordParam("Multikicker")
+			e.cast.multikickParam, e.cast.multikickSet = f.KeywordCostParam("Multikicker")
 		}
 	}
-	// Squad (CR 702.66): the per-payment cost is carried as its raw keyword
-	// parameter and re-parsed by squadAsk and the answer handler -- the exact
+	// Squad (CR 702.66): the per-payment cost field is carried as its raw
+	// keyword parameter and re-parsed by squadAsk and the answer handler -- the exact
 	// string-survives-Clone convention the replicate capture above documents.
 	if opt.Mode == "squadded" {
 		if _, ok := squadCost(f); ok {
-			e.cast.squadParam, e.cast.squadSet = f.KeywordParam("Squad")
+			e.cast.squadParam, e.cast.squadSet = f.KeywordCostParam("Squad")
 		}
 	}
 	// Conspire (CR 702.78a) is param-less: the mode itself marks the intent

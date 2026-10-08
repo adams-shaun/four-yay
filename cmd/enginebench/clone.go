@@ -149,8 +149,9 @@ func stepCandidates(root *rules.Engine) []decision.Intent {
 		return out
 	}
 	r := rand.New(rand.NewPCG(1, 2))
+	var scratch intentScratch
 	for i := 0; i < 256 && len(out) < 16; i++ {
-		try(randomIntent(d, r))
+		try(randomIntent(d, r, &scratch))
 	}
 	return out
 }

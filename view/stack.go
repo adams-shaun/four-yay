@@ -24,6 +24,29 @@ type StackView struct {
 	// unless Optional.
 	Optional bool            `json:"optional"`
 	Decider  *state.PlayerID `json:"decider,omitempty"`
+	// X is the announced value of X for this spell or ability (CR 107.3), 0
+	// (omitted) when it has none; Kicks is how many times it was kicked
+	// (CR 702.33 / 702.43: 1 for a plain kicked cast, the multikicker count
+	// otherwise), 0 for a copy or an unkicked cast; Modes are the SVar names
+	// of the sub-abilities a modal spell or trigger chose (CR 601.2b), in
+	// execution order. Public cast-time facts every seat can read off the
+	// stack; all omitted when empty, so an ordinary stack object serialises
+	// byte-identically to before these fields existed.
+	X     int32    `json:"x,omitempty"`
+	Kicks int32    `json:"kicks,omitempty"`
+	Modes []string `json:"modes,omitempty"`
+}
+
+// castDetail fills sv's X, Kicks and Modes from the stack object.
+func castDetail(sv *StackView, o *state.Object) {
+	sv.X = o.X
+	sv.Kicks = o.TimesKicked
+	if sv.Kicks == 0 && o.CastFlags&state.FlagKicked != 0 {
+		sv.Kicks = 1
+	}
+	if len(o.ChosenModes) > 0 {
+		sv.Modes = append([]string(nil), o.ChosenModes...)
+	}
 }
 
 // TargetView is one chosen target: exactly one of Obj and Player means
@@ -83,6 +106,7 @@ func (p *projector) stackViews(buf []StackView, ids []state.ObjID, revealFaceDow
 				ID: id, Kind: kind, Name: abilityName(g, o), Text: abilityText(g, o, p.text),
 				Controller: o.Controller, Source: o.Source, Targets: targetViews(targets, o.Targets, o.SubTargets, targetLabel(o)),
 			}
+			castDetail(sv, o)
 			// Ruling VW-1: an optional triggered ability on the stack awaiting
 			// its resolution-time yes/no reports its optionality and decider
 			// here, where the ability actually is. The engine derives it (it
@@ -124,6 +148,7 @@ func (p *projector) stackViews(buf []StackView, ids []state.ObjID, revealFaceDow
 				// falls through to the printed band below.
 				continue
 			}
+			castDetail(sv, o)
 			sv.Name = f.Name
 			sv.Text = spellText(f, p.text)
 			if card == nil {

@@ -137,6 +137,73 @@ type CardView struct {
 	// This is what the bot policy's colour-aware tap and land heuristics read
 	// (carried into botpolicy.Card as plain data, never the view type).
 	Produces *cards.ManaProduction `json:"produces,omitempty"`
+	// Flags are the permanent's status designations (CardFlag bits), straight
+	// from the state.Object fields the engine folds from events: suspected,
+	// renowned, monstrous, harnessed, solved, cloaked, the Ring-bearer, a
+	// morph/disguise cast and the unlocked Room doors. Public facts like the
+	// tap state; zero (omitted) on every ordinary card, so a view without any
+	// of them serialises byte-identically to before the field existed.
+	Flags CardFlag `json:"flags,omitempty"`
+	// Imprinted lists the cards this permanent imprinted (state.Object.Imprinted,
+	// CR 607.2a), Paired the creature it is soulbond-paired with (0 = none), and
+	// ExiledCards the cards it exiled that are still in exile (the Oblivion
+	// Ring link). They are bare object ids: the cards themselves are the
+	// CardViews of whichever zone list they sit in, so a reader resolves them
+	// there and a hidden card stays hidden. All omitted when empty.
+	Imprinted   []state.ObjID `json:"imprinted,omitempty"`
+	Paired      state.ObjID   `json:"paired,omitempty"`
+	ExiledCards []state.ObjID `json:"exiled_cards,omitempty"`
+	// AttachedToPlayer is true when this Aura/Curse is attached to the player
+	// AttachedPlayer rather than to a permanent (AttachedTo stays 0); the
+	// bool disambiguates seat 0 from "no player", the omitted zero.
+	AttachedToPlayer bool           `json:"attached_to_player,omitempty"`
+	AttachedPlayer   state.PlayerID `json:"attached_player,omitempty"`
+}
+
+// CardFlag is the CardView.Flags bit set.
+type CardFlag uint16
+
+const (
+	FlagSuspected CardFlag = 1 << iota
+	FlagRenowned
+	FlagMonstrous
+	FlagHarnessed
+	FlagSolved
+	FlagCloaked
+	FlagRingBearer
+	FlagMorphed
+	FlagDisguised
+	FlagLeftDoor
+	FlagRightDoor
+)
+
+// Has reports whether every bit of m is set.
+func (f CardFlag) Has(m CardFlag) bool { return f&m == m }
+
+// cardFlags folds the object's status designations into a CardFlag set.
+func cardFlags(g *state.Game, o *state.Object) CardFlag {
+	var f CardFlag
+	set := func(on bool, b CardFlag) {
+		if on {
+			f |= b
+		}
+	}
+	set(o.Suspected, FlagSuspected)
+	set(o.Renowned, FlagRenowned)
+	set(o.Monstrous, FlagMonstrous)
+	set(o.Harnessed, FlagHarnessed)
+	set(o.Solved, FlagSolved)
+	set(o.Cloaked, FlagCloaked)
+	if int(o.Controller) < len(g.Players) {
+		set(o.ID != 0 && g.Players[o.Controller].RingBearer == o.ID, FlagRingBearer)
+	}
+	set(o.CastFlags&(state.FlagMorphed|state.FlagMegamorphed) != 0, FlagMorphed)
+	set(o.CastFlags&state.FlagDisguised != 0, FlagDisguised)
+	if o.Zone == state.ZBattlefield {
+		set(o.DoorUnlocked(0), FlagLeftDoor)
+		set(o.DoorUnlocked(1), FlagRightDoor)
+	}
+	return f
 }
 
 // projector is one projection's read-only context: the game, its Chars, the
@@ -471,6 +538,17 @@ func (p *projector) cardView(cv *CardView, id state.ObjID) {
 		if kw := p.ch.Keywords(id); len(kw) > 0 {
 			cv.Keywords = append(kws, kw...)
 		}
+	}
+	cv.Flags = cardFlags(p.g, o)
+	if len(o.Imprinted) > 0 {
+		cv.Imprinted = append([]state.ObjID(nil), o.Imprinted...)
+	}
+	cv.Paired = o.Paired
+	if len(o.ExiledCards) > 0 {
+		cv.ExiledCards = append([]state.ObjID(nil), o.ExiledCards...)
+	}
+	if o.HasAttachedPlayer {
+		cv.AttachedToPlayer, cv.AttachedPlayer = true, o.AttachedPlayer
 	}
 	if len(o.Counters) > 0 {
 		if ctr == nil {

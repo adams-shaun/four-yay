@@ -53,6 +53,33 @@ type randomStats struct {
 
 const maxPanics = 8
 
+// intentScratch is the random client's per-game reusable buffers, so a draw
+// allocates nothing in steady state (action-walk W3). pool and perm are
+// overwritten every draw; ch is built fresh only when the answer is retained.
+type intentScratch struct {
+	pool []int
+	perm []int
+}
+
+// permInto fills s.perm[:n] with the identity and shuffles it in place with
+// the SAME inside-out choice sequence math/rand/v2.(*Rand).Perm uses
+// (Shuffle's Fisher-Yates, j = IntN(i+1)), so the RNG stream -- and therefore
+// every game -- is unchanged. TestPermIntoMatchesPerm pins it.
+func (s *intentScratch) permInto(n int, r *rand.Rand) []int {
+	if cap(s.perm) < n {
+		s.perm = make([]int, n)
+	}
+	s.perm = s.perm[:n]
+	for i := range s.perm {
+		s.perm[i] = i
+	}
+	for i := n - 1; i > 0; i-- {
+		j := r.IntN(i + 1)
+		s.perm[i], s.perm[j] = s.perm[j], s.perm[i]
+	}
+	return s.perm
+}
+
 // randomIntent draws uniformly: a choice count uniform in [Min, Max] (capped
 // at the option count), then that many distinct options uniformly, in random
 // order. At a priority decision (Min = Max = 1) that is uniform over the
@@ -60,13 +87,17 @@ const maxPanics = 8
 // player taps lands one at a time (docs/015 §6). The "concede" option every
 // priority decision carries is never drawn (a uniform player would concede
 // on turn 1 in most games).
-func randomIntent(d *decision.Decision, r *rand.Rand) decision.Intent {
-	pool := make([]int, 0, len(d.Options))
+//
+// Every draw goes through s, so the only allocation left is the returned
+// Choices slice (the engine may retain it).
+func randomIntent(d *decision.Decision, r *rand.Rand, s *intentScratch) decision.Intent {
+	pool := s.pool[:0]
 	for i := range d.Options {
 		if d.Options[i].Kind != "concede" {
 			pool = append(pool, i)
 		}
 	}
+	s.pool = pool
 	n := len(pool)
 	lo, hi := d.Min, d.Max
 	if hi > n {
@@ -81,7 +112,7 @@ func randomIntent(d *decision.Decision, r *rand.Rand) decision.Intent {
 	k := lo + r.IntN(hi-lo+1)
 	var ch []int
 	if k > 0 {
-		perm := r.Perm(n)
+		perm := s.permInto(n, r)
 		ch = make([]int, 0, k)
 		// Options sharing a non-empty Group are mutually exclusive up to the
 		// decision's cap (a blocker blocks one attacker): walk the whole
@@ -164,6 +195,8 @@ func playRandom(cfg rules.Config, st *randomStats) {
 
 func playRandomWithPool(cfg rules.Config, st *randomStats, pool *bench.SparePool) {
 	r := rand.New(rand.NewPCG(cfg.Seed, cfg.Seed^0x5bd1e9955bd1e995))
+	// W3: the random client's reusable draw buffers, per game.
+	var scratch intentScratch
 	// The finished game's log and object arrays back the next game this run
 	// plays (rules.Spare; reuse never changes a game). The pooled spare is
 	// returned only after the stats below read the finished engine.
@@ -201,7 +234,7 @@ func playRandomWithPool(cfg rules.Config, st *randomStats, pool *bench.SparePool
 					tries++
 				}
 				if tries < retries {
-					return randomIntent(d, r), true
+					return randomIntent(d, r, &scratch), true
 				}
 				if tries > retries {
 					return decision.Intent{}, false
@@ -233,7 +266,7 @@ func playRandomWithPool(cfg rules.Config, st *randomStats, pool *bench.SparePool
 			}
 			ok := false
 			for try := 0; try < retries; try++ {
-				in := randomIntent(d, r)
+				in := randomIntent(d, r, &scratch)
 				err := e.Submit(in)
 				if fixed, ok := menaceRepair(d, in, err); ok {
 					err = e.Submit(fixed)

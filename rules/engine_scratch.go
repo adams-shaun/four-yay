@@ -102,6 +102,10 @@ type engineScratch struct {
 	// (walk_block_reuse.go). Clone copies none.
 	walkRec   walkBlockRec  `clone:"reset"`
 	walkReuse *walkBlockRec `clone:"reset"`
+	// manaCarry caches per own-battlefield object mana-ability membership
+	// across a seat's priority walks (rules/mana_member_carry.go). Clone
+	// copies none: a clone starts cold (legal-walk design §4.6).
+	manaCarry manaMemberCarry `clone:"reset"`
 	// potentialManaRec is the record armed for the next PotentialMana's
 	// membership walk (walk_block_reuse.go potentialMembers). Clone copies
 	// none.
@@ -179,6 +183,15 @@ type engineScratch struct {
 	// re-entrant nested walk.
 	foreachBuf   []state.ObjID `clone:"reset"`
 	foreachDepth int           `clone:"reset"`
+
+	// trigVerifyBuf is verifyTrigHotMergeRefs' scratch (trigger_hotmerge.go,
+	// rules test binary only): the merge verify calls trigHotMergeRefs and
+	// trigHotMergeScan, both of which append into the buffer they are handed.
+	// Handing them nil allocated a fresh array on every verify call, which
+	// broke TestPhaseDiagnosticScanDoesNotReparse's zero-alloc contract. Clone
+	// leaves it nil, like foreachBuf.
+	trigVerifyBuf  []state.ObjID `clone:"reset"`
+	trigVerifyBuf2 []state.ObjID `clone:"reset"`
 
 	// trigZeroNoopEp/Objs/Ver key checkFaceTriggers' zero-interest no-op
 	// memo: the log length, arena size and registry version after the last

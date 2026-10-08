@@ -78,7 +78,7 @@ func runArm(args []string, out io.Writer) error {
 	outPath := fs.String("out", "", "result JSONL (appended; items already in it are skipped)")
 	gcPercent := fs.Int("gc-percent", 0, "runtime GC percent (0: leave GOGC as the environment set it; negative: off)")
 	memLimit := fs.String("mem-limit", "", "runtime soft memory limit, e.g. 1500MiB or 2GiB (empty: leave GOMEMLIMIT)")
-	fullCorpus := fs.Bool("corpus-full", false, "open the whole compiled corpus instead of the items' cards (cards.OpenCorpusFor)")
+	fullCorpus := fs.Bool("corpus-full", false, "INERT since S4: the whole corpus is always the shared (imaged, lazy) registry, so this and the default open the same one; retained for callers, deleted in S8 (pointer-free corpus design)")
 	nodeCache := fs.Int("node-cache", azmcts.DefaultNodeCache, "tree nodes whose engine state a fixed-world tree (clairvoyant, pimc without fresh chance) stores so a simulation resumes there (0: off); results are identical either way, only EnvSteps changes")
 	if err := fs.Parse(args); err != nil || *manifestPath == "" || *storePath == "" || *armText == "" || *outPath == "" || *workers < 1 || *sims < 0 || *limit < 0 || *nodeCache < 0 || *discount < 0 || *discount > 1 || fs.NArg() != 0 {
 		return usage()
@@ -157,6 +157,11 @@ func runArm(args []string, out io.Writer) error {
 		pool[i] = store[it.ID]
 	}
 	store = nil // the run reads only pool from here on
+	// cards.OpenCorpusFor used to decode just the items' cards plus every
+	// token when the pool did not need the whole name universe; S4 made it a
+	// wrapper over SharedCorpus, so both arms below return the shared full
+	// registry and -corpus-full changes nothing. The pool names are still
+	// gathered so the call shape is unchanged until S8 deletes both.
 	var reg *cards.Registry
 	if *fullCorpus {
 		reg, err = cards.OpenCorpus(*corpus)
@@ -246,8 +251,8 @@ func runArm(args []string, out io.Writer) error {
 		return firstErr
 	}
 	el := time.Since(tRun).Seconds()
-	_, err = fmt.Fprintf(out, "%s: %d %s items (%d skipped as done) in %.1fs, load %.1fs, %.1f items/min, %.3f core-s/decision, workers %d, corpus subset %v, fallbacks %v\n",
-		label, len(todo), *split, len(items)-len(todo), el, tLoad.Seconds(), float64(len(todo))/el*60, core/float64(len(todo)), *workers, reg.IsSubset(), fallbacks)
+	_, err = fmt.Fprintf(out, "%s: %d %s items (%d skipped as done) in %.1fs, load %.1fs, %.1f items/min, %.3f core-s/decision, workers %d, cards %v, fallbacks %v\n",
+		label, len(todo), *split, len(items)-len(todo), el, tLoad.Seconds(), float64(len(todo))/el*60, core/float64(len(todo)), *workers, reg.Len(), fallbacks)
 	return err
 }
 

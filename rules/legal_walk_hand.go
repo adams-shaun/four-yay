@@ -670,7 +670,7 @@ func (w *legalWalk) handWalk() {
 		// action itself only exiles; the later plot_cast announces its own
 		// targets. The free cast's later-turn gate lives in Object.PlottedTurn.
 		if ph.has(phPlot) {
-			if raw, ok := f.KeywordParam("Plot"); ok && sorcery &&
+			if raw, ok := f.KeywordCostParam("Plot"); ok && sorcery &&
 				w.offerCastable(p, id, ParseCost(raw), spellScope("plot"), false) {
 				*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 					Label: "Plot " + f.Name, Obj: id, Mode: "plot"})

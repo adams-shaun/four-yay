@@ -288,6 +288,13 @@ func (e *Engine) verifyPotentialWalk(p state.PlayerID, full bool, mana state.Man
 // pricedCandidatesVerify runs it and panics on a miss. Otherwise it is
 // PlanCastPayment itself.
 func (e *Engine) planCastPaymentAtDecision(p state.PlayerID, cast decision.PlannedCast) PaymentPlanOutcome {
+	if e.potentialWalkUsable() {
+		if !e.potentialWalkHit(p, false) {
+			// A cold cache (a clone starts without one): fill it. The walk is
+			// keyed on the state's stamp, so what it serves is exact.
+			e.potentialWalkOf(p, false)
+		}
+	}
 	if e.potentialWalkUsable() && e.potentialWalkHit(p, false) {
 		for _, o := range e.potentialWalk.opts {
 			if o.Kind == "cast" && o.Mode == "" && o.AltCostIndex == 0 && o.Obj == cast.Object {

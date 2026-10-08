@@ -10,6 +10,7 @@ import (
 	"github.com/adams-shaun/gorge/internal/policynet"
 	"github.com/adams-shaun/gorge/internal/searchprobe"
 	"github.com/adams-shaun/gorge/rules"
+	"github.com/adams-shaun/gorge/state"
 )
 
 // Root is the real decision being searched.
@@ -111,8 +112,13 @@ func (o Options) Validate(net *policynet.Model) error {
 		return fmt.Errorf("azmcts: Dirichlet alpha %g must be > 0", o.DirichletAlpha)
 	case o.DirichletEps < 0 || o.DirichletEps > 1:
 		return fmt.Errorf("azmcts: Dirichlet epsilon %g must be in [0,1]", o.DirichletEps)
+	case o.CachedWorlds < 0:
+		return fmt.Errorf("azmcts: cached worlds %d must be >= 0 (0 is off)", o.CachedWorlds)
 	case o.NodeCache < 0:
 		return fmt.Errorf("azmcts: node cache %d must be >= 0 (0 is off)", o.NodeCache)
+	case o.PriorTopK < 0 || o.PriorTopK == 1:
+		// One kept candidate is the bot's alone: nothing would be searched.
+		return fmt.Errorf("azmcts: prior top-k %d must be 0 (off) or >= 2", o.PriorTopK)
 	case o.Kinds == (Kinds{}):
 		return errors.New("azmcts: no searched decision kinds")
 	case o.Discount < 0 || o.Discount > 1 || o.Discount != o.Discount:
@@ -131,6 +137,27 @@ func (o Options) Validate(net *policynet.Model) error {
 		}
 	}
 	return nil
+}
+
+// priorTopK is the PriorTopK in effect with net: 0 unless a network supplies
+// the prior (a net, UniformPrior off).
+func (o Options) priorTopK(net *policynet.Model) int {
+	if o.PriorTopK <= 0 || net == nil || o.UniformPrior {
+		return 0
+	}
+	return o.PriorTopK
+}
+
+// countTopK counts one PriorTopK point in st: ranked, and cut when before
+// (rankedPrior's) is positive.
+func countTopK(st *Stats, ranked bool, before int) {
+	if ranked {
+		st.PriorTopKPoints++
+	}
+	if before > 0 {
+		st.PriorTopKCuts++
+		st.PriorTopKBefore += before
+	}
 }
 
 // Search runs the tree at the searching seat's current decision (spec §1-§2)
@@ -165,7 +192,13 @@ func Search(ctx context.Context, root Root, src WorldSource, net *policynet.Mode
 	var envBoard, enumBoard boardScratch
 	views := searchViews.Get().(*viewScratch)
 	defer searchViews.Put(views)
-	cands, kind, why, ok, cut, botFound := rootCands(root.Observer, root, opts.Kinds, opts.Limit, opts.AutoPayment, &enumBoard)
+	// Under PriorTopK the network, not the enumeration order, chooses the
+	// candidates: every point enumerates in full and rankedPrior cuts.
+	topK, limit := opts.priorTopK(net), opts.Limit
+	if topK > 0 {
+		limit = BenchCandidateLimit
+	}
+	cands, kind, why, ok, cut, botFound := rootCands(root.Observer, root, opts.Kinds, limit, opts.AutoPayment, &enumBoard)
 	res.Kind = kind
 	if cut {
 		res.Stats.Truncated, res.Stats.RootTruncated = 1, 1
@@ -180,6 +213,17 @@ func Search(ctx context.Context, root Root, src WorldSource, net *policynet.Mode
 		}
 		return res, nil
 	}
+	priorNet := net
+	if opts.UniformPrior {
+		priorNet = nil
+	}
+	// The prior comes before the Result's candidate lists: under PriorTopK
+	// it decides which candidates they hold.
+	cands, prior, fell, before := rankedPrior(priorNet, topK, root.Engine, root.Decision, root.Bot, kind, cands, &views.prior)
+	if fell {
+		res.Stats.PriorFallbacks++
+	}
+	countTopK(&res.Stats, topK > 0, before)
 	res.Candidates = make([]decision.Intent, len(cands))
 	res.Keys = make([]Key, len(cands))
 	res.Labels = make([]string, len(cands))
@@ -189,14 +233,6 @@ func Search(ctx context.Context, root Root, src WorldSource, net *policynet.Mode
 		if c.macro != nil {
 			res.Labels[i] = c.macro.Label
 		}
-	}
-	priorNet := net
-	if opts.UniformPrior {
-		priorNet = nil
-	}
-	prior, fell := priors(priorNet, root.Engine, root.Decision, root.Bot, kind, cands, &views.prior)
-	if fell {
-		res.Stats.PriorFallbacks++
 	}
 	res.Prior = prior
 	if opts.Sims <= 0 {
@@ -214,18 +250,33 @@ func Search(ctx context.Context, root Root, src WorldSource, net *policynet.Mode
 	}
 	rootPt := &Point{Keys: res.Keys, Prior: treePrior}
 	cfg := &walkConfig{
-		net: net, heuristicLeaf: opts.HeuristicLeaf, kinds: opts.Kinds, limit: opts.Limit, maxSteps: opts.MaxSteps,
-		envSeed: splitmix(opts.Seed ^ 0x656e762d73656564), actor: root.Decision.Player, autoPayment: opts.AutoPayment,
+		net: net, heuristicLeaf: opts.HeuristicLeaf, kinds: opts.Kinds, limit: opts.Limit, priorTopK: topK, maxSteps: opts.MaxSteps,
+		envSeed: splitmix(opts.Seed ^ 0x656e762d73656564), actor: root.Decision.Player, autoPayment: opts.AutoPayment, skipPass: opts.SkipPass,
 		uniformPrior: opts.UniformPrior, rootPerWorld: opts.RootPerWorld,
 		nameKeys: opts.NameKeys, rootRefs: root.Observer.Introduced(),
 		root: rootPt, rootCands: cands, rootDec: root.Decision, stats: &res.Stats,
 		envBoard: &envBoard, enumBoard: &enumBoard, views: views,
 	}
-	var envs EnvSource = &worldEnvs{src: src, cfg: cfg}
-	if opts.NodeCache > 0 && isFixed(src) {
-		envs = &fixedEnvs{worldEnvs: envs.(*worldEnvs)}
+	if opts.OpponentNodes {
+		cfg.oppNodes = true
+		cfg.oppForks = make([]*searchprobe.Forker, len(root.Engine.G.Players))
+		for p := range cfg.oppForks {
+			if pl := state.PlayerID(p); pl != cfg.actor {
+				cfg.oppForks[p] = searchprobe.NewCollector(pl).Forker()
+			}
+		}
 	}
-	tr, err := RunTree(ctx, rootPt, envs, opts, &res.Stats)
+	var tr TreeResult
+	var err error
+	if rs, ok := src.(*RedealSource); ok && opts.CachedWorlds > 0 && !opts.RootPerWorld {
+		tr, err = runCachedWorlds(ctx, rootPt, rs, cfg, opts, &res.Stats)
+	} else {
+		var envs EnvSource = &worldEnvs{src: src, cfg: cfg}
+		if opts.NodeCache > 0 && isFixed(src) {
+			envs = &fixedEnvs{worldEnvs: envs.(*worldEnvs)}
+		}
+		tr, err = RunTree(ctx, rootPt, envs, opts, &res.Stats)
+	}
 	if err != nil {
 		return res, err
 	}

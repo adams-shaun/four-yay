@@ -233,11 +233,6 @@ func TeacherIntentChoice(worlds []World, candidates []SemanticIntent, opts Teach
 		o.value = leafValue(opts.Leaf, *lv, actor)
 	}
 	if workers := min(opts.Parallelism, len(outs)); workers > 1 {
-		engines := make([]*rules.Engine, len(outs))
-		for k := range engines {
-			engines[k] = worlds[k/len(candidates)].Engine.Clone()
-			engines[k].SetDecisionArena(true)
-		}
 		var wg sync.WaitGroup
 		var next atomic.Int64
 		for w := 0; w < workers; w++ {
@@ -245,13 +240,16 @@ func TeacherIntentChoice(worlds []World, candidates []SemanticIntent, opts Teach
 			go func() {
 				defer wg.Done()
 				var lv view.View
+				var sp rules.Spare
 				for {
 					k := int(next.Add(1)) - 1
 					if k >= len(outs) {
 						return
 					}
-					run(k, engines[k], &lv)
-					engines[k] = nil
+					e := worlds[k/len(candidates)].Engine.CloneInto(&sp)
+					e.SetDecisionArena(true)
+					run(k, e, &lv)
+					sp = e.Release()
 				}
 			}()
 		}
@@ -490,8 +488,9 @@ func bitHas(b []uint64, i int) bool { return b[i>>6]&(1<<(uint(i)&63)) != 0 }
 // same blocker (same option Group -- one attacker per blocker) removed, then
 // the bot's answer minus each of its own pairs. Capped at limit.
 //
-// Decision.Validate does not see the whole-declaration rules the engine
-// enforces (CR 509.1a MinMaxBlocker bounds, CR 509.1b block charges), and one
+// Decision.Validate enforces the published per-attacker CR 509.1a
+// MinBlockers/MaxBlockers bounds, but not the live-board rules the engine
+// enforces (CR 509.1a board-aware bounds, CR 509.1b block charges), and one
 // candidate the engine rejects makes TeacherChoice fail the WHOLE decision,
 // so a candidate is kept only when Validate passes, the Required quota is
 // met, decision.FitRequired would leave it unchanged (the repair the bot's

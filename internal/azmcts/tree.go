@@ -3,7 +3,9 @@
 // over ONE seat's searched decisions (single perspective: every value is
 // that seat's win probability, no sign flips), whose leaf is a value -- the
 // policynet value head, or the frozen heuristic searchprobe.LeafValue for
-// generation 0 -- never a rollout.
+// generation 0 -- never a rollout. Options.OpponentNodes adds the opponent's
+// searched decisions as points too; the values stay the one seat's, and
+// selection at an opponent's point reads them as 1 - Q.
 //
 // The package is pure search. It reads no clock (internal/archtest), ranges
 // no map whose order could reach a choice, and draws randomness only from
@@ -34,17 +36,27 @@ import (
 // in every world, which is what lets one tree be shared across worlds.
 type Key string
 
-// Point is one searched decision of the searching seat as the tree sees it.
+// Point is one searched decision of the searching seat -- or, under
+// Options.OpponentNodes, of an opponent -- as the tree sees it.
 type Point struct {
 	// Keys are the candidates offered here; Keys[0] is the bot's answer.
 	Keys []Key
 	// Prior parallels Keys: non-negative, summing to 1.
 	Prior []float64
+	// Opp marks an opponent's decision (Options.OpponentNodes): selection
+	// here maximises the opponent's value, 1 - Q. Its keys carry
+	// oppKeyPrefix, so they never coincide with the searching seat's.
+	Opp bool
 	// cut and fell record what producing this point counted (an Env's
 	// Stats.Truncated and PriorFallbacks), so the node cache, which reaches
 	// a stored point without producing it again, counts them exactly as a
 	// re-walk would have.
 	cut, fell bool
+	// ranked and before are, likewise, the PriorTopK counters producing it
+	// counted: ranked one PriorTopKPoints, before > 0 one PriorTopKCuts and
+	// before PriorTopKBefore.
+	ranked bool
+	before int
 }
 
 // Leaf is the value of the position a walk stopped at, for the searching
@@ -193,8 +205,18 @@ func puctScore(q, prior float64, avail, n int, c float64) float64 {
 // unvisited child's Q is the parent's Q minus FPU, or the constant
 // opts.UnvisitedQ under opts.AbsoluteUnvisitedQ. Strict > keeps the lower
 // index on a tie: candidate 0, the bot's answer, wins ties.
+//
+// At an opponent's point (pt.Opp) every Q is read from the opponent's side,
+// 1 - Q: the stored values are the searching seat's win probability, and
+// the opponent maximises its own. First-play urgency then starts from the
+// parent's value to the opponent, so an unvisited reply is assumed slightly
+// worse FOR THE OPPONENT than the position, as it is for the searching seat
+// at its own points; the absolute UnvisitedQ is taken as the opponent's.
 func selectEdge(nd *node, pt *Point, opts Options) *edge {
 	parentQ := nd.q()
+	if pt.Opp {
+		parentQ = 1 - parentQ
+	}
 	var best *edge
 	bestScore := math.Inf(-1)
 	for _, kid := range nd.kids {
@@ -207,6 +229,9 @@ func selectEdge(nd *node, pt *Point, opts Options) *edge {
 		}
 		if kid.n > 0 {
 			q = kid.w / float64(kid.n)
+			if pt.Opp {
+				q = 1 - q
+			}
 		}
 		if s := puctScore(q, kid.prior, kid.avail+1, kid.n, opts.CPUCT); best == nil || s > bestScore {
 			best, bestScore = kid, s
@@ -336,6 +361,9 @@ func simulate(top *node, env Env, opts Options, st *Stats) error {
 			}
 		}
 		sel := selectEdge(nd, pt, opts)
+		if pt.Opp {
+			st.OppPoints++
+		}
 		clock = append(clock, now())
 		nodes, path = append(nodes, nd), append(path, sel)
 		replay, steps0 := sel.next != nil || sel.n > 0, st.EnvSteps
@@ -371,6 +399,9 @@ func simulate(top *node, env Env, opts Options, st *Stats) error {
 			sel.next = newNode(next)
 			sel.next.n, sel.next.w = 1, l.V
 			st.Expanded++
+			if next.Opp {
+				st.OppExpanded++
+			}
 			commit(nodes, path, marks, append(clock, now()), l.V, opts, st)
 			st.Unavailable += unavail
 			return nil

@@ -74,10 +74,11 @@ func TestBlockCandidatesDropsPartialMinBlockersTeam(t *testing.T) {
 	if fmt.Sprint(keys) != fmt.Sprint(want) {
 		t.Fatalf("candidates %v, want %v", keys, want)
 	}
-	// Without the guard the partial teams would be offered: the guard, not
-	// Validate, is what keeps them out.
-	if n := len(BlockCandidates(d, bot, 8, nil)); n != 4 {
-		t.Fatalf("unguarded candidates %d, want 4", n)
+	// Validate itself now enforces the published MinBlockers floor, so the
+	// partial teams are dropped even without the guard (the guard still adds
+	// the live-board/charge checks Validate cannot see).
+	if n := len(BlockCandidates(d, bot, 8, nil)); n != 2 {
+		t.Fatalf("unguarded candidates %d, want 2", n)
 	}
 }
 

@@ -1,0 +1,167 @@
+package rules
+
+import (
+	"testing"
+
+	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/internal/testutil"
+)
+
+func TestManaMemberCarryRoundTripAndInvalidation(t *testing.T) {
+	var c manaMemberCarry
+	s1 := manaMemberBoardStamp{derivedSeq: 5, turn: 1}
+	s2 := manaMemberBoardStamp{derivedSeq: 5, turn: 2}
+
+	a := &cards.SA{Line: "a"}
+	b := &cards.SA{Line: "b"}
+	c.store(7, []*cards.SA{a, b}, s1, 0)
+
+	got, ok := c.lookup(7, s1, 0)
+	if !ok || len(got) != 2 || got[0] != a || got[1] != b {
+		t.Fatalf("round trip: ok=%v got=%v", ok, got)
+	}
+	// A different board stamp is a miss.
+	if _, ok := c.lookup(7, s2, 0); ok {
+		t.Fatal("turn change must miss")
+	}
+	// A board change retires every entry until re-stored at s2.
+	if _, ok := c.lookup(7, s1, 0); ok {
+		t.Fatal("entry stored at s1 must not hit after the carry saw s2")
+	}
+	c.store(7, []*cards.SA{a}, s2, 0)
+	if got, ok := c.lookup(7, s2, 0); !ok || len(got) != 1 {
+		t.Fatalf("re-store: ok=%v got=%v", ok, got)
+	}
+	// A per-object touch is a miss.
+	if _, ok := c.lookup(7, s2, 1); ok {
+		t.Fatal("object touch must miss")
+	}
+	// An unknown object is a miss, not a panic.
+	if _, ok := c.lookup(9999, s2, 0); ok {
+		t.Fatal("unknown object must miss")
+	}
+}
+
+func TestManaMemberCarryTouchObjBumps(t *testing.T) {
+	var c manaMemberCarry
+	c.touchObj(2) // id 3
+	c.touchObj(2)
+	if c.touch[2] != 2 {
+		t.Fatalf("touch = %d, want 2", c.touch[2])
+	}
+	if c.touch[1] != 0 {
+		t.Fatalf("untouched neighbour = %d, want 0", c.touch[1])
+	}
+}
+
+// TestManaMemberCarryReusesSpareCapacity pins the slice-growth cut: entryFor
+// and touchObj extend into capacity an earlier growth already reserved
+// instead of reallocating on every new index. The newly exposed region must
+// be zeroed (entryFor) or start at zero (touchObj), so a reused slot never
+// carries a stale value, and lower entries keep theirs.
+func TestManaMemberCarryReusesSpareCapacity(t *testing.T) {
+	var c manaMemberCarry
+	// The first growth reserves capacity well past the index it reaches.
+	e0 := c.entryFor(2)
+	e0.gen = 42
+	base := &c.entries[0]
+	for i := 3; i < cap(c.entries) && i < 64; i++ {
+		e := c.entryFor(i)
+		if e != &c.entries[i] {
+			t.Fatalf("entryFor(%d) = %p, want the reserved slot %p", i, e, &c.entries[i])
+		}
+		if e.gen != 0 || e.objTouch != 0 || e.n != 0 || e.set || e.all != nil {
+			t.Fatalf("entryFor(%d) exposed stale state: %+v", i, *e)
+		}
+	}
+	if &c.entries[0] != base {
+		t.Fatal("entryFor reallocated inside the reserved capacity")
+	}
+	if c.entries[2].gen != 42 {
+		t.Fatalf("entryFor lost an earlier entry: gen = %d", c.entries[2].gen)
+	}
+
+	var tc manaMemberCarry
+	tc.touchObj(1)
+	tc.touchObj(1)
+	touchBase := &tc.touch[0]
+	for i := 2; i < cap(tc.touch) && i < 64; i++ {
+		tc.touchObj(i)
+		if tc.touch[i] != 1 {
+			t.Fatalf("touchObj(%d) = %d, want 1 (a fresh slot starts at zero)", i, tc.touch[i])
+		}
+	}
+	if &tc.touch[0] != touchBase {
+		t.Fatal("touchObj reallocated inside the reserved capacity")
+	}
+	if tc.touch[1] != 2 {
+		t.Fatalf("touchObj lost an earlier count: %d", tc.touch[1])
+	}
+}
+
+// newManaCarryTestEngine parks a two-seat game at seat 0's main1 with real
+// Snow-Covered Swamps on the battlefield (own mana sources), via the existing
+// corpus fixture.
+func newManaCarryTestEngine(t *testing.T) *Engine {
+	t.Helper()
+	reg := testutil.CorpusRegistry(t)
+	e, _, _ := witheringEngine(t, reg, 3)
+	return e
+}
+
+func TestWalkClassTouchBumpsManaTouch(t *testing.T) {
+	// A touched object that is not provably static-cold must get a fresh
+	// mana touch generation, so the carry cannot serve stale membership.
+	e := newManaCarryTestEngine(t)
+	o := e.G.Obj(1)
+	if o == nil {
+		t.Skip("no object 1 in the test board")
+	}
+	// Force the recompute path: a cleared class is not provably unchanged,
+	// so walkClassTouch re-derives it rather than taking the
+	// fingerprint-unchanged early return.
+	i := int(o.ID) - 1
+	e.ownWalkClasses()
+	if i >= 0 && i < len(e.walkObjCls) {
+		e.walkObjCls[i].set = false
+	}
+	before := e.manaTouchOf(o.ID)
+	e.walkClassTouch(o)
+	if e.manaTouchOf(o.ID) == before {
+		t.Fatalf("touch did not move the mana generation (still %d)", before)
+	}
+	// The drop-all path bumps every object's generation too.
+	e.walkClassDropAll()
+	if e.manaTouchOf(o.ID) <= before {
+		t.Fatalf("drop-all did not move the mana generation")
+	}
+}
+
+func TestManaCarryHitsSecondWalk(t *testing.T) {
+	e := newManaCarryTestEngine(t)
+	first := e.legalActions(e.G.Active)
+	h1, m1 := e.ManaCarryStats()
+	second := e.legalActions(e.G.Active)
+	h2, _ := e.ManaCarryStats()
+	if h2 == h1 {
+		t.Fatalf("second walk at the same board did not hit (hits %d -> %d, misses %d)", h1, h2, m1)
+	}
+	if !optionsEqual(first, second) {
+		t.Fatal("carry changed the offered options")
+	}
+}
+
+func TestManaCarryColdOnClone(t *testing.T) {
+	e := newManaCarryTestEngine(t)
+	e.legalActions(e.G.Active) // warm the parent
+	cl := e.Clone()
+	h0, _ := cl.ManaCarryStats()
+	cl.legalActions(cl.G.Active)
+	h1, _ := cl.ManaCarryStats()
+	if h0 != 0 {
+		t.Fatalf("clone inherited carry stats: hits %d", h0)
+	}
+	if h1 != 0 {
+		t.Fatalf("clone hit the parent's carry: hits %d", h1)
+	}
+}

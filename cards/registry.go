@@ -335,7 +335,10 @@ func (r *Registry) saveGob(path string) error {
 	if err != nil {
 		return fail(err)
 	}
-	if err := gob.NewEncoder(zw).Encode(cacheFile{Version: cacheVersion, Cards: r.AllCards(), Tokens: r.Tokens}); err != nil {
+	cf := cacheFile{Version: cacheVersion, Cards: r.AllCards(), Tokens: r.Tokens}
+	// &cf: cacheFile's GobEncode is on the pointer receiver, and gob refuses
+	// an unaddressable top-level value that only *T encodes.
+	if err := gob.NewEncoder(zw).Encode(&cf); err != nil {
 		zw.Close()
 		return fail(err)
 	}

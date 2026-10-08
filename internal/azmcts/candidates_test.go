@@ -127,6 +127,54 @@ func TestActionsKeyIsCanonical(t *testing.T) {
 	}
 }
 
+// TestPayActionsKeyMatchesConcatenation pins the POC cut that builds a
+// payment candidate's key in one buffer (payActionsKey) instead of
+// concatenating actionsKey's result onto the prefix: the two must name the
+// same key for every action list, including the empty and nil declarations.
+func TestPayActionsKeyMatchesConcatenation(t *testing.T) {
+	for _, acts := range [][]searchprobe.Action{
+		nil,
+		{},
+		{{Decision: decision.KPriority, Kind: "pass", Value: "Pass"}},
+		{{Decision: decision.KPriority, Kind: "cast", Obj: 5, Value: "cast"}},
+		{{Decision: decision.KPriority, Kind: "cast", Obj: 5}, {Decision: decision.KPriority, Kind: "activate", Obj: 9}},
+	} {
+		if got, want := payActionsKey(acts), Key(payKeyPrefix+string(actionsKey(acts))); got != want {
+			t.Fatalf("payActionsKey(%v) = %q, want %q", acts, got, want)
+		}
+	}
+}
+
+// TestBotFirstCapsAndKeepsFirst pins the POC cut that pre-sizes botFirst's
+// output: all[botAt] stays at the front, the result is capped at limit and
+// repeats no candidate.
+func TestBotFirstCapsAndKeepsFirst(t *testing.T) {
+	all := make([]cand, 6)
+	for i := range all {
+		all[i] = cand{key: Key(string(rune('a' + i)))}
+	}
+	for _, tc := range []struct {
+		botAt, limit, want int
+	}{
+		{3, 4, 4}, {3, 10, 6}, {0, 3, 3}, {0, 1, 1}, {5, 6, 6},
+	} {
+		got := botFirst(all, tc.botAt, tc.limit)
+		if len(got) != tc.want {
+			t.Fatalf("botFirst(botAt %d, limit %d) len %d, want %d", tc.botAt, tc.limit, len(got), tc.want)
+		}
+		if got[0].key != all[tc.botAt].key {
+			t.Fatalf("botFirst(botAt %d, limit %d) first = %q, want %q", tc.botAt, tc.limit, got[0].key, all[tc.botAt].key)
+		}
+		seen := map[Key]bool{}
+		for _, c := range got {
+			if seen[c.key] {
+				t.Fatalf("botFirst(botAt %d, limit %d) repeated %q", tc.botAt, tc.limit, c.key)
+			}
+			seen[c.key] = true
+		}
+	}
+}
+
 func TestSoftmax(t *testing.T) {
 	p, ok := softmax([]float64{0, math.Log(3)})
 	if !ok || !near(p[0], 0.25) || !near(p[1], 0.75) {

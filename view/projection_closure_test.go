@@ -183,6 +183,11 @@ func TestViewMarshalsClosed(t *testing.T) {
 		// zone one. It is filled for every seat except the viewer's own and is
 		// nil when nothing classifiable is revealed (omitempty drops it).
 		"archetype": true,
+		// counters (the seat's own poison/energy/... counts) and
+		// land_drop_spent (the land-drop allowance is used up) are public
+		// per-seat scalars derived from state.Player, never a hidden-zone
+		// carrier and never a card list.
+		"counters": true, "land_drop_spent": true,
 	})
 	// StackView is public (R3) so it is a lesser leak surface, but the
 	// reflection is the same shape and cheap, so it is pinned too. The two
@@ -194,6 +199,9 @@ func TestViewMarshalsClosed(t *testing.T) {
 		"id": true, "kind": true, "name": true, "text": true,
 		"controller": true, "source": true, "targets": true, "card": true,
 		"optional": true, "decider": true,
+		// x, kicks and modes are the stack object's public cast-time
+		// announcements (X, times kicked, chosen modal sub-abilities).
+		"x": true, "kicks": true, "modes": true,
 	})
 
 	// Half 2: the omniscient projection this type produces actually shows

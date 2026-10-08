@@ -97,12 +97,20 @@ func enumerateWhy(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decis
 type boardScratch struct {
 	b     botpolicy.Board
 	built bool
+	// actBuf is the reusable action backing nameKeys copies a candidate's
+	// actions into on the first late reference (the copy is transient: it is
+	// read only to rebuild the key, never stored), so a per-search scratch
+	// costs one action allocation per call instead of one per candidate.
+	actBuf []searchprobe.Action
 }
 
 // board is the scratch Board, allocated on first use.
 func (s *boardScratch) board(players int) *botpolicy.Board {
 	if !s.built {
 		s.b, s.built = botpolicy.NewBoard(players), true
+		// The scratch boards feed only the bot's and the enumerators'
+		// answers, which never read OwnLibrary.
+		s.b.SkipOwnLibrary()
 	}
 	return &s.b
 }
@@ -245,7 +253,7 @@ func paymentActs(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decisi
 // object references past rootRefs (objects the root observation did not
 // show) become the object's card name, and candidates whose keys then
 // coincide keep the first. Only keys change; the intents are this world's.
-func nameKeys(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decision, cands []cand, rootRefs int) []cand {
+func nameKeys(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decision, cands []cand, rootRefs int, scratch *boardScratch) []cand {
 	name := func(id state.ObjID) string {
 		o := e.G.Obj(id)
 		switch {
@@ -264,7 +272,11 @@ func nameKeys(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decision,
 		}
 		return int(ref) > rootRefs
 	}
-	out := cands[:0:0]
+	out := make([]cand, 0, len(cands))
+	var buf []searchprobe.Action
+	if scratch != nil {
+		buf = scratch.actBuf
+	}
 	seen := make(map[Key]bool, len(cands)) // membership only -- never ranged.
 	for _, c := range cands {
 		srcActs := c.acts
@@ -276,9 +288,9 @@ func nameKeys(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decision,
 				srcActs = a
 			}
 		}
-		acts := append([]searchprobe.Action(nil), srcActs...)
+		acts := srcActs
 		changed := false
-		for k := range acts {
+		for k := range srcActs {
 			src, obj, atk := d.Source, state.ObjID(0), state.ObjID(0)
 			switch {
 			case c.in.Payment != nil:
@@ -291,15 +303,27 @@ func nameKeys(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decision,
 				o := d.Options[c.in.Choices[k]]
 				obj, atk = o.Obj, o.Attacker
 			}
+			ls, lo, la := late(srcActs[k].Source, src), late(srcActs[k].Obj, obj), late(srcActs[k].Attacker, atk)
+			if !ls && !lo && !la {
+				continue
+			}
+			if !changed {
+				// Copy on first actual rewrite: a candidate whose references
+				// the root observation already showed is keyed unchanged and
+				// never needs its own action backing.
+				acts = append(buf[:0], srcActs...)
+				buf = acts
+				changed = true
+			}
 			a := &acts[k]
-			if late(a.Source, src) {
-				a.Source, a.Value, changed = 0, a.Value+"|source="+name(src), true
+			if ls {
+				a.Source, a.Value = 0, a.Value+"|source="+name(src)
 			}
-			if late(a.Obj, obj) {
-				a.Obj, a.Value, changed = 0, a.Value+"|object="+name(obj), true
+			if lo {
+				a.Obj, a.Value = 0, a.Value+"|object="+name(obj)
 			}
-			if late(a.Attacker, atk) {
-				a.Attacker, a.Value, changed = 0, a.Value+"|attacker="+name(atk), true
+			if la {
+				a.Attacker, a.Value = 0, a.Value+"|attacker="+name(atk)
 			}
 		}
 		if changed {
@@ -314,6 +338,9 @@ func nameKeys(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decision,
 		}
 		seen[c.key] = true
 		out = append(out, c)
+	}
+	if scratch != nil {
+		scratch.actBuf = buf
 	}
 	return out
 }
@@ -365,7 +392,8 @@ func paymentVocabulary(obs *searchprobe.Collector, e *rules.Engine, d *decision.
 	}
 	payments := e.EnsurePaymentActions()
 	var pays, rest []cand
-	var pass *cand
+	var pass cand
+	havePass := false
 	covered := make(map[state.ObjID]bool, len(payments)) // membership only -- never ranged.
 	payAt := make(map[state.ObjID]int, len(payments))    // lookup only -- never ranged.
 	for _, a := range payments {
@@ -376,7 +404,7 @@ func paymentVocabulary(obs *searchprobe.Collector, e *rules.Engine, d *decision.
 		if err != nil {
 			return paymentVocab{}, SkipTranslate, false
 		}
-		c := cand{acts: acts, key: Key(payKeyPrefix + string(actionsKey(acts))), scoreSet: true,
+		c := cand{acts: acts, key: payActionsKey(acts), scoreSet: true,
 			in: decision.Intent{Seq: d.Seq, Player: d.Player, Payment: &decision.PaymentSelection{ActionID: a.ID, Plan: decision.ClonePaymentPlan(a.Plans[0])}}}
 		if a.BaseOptionIndex != nil {
 			c.score = []int{*a.BaseOptionIndex}
@@ -412,19 +440,25 @@ func paymentVocabulary(obs *searchprobe.Collector, e *rules.Engine, d *decision.
 		}
 		c := cand{acts: acts, key: actionsKey(acts), in: in}
 		if o.Kind == "pass" {
-			if pass == nil {
-				pass = &c
+			if !havePass {
+				pass, havePass = c, true
 			}
 			continue
 		}
 		rest = append(rest, c)
 	}
 	sortByJSON(rest)
-	v := paymentVocab{payAt: payAt, hasPass: pass != nil}
-	if pass != nil {
-		v.all = append(v.all, *pass)
+	v := paymentVocab{payAt: payAt, hasPass: havePass}
+	n := len(pays) + len(rest)
+	if havePass {
+		n++
 	}
-	v.all = append(append(v.all, pays...), rest...)
+	v.all = make([]cand, 0, n)
+	if havePass {
+		v.all = append(v.all, pass)
+	}
+	v.all = append(v.all, pays...)
+	v.all = append(v.all, rest...)
 	return v, 0, true
 }
 
@@ -469,7 +503,12 @@ func (v paymentVocab) botIndex(d *decision.Decision, bot decision.Intent) int {
 
 // botFirst is all with all[botAt] moved to the front, capped at limit.
 func botFirst(all []cand, botAt, limit int) []cand {
-	out := []cand{all[botAt]}
+	n := len(all)
+	if limit < n {
+		n = limit
+	}
+	out := make([]cand, 0, n)
+	out = append(out, all[botAt])
 	for i, c := range all {
 		if len(out) >= limit {
 			break
@@ -521,7 +560,7 @@ func newKeyMatcher(obs *searchprobe.Collector, e *rules.Engine, d *decision.Deci
 			if err != nil {
 				return nil, err
 			}
-			m.pays = append(m.pays, cand{key: Key(payKeyPrefix + string(actionsKey(acts))),
+			m.pays = append(m.pays, cand{key: payActionsKey(acts),
 				in: decision.Intent{Seq: d.Seq, Player: d.Player, Payment: &decision.PaymentSelection{ActionID: a.ID, Plan: decision.ClonePaymentPlan(a.Plans[0])}}})
 		}
 	}
@@ -667,6 +706,15 @@ func actionsKey(acts []searchprobe.Action) Key {
 	return Key(searchprobe.AppendActionsKey(buf[:0], acts))
 }
 
+// payActionsKey is a payment candidate's key -- payKeyPrefix then the
+// semantic action key -- built in one buffer, so it costs one string rather
+// than the two a concatenation of actionsKey's result would.
+func payActionsKey(acts []searchprobe.Action) Key {
+	var buf [192]byte
+	b := append(buf[:0], payKeyPrefix...)
+	return Key(searchprobe.AppendActionsKey(b, acts))
+}
+
 // priors is the candidates' prior (spec §2): uniform without a network;
 // otherwise a softmax, across candidates, of policynet.CandidateScore over
 // the head's option scores on the deciding seat's redacted view -- the
@@ -676,6 +724,19 @@ func actionsKey(acts []searchprobe.Action) Key {
 // could not be formed (every candidate -Inf or NaN) and fell back to uniform.
 // The view is projected into pv (view.ProjectInto), a fresh one when nil.
 func priors(net *policynet.Model, e *rules.Engine, d *decision.Decision, bot decision.Intent, kind string, cands []cand, pv *view.View) ([]float64, bool) {
+	return priorsWith(net, e, d, bot, kind, cands, pv, false)
+}
+
+// priorsWith is priors; payCasts is the PriorTopK ranking prior's form
+// (rankedPrior). There a payment candidate with no legacy cast option is
+// scored as the plain cast option it stands for (payCastOption), appended
+// after d's own options and encoded as one more option of the list,
+// instead of the whole prior falling back to uniform: under auto-pay no
+// mana floats, so the engine offers almost no legacy cast and the ordinary
+// prior could rank no cast at all. The bot's payment candidate's scored
+// option is marked BotPick, as MarkBotPicks marks a choice answer's. With
+// no such candidate and a choice answer the two forms are the same prior.
+func priorsWith(net *policynet.Model, e *rules.Engine, d *decision.Decision, bot decision.Intent, kind string, cands []cand, pv *view.View, payCasts bool) ([]float64, bool) {
 	if net == nil {
 		return uniform(len(cands)), false
 	}
@@ -685,16 +746,57 @@ func priors(net *policynet.Model, e *rules.Engine, d *decision.Decision, bot dec
 	view.ProjectInto(pv, e.G, e, d.Player, d)
 	v := *pv
 	st := policynet.EncodeStateWith(net.Features, v, d.Player, nil)
-	enc := make([]policynet.Option, len(d.Options))
-	for i := range d.Options {
-		enc[i] = policynet.EncodeOptionWith(net.Features, v, d.Player, d.Kind, d.Options[i], i, len(d.Options))
+	opts := d.Options
+	// synth[i] is the index in opts of candidate i's synthetic cast option,
+	// -1 for none; nil when no candidate has one.
+	var synth []int
+	if payCasts {
+		for i, c := range cands {
+			o, ok := payCastOption(e, d, c)
+			if !ok {
+				continue
+			}
+			if synth == nil {
+				synth = make([]int, len(cands))
+				for j := range synth {
+					synth[j] = -1
+				}
+				opts = append(make([]decision.Option, 0, len(d.Options)+len(cands)), d.Options...)
+			}
+			o.Index = len(opts)
+			synth[i] = len(opts)
+			opts = append(opts, o)
+		}
 	}
-	seat.MarkBotPicks(d, enc, bot)
+	enc := make([]policynet.Option, len(opts))
+	for i := range opts {
+		enc[i] = policynet.EncodeOptionWith(net.Features, v, d.Player, d.Kind, opts[i], i, len(opts))
+	}
+	seat.MarkBotPicks(d, enc[:len(d.Options)], bot)
+	if payCasts && bot.Payment != nil {
+		for i, c := range cands {
+			if c.in.Payment == nil || c.in.Payment.ActionID != bot.Payment.ActionID {
+				continue
+			}
+			if choices, ok := c.scoreChoices(); ok {
+				for _, k := range choices {
+					if k >= 0 && k < len(d.Options) {
+						enc[k].BotPick = true
+					}
+				}
+			} else if synth != nil && synth[i] >= 0 {
+				enc[synth[i]].BotPick = true
+			}
+		}
+	}
 	scores := net.Score(st, enc)
 	subset := kind == "attackers" || kind == "blockers"
 	logits := make([]float64, len(cands))
 	for i, c := range cands {
 		choices, ok := c.scoreChoices()
+		if !ok && synth != nil && synth[i] >= 0 {
+			choices, ok = synth[i:i+1], true
+		}
 		if !ok {
 			// A payment cast with no legacy option has no option score.
 			return uniform(len(cands)), true
@@ -706,6 +808,82 @@ func priors(net *policynet.Model, e *rules.Engine, d *decision.Decision, bot dec
 		return uniform(len(cands)), true
 	}
 	return p, false
+}
+
+// payCastOption is the option a network scores payment candidate c by when
+// its action has no legacy cast option (score nil): the plain cast of its
+// object, as paymentActs keys it. ok is false for any other candidate (a
+// choice, a payment scored by its legacy option, a root macro) and when
+// e's pending decision is not d (no payment action to read).
+func payCastOption(e *rules.Engine, d *decision.Decision, c cand) (decision.Option, bool) {
+	if c.in.Payment == nil || c.macro != nil {
+		return decision.Option{}, false
+	}
+	if _, ok := c.scoreChoices(); ok {
+		return decision.Option{}, false
+	}
+	if pd := e.Pending(); pd == nil || pd.Seq != d.Seq || pd.Player != d.Player {
+		return decision.Option{}, false
+	}
+	// Built and kept on the pending decision when the vocabulary was
+	// enumerated: this reads them again, it builds nothing.
+	for _, a := range e.EnsurePaymentActions() {
+		if a.ID == c.in.Payment.ActionID {
+			return decision.Option{Kind: "cast", Obj: a.Cast.Object, Player: d.Player, Label: a.Label}, true
+		}
+	}
+	return decision.Option{}, false
+}
+
+// rankedPrior is a searched point's candidates and prior. With k == 0 (no
+// PriorTopK, or no network prior) they are cands and priors' prior. With
+// k > 0 the ranking prior (priorsWith's payCasts form) is formed over every
+// candidate and priorTopK cuts it: before is priorTopK's.
+func rankedPrior(net *policynet.Model, k int, e *rules.Engine, d *decision.Decision, bot decision.Intent, kind string, cands []cand, pv *view.View) (kept []cand, prior []float64, fell bool, before int) {
+	if k <= 0 {
+		prior, fell = priors(net, e, d, bot, kind, cands, pv)
+		return cands, prior, fell, 0
+	}
+	prior, fell = priorsWith(net, e, d, bot, kind, cands, pv, true)
+	kept, prior, before = priorTopK(cands, prior, k)
+	return kept, prior, fell, before
+}
+
+// priorTopK is Options.PriorTopK's cut: cands[0] -- the bot's answer, the
+// tie-winner -- then the k-1 other candidates of highest prior, prior
+// descending with ties to the lower index (the enumeration order, so a
+// uniform prior keeps the first k), their prior renormalised over the kept
+// ones. before is len(cands) when the cut dropped a candidate, 0 when it
+// kept them all (reordered all the same, the prior unchanged). Neither
+// input is modified.
+func priorTopK(cands []cand, prior []float64, k int) ([]cand, []float64, int) {
+	order := make([]int, 0, len(cands))
+	for i := 1; i < len(cands); i++ {
+		order = append(order, i)
+	}
+	sort.SliceStable(order, func(a, b int) bool { return prior[order[a]] > prior[order[b]] })
+	before := 0
+	if len(order) > k-1 {
+		order, before = order[:k-1], len(cands)
+	}
+	kept := append(make([]cand, 0, len(order)+1), cands[0])
+	p := append(make([]float64, 0, len(order)+1), prior[0])
+	sum := prior[0]
+	for _, i := range order {
+		kept = append(kept, cands[i])
+		p = append(p, prior[i])
+		sum += prior[i]
+	}
+	if before > 0 {
+		for i := range p {
+			if sum > 0 {
+				p[i] /= sum
+			} else {
+				p[i] = 1 / float64(len(p))
+			}
+		}
+	}
+	return kept, p, before
 }
 
 // softmax normalises logits; ok is false when no logit is finite or any is

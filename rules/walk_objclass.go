@@ -360,6 +360,7 @@ func (e *Engine) walkClassTouch(o *state.Object) (staticSame bool) {
 	e.ownWalkClasses()
 	i := int(o.ID) - 1
 	if i < 0 || i >= len(e.walkObjCls) || !e.walkObjCls[i].set {
+		e.manaTouchBumpIdx(i)
 		e.staticTouchGen++
 		return false
 	}
@@ -367,6 +368,7 @@ func (e *Engine) walkClassTouch(o *state.Object) (staticSame bool) {
 		// A catch-up run inside a face or cast probe reads probed fields:
 		// drop the class instead of refreshing it, conservatively.
 		e.walkObjCls[i].set = false
+		e.manaTouchBumpIdx(i)
 		e.staticTouchGen++
 		return false
 	}
@@ -395,6 +397,7 @@ func (e *Engine) walkClassTouch(o *state.Object) (staticSame bool) {
 	}
 	fresh := e.computeWalkObjClass(o)
 	e.walkObjCls[i] = fresh
+	e.manaTouchBumpIdx(i)
 	if old.staticOn || old.staticOff || fresh.staticOn || fresh.staticOff {
 		e.staticTouchGen++
 	}
@@ -405,6 +408,7 @@ func (e *Engine) walkClassTouch(o *state.Object) (staticSame bool) {
 func (e *Engine) walkClassDropAll() {
 	e.ownWalkClasses()
 	clear(e.walkObjCls)
+	e.manaTouchBumpAll()
 	e.staticTouchGen++
 }
 

@@ -9,13 +9,14 @@
 # on a schedule instead of by whichever seat happens to act, and the
 # idle_unmerged_branches flow axis stops re-filing tickets about them.
 #
-# It narrows `park-branch.sh --all-idle` to branches the pipeline is done
-# with: a `wt/<id>` branch is parked only when .ds4/issues/<id>.md says
-# merged or superseded, or when no ticket file exists for it. A ticket that is
-# still live (new, briefed, dispatched, waiting, landing, human_needed, ...)
-# keeps its worktree: the daemon or the operator still works in it.
-# Everything else (dirty, busy, landed, mid-rebase refusals; the branch is
-# kept) is park-branch.sh's own safety, unchanged.
+# It simply takes `park-branch.sh --all-idle`'s candidates: park-branch.sh
+# itself now refuses a live worktree (locked, or a ticket with any status but
+# merged/superseded), so this wrapper only narrows the idle set and lets the
+# refusal (and its message) come from the one place that deregisters. A ticket
+# that is still live (new, briefed, dispatched, waiting, landing,
+# human_needed, ...) keeps its worktree: the daemon or the operator still works
+# in it. Everything else (dirty, busy, landed, mid-rebase refusals; the branch
+# is kept) is park-branch.sh's own safety, unchanged.
 #
 # MIN_IDLE_H (default 12) is the idle threshold; the log goes to
 # .ds4/park-idle.log in the main checkout.
@@ -25,32 +26,26 @@ APPLY=${APPLY:-0}
 MIN_IDLE_H=${MIN_IDLE_H:-12}
 root=$(git rev-parse --path-format=absolute --git-common-dir)
 root=${root%/.git}
-issues="$root/.ds4/issues"
 log="$root/.ds4/park-idle.log"
 park=${PARK:-$(cd "$(dirname "$0")" && pwd)/park-branch.sh}
 
-# ticket_status <id> prints the status: line of the ticket's front matter.
-ticket_status() {
-	local f="$issues/$1.md"
-	[ -f "$f" ] || return 0
-	/usr/bin/awk '/^---$/ { n++; next } n == 1 && /^status:/ { print $2; exit }' "$f"
-}
-
+# Discovery is a dry run of park-branch.sh --all-idle. Its `would park:` lines
+# are the candidate branches; its `keep (ticket ...)` refusals (park-branch.sh's
+# live-seat guard) are passed through so the decision is visible in the log.
 candidates=()
 while read -r line; do
 	case "$line" in
-	"would park: "*) ;;
-	*) continue ;;
+	"would park: "*)
+		branch=${line#would park: }
+		branch=${branch%% *}
+		candidates+=("$branch")
+		;;
+	"keep (ticket "*)
+		echo "$line"
+		;;
+	*) ;;
 	esac
-	branch=${line#would park: }
-	branch=${branch%% *}
-	id=${branch#wt/}
-	st=$(ticket_status "$id")
-	case "$st" in
-	"" | merged | superseded) candidates+=("$branch") ;;
-	*) echo "keep (ticket $id is $st): $branch" ;;
-	esac
-done < <(APPLY=0 "$park" --all-idle "$MIN_IDLE_H" 2>/dev/null || true)
+done < <(APPLY=0 "$park" --all-idle "$MIN_IDLE_H" 2>&1 || true)
 
 if [ ${#candidates[@]} -eq 0 ]; then
 	echo "nothing to park"

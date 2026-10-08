@@ -86,18 +86,23 @@ func cloneCarriesCast(e *Engine) bool { return e.cast != nil }
 // from the fields' clone tags) copies every field but the few below, whose
 // copy recycles bespoke Spare storage or re-records a key.
 func (e *Engine) cloneWith(sp Spare) *Engine {
-	c := &Engine{
-		G:   e.G.CloneIntoDirty(sp.objs, sp.objDirty),
-		L:   e.L.CloneIntoFrom(sp.events, sp.evFrom, sp.evN, sp.evDirty, sp.intents),
-		rng: e.rng.clone(),
-		// The livelock watcher (rules/livelock.go): carry the Config-given
-		// guard thresholds, reset the observation state. A clone only happens
-		// at an intent boundary -- the only moment these fields are not being
-		// written -- where the watcher holds no in-flight run or quiet count
-		// worth carrying, so a fresh watcher over the same thresholds is a
-		// faithful copy.
-		loop: newLivelockWatcherFromGuard(e.loop.guard, sp.loopSigs, sp.loopRecent, sp.loopPrev, sp.loopHeads, sp.loopHash),
+	c := sp.engine
+	if c == nil {
+		c = new(Engine)
+	} else {
+		*c = Engine{}
 	}
+	sp.engine = nil
+	c.G = e.G.CloneIntoDirty(sp.objs, sp.objDirty)
+	c.L = e.L.CloneIntoFrom(sp.events, sp.evFrom, sp.evN, sp.evDirty, sp.intents)
+	c.rng = e.rng.clone()
+	// The livelock watcher (rules/livelock.go): carry the Config-given
+	// guard thresholds, reset the observation state. A clone only happens
+	// at an intent boundary -- the only moment these fields are not being
+	// written -- where the watcher holds no in-flight run or quiet count
+	// worth carrying, so a fresh watcher over the same thresholds is a
+	// faithful copy.
+	c.loop = newLivelockWatcherFromGuard(e.loop.guard, sp.loopSigs, sp.loopRecent, sp.loopPrev, sp.loopHeads, sp.loopHash)
 	// The identity-preserving copy of the suspended resolution's memories,
 	// transactions and frames (clone_remap.go): stack-resident, allocating
 	// only when there is something to copy.
@@ -119,6 +124,9 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	// checkpoint is recycled.
 	if sp.tapeCkpt != nil {
 		c.tapeSpare = *sp.tapeCkpt
+	}
+	if sp.manaEntries != nil || sp.manaTouch != nil {
+		c.manaCarry = manaMemberCarry{owner: c, entries: sp.manaEntries, touch: sp.manaTouch, gen: sp.manaGen}
 	}
 	if len(e.pendingTriggers) > 0 {
 		c.pendingTriggers = clonePendingTriggers(e.pendingTriggers)

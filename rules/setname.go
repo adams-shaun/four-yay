@@ -76,9 +76,11 @@ func (e *Engine) refreshRenames() {
 		// Re-entry: a Derived() call below reached something that re-emitted.
 		// The half-built table must never be published; the outer call
 		// finishes it.
+		e.renameBranchCounts[0]++
 		return
 	}
 	if e.renameEpoch == len(e.L.Events) && e.renameVersion == e.continuousVersion {
+		e.renameBranchCounts[1]++
 		return
 	}
 	// Layer-inert reuse (layercache.go), refreshDerivedTypes' twin: only
@@ -86,6 +88,7 @@ func (e *Engine) refreshRenames() {
 	// neither the continuous registry nor the object arena moved, so every
 	// Derived name the table holds is what a rebuild would read again.
 	if e.renameVersion == e.continuousVersion && e.renameObjs == len(e.G.Objs) && e.layerInertSince(e.renameEpoch) {
+		e.renameBranchCounts[2]++
 		e.renameEpoch = len(e.L.Events)
 		if layerInertVerify {
 			e.verifyInertRenames()
@@ -101,6 +104,7 @@ func (e *Engine) refreshRenames() {
 	if len(e.renames) == 0 {
 		e.refreshStaticContinuous()
 		if !setNameInLists(e.continuous, e.staticContinuous) {
+			e.renameBranchCounts[3]++
 			e.renameEpoch, e.renameVersion, e.renameObjs = len(e.L.Events), e.continuousVersion, len(e.G.Objs)
 			e.renameDSeq = 0
 			if renameGateVerify {
@@ -124,6 +128,7 @@ func (e *Engine) refreshRenames() {
 	if e.renameVersion == e.continuousVersion && e.renameObjs == len(e.G.Objs) && e.renameDSeq != 0 {
 		e.active()
 		if e.renameDSeq == e.derivedSeq && e.renameBFSeq == e.derivedBFSeq {
+			e.renameBranchCounts[4]++
 			e.renameEpoch = len(e.L.Events)
 			if layerInertVerify {
 				e.verifyInertRenames()
@@ -131,6 +136,7 @@ func (e *Engine) refreshRenames() {
 			return
 		}
 	}
+	e.renameBranchCounts[5]++
 	e.renameEpoch, e.renameVersion, e.renameObjs = len(e.L.Events), e.continuousVersion, len(e.G.Objs)
 	buf := e.renames[:0]
 	if !e.anySetNameActive() {
@@ -296,3 +302,7 @@ func (e *Engine) withNames(sc effects.SpecContext) effects.SpecContext {
 // state.Game, and a cloned game cannot read another game's board. The table is
 // refreshed by emit and continuousChanged, so it is current at Resolve entry.
 func (e *Engine) EffectiveNames() []effects.ObjectName { return e.renames }
+
+// SetNameBranchCounts reports refreshRenames' exit tally (E2 measurement,
+// emit-action.md §3 step 1): [reentry, epoch, inert, gate, derived, rebuild].
+func (e *Engine) SetNameBranchCounts() [6]int { return e.renameBranchCounts }
