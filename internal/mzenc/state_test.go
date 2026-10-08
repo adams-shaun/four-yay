@@ -106,15 +106,28 @@ func TestProcessStateBattlefieldDeterministicOrder(t *testing.T) {
 		me := f.SubFeatures("Player", true)
 		bf := me.SubFeatures("Battlefield", true)
 		a1 := bf.SubFeatures("Alpha", true)
+		// processPerm now calls the shared processCard (Task 4), so each
+		// permanent carries the universal Card tag, the Permanent tag for a
+		// permanent card type, the type words and the printed mana value.
+		a1.AddFeature("Card")
+		a1.AddFeature("Permanent")
 		a1.AddFeature("creature") // type word, lowercased
+		a1.AddNumericFeature("ManaValue", 0, true)
 		a1.AddNumericFeature("Power", 3, true)
 		a1.AddNumericFeature("Toughness", 3, true)
 		a2 := bf.SubFeatures("Alpha", true)
 		a2.AddFeature("Tapped")
+		a2.AddFeature("Card")
+		a2.AddFeature("Permanent")
 		a2.AddFeature("creature")
+		a2.AddNumericFeature("ManaValue", 0, true)
 		a2.AddNumericFeature("Power", 2, true)
 		a2.AddNumericFeature("Toughness", 3, true)
 		pg := bf.SubFeatures("Grizzly Bears", true)
+		pg.AddFeature("Card")
+		pg.AddFeature("Permanent")
+		pg.AddFeature("creature")
+		pg.AddNumericFeature("ManaValue", 0, true)
 		pg.AddNumericFeature("Power", 2, true)
 	})
 	for id := range want {

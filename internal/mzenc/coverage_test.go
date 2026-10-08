@@ -123,7 +123,7 @@ func TestExtractorCoverageRatchetMatches(t *testing.T) {
 func TestProcessStateReportDoesNotAffectIDs(t *testing.T) {
 	v := coverageView()
 	want := ProcessState(v, nil, 0, 0, "x")
-	got, _ := processState(v, nil, 0, 0, "x", map[string]bool{})
+	got, _ := processState(v, nil, 0, 0, "x", map[string]bool{}, map[string]bool{})
 	if len(got) != len(want) {
 		t.Fatalf("report id set differs: %d vs %d", len(got), len(want))
 	}

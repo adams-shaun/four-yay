@@ -152,20 +152,21 @@ var unsupportedFeatures = map[string]string{
 }
 
 // ProcessStateReport runs the SAME walk as ProcessState but additionally
-// records which feature families the walker actually emitted. It is the
-// coverage-ratchet entry point and stays off the hot path (ProcessState
-// allocates no emitted map). The returned maps are copies; ranging them here
-// is bookkeeping only and never reaches the id/hash path.
+// records which feature families the walker actually emitted and which it
+// could not express. It is the coverage-ratchet entry point and stays off the
+// hot path (ProcessState allocates neither map). The returned maps are copies;
+// ranging them here is bookkeeping only and never reaches the id/hash path.
 func ProcessStateReport(v view.View, ch view.Chars, seat state.PlayerID, decisionType int, decisionsText string) (emitted map[string]bool, unsupported map[string]bool) {
 	seen := map[string]bool{}
-	_, unsupported = processState(v, ch, seat, decisionType, decisionsText, seen)
+	uns := map[string]bool{}
+	processState(v, ch, seat, decisionType, decisionsText, seen, uns)
 
 	emitted = make(map[string]bool, len(seen))
 	for k, on := range seen {
 		emitted[k] = on
 	}
-	out := make(map[string]bool, len(unsupported))
-	for k, on := range unsupported {
+	out := make(map[string]bool, len(uns))
+	for k, on := range uns {
 		out[k] = on
 	}
 	return emitted, out

@@ -13,7 +13,7 @@
 // The StateEncoder walkers now turn a gorGE view into feature names: the
 // globals (step, decision type, decisions text), the stack, the flat exile
 // list, and each player's scalars, mana pool, battlefield permanents, hand and
-// graveyard. As of 2026-10-07 that walker emits 16 of the design §5 feature
+// graveyard. As of 2026-10-07 that walker emits 17 of the design §5 feature
 // families and records the other 24 as unsupportedFeatures, because the gorGE
 // view projection does not yet carry them (colours, subtypes, dynamic
 // types/abilities, CanAttack/CanBlock, permanent flags, attachments,
