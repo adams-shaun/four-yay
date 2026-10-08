@@ -9,6 +9,7 @@ import "github.com/adams-shaun/gorge/view"
 // object's subtree by cleanString(so.toString()); gorGE uses the projected
 // StackView.Name.
 func (w *walker) processStack(f *Node, v *view.View) {
+	w.emit(famStack)
 	st := f.SubFeatures("Stack", false)
 	depth := 0
 	for i := range v.Stack {
@@ -38,6 +39,6 @@ func (w *walker) processStackObject(f *Node, sv *view.StackView, depth int) {
 	if sv.Card != nil && sv.Card.SpellAPI != "" {
 		f.AddFeature(sv.Card.SpellAPI)
 	}
-	w.unsupported["StackTargets"] = true
-	w.unsupported["StackAbilityDetail"] = true
+	w.unsupported[famStackTargets] = true
+	w.unsupported[famStackAbilityDetail] = true
 }

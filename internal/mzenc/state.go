@@ -59,6 +59,19 @@ type walker struct {
 	ch          view.Chars
 	names       map[state.ObjID]string
 	unsupported map[string]bool
+	// emitted records the feature families actually produced. It is nil on the
+	// hot path (ProcessState) so no map is allocated there; only
+	// ProcessStateReport sets it. emit is the sole writer.
+	emitted map[string]bool
+}
+
+// emit records that a feature family was produced. It is a no-op when the
+// walker carries no emitted map (the ProcessState hot path), so the recording
+// costs one nil check and allocates nothing.
+func (w *walker) emit(family string) {
+	if w.emitted != nil {
+		w.emitted[family] = true
+	}
 }
 
 // manaPoolKeys and manaPoolNames are the fixed colour order processMana
@@ -74,6 +87,7 @@ var (
 // is iterated in the fixed key order, never ranged, so the emission order (and
 // therefore nothing hashed) cannot vary with map iteration order.
 func (w *walker) processManaPool(f *Node, pool map[string]int32) {
+	w.emit(famManaPool)
 	for i, k := range manaPoolKeys {
 		f.AddNumericFeature(manaPoolNames[i], int(pool[k]), true)
 	}
@@ -86,12 +100,16 @@ func (w *walker) processManaPool(f *Node, pool map[string]int32) {
 func (w *walker) processPlayer(f *Node, pv *view.PlayerView, isDecisionPlayer bool) {
 	if pv.ID == w.active {
 		f.AddFeature("IsActivePlayer")
+		w.emit(famIsActivePlayer)
 	}
 	if isDecisionPlayer {
 		f.AddFeature("IsDecisionPlayer")
+		w.emit(famIsDecisionPlayer)
 	}
 	f.AddNumericFeature("LifeTotal", int(pv.Life), true)
+	w.emit(famLifeTotal)
 	f.AddNumericFeature("LibraryCount", pv.LibrarySize, true)
+	w.emit(famLibraryCount)
 	w.processManaPool(f.SubFeatures("ManaPool", false), pv.Pool)
 
 	// battlefield (StateEncoder.java:590-593): the per-permanent family,
@@ -104,13 +122,17 @@ func (w *walker) processPlayer(f *Node, pv *view.PlayerView, isDecisionPlayer bo
 	w.processGraveyard(f.SubFeatures("Graveyard", true), pv, w.ch)
 	w.processHand(f.SubFeatures("Hand", true), pv, w.ch)
 
-	w.unsupported["PlayerCounters"] = true
-	w.unsupported["DayNight"] = true
-	w.unsupported["CanPlayLand"] = true
-	w.unsupported["InPayManaMode"] = true
-	w.unsupported["Activating"] = true
-	w.unsupported["MicroDecisions"] = true
-	w.unsupported["Attachments"] = true
+	w.unsupported[famPlayerCounters] = true
+	w.unsupported[famDayNight] = true
+	w.unsupported[famCanPlayLand] = true
+	w.unsupported[famInPayManaMode] = true
+	w.unsupported[famActivating] = true
+	w.unsupported[famMicroDecisions] = true
+	w.unsupported[famAttachments] = true
+	// global families the view exposes but no walker consumes yet.
+	w.unsupported[famExile] = true
+	w.unsupported[famCommandZone] = true
+	w.unsupported[famWatchers] = true
 }
 
 // processBattlefield ports StateEncoder.processBattlefield
@@ -120,6 +142,7 @@ func (w *walker) processPlayer(f *Node, pv *view.PlayerView, isDecisionPlayer bo
 // slice order. The copy is deliberate: it reorders nothing the caller holds,
 // and it is what makes the "#1"/"#2" duplicate-name occurrence keys stable.
 func (w *walker) processBattlefield(f *Node, pv *view.PlayerView, ch view.Chars) {
+	w.emit(famBattlefield)
 	if len(pv.Battlefield) == 0 {
 		return
 	}
@@ -145,6 +168,7 @@ func (w *walker) processBattlefield(f *Node, pv *view.PlayerView, ch view.Chars)
 // colour set and every unique permanent flag are not expressible through
 // view.CardView, so they are recorded in w.unsupported and emit nothing.
 func (w *walker) processPerm(f *Node, cv *view.CardView, ch view.Chars) {
+	w.emit(famPermanent)
 	if cv.Tapped {
 		f.AddFeature("Tapped")
 	}
@@ -153,6 +177,7 @@ func (w *walker) processPerm(f *Node, cv *view.CardView, ch view.Chars) {
 		f.AddFeature(strings.ToLower(t))
 	}
 	if isCreatureType(cv.Types) {
+		w.emit(famCreature)
 		if cv.SummonSick {
 			f.AddFeature("SummoningSick")
 		}
@@ -173,20 +198,21 @@ func (w *walker) processPerm(f *Node, cv *view.CardView, ch view.Chars) {
 		f.AddFeature(strings.ToLower(kw))
 	}
 
-	// families view.CardView cannot express. Names match the Task 6 register.
-	w.unsupported["Subtypes"] = true
-	w.unsupported["Colors"] = true
-	w.unsupported["DynamicTypes"] = true
-	w.unsupported["DynamicAbilities"] = true
-	w.unsupported["CanAttack"] = true
-	w.unsupported["CanBlock"] = true
-	w.unsupported["PermanentFlags"] = true
+	// families view.CardView cannot express. Keys are the coverage register's
+	// canonical spelling.
+	w.unsupported[famSubtypes] = true
+	w.unsupported[famColors] = true
+	w.unsupported[famDynamicTypes] = true
+	w.unsupported[famDynamicAbilities] = true
+	w.unsupported[famCanAttack] = true
+	w.unsupported[famCanBlock] = true
+	w.unsupported[famPermanentFlags] = true
 	// Attachments is already registered by processPlayer (player-level
 	// upstream family, Task 2); permanent attachments share the family name.
-	w.unsupported["Imprinted"] = true
-	w.unsupported["Paired"] = true
-	w.unsupported["TargetedBy"] = true
-	w.unsupported["PermanentExile"] = true
+	w.unsupported[famImprinted] = true
+	w.unsupported[famPaired] = true
+	w.unsupported[famTargetedBy] = true
+	w.unsupported[famPermanentExile] = true
 }
 
 // isCreatureType reports whether a CardView's space-joined type line carries
@@ -307,6 +333,7 @@ func (w *walker) processCard(f *Node, cv *view.CardView, passToParent bool) {
 	if !passToParent {
 		return
 	}
+	w.emit(famCard)
 	w.names[cv.ID] = cv.Name
 	f.AddFeature("Card")
 	if isPermanentType(cv.Types) {
@@ -316,7 +343,7 @@ func (w *walker) processCard(f *Node, cv *view.CardView, passToParent bool) {
 		f.AddFeature(strings.ToLower(t))
 	}
 	f.AddNumericFeature("ManaValue", manaValue(cv.ManaCost), true)
-	w.unsupported["Subtypes"] = true
+	w.unsupported[famSubtypes] = true
 }
 
 // processCardInZone ports StateEncoder.processCardInZone (StateEncoder.java:306-329):
@@ -326,7 +353,7 @@ func (w *walker) processCard(f *Node, cv *view.CardView, passToParent bool) {
 // emitted.
 func (w *walker) processCardInZone(f *Node, cv *view.CardView, zone string, ch view.Chars) {
 	w.processCard(f, cv, f.passToParent)
-	w.unsupported["CardAbilities"] = true
+	w.unsupported[famCardAbilities] = true
 }
 
 // processGraveyard ports StateEncoder.processGraveyard
@@ -334,12 +361,14 @@ func (w *walker) processCardInZone(f *Node, cv *view.CardView, zone string, ch v
 // caller's "Graveyard" subtree. Upstream uses getCardsSorted, so gorGE sorts a
 // fresh copy by (Name, ID) and never relies on the incoming slice order.
 func (w *walker) processGraveyard(f *Node, pv *view.PlayerView, ch view.Chars) {
+	w.emit(famGraveyard)
 	w.processCardList(f, pv.Graveyard, "graveyard", ch)
 }
 
 // processHand ports StateEncoder.processHand (StateEncoder.java:347-351): walk
 // the sorted hand cards under the caller's "Hand" subtree.
 func (w *walker) processHand(f *Node, pv *view.PlayerView, ch view.Chars) {
+	w.emit(famHand)
 	w.processCardList(f, pv.Hand, "hand", ch)
 }
 
@@ -367,11 +396,21 @@ func (w *walker) processCardList(f *Node, cards []view.CardView, zone string, ch
 }
 
 // ProcessState walks an omniscient gorGE view and returns the MageZero
-// feature-id set for the given decision.
+// feature-id set for the given decision. It passes a nil emitted map so the
+// hot path allocates no coverage bookkeeping; ProcessStateReport is the
+// recording entry point.
 func ProcessState(v view.View, ch view.Chars, seat state.PlayerID, decisionType int, decisionsText string) map[int32]struct{} {
+	ids, _ := processState(v, ch, seat, decisionType, decisionsText, nil)
+	return ids
+}
+
+// processState is the shared walk. emitted is nil on the hot path and the
+// walker's emit calls are no-ops then; ProcessStateReport supplies a map and
+// reads w.unsupported back.
+func processState(v view.View, ch view.Chars, seat state.PlayerID, decisionType int, decisionsText string, emitted map[string]bool) (map[int32]struct{}, map[string]bool) {
 	e := NewEncoder(DefaultTableSize)
 	w := &walker{e: e, seat: seat, active: v.Active, ch: ch,
-		names: map[state.ObjID]string{}, unsupported: map[string]bool{}}
+		names: map[state.ObjID]string{}, unsupported: map[string]bool{}, emitted: emitted}
 	// Pre-register every battlefield permanent's name before any player or
 	// permanent is walked: processPerm resolves a BlockedBy id through
 	// w.names, and a blocker may sit on a later player's battlefield (or be
@@ -388,11 +427,14 @@ func ProcessState(v view.View, ch view.Chars, seat state.PlayerID, decisionType 
 	// globals (StateEncoder.java:634-641)
 	if name, ok := stepName[v.Step]; ok {
 		root.AddFeature(name)
+		w.emit(famTurnStep)
 	}
 	if decisionType >= 0 && decisionType < len(actionTypeNames) {
 		root.AddFeature(actionTypeNames[decisionType])
+		w.emit(famDecisionType)
 	}
 	root.AddFeature(cleanString(decisionsText))
+	w.emit(famDecisionsText)
 
 	// stack (StateEncoder.java:647): the root "Stack" subtree, always created
 	// even when empty, walked bottom to top.
@@ -408,5 +450,5 @@ func ProcessState(v view.View, ch view.Chars, seat state.PlayerID, decisionType 
 			w.processPlayer(root.SubFeatures("Opponent", true), pv, false)
 		}
 	}
-	return e.IDs()
+	return e.IDs(), w.unsupported
 }
