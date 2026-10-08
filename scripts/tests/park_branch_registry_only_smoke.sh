@@ -136,6 +136,55 @@ check "main is refused in registry-only" $?
 git -C "$R" worktree list | grep -q '\[main\]'
 check "main stays registered" $?
 
+# --- 6b. a LOCKED worktree is refused on the registry-only path, and both the
+# registration and the metadata dir survive (the live-seat guard).
+git -C "$R" worktree add -q -b wt/locked "$R/.worktrees/locked" main
+git -C "$R/.worktrees/locked" -c user.name=t -c user.email=t@t commit -q --allow-empty -m "locked work"
+ldm=$(sed -n 's/^gitdir: //p' "$R/.worktrees/locked/.git")
+git -C "$R" worktree lock "$R/.worktrees/locked"
+[ -e "$ldm/locked" ]
+check "test precondition: wt/locked carries a locked marker" $? "$ldm/locked"
+registry_only_park wt/locked >"$TMP/locked.txt" 2>&1
+[ $? -ne 0 ]
+check "locked target is refused (nonzero)" $? "$(cat "$TMP/locked.txt")"
+grep -qi 'locked' "$TMP/locked.txt"
+check "refusal names the lock" $?
+registered locked
+check "locked target stays registered" $?
+[ -e "$ldm/locked" ]
+check "the lock marker survives the refusal" $?
+# --force is the explicit human override: it must make the same target parkable.
+( cd "$R" && APPLY=0 bash "$PARK" --registry-only --force wt/locked ) >"$TMP/locked-force.txt" 2>&1
+grep -q 'would park' "$TMP/locked-force.txt"
+check "--force overrides the lock guard" $? "$(cat "$TMP/locked-force.txt")"
+
+# --- 6c. a ticket-status-DISPATCHED worktree (clean, idle) is refused on the
+# raw default path AND by --all-idle; the same rule the scheduled wrapper uses.
+git -C "$R" worktree add -q -b wt/dispatched "$R/.worktrees/dispatched" main
+git -C "$R/.worktrees/dispatched" -c user.name=t -c user.email=t@t commit -q --allow-empty -m "dispatched work"
+mkdir -p "$R/.ds4/issues"
+printf -- '---\nid: dispatched\nstatus: dispatched\n---\n' >"$R/.ds4/issues/dispatched.md"
+ddm=$(sed -n 's/^gitdir: //p' "$R/.worktrees/dispatched/.git")
+[ -n "$ddm" ] && [ -d "$ddm" ]
+check "test precondition: wt/dispatched metadata dir resolves" $? "$ddm"
+awk '/^---$/{n++;next} n==1 && /^status:/{print $2; exit}' "$R/.ds4/issues/dispatched.md" | grep -qx dispatched
+check "test precondition: wt/dispatched's ticket is dispatched" $?
+( cd "$R" && APPLY=1 bash "$PARK" wt/dispatched ) >"$TMP/dispatched.txt" 2>&1
+[ $? -ne 0 ]
+check "dispatched target is refused by the raw default path (nonzero)" $? "$(cat "$TMP/dispatched.txt")"
+grep -q 'keep (ticket dispatched is dispatched): wt/dispatched' "$TMP/dispatched.txt"
+check "raw refusal names the ticket id and status" $?
+registered dispatched
+check "dispatched target stays registered (raw path)" $?
+[ -e "$ddm/HEAD" ]
+check "dispatched target's metadata dir survives (raw path)" $?
+touch -d '2 days ago' "$R/.worktrees/dispatched"
+( cd "$R" && APPLY=0 bash "$PARK" --all-idle ) >"$TMP/allidle.txt" 2>&1
+grep -q 'keep (ticket dispatched is dispatched): wt/dispatched' "$TMP/allidle.txt"
+check "--all-idle refuses the dispatched ticket" $? "$(cat "$TMP/allidle.txt")"
+registered dispatched
+check "dispatched target stays registered (--all-idle)" $?
+
 # --- 7. the EROFS case: the same park under a real read-only bind of the
 # target directory, the exact condition that aborts the default path.
 BWRAP=$(command -v bwrap || true)

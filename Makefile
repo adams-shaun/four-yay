@@ -90,6 +90,7 @@ help:
 	@echo "  make oracle-audit   — run the Oracle-text card audit (rules/testdata/oracle; ORACLE_RUN=<Card> to filter)"
 	@echo "  make clean-seats    — delete finished pi-agent seat dirs (~/.cache/pi-agent); dry run unless APPLY=1"
 	@echo "  make clean-worktrees — remove merged, clean .worktrees/* and their branches; dry run unless APPLY=1"
+	@echo "  make readopt-worktree NAME=<name> — re-register an orphaned .worktrees/<name> (branch wt/<name>); dry run unless APPLY=1"
 	@echo "  NOTE: make test-web / npm test needs Node >=22 (vitest 5); see web/README.md"
 
 .PHONY: build
@@ -431,11 +432,18 @@ clean-cards:
 # clean-seats / clean-worktrees reclaim disk from finished agent work. Both
 # are dry runs that only list what they would delete; pass APPLY=1 to delete.
 # See scripts/cleanup.sh for exactly what is kept.
-.PHONY: clean-seats clean-worktrees
+.PHONY: clean-seats clean-worktrees readopt-worktree
 clean-seats:
 	@APPLY=$(APPLY) scripts/cleanup.sh seat-cache
 clean-worktrees:
 	@APPLY=$(APPLY) scripts/cleanup.sh worktrees
+# Re-register an orphaned worktree whose branch still exists: recreate its
+# .git/worktrees/<name> metadata so a seat can commit again. Dry run unless
+# APPLY=1. NAME=<worktree-name> (the branch is wt/<name>). See
+# scripts/readopt-worktree.sh.
+readopt-worktree:
+	@[ -n "$(NAME)" ] || { echo "usage: make readopt-worktree NAME=<worktree-name> [APPLY=1]" >&2; exit 2; }
+	@APPLY=$(APPLY) scripts/readopt-worktree.sh "$(NAME)"
 
 .PHONY: ledger
 ## ledger: rebuild the judge-lane issue ledger the agent dashboard renders
