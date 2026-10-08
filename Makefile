@@ -115,6 +115,23 @@ $(BIN_DIR)/gorged: $(GO_SRC)
 gorged: $(BIN_DIR)/gorged
 	$(BIN_DIR)/gorged -decks internal/testutil/decks -tables 4 -seats 4 -pace 1.5s -format commander,constructed -vsbot
 
+# dzbroker is the experimental, tag-gated decision broker (internal/broker).
+# It batches learner decisions from many independent games into one inference
+# call with no all-games barrier, and expands one deck matchup into -multiply
+# games with distinct shuffles. The tag keeps it, its seat wrapper and its
+# dependencies out of the default build, vet and the 32-bit gate; the package
+# has an untagged stub, so importing it is always safe.
+.PHONY: dzbroker test-broker
+BROKER_DECKS ?= internal/testutil/decks
+dzbroker:
+	@mkdir -p $(BIN_DIR)
+	CGO_ENABLED=0 go build -tags broker -o $(BIN_DIR)/dzbroker ./cmd/dzbroker
+
+# test-broker runs the broker package's tests under the tag. Kept out of the
+# default `make test` for the same reason the build is.
+test-broker:
+	go test -tags broker -count=1 ./internal/broker
+
 .PHONY: traindash
 # traindash serves the read-only live training dashboard over the policynet/PPO
 # runs under TRAIN_ROOT (cmd/traindash). Port range 8082-8089, never 8080/8081.
