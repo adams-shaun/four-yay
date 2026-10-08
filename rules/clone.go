@@ -120,6 +120,9 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	if sp.tapeCkpt != nil {
 		c.tapeSpare = *sp.tapeCkpt
 	}
+	if sp.manaEntries != nil || sp.manaTouch != nil {
+		c.manaCarry = manaMemberCarry{owner: c, entries: sp.manaEntries, touch: sp.manaTouch, gen: sp.manaGen}
+	}
 	if len(e.pendingTriggers) > 0 {
 		c.pendingTriggers = clonePendingTriggers(e.pendingTriggers)
 	} else if e.pendingTriggers != nil || sp.pending != nil {

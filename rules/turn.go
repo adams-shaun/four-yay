@@ -1041,6 +1041,10 @@ func (e *Engine) resumeTriggerDrain() {
 }
 
 func (e *Engine) askPriority(p state.PlayerID) {
+	if e.skipPass != 0 && e.skippableWindow(p) {
+		e.skipPriority()
+		return
+	}
 	var window *windowCollector
 	if e.windowDiagnostics {
 		window = newWindowCollector(p)
@@ -1052,7 +1056,7 @@ func (e *Engine) askPriority(p state.PlayerID) {
 		// Byte-identical to fmt.Sprintf("turn %d, %s — %s has priority",
 		// ...) without fmt's boxing: every priority walk builds it.
 		Prompt:  e.priorityPrompt(p),
-		Options: e.legalActionsWithWindow(p, window),
+		Options: e.priorityOptions(p, window),
 	}
 	if window != nil {
 		d.WindowReasons = window.finish(d.Options)

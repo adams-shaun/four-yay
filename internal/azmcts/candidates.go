@@ -103,6 +103,9 @@ type boardScratch struct {
 func (s *boardScratch) board(players int) *botpolicy.Board {
 	if !s.built {
 		s.b, s.built = botpolicy.NewBoard(players), true
+		// The scratch boards feed only the bot's and the enumerators'
+		// answers, which never read OwnLibrary.
+		s.b.SkipOwnLibrary()
 	}
 	return &s.b
 }
@@ -366,10 +369,11 @@ func paymentVocabulary(obs *searchprobe.Collector, e *rules.Engine, d *decision.
 	payments := e.EnsurePaymentActions()
 	var pays, rest []cand
 	var pass *cand
-	covered := make(map[state.ObjID]bool, len(payments)) // membership only -- never ranged.
-	payAt := make(map[state.ObjID]int, len(payments))    // lookup only -- never ranged.
+	payAt := make(map[state.ObjID]int, len(payments)) // lookup only -- never ranged.
+	// payAt doubles as the covered set: an object is covered exactly when it
+	// has a payment candidate.
 	for _, a := range payments {
-		if len(a.Plans) == 0 || covered[a.Cast.Object] {
+		if _, dup := payAt[a.Cast.Object]; len(a.Plans) == 0 || dup {
 			continue
 		}
 		acts, err := paymentActs(obs, e, d, a)
@@ -381,7 +385,6 @@ func paymentVocabulary(obs *searchprobe.Collector, e *rules.Engine, d *decision.
 		if a.BaseOptionIndex != nil {
 			c.score = []int{*a.BaseOptionIndex}
 		}
-		covered[a.Cast.Object] = true
 		payAt[a.Cast.Object] = len(pays)
 		pays = append(pays, c)
 	}
@@ -402,8 +405,10 @@ func paymentVocabulary(obs *searchprobe.Collector, e *rules.Engine, d *decision.
 				continue
 			}
 		}
-		if o.Kind == "cast" && o.Mode == "" && o.AltCostIndex == 0 && covered[o.Obj] {
-			continue
+		if o.Kind == "cast" && o.Mode == "" && o.AltCostIndex == 0 {
+			if _, covered := payAt[o.Obj]; covered {
+				continue
+			}
 		}
 		in := decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{i}}
 		acts, err := obs.Actions(d, in)
@@ -421,6 +426,7 @@ func paymentVocabulary(obs *searchprobe.Collector, e *rules.Engine, d *decision.
 	}
 	sortByJSON(rest)
 	v := paymentVocab{payAt: payAt, hasPass: pass != nil}
+	v.all = make([]cand, 0, 1+len(pays)+len(rest))
 	if pass != nil {
 		v.all = append(v.all, *pass)
 	}

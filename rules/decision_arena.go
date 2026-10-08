@@ -268,6 +268,19 @@ func (e *Engine) arenaObject(o *state.Object) *state.Object {
 	return &cp
 }
 
+// cloneDeepArenaObject is arenaObject(&CloneDeep(o)) written straight into
+// the destination slot: one ~1 KB copy instead of three.
+func (e *Engine) cloneDeepArenaObject(o *state.Object) *state.Object {
+	var p *state.Object
+	if a := e.activeArena(); a != nil && a.res {
+		p = a.objs.one(arenaObjChunk)
+	} else {
+		p = new(state.Object)
+	}
+	o.CloneDeepInto(p)
+	return p
+}
+
 // releaseArena clears the used part of e's arena (dropping every string,
 // Grant and slice the dead objects referenced) and detaches it for a Spare.
 // Every slot handed out again is therefore zero, as a fresh allocation is.
