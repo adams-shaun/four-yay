@@ -22,3 +22,40 @@ func TestIndexForMirrorsJavaSignedLong(t *testing.T) {
 		t.Fatalf("globalSeed bit pattern changed")
 	}
 }
+
+func TestOccurrenceCardinalityIsDistinctIDs(t *testing.T) {
+	e := NewEncoder(defaultTable)
+	e.Root().AddFeature("Card")
+	e.Root().AddFeature("Card")
+	if len(e.IDs()) != 2 {
+		t.Fatalf("two repeats of one name must hash Card#1 and Card#2, got %d ids", len(e.IDs()))
+	}
+}
+
+func TestNumericThermometerEmitsBreakpointsAndLowCounters(t *testing.T) {
+	e := NewEncoder(defaultTable)
+	e.Root().AddNumericFeature("Power", 50, true)
+	// 50 >= 32 -> Power@32; then Power@0..@19 (20 ids). Total 21.
+	if len(e.IDs()) != 21 {
+		t.Fatalf("Power=50: want 21 ids, got %d", len(e.IDs()))
+	}
+	e2 := NewEncoder(defaultTable)
+	e2.Root().AddNumericFeature("Power", 0, true) // 0 < 32, then no 0..n loop -> no ids
+	if len(e2.IDs()) != 0 {
+		t.Fatalf("Power=0: want 0 ids, got %d", len(e2.IDs()))
+	}
+}
+
+func TestSubFeatureKeyedByOccurrenceAndReusedAfterRefresh(t *testing.T) {
+	e := NewEncoder(defaultTable)
+	a := e.Root().SubFeatures("X", true)
+	b := e.Root().SubFeatures("X", true)
+	if a == b {
+		t.Fatalf("second SubFeatures call in one state must create X#2, a distinct node")
+	}
+	e.Root().StateRefresh()
+	c := e.Root().SubFeatures("X", true)
+	if c != a {
+		t.Fatalf("after StateRefresh the X#1 node must be reused")
+	}
+}
