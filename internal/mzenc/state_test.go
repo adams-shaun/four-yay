@@ -158,6 +158,33 @@ func TestProcessStateHandAndGraveyard(t *testing.T) {
 	}
 }
 
+func TestProcessStateBlockedByRegistersBattlefieldName(t *testing.T) {
+	// The attacker is the seat's; its blocker sits on the OPPONENT's
+	// battlefield. processPerm reads w.names for the BlockedBy id, so the
+	// blocker's name must already be registered before the walk.
+	attacker := view.CardView{ID: 30, Name: "Hill Giant", Types: "Creature",
+		Attacking: true, BlockedBy: []state.ObjID{10}, Power: 3, Toughness: 3}
+	blocker := view.CardView{ID: 10, Name: "Grizzly Bears", Types: "Creature",
+		Power: 2, Toughness: 2}
+	v := view.View{Players: []view.PlayerView{
+		{ID: 0, Battlefield: []view.CardView{attacker}},
+		{ID: 1, Battlefield: []view.CardView{blocker}},
+	}}
+	got := ProcessState(v, nil, 0, 0, "x")
+
+	want := idsFor(func(f *Node) {
+		me := f.SubFeatures("Player", true)
+		bf := me.SubFeatures("Battlefield", true)
+		atk := bf.SubFeatures("Hill Giant", true)
+		atk.AddFeature("Grizzly Bears Blocking")
+	})
+	for id := range want {
+		if _, ok := got[id]; !ok {
+			t.Fatalf("missing Blocking id %d", id)
+		}
+	}
+}
+
 func TestCleanStringStripsUUIDTagsAndAngleBrackets(t *testing.T) {
 	cases := map[string]string{
 		"Lightning Bolt [1a2b3c]": "Lightning Bolt",

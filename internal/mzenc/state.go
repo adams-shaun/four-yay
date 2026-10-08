@@ -372,6 +372,18 @@ func ProcessState(v view.View, ch view.Chars, seat state.PlayerID, decisionType 
 	e := NewEncoder(DefaultTableSize)
 	w := &walker{e: e, seat: seat, active: v.Active, ch: ch,
 		names: map[state.ObjID]string{}, unsupported: map[string]bool{}}
+	// Pre-register every battlefield permanent's name before any player or
+	// permanent is walked: processPerm resolves a BlockedBy id through
+	// w.names, and a blocker may sit on a later player's battlefield (or be
+	// walked after its attacker within one), so the lookup must not depend on
+	// walk order. Plain deterministic loops, no map range.
+	for i := range v.Players {
+		bf := v.Players[i].Battlefield
+		for j := range bf {
+			w.names[bf[j].ID] = bf[j].Name
+		}
+	}
+
 	root := w.e.Root()
 	// globals (StateEncoder.java:634-641)
 	if name, ok := stepName[v.Step]; ok {
