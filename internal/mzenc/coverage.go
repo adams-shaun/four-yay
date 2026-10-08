@@ -125,29 +125,16 @@ var specFamilies = map[string]bool{
 // fails if a registered family is ever emitted or a walk site writes a family
 // that is not registered.
 var unsupportedFeatures = map[string]string{
-	famStackTargets:       "view.StackView.Targets is exposed but not yet walked into the stack-ability target family",
 	famStackAbilityDetail: "view.StackView carries no Kicks / CostTag / selected-modes / XValue detail",
 	famExileZoneNames:     "view.PlayerView.Exile is one flat list with no per-zone name, so upstream's per-zone exile nesting is not reproducible",
-	famPlayerCounters:     "view.PlayerView exposes no player-counter map",
 	famDayNight:           "the view carries no day/night state",
-	famCanPlayLand:        "the view carries no land-drop-availability flag",
 	famInPayManaMode:      "the view carries no in-pay-mana-mode flag",
 	famActivating:         "the view carries no activating flag",
 	famMicroDecisions:     "the view carries no ChosenTargets / ChosenChoices / UseChoices / AmountChoices sequences",
-	famAttachments:        "view.CardView exposes AttachedTo but not the attachment fan-out MageZero walks",
 	famEmblem:             "view.PlayerView carries no command-zone emblem list, so upstream's Emblem walk is not reproducible",
 	famGlobalWatchers:     "the view carries no global watcher counters (SpellsCastThisTurn, LifeGained/Lost, TokensCreated)",
-	famColors:             "view.CardView exposes ManaCost, not a colour set",
-	famSubtypes:           "view.CardView.Types carries card types, not the subtype list",
 	famDynamicTypes:       "view.CardView carries no dynamic type / colour / subtype projection",
 	famDynamicAbilities:   "view.CardView carries no dynamic permanent-ability list",
-	famCanAttack:          "the view carries no engine CanAttack predicate",
-	famCanBlock:           "the view carries no engine CanBlock predicate",
-	famPermanentFlags:     "the view exposes Tapped but not flipped / morphed / cloaked / suspected / renowned / monstrous / RingBearer / Room-door flags",
-	famImprinted:          "view.CardView carries no imprinted-card list",
-	famPaired:             "view.CardView carries no paired-creature link",
-	famTargetedBy:         "view.CardView carries no TargetedBy / StackDepth list",
-	famPermanentExile:     "view.CardView carries no per-permanent exile zone",
 	famCardAbilities:      "the view carries no static / activated / triggered ability list",
 }
 

@@ -3,6 +3,7 @@ package mzenc
 import (
 	"testing"
 
+	"github.com/adams-shaun/gorge/state"
 	"github.com/adams-shaun/gorge/view"
 )
 
@@ -35,10 +36,16 @@ func coverageView() view.View {
 					{ID: 22, Name: "Banished Creature", Types: "Creature"},
 				},
 				Battlefield: []view.CardView{
-					{ID: 10, Name: "Grizzly Bears", Types: "Creature", Power: 2, Toughness: 2,
-						SummonSick: true, Keywords: []string{"Flying"}},
+					{ID: 10, Name: "Grizzly Bears", Types: "Creature Bear", ManaCost: "1 G", Power: 2, Toughness: 2,
+						SummonSick: true, Keywords: []string{"Flying"}, Flags: view.FlagMonstrous,
+						Imprinted: []state.ObjID{22}, Paired: 12, ExiledCards: []state.ObjID{22}},
 					{ID: 11, Name: "Sol Ring", Types: "Artifact", Tapped: true},
+					{ID: 12, Name: "Wolf Ally", Types: "Creature Wolf", ManaCost: "W/U", Power: 1, Toughness: 1},
+					{ID: 13, Name: "Pacifism", Types: "Enchantment Aura", ManaCost: "1 W", AttachedTo: 10},
+					{ID: 14, Name: "Curse of Thirst", Types: "Enchantment Aura", ManaCost: "3 B",
+						AttachedToPlayer: true, AttachedPlayer: 1},
 				},
+				Counters: map[string]int32{"poison": 2, "energy": 1},
 				Commanders: []view.CardView{
 					{ID: 40, Name: "Krenko, Mob Boss", Types: "Creature"},
 				},

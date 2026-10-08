@@ -39,6 +39,6 @@ func (w *walker) processStackObject(f *Node, sv *view.StackView, depth int) {
 	if sv.Card != nil && sv.Card.SpellAPI != "" {
 		f.AddFeature(sv.Card.SpellAPI)
 	}
-	w.note(famStackTargets)
+	w.processStackTargets(f, sv)
 	w.note(famStackAbilityDetail)
 }
