@@ -24,7 +24,7 @@ func TestProcessStateGlobals(t *testing.T) {
 	// upstream processState (StateEncoder.java:634-641): a step feature, the
 	// decisionType name, and the cleaned decisionsText, all at the root.
 	want := idsFor(func(f *Node) {
-		f.AddFeature("MAIN1") // see Step: the ActionType/step name mapping below
+		f.AddFeature("PRECOMBAT_MAIN") // see Step: the ActionType/step name mapping below
 		f.AddFeature("PRIORITY")
 		f.AddFeature("priority")
 	})
@@ -45,6 +45,41 @@ func TestCleanStringStripsUUIDTagsAndAngleBrackets(t *testing.T) {
 	for in, want := range cases {
 		if got := cleanString(in); got != want {
 			t.Errorf("cleanString(%q)=%q want %q", in, got, want)
+		}
+	}
+}
+
+// TestStepNameTable pins every mapped step to its expected upstream
+// TurnStepType name, one row per state.Step, so the spelling that drives a
+// hashed feature id is locked and cannot shift if state.Step.String() changes.
+// The exact spellings are an assumption validated against XMage's enum
+// (deferred to a live oracle, mzenc design §9).
+func TestStepNameTable(t *testing.T) {
+	cases := []struct {
+		step state.Step
+		name string
+	}{
+		{state.StepUntap, "UNTAP"},
+		{state.StepUpkeep, "UPKEEP"},
+		{state.StepDraw, "DRAW"},
+		{state.StepMain1, "PRECOMBAT_MAIN"},
+		{state.StepBeginCombat, "BEGIN_COMBAT"},
+		{state.StepDeclareAttackers, "DECLARE_ATTACKERS"},
+		{state.StepDeclareBlockers, "DECLARE_BLOCKERS"},
+		{state.StepCombatDamage, "COMBAT_DAMAGE"},
+		{state.StepEndCombat, "END_COMBAT"},
+		{state.StepMain2, "POSTCOMBAT_MAIN"},
+		{state.StepEnd, "END_TURN"},
+		{state.StepCleanup, "CLEANUP"},
+	}
+	for _, c := range cases {
+		got, ok := stepName[c.step.String()]
+		if !ok {
+			t.Errorf("stepName missing key %q", c.step.String())
+			continue
+		}
+		if got != c.name {
+			t.Errorf("stepName[%q]=%q want %q", c.step.String(), got, c.name)
 		}
 	}
 }

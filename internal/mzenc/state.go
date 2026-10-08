@@ -23,14 +23,14 @@ var stepName = map[string]string{
 	"untap":             "UNTAP",
 	"upkeep":            "UPKEEP",
 	"draw":              "DRAW",
-	"main1":             "MAIN1",
+	"main1":             "PRECOMBAT_MAIN",
 	"begin-combat":      "BEGIN_COMBAT",
 	"declare-attackers": "DECLARE_ATTACKERS",
 	"declare-blockers":  "DECLARE_BLOCKERS",
 	"combat-damage":     "COMBAT_DAMAGE",
 	"end-combat":        "END_COMBAT",
-	"main2":             "PRECOMBAT_MAIN", // upstream's second-main name (per the plan)
-	"end":               "END",
+	"main2":             "POSTCOMBAT_MAIN",
+	"end":               "END_TURN",
 	"cleanup":           "CLEANUP",
 }
 
