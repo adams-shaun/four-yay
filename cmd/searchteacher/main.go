@@ -256,18 +256,22 @@ func run(args []string, stdout, progress io.Writer) error {
 		held := map[string]bool{}
 		for _, h := range strings.Split(*holdoutFlag, ",") {
 			if h != "" {
-				held[h] = true
+				held[strings.ToLower(h)] = true
 			}
 		}
+		all := map[string]bool{}
 		for _, dir := range strings.Split(*catalogFlag, ",") {
 			ids, err := spellbench.CatalogIDs("decks/" + dir)
 			if err != nil {
 				return err
 			}
+			for _, id := range ids {
+				all[strings.ToLower(dir+"/"+id)] = true
+			}
 			for i := range ids {
 				for j := i + 1; j < len(ids); j++ {
 					a, b := dir+"/"+ids[i], dir+"/"+ids[j]
-					h := held[a] || held[b]
+					h := held[strings.ToLower(a)] || held[strings.ToLower(b)]
 					if (*holdoutMode == "only") != h {
 						continue
 					}
@@ -278,6 +282,14 @@ func run(args []string, stdout, progress io.Writer) error {
 		if len(pairs) == 0 {
 			return fmt.Errorf("-catalog %q -holdout-mode %s: no pairings", *catalogFlag, *holdoutMode)
 		}
+		// Every held-out deck must name a real catalog deck: a typo or a
+		// case mismatch would otherwise leak it into the training pairings.
+		for h := range held {
+			if !all[h] {
+				return fmt.Errorf("-holdout %q is not a deck in -catalog %q", h, *catalogFlag)
+			}
+		}
+		fmt.Fprintf(os.Stderr, "catalog pairings: %d (holdout-mode %s, %d held-out decks)\n", len(pairs), *holdoutMode, len(held))
 	} else {
 		for i := range approvedDecks {
 			for j := i + 1; j < len(approvedDecks); j++ {
