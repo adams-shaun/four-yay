@@ -7,7 +7,15 @@
 #                                             # deregister the worktree, LEAVE its
 #                                             # directory on disk for the host to
 #                                             # reclaim (make clean-worktrees)
+#   scripts/park-branch.sh --force <branch>...  # override the lock/live-seat guard
 #
+# A worktree that is LIVE is never deregistered, on any path: either it is
+# `git worktree lock`ed (the documented "do not touch" marker), or its ticket
+# in .ds4/issues/<id>.md is still open (any status other than merged/superseded
+# or no ticket at all). A seat between shell commands is clean and holds no
+# cwd, so the old dirty/busy checks could not see it; this guard can. --force
+# is the explicit human override.
+
 # --registry-only is the seat-safe path: a seat's jail mounts every sibling
 # worktree read-only, so `git worktree remove` fails its final rm -rf on a
 # read-only file system and aborts the script -- even though the registry
@@ -39,9 +47,18 @@ MIN_IDLE_H=${MIN_IDLE_H:-12}
 say() { if [ "$APPLY" = 1 ]; then echo "parked: $*"; else echo "would park: $*"; fi; }
 
 REGISTRY_ONLY=0
+FORCE=0
 
 root=$(git rev-parse --path-format=absolute --git-common-dir)
 root=${root%/.git}
+
+# ticket_status <id> prints the status: line of the ticket's front matter, or
+# nothing when there is no ticket. park() reads it to refuse a live seat.
+ticket_status() {
+	local f="$root/.ds4/issues/$1.md"
+	[ -f "$f" ] || return 0
+	/usr/bin/awk '/^---$/ { n++; next } n == 1 && /^status:/ { print $2; exit }' "$f"
+}
 
 # branch_path <branch> prints the worktree path for a checked-out branch, or
 # nothing. Read from git, never guessed, so a stale .worktrees/name directory
@@ -83,6 +100,35 @@ park() {
 		echo "keep (process inside): $wt" >&2
 		return 1
 	fi
+	# The metadata dir: computed before any deregistration because it is both
+	# the lock marker's home and what --registry-only removes.
+	md=$(sed -n 's/^gitdir: //p' "$wt/.git")
+	# Live-seat guard. A running seat is often clean and holds no cwd between
+	# tool calls, so the dirty/busy checks above cannot see it; these two can.
+	if [ "$FORCE" != 1 ]; then
+		if [ -n "$md" ] && [ -e "$md/locked" ]; then
+			echo "keep (locked, unlock or --force): $wt" >&2
+			return 1
+		fi
+		case "$branch" in
+		wt/*)
+			# Same rule park-idle-scheduled.sh enforces: only a merged or
+			# superseded ticket (or no ticket at all) may be parked. Anything
+			# else -- new/briefed/dispatched/waiting/landing/human_needed --
+			# means the pipeline still owns this worktree.
+			local id st
+			id=${branch#wt/}
+			st=$(ticket_status "$id")
+			case "$st" in
+			"" | merged | superseded) ;;
+			*)
+				echo "keep (ticket $id is $st): $branch"
+				return 1
+				;;
+			esac
+			;;
+		esac
+	fi
 	if [ "$REGISTRY_ONLY" = 1 ]; then
 		# A landed branch is cleanup.sh's business, never parking's.
 		if git -C "$root" merge-base --is-ancestor "refs/heads/$branch" main; then
@@ -92,7 +138,6 @@ park() {
 		# Deregistering deletes the metadata dir, which is where an
 		# in-progress rebase/merge keeps its state (rebase-merge/,
 		# rebase-apply/, MERGE_HEAD). Refuse rather than destroy it.
-		md=$(sed -n 's/^gitdir: //p' "$wt/.git")
 		if [ -z "$md" ]; then
 			echo "keep (no worktree metadata dir): $wt" >&2
 			return 1
@@ -127,6 +172,8 @@ args=()
 for a in "$@"; do
 	if [ "$a" = "--registry-only" ]; then
 		REGISTRY_ONLY=1
+	elif [ "$a" = "--force" ]; then
+		FORCE=1
 	else
 		args+=("$a")
 	fi
