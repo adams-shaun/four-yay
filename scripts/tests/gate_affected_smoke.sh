@@ -120,5 +120,58 @@ check "helper preserves input order" $? "got=$got"
 grep -Eq '^  pkgs=\$\(printf .+ \| gate_affected_default_build_pkgs\)$' "$GATE"
 check "candidate derivation pipes pkgs through the default-build filter" $?
 
+# --- the shard partition: complete, disjoint, and covering the digit-prefixed
+# names a naive [A-Z] split drops. rules_shard_patterns_from_list is the pure
+# half of the gate's shard helper, so it can be fed a synthetic list here.
+patterns() ( bash -c "source '$GATE'; rules_shard_patterns_from_list" )
+
+# A list whose first characters are all letters EXCEPT one digit-prefixed name
+# (Test3141... exists in the real corpus). A partition keyed to [A-Z] silently
+# drops it; this asserts the class is covered.
+SYN=$(printf 'TestAlpha\nTestBravo\nTestAlphaTwo\nTest3141Discard\nTestZulu\nTestZuluTwo\nTestZuluThree\n')
+out=$(printf '%s\n' "$SYN" | patterns)
+nlines=$(printf '%s\n' "$out" | /usr/bin/grep -c '^\^Test\[')
+[ "$nlines" = 2 ]
+check "shard helper emits exactly two patterns" $? "nlines=$nlines out=$out"
+uncovered=$(python3 - "$out" "$SYN" <<'PY'
+import re, sys
+pats = [l for l in sys.argv[1].split('\n') if l.startswith('^Test[')]
+names = [l for l in sys.argv[2].split('\n') if l]
+hits = [sum(1 for p in pats if re.match(p, n)) for n in names]
+print(' '.join(n for n, h in zip(names, hits) if h == 0))
+print(' '.join(n for n, h in zip(names, hits) if h > 1))
+PY
+)
+[ "$(printf '%s\n' "$uncovered" | /usr/bin/grep -c .)" = 0 ]
+check "shard partition is complete and disjoint (incl. a digit-prefixed name)" $? "uncovered=[$uncovered]"
+
+# The real ./rules list: every listed test must land in exactly one pattern.
+REALLIST=$(go test -list '.*' ./rules/ 2>/dev/null | /usr/bin/grep '^Test' || true)
+if [ -n "$REALLIST" ]; then
+	printf '%s\n' "$REALLIST" | patterns >"$TMP/patterns.txt"
+	printf '%s\n' "$REALLIST" >"$TMP/names.txt"
+	bad=$(python3 - "$TMP/patterns.txt" "$TMP/names.txt" <<'PY'
+import re, sys
+pats = [l for l in open(sys.argv[1]).read().split('\n') if l.startswith('^Test[')]
+names = [l for l in open(sys.argv[2]).read().split('\n') if l]
+miss = [n for n in names if sum(1 for p in pats if re.match(p, n)) != 1]
+print(len(miss))
+PY
+)
+	[ "$bad" = 0 ]
+	check "every real ./rules test lands in exactly one shard pattern" $? "bad=$bad"
+else
+	printf 'skip real-list shard check (no ./rules tests listed)\n'
+fi
+
+# The fallback: a list the helper cannot partition returns nonzero, so the
+# gate runs the unsplit command instead of dropping tests.
+printf '' | patterns >/dev/null 2>&1
+[ "$?" != 0 ]
+check "empty list makes the shard helper fail (caller falls back)" $?
+printf 'Test\n' | patterns >/dev/null 2>&1
+[ "$?" != 0 ]
+check "a name shorter than five characters makes the shard helper fail" $?
+
 printf '\ngate_affected_smoke: %s\n' "$([ $fails = 0 ] && echo ALL GREEN || echo FAILURES ABOVE)"
 exit "$fails"
