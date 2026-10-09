@@ -58,6 +58,7 @@ func TestCostStaticOtherSpellProfiles(t *testing.T) {
 		{"Eluge, the Shoreless Sea", "static#0.1", "cast", "Damnation", "CBB", "CCBB", 1},
 		{"Agatha of the Vile Cauldron", "static#0.0", "activate", "Ancient Kavu", "C", "CC", 1},
 		{"Doc Aurlock, Grizzled Genius", "static#0.1", "cast", "Brimstone Roundup", "R", "CCR", 2},
+		{"Mutagen Man, Living Ooze", "static#0.0", "activate", "token:Food", "C", "CC", 1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			it, skip := GenerateB(reg, tc.name, costRequirement(t, reg, tc.name, tc.key))
@@ -71,13 +72,49 @@ func TestCostStaticOtherSpellProfiles(t *testing.T) {
 			if got := len(tc.printed) - len(tc.mana); got != tc.reduction {
 				t.Fatalf("precondition: table prices differ by %d, want the static's reduction %d", got, tc.reduction)
 			}
-			c, ok := reg.Lookup(tc.probe)
-			if !ok {
-				t.Fatalf("precondition: probe %s absent", tc.probe)
-			}
-			printedCost := c.Faces[0].ManaCost
-			if tc.op == "activate" {
-				printedCost = c.Faces[0].Abilities[*probe.AbilityIndex].ParamStr(cards.PKCost)
+			var c *cards.Card
+			printedCost := ""
+			if kind, isToken := strings.CutPrefix(tc.probe, "token:"); isToken {
+				// A token probe is not a registry card: read the token face
+				// from the corpus token script the per-kind key map names,
+				// and assert it holds exactly the one activated ability the
+				// probe activates.
+				key, ok := tokenAbilityTokenKeys[kind]
+				if !ok {
+					t.Fatalf("precondition: no token script for %s", kind)
+				}
+				tok, ok := reg.Tokens[key]
+				if !ok || len(tok.Faces) == 0 || tok.Faces[0] == nil {
+					t.Fatalf("precondition: token script %s absent", key)
+				}
+				face := tok.Faces[0]
+				activated := 0
+				for _, sa := range face.Abilities {
+					if sa.IsActivated() {
+						activated++
+					}
+				}
+				if activated != 1 {
+					t.Fatalf("precondition: token face %s holds %d activated abilities, want 1", key, activated)
+				}
+				// The ability's printed cost carries a tap and a sacrifice
+				// component PoolFor rejects; the mana part is what the
+				// reduction applies to, and the table's printed pool pins it.
+				part, ok := tokenAbilityManaPart(face.Abilities[*probe.AbilityIndex].ParamStr(cards.PKCost))
+				if !ok {
+					t.Fatalf("precondition: token ability cost %q has no mana part", face.Abilities[*probe.AbilityIndex].ParamStr(cards.PKCost))
+				}
+				printedCost = part
+			} else {
+				var ok bool
+				c, ok = reg.Lookup(tc.probe)
+				if !ok {
+					t.Fatalf("precondition: probe %s absent", tc.probe)
+				}
+				printedCost = c.Faces[0].ManaCost
+				if tc.op == "activate" {
+					printedCost = c.Faces[0].Abilities[*probe.AbilityIndex].ParamStr(cards.PKCost)
+				}
 			}
 			if probe.CastMode == "plot" {
 				// A plot action is priced at the card's Plot cost, not its
@@ -110,6 +147,37 @@ func TestCostStaticOtherSpellProfiles(t *testing.T) {
 			}
 			if tc.op == "activate" && probeIndex(it) < 0 {
 				t.Fatalf("activate probe carries no XMage ability text: %v", it.XAbility)
+			}
+			if kind, isToken := strings.CutPrefix(tc.probe, "token:"); isToken {
+				// The token probe's activate step carries the token face's
+				// derived XMage rule text and the sacrifice picker answer
+				// XMage asks even though gorge's self-sacrifice poses no ask.
+				idx := probeIndex(it)
+				if got, want := it.XAbility[idx], "{2}, {T}, Sacrifice {this}"; got != want {
+					t.Fatalf("token activate xmage_ability = %q, want %q", got, want)
+				}
+				found := false
+				for _, a := range it.XAnswers[idx] {
+					if a.Seat == 0 && a.Kind == "choice" && a.Value == kind+" Token" {
+						found = true
+					}
+				}
+				if !found {
+					t.Fatalf("token activate step scripts no %q choice: %+v", kind+" Token", it.XAnswers[idx])
+				}
+				// Precondition: the maker card the prelude casts is in p0's
+				// hand; without it the token the probe activates cannot exist.
+				maker, ok := activationTokenMakers[kind]
+				if !ok {
+					t.Fatalf("precondition: no maker for token kind %s", kind)
+				}
+				inHand := false
+				for _, h := range it.Scenario.Setup["p0"].Hand {
+					inHand = inHand || h == maker.card
+				}
+				if !inHand {
+					t.Fatalf("precondition: token maker %s is not in p0's hand: %v", maker.card, it.Scenario.Setup["p0"].Hand)
+				}
 			}
 			if res := runSteps(t, reg, it.Scenario, it.Steps); len(res.Fails) != 0 {
 				t.Fatalf("reduced-price probe fails with the static present: %v", res.Fails)

@@ -24,8 +24,10 @@ import (
 // Each row's probe must play through gorge at the exact reduced price, and
 // the same cast must fail once the card's own statics are removed, so a probe
 // that pays the printed cost (or an engine that ignores the reduction) cannot
-// pass. The one remaining Static.* shape stays a named skip, pinned with its
-// reason: a token's ability has no XMage-proven rule text to activate it by.
+// pass. Mutagen Man's token-ability static, once a named skip here, is served
+// by the token-ability probe (cost_other_spell_token.go) and pinned by
+// TestCostStaticOtherSpellProfiles; TestCostStaticOtherSpellAppendixPartition
+// pins the whole 45-row disposition.
 func TestCostStaticSpecialActionProbes(t *testing.T) {
 	reg := loadGenRegistry(t)
 	for _, tc := range []struct {
@@ -125,25 +127,10 @@ func TestCostStaticSpecialActionProbes(t *testing.T) {
 	}
 }
 
-// TestCostStaticSpecialActionSkips pins the one named skip the special-action
-// work leaves behind, with the exact reason: a bare "not supported" would
-// hide which prerequisite is missing.
-func TestCostStaticSpecialActionSkips(t *testing.T) {
-	reg := loadGenRegistry(t)
-	for _, tc := range []struct{ name, key, reason string }{
-		{"Mutagen Man, Living Ooze", "static#0.0", "token ability fixture unavailable (no XMage-proven token ability text)"},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			_, skip := GenerateB(reg, tc.name, costRequirement(t, reg, tc.name, tc.key))
-			if skip == nil {
-				t.Fatalf("produced a scenario, want the named skip")
-			}
-			if want := "cost static probe not supported: " + tc.reason; skip.Reason != want {
-				t.Fatalf("skip = %q, want %q", skip.Reason, want)
-			}
-		})
-	}
-}
+// TestCostStaticSpecialActionSkips was deleted with the token-ability probe
+// (cost_other_spell_token.go): its only row, Mutagen Man's static#0.0, now
+// produces a scenario, pinned by TestCostStaticOtherSpellProfiles and
+// TestCostStaticOtherSpellAppendixPartition.
 
 // specialReachesOpponentTurn reports whether a pass_to step that stops on
 // p1's first main phase precedes the step at index i.
