@@ -30,7 +30,19 @@ func costTargetProbe(reg *cards.Registry, f *cards.Face, st cards.Static, p cost
 		return p, ""
 	}
 	if strings.Contains(lower, "blocking") {
-		return p, "combat target fixture unavailable (" + filter + ")"
+		// CR 509.1: p0 attacks, p1 blocks with its own creature, and the
+		// probe targets the blocker in the declare-blockers priority window,
+		// where "blocking" holds (CR 509.1b) until end of combat.
+		attacker, blocker := attackerFixture, "Llanowar Elves"
+		p.battlefield = appendUnique(p.battlefield, attacker)
+		p.opponentBattlefield = appendUnique(p.opponentBattlefield, blocker)
+		p.pre = append(p.pre,
+			oraclegen.Step{Op: "pass_to", Step: "declare-attackers", Active: "p0"},
+			oraclegen.Step{Op: "attack", Seat: 0, Defender: "p1", Attackers: []string{"p0:" + attacker}},
+			oraclegen.Step{Op: "block", Seat: 1, Blocks: [][2]string{{"p1:" + blocker, "p0:" + attacker}}},
+		)
+		p.targets = []string{"p1:" + blocker}
+		return p, ""
 	}
 	if strings.HasPrefix(lower, "spell.") {
 		// A target that names a spell on the stack ("this spell costs less

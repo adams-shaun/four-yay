@@ -114,9 +114,9 @@ var wantCensus = map[string]map[string]int{
 		"trigger.etb-other":                   24,
 		"trigger.state-self-counters":         1, // Mazemind Tome: the self page-counter state trigger, formerly trigger.gap:Always
 		"trigger.damage":                      4,
+		"trigger.drawn-other":                 1, // Scrawling Crawler (opponent draws): cli-20261009T031408Z-a01003ef
+		"trigger.life-lost":                   1, // Bloodthirsty Conqueror: cli-20261009T031408Z-a01003ef
 		"trigger.gap:Discarded":               1,
-		"trigger.gap:Drawn":                   1,
-		"trigger.gap:LifeLost":                1,
 		"trigger.sacrificed":                  1,
 		"trigger.spell-cast-opponent":         4,
 		"trigger.spell-cast-opponent-turn":    1, // FDN Dreams: OpponentTurn$ True now routes here (trigger_cast.go, cli-20261009T031408Z-09f47be1).

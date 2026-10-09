@@ -1,0 +1,4 @@
+{"shape":{"template":"trigger","op":"harness","field":"xmage","diff":"IllegalArgumentException: unsupported pass pair at step N"},"key":"trigger | harness | xmage | IllegalArgumentException: unsupported pass pair at step N","cards":3}
+{"card":"Authority of the Consuls","template":"trigger#0.0","status":"harness","api":"ChangesZone:GainLife","sets":["FDN"],"detail":"xmage: IllegalArgumentException: unsupported pass pair at step 2"}
+{"card":"Gideon the Oathless","template":"trigger#0.0","status":"harness","api":"ChangesZone:DealDamage+AbilityCast:DealDamage+BecomesTarget:Ward","sets":["FRA"],"detail":"xmage: IllegalArgumentException: unsupported pass pair at step 2"}
+{"card":"Kambal, Profiteering Mayor","template":"trigger#0.0","status":"harness","api":"ChangesZoneAll:CopyPermanent+ChangesZoneAll:LoseLife","sets":["OTJ"],"detail":"xmage: IllegalArgumentException: unsupported pass pair at step 2"}

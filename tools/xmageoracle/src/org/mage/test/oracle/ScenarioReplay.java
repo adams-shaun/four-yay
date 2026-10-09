@@ -454,17 +454,79 @@ public class ScenarioReplay extends CardTestPlayerBase {
          */
         @Override
         public boolean chooseTarget(Outcome outcome, mage.target.Target target, Ability source, Game game) {
+            // XMage poses every optional target ask even when no candidate is
+            // legal (Targets.canChooseFromPossibleTargets returns true for a
+            // min-0 object whatever its candidate set), while gorge's engine
+            // never poses an ask without a legal option -- so such an ask is
+            // unscriptable by construction and its only legal answer is none.
+            // Decline it without consulting the queue: a later ask's scripted
+            // answer (Does Machines' combat trigger, queued behind an earlier
+            // level-gain trigger's empty graveyard ask) must stay untouched
+            // for its own ask. A queued skip still belongs to THIS ask and is
+            // honoured by the ordinary path below.
+            if (unscriptableEmptyAsk(target.getMinNumberOfTargets(),
+                    target.possibleTargets(target.getAffectedAbilityControllerId(this.getId()), source, game).size(),
+                    !getTargets().isEmpty() && TestPlayer.TARGET_SKIP.equals(getTargets().get(0)))) {
+                return target.getSize() > 0 && target.isChosen(game);
+            }
             // TestPlayer.chooseTarget runs its zone matcher over every queued
             // answer and rejects a "[target_skip]" that is not at the queue
             // front (checkTargetDefinitionMarksSupport), so a skip queued for
             // a LATER target object (Rise from the Wreck's empty Mount slot)
             // is hidden from this ask and restored, in order, afterwards.
             List<String> later = hideAfterNextSkip(getTargets());
+            // TestPlayer's player branch scans the WHOLE queue for a
+            // "targetPlayer=" answer whenever the ask is a TargetPlayer OR a
+            // TargetPermanentOrPlayer, before its permanent branch runs, so
+            // the any-target ask of a chain whose LATER object targets a
+            // player would consume the later object's answer (Survey Mechan:
+            // "deals 3 damage to any target" then "target player draws
+            // three"). Withhold the later objects' player answers from this
+            // ask and restore them, in order, afterwards.
+            List<String> laterPlayers = hideLaterPlayerTargets(target, getTargets());
             try {
                 return chooseTargetInSegment(outcome, target, source, game);
             } finally {
+                getTargets().addAll(laterPlayers);
                 getTargets().addAll(later);
             }
+        }
+
+        /** Whether a target ask is unscriptable and must be declined without
+         * consulting the queue: optional (min 0) with no legal candidate, and
+         * no skip of its own at the queue front. Mirrors TestPlayer's own
+         * empty-skip return, so an ability whose other objects are chosen
+         * still proceeds. */
+        static boolean unscriptableEmptyAsk(int minTargets, int possibleCount, boolean queueFrontIsSkip) {
+            return minTargets == 0 && possibleCount == 0 && !queueFrontIsSkip;
+        }
+
+        /** Detaches and returns the queue's "targetPlayer=" entries that
+         * belong to a later target object of the same activation or cast, so
+         * a TargetPermanentOrPlayer ask sees only its own slot. A player
+         * entry at the queue front is this ask's own answer and stays; only
+         * entries after the first non-player answer are withheld. */
+        static List<String> hideLaterPlayerTargets(mage.target.Target target, List<String> queue) {
+            if (!(target.getOriginalTarget() instanceof mage.target.common.TargetPermanentOrPlayer)) {
+                return new ArrayList<>();
+            }
+            int first = -1;
+            for (int i = 0; i < queue.size(); i++) {
+                if (!queue.get(i).startsWith("targetPlayer=")) {
+                    first = i;
+                    break;
+                }
+            }
+            if (first < 0) {
+                return new ArrayList<>();
+            }
+            List<String> hidden = new ArrayList<>();
+            for (int i = queue.size() - 1; i > first; i--) {
+                if (queue.get(i).startsWith("targetPlayer=")) {
+                    hidden.add(0, queue.remove(i));
+                }
+            }
+            return hidden;
         }
 
         /** XMage represents attach prompts either with a "to attach" hint or,
@@ -1041,6 +1103,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
 
     private void build(JsonObject sc) {
         buildCounts.clear();
+        frontCounts.clear();
         setupBattlefield.clear();
         setupNames.clear();
         backFaceNames.clear();
@@ -1252,24 +1315,20 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 int scenarioOccurrence = scenarioCounts.merge(scenarioCardName, 1, Integer::sum);
                 String scenarioRef = "p" + i + ":" + scenarioCardName
                         + (scenarioOccurrence > 1 ? "#" + scenarioOccurrence : "");
-                refAlias.put(scenarioRef, "@" + scenarioRef);
-                refAlias.putIfAbsent(xmageRef, "@" + scenarioRef);
-                // Both players must know every alias: the choosing player
-                // resolves the target string, and it may be either seat.
-                for (int j = 0; j < 2; j++) {
-                    try {
-                        seat(j).addAlias(scenarioRef, o.getId());
-                    } catch (IllegalArgumentException ignored) {
-                        // already bound on this player
-                    }
-                    if (!xmageRef.equals(scenarioRef)) {
-                        try {
-                            seat(j).addAlias(xmageRef, o.getId());
-                        } catch (IllegalArgumentException ignored) {
-                            // already bound on this player
-                        }
-                    }
-                }
+                // A split/Room object also gets its front-half ref bound (see
+                // frontHalfScenarioRef); the occurrence counts follow the same
+                // rule the whole name uses.
+                int frontOccurrence = registerFrontOccurrence(frontCounts, i, xmageCardName);
+                registerObjectAliases(i, xmageCardName, xmageRef, scenarioRef,
+                        frontOccurrence, o.getId(), refAlias, (ref, objId) -> {
+                            for (int j = 0; j < 2; j++) {
+                                try {
+                                    seat(j).addAlias(ref, objId);
+                                } catch (IllegalArgumentException ignored) {
+                                    // already bound on this player
+                                }
+                            }
+                        });
             }
         }
     }
@@ -1740,6 +1799,10 @@ public class ScenarioReplay extends CardTestPlayerBase {
     // ("p0:Grizzly Bears", "p0:Grizzly Bears#2") in the same order XMage
     // adds the cards, so registerAliases can bind each to its object.
     private final java.util.Map<String, Integer> buildCounts = new java.util.HashMap<>();
+    // Shared occurrence counter for split/Room front-half refs; register
+    // FrontOccurrence keys it "seat|frontHalf" so each seat counts from 1,
+    // the same rule buildCounts applies per seat to the whole name.
+    private final java.util.Map<String, Integer> frontCounts = new java.util.HashMap<>();
     // Seeded setup permanents keyed "controllerId|xmageName" -> count (build()).
     private final java.util.Map<String, Integer> setupBattlefield = new java.util.HashMap<>();
     private final Map<UUID, String> setupNames = new HashMap<>();
@@ -1770,6 +1833,68 @@ public class ScenarioReplay extends CardTestPlayerBase {
     static String backHalf(String n) {
         int i = n.indexOf(" // ");
         return i < 0 ? n : n.substring(i + 4);
+    }
+
+    /** The scenario ref spelling a split/Room object by its front half
+     * ("p0:Bottomless Pool"), or null when the XMage name is not a split
+     * name. occurrence is the 1-based count of the front-half name among the
+     * seat's objects, the same counting rule the whole-name refs use. Gorge
+     * spells every card object by its front face (gorgeSpellingRule), so a
+     * scenario that targets or sacrifices a Room fixture queues the ref
+     * spelled by its front half, and the whole-name alias alone would leave
+     * that queued ref unbound (XMage's "Targets list was setup by addTarget
+     * ..., but not used" / "Found wrong choice command"). */
+    static String frontHalfScenarioRef(int seat, String xmageCardName, int occurrence) {
+        if (!xmageCardName.contains(" // ")) {
+            return null;
+        }
+        return "p" + seat + ":" + frontHalf(xmageCardName) + (occurrence > 1 ? "#" + occurrence : "");
+    }
+
+    /** One alias binding shared by both seats, duplicates swallowed: the
+     * choosing player resolves the target string, and it may be either seat. */
+    interface AliasBinder {
+        void bind(String ref, UUID id);
+    }
+
+    /** Counts one split/Room object's front-half occurrence into the shared
+     * setup counter, keyed by seat (0 when the name is not a split name).
+     * The seat is part of the KEY, not the caller's loop state: p0's and
+     * p1's first copy of the same split/Room card each spell
+     * "p<N>:<Front>" with no #k suffix, the same rule the whole name
+     * follows, and a caller cannot reintroduce a seat-agnostic count by
+     * sharing its counter. Extracted so the driver contract test can
+     * exercise the per-seat counting rule without a game. */
+    static int registerFrontOccurrence(java.util.Map<String, Integer> frontCounts, int seat, String xmageCardName) {
+        if (!xmageCardName.contains(" // ")) {
+            return 0;
+        }
+        return frontCounts.merge(seat + "|" + frontHalf(xmageCardName), 1, Integer::sum);
+    }
+
+    /** Binds one object's scenario-ref aliases during registerAliases: the
+     * whole-name scenario ref (as before), its XMage-spelled ref, and --
+     * new -- the front-half ref of a split/Room card
+     * (frontHalfScenarioRef). frontOccurrence is the front-half occurrence
+     * count, 0 when the object is not a split name. Extracted so the driver
+     * contract test can exercise the front-half binding without a game
+     * (registerAliases walks live zones, which need the card database). */
+    static void registerObjectAliases(int seat, String xmageCardName, String xmageRef,
+            String scenarioRef, int frontOccurrence, UUID id, java.util.Map<String, String> refAlias,
+            AliasBinder bind) {
+        refAlias.put(scenarioRef, "@" + scenarioRef);
+        refAlias.putIfAbsent(xmageRef, "@" + scenarioRef);
+        bind.bind(scenarioRef, id);
+        if (!xmageRef.equals(scenarioRef)) {
+            bind.bind(xmageRef, id);
+        }
+        if (frontOccurrence > 0) {
+            String frontRef = frontHalfScenarioRef(seat, xmageCardName, frontOccurrence);
+            if (frontRef != null && !frontRef.equals(scenarioRef) && !refAlias.containsKey(frontRef)) {
+                refAlias.put(frontRef, "@" + frontRef);
+                bind.bind(frontRef, id);
+            }
+        }
     }
 
     /** The spelling XMage's cast command matches: the name of the card's
@@ -1922,31 +2047,82 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 c.getSpellAbility().getAllSelectedTargets(), targetCount);
     }
 
-    /** Check correspondence against XMage itself before closing an object. */
+    /** Check correspondence against XMage itself before closing an object.
+     * Every target object takes a contiguous run of the queued targets. An
+     * object that received fewer than its maximum stays open and must be
+     * closed by a skip at its end; an object that received its maximum is
+     * already closed, so it may not carry a skip; and an object with no skip
+     * of its own must be filled to its maximum (a partly filled object with
+     * no skip would have kept asking). */
     static List<Integer> validateTargetSkips(JsonArray plan, List<mage.target.Target> targets, int targetCount) {
-        if (targetCount < 0 || targets.size() != targetCount + plan.size()) {
-            throw new IllegalArgumentException("explicit target plan does not account for every object");
+        if (targetCount < 0) {
+            throw new IllegalArgumentException("explicit target plan has a negative target count");
         }
-        for (mage.target.Target t : targets) {
-            if (t.getMinNumberOfTargets() != 0 || t.getMaxNumberOfTargets() != 1 || t instanceof mage.target.TargetAmount) {
-                throw new IllegalArgumentException("explicit target plan requires independent optional 0..1 objects");
-            }
-        }
-        List<Integer> out = new ArrayList<>();
-        int prev = 0;
+        List<Integer> ats = new ArrayList<>();
+        List<Integer> slots = new ArrayList<>();
+        int prevAt = 0;
+        int prevSlot = -1;
         for (JsonElement e : plan) {
             if (!e.isJsonObject()) {
                 throw new IllegalArgumentException("invalid target skip: " + e);
             }
             int at = targetSkipIndex(e.getAsJsonObject(), "at");
             int slot = targetSkipIndex(e.getAsJsonObject(), "slot");
-            if (at < prev || at > targetCount || slot != at + out.size()) {
+            if (at < prevAt || at > targetCount) {
                 throw new IllegalArgumentException("target skip is out of order or beyond its objects: " + e);
             }
-            prev = at;
-            out.add(at);
+            if (slot <= prevSlot || slot >= targets.size()) {
+                throw new IllegalArgumentException("target skip names an out-of-order or unknown object: " + e);
+            }
+            if (targets.get(slot) instanceof mage.target.TargetAmount) {
+                throw new IllegalArgumentException("explicit target plan requires independent objects");
+            }
+            ats.add(at);
+            slots.add(slot);
+            prevAt = at;
+            prevSlot = slot;
+        }
+        List<Integer> out = new ArrayList<>();
+        int at = 0;
+        int closed = -1;
+        for (int j = 0; j < ats.size(); j++) {
+            int end = ats.get(j);
+            int slot = slots.get(j);
+            int picks = end - at;
+            for (int i = closed + 1; i < slot; i++) {
+                picks -= maximumOf(targets.get(i), i);
+            }
+            if (picks < 0) {
+                throw new IllegalArgumentException("target skip at " + end + " leaves an earlier object unfilled");
+            }
+            mage.target.Target t = targets.get(slot);
+            if (picks < t.getMinNumberOfTargets() || picks >= t.getMaxNumberOfTargets()) {
+                throw new IllegalArgumentException("object " + slot + " takes " + picks
+                        + " picks, but a closing skip requires fewer than " + t.getMaxNumberOfTargets()
+                        + " and at least " + t.getMinNumberOfTargets());
+            }
+            out.add(end);
+            at = end;
+            closed = slot;
+        }
+        int rest = targetCount - at;
+        for (int i = closed + 1; i < targets.size(); i++) {
+            rest -= maximumOf(targets.get(i), i);
+        }
+        if (rest != 0) {
+            throw new IllegalArgumentException("the plan accounts for " + (targetCount - rest)
+                    + " of " + targetCount + " targets");
         }
         return out;
+    }
+
+    /** An object's maximum target count, or a loud failure when it has none
+     * to fill (a shape the explicit plan does not cover). */
+    private static int maximumOf(mage.target.Target t, int index) {
+        if (t.getMaxNumberOfTargets() < 1) {
+            throw new IllegalArgumentException("target object " + index + " has no maximum to fill");
+        }
+        return t.getMaxNumberOfTargets();
     }
 
     private static int targetSkipIndex(JsonObject skip, String key) {

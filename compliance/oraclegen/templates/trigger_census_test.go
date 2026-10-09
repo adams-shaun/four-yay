@@ -33,7 +33,7 @@ var wantTriggerCensus = map[string]map[string]int{
 		"served:trigger.tapped":                                       8,
 		"served:trigger.combat-damage":                                1,
 		"served:trigger.counter-added":                                1,
-		"served:trigger.dies":                                         6,
+		"served:trigger.dies":                                         7,
 		"served:trigger.dies-other":                                   3,
 		"served:trigger.etb-land":                                     1,
 		"served:trigger.etb-other":                                    18,
@@ -45,7 +45,7 @@ var wantTriggerCensus = map[string]map[string]int{
 		"served:trigger.becomes-target":                               4,
 		"skip:trigger.becomes-target: trigger did not fire":           1,
 		"skip:trigger.dies-other: trigger did not fire":               0,
-		"skip:trigger.dies: trigger no recipe: dies needs a creature": 1,
+		"skip:trigger.dies: trigger no recipe: dies needs a creature": 0,
 		"skip:trigger.etb-other: trigger covered by level A":          76,
 		"skip:trigger.phase: trigger did not fire":                    1,
 		"skip:trigger.spell-cast: trigger did not fire":               0,
@@ -63,8 +63,10 @@ var wantTriggerCensus = map[string]map[string]int{
 		"served:trigger.damage":                                 4,
 		"served:trigger.state-self-counters":                    1,
 		"served:trigger.drawn":                                  4,
+		"served:trigger.drawn-other":                            1, // Scrawling Crawler: cli-20261009T031408Z-a01003ef
+		"served:trigger.life-lost":                              1, // Bloodthirsty Conqueror: cli-20261009T031408Z-a01003ef
 		"served:trigger.etb-land":                               20,
-		"served:trigger.etb-other":                              23,
+		"served:trigger.etb-other":                              24,
 		"served:trigger.life-gained":                            8,
 		"served:trigger.noncombat-damage":                       1,
 		"served:trigger.phase":                                  27,
@@ -81,7 +83,7 @@ var wantTriggerCensus = map[string]map[string]int{
 		"skip:trigger.phase: trigger did not fire":                                         0,
 		"skip:trigger.spell-cast: trigger did not fire":                                    2,
 		"skip:trigger.spell-cast: trigger spell-cast opponent-turn condition":              0, // now the served:trigger.spell-cast-opponent-turn cause
-		"skip:trigger.etb-other: trigger no recipe: etb filter OppCtrl (Creature.OppCtrl)": 1,
+		"skip:trigger.etb-other: trigger no recipe: etb filter OppCtrl (Creature.OppCtrl)": 0,
 		"skip:trigger.dies: trigger condition: counters":                                   0,
 		"served:trigger.sacrificed":                                                        1, // Ordeal of Nylea: the external Angelic Purge cause serves it.
 	},
@@ -94,7 +96,7 @@ var wantTriggerCensus = map[string]map[string]int{
 		"served:trigger.dies":                                5,
 		"served:trigger.dies-other":                          5,
 		"served:trigger.discarded":                           2,
-		"served:trigger.etb-other":                           11, // Roiling Canopy: the snow-twin presence serves the played Forest.
+		"served:trigger.etb-other":                           12, // Roiling Canopy (main) and the FRA etb-other OppCtrl recipe (branch) each serve one.
 		"served:trigger.life-gained":                         7,
 		"served:trigger.loyalty-activated":                   3,
 		"served:trigger.noncombat-damage":                    3,
@@ -116,7 +118,7 @@ var wantTriggerCensus = map[string]map[string]int{
 		"skip:trigger.spell-cast-self: trigger covered by level A":                                                              1,
 		"skip:trigger.spell-cast: trigger did not fire":                                                                         1,
 		"skip:trigger.spell-cast: trigger spell-cast filter predicate gorge does not implement (prepared)":                      1,
-		"skip:trigger.etb-other: trigger no recipe: etb filter OppCtrl (Creature.OppCtrl)":                                      1,
+		"skip:trigger.etb-other: trigger no recipe: etb filter OppCtrl (Creature.OppCtrl)":                                      0,
 		"skip:trigger.phase: trigger did not fire from the graveyard":                                                           0,
 		"skip:trigger.attacks: trigger condition: turn history (Count$ThisTurnActivated_Activated)":                             1,
 		"skip:trigger.etb-other: trigger condition: board presence":                                                             0, // Roiling Canopy is served,

@@ -27,12 +27,13 @@ var TriggerFires = Template{ID: "trigger", Version: 1}
 func triggerSubs(sub string) bool {
 	switch sub {
 	case "trigger.etb-other", "trigger.etb-land", "trigger.dies", "trigger.leaves-graveyard", "trigger.ltb-other", ltbSelfSub, "trigger.attacks", "trigger.combat-damage",
-		"trigger.spell-cast", "trigger.spell-cast-self", "trigger.becomes-target", "trigger.life-gained", "trigger.drawn", "trigger.phase", levelb.PhaseOtherSub,
+		"trigger.spell-cast", "trigger.spell-cast-self", "trigger.becomes-target", "trigger.life-gained", "trigger.drawn", "trigger.drawn-other", "trigger.life-lost", "trigger.phase", levelb.PhaseOtherSub,
 		"trigger.dies-other", "trigger.zone-change-residue", "trigger.scry", "trigger.surveil", "trigger.noncombat-damage", "trigger.combat-damage-all",
 		"trigger.loyalty-activated", "trigger.discarded", "trigger.attacks-one-target", classLevelGainedSub,
 		"trigger.spell-cast-opponent", "trigger.spell-cast-self-cast", "trigger.spell-cast-opponent-turn", "trigger.commit-crime", "trigger.ability-activated",
 		levelb.UnlockDoorSub, levelb.FullyUnlockSub, stateSelfCountersSub, levelb.CounterAddedSub,
-		levelb.TurnedFaceUpSub, levelb.TurnedFaceUpOtherSub, levelb.SacrificeSub, levelb.DamageSub:
+		levelb.TurnedFaceUpSub, levelb.TurnedFaceUpOtherSub, levelb.SacrificeSub, levelb.DamageSub,
+		levelb.ManaExpendSub, levelb.TapsForManaSub:
 		return true
 	}
 	return tapCombatSub(sub)
@@ -70,6 +71,11 @@ func triggerFires(reg *cards.Registry, f *cards.Face, name string, req levelb.Re
 	}
 	if req.CoveredByA {
 		return skip("covered by level A")
+	}
+	if req.Sub == levelb.TapsForManaSub {
+		// A triggered mana ability resolves off the stack, so it needs its own
+		// pool-based fire check rather than the abilityOnStack probe below.
+		return manaTapFires(reg, f, name, req)
 	}
 	causes, why, room := roomTriggerCauses(reg, name, req)
 	if !room {
@@ -185,6 +191,22 @@ func triggerScenario(f *cards.Face, name string, c triggerCause, req levelb.Requ
 	p0.Graveyard = appendFixtureCounts(p0.Graveyard, c.graveyard)
 	p1.Hand = appendFixtureCounts(p1.Hand, c.opponentHand)
 	p1.Battlefield = appendFixtureCounts(p1.Battlefield, c.opponentBattlefield)
+	oppCounterCards := make([]string, 0, len(c.opponentCounters))
+	for card := range c.opponentCounters {
+		oppCounterCards = append(oppCounterCards, card)
+	}
+	sort.Strings(oppCounterCards)
+	for _, card := range oppCounterCards {
+		kinds := c.opponentCounters[card]
+		counterKinds := make([]string, 0, len(kinds))
+		for kind := range kinds {
+			counterKinds = append(counterKinds, kind)
+		}
+		sort.Strings(counterKinds)
+		for _, kind := range counterKinds {
+			p1 = oraclegen.WithCounters(p1, card, kind, int32(kinds[kind]))
+		}
+	}
 	for _, card := range c.tapped {
 		if card == "__SOURCE__" {
 			card = name

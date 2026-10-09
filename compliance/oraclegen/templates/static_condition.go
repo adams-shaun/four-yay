@@ -41,11 +41,34 @@ type staticFixture struct {
 	// a "you haven't cast a spell this turn" gate that the card's own cast
 	// would falsify.
 	place bool
+	// equip is an Equipment card placed in setup and attached by staticBase
+	// to what attach names (staticProbe or "self"), for a static whose
+	// affected filter selects equipped permanents. attachPT is the
+	// equipment's own constant P/T grant, the compared spec's shift.
+	equip    string
+	attach   string
+	attachPT [2]int32
+	// manaExtra is colourless mana the card's own cast is paid with and
+	// leaves unspent, for a count of the unspent mana pool.
+	manaExtra int
+	// tokenName and tokenSpec are the printed name and spec of the token a
+	// token fixture casts into being; tokenAttackers is its scenario refs
+	// when the static selects attacking tokens.
+	tokenName      string
+	tokenSpec      staticProbeSpec
+	tokenAttackers []string
+	// afterSteps are steps staticBase appends after the card is on the
+	// battlefield (the solved-Case fixtures' end-step solve sequence: the
+	// Case's own "To solve" trigger is a battlefield trigger, so it fires
+	// only at the end step of the turn the Case is cast, CR 719.3a).
+	afterSteps []oraclegen.Step
 }
 
 // setupOnly reports whether the fixture needs no steps, so it also fits the
 // land and back-face scenarios, which carry no cast to hang a prelude on.
-func (s staticFixture) setupOnly() bool { return len(s.steps) == 0 && !s.place }
+func (s staticFixture) setupOnly() bool {
+	return len(s.steps) == 0 && len(s.afterSteps) == 0 && !s.place
+}
 
 // seats adds the fixture's cards to the two seats. Battlefield cards are
 // appended as is, not de-duplicated: "seven or more lands" needs seven. The
@@ -56,6 +79,9 @@ func (s staticFixture) setupOnly() bool { return len(s.steps) == 0 && !s.place }
 func (s staticFixture) seats(p0, p1 *oraclegen.Seat) {
 	p0.Hand = append(p0.Hand, s.hand...)
 	p0.Battlefield = append(p0.Battlefield, s.battlefield...)
+	if s.equip != "" {
+		p0.Battlefield = append(p0.Battlefield, s.equip)
+	}
 	p0.Graveyard = append(p0.Graveyard, s.graveyard...)
 	p0.Exile = append(p0.Exile, s.exile...)
 	p1.Battlefield = append(p1.Battlefield, s.p1Battlefield...)
@@ -86,6 +112,18 @@ func (s staticFixture) merge(o staticFixture) staticFixture {
 	s.p1Battlefield = append(append([]string(nil), s.p1Battlefield...), o.p1Battlefield...)
 	s.exile = append(append([]string(nil), s.exile...), o.exile...)
 	s.place = s.place || o.place
+	if s.equip == "" {
+		s.equip, s.attach, s.attachPT = o.equip, o.attach, o.attachPT
+	}
+	if s.manaExtra == 0 {
+		s.manaExtra = o.manaExtra
+	}
+	if s.tokenName == "" {
+		s.tokenName, s.tokenSpec, s.tokenAttackers = o.tokenName, o.tokenSpec, o.tokenAttackers
+	}
+	if len(s.afterSteps) == 0 {
+		s.afterSteps = append(s.afterSteps, o.afterSteps...)
+	}
 	for kind, n := range o.probeCounters {
 		if s.probeCounters == nil {
 			s.probeCounters = map[string]int{}
@@ -359,6 +397,12 @@ func staticBodyFixture(reg *cards.Registry, body string, n int) (staticFixture, 
 		if step, ok := castProbe(reg, "Shock", "p1"); ok {
 			return staticFixture{conditionPrelude: conditionPrelude{hand: []string{"Shock"}, steps: []oraclegen.Step{step, {Op: "resolve"}}}}, true
 		}
+	case strings.HasPrefix(lower, "count$manapool"):
+		// A count of the unspent mana pool (Ozai, the Phoenix King's "as
+		// long as you have six or more unspent mana"): the card's own cast
+		// is paid with n colourless mana more than it needs and the pool
+		// keeps the rest.
+		return staticFixture{manaExtra: n}, true
 	}
 	return staticFixture{}, false
 }
@@ -420,6 +464,16 @@ func staticFixtures(reg *cards.Registry, f *cards.Face, st cards.Static) []stati
 		}
 		out = append(out, staticFixture{conditionPrelude: c})
 	}
+	// The solved-Case fixtures (a static gated on its own source Case being
+	// solved) run the solve condition's own events as prelude steps and the
+	// end-step solve sequence after the cast; they come after the
+	// condition-derived ones, so a row an existing candidate already serves
+	// keeps its scenario bytes.
+	out = append(out, staticSolvedCaseFixtures(reg, f, st)...)
+	// The state fixtures (a token prelude, an attached Equipment, unspent
+	// pool mana, a raid-count attack) run after every existing candidate, so
+	// a row an existing candidate already serves keeps its scenario bytes.
+	out = append(out, staticStateFixtures(reg, f, st)...)
 	return staticAvoidProbeCollision(reg, out)
 }
 
