@@ -1057,6 +1057,35 @@ func (r *oracleRun) answer(d *decision.Decision, why string) error {
 			}
 		}
 	case decision.KTriggerOrder, decision.KArrange:
+		// A setup-drive arrange whose shared option kind is "graveyard" and
+		// whose ask is optional (Min 0, the shape an upkeep Surveil poses)
+		// falls back to the EMPTY choice set: every looked-at card goes to
+		// the graveyard. XMage's unscripted default does the same (its
+		// doSurveil queue holds the cards to send to the graveyard and
+		// delegates to the computer player when the generator scripts
+		// nothing), so choose-all here was the one divergence the stored
+		// verdict rows Broodheart Engine / Essence Anchor / Morcant's Eyes
+		// (activate#0.0) named. Scoped to the setup drive: at step time
+		// gorge's recorded decision is transcribed into the XMage script by
+		// compliance/oraclegen, so changing the step-time fallback would
+		// desync the derived script.
+		if why == "setup" && d.Kind == decision.KArrange &&
+			d.ResumeKind == "arrange" && d.Min == 0 && len(d.Options) > 0 {
+			uniformGraveyard := true
+			for _, o := range d.Options {
+				if arrangeAnswerRecordCodes.Code(string(o.Kind)) != arrangeAnswerRecordGraveyard {
+					uniformGraveyard = false
+					break
+				}
+			}
+			if uniformGraveyard {
+				// Leave choices nil: the Min-first block below turns that
+				// into the empty answer, and the empty pile A sends every
+				// looked-at card to the graveyard via arrangeAnswerRecord's
+				// graveyard arm.
+				break
+			}
+		}
 		for _, o := range d.Options {
 			choices = append(choices, o.Index)
 		}
