@@ -1,6 +1,7 @@
-{"shape":{"template":"trigger","op":"pass_to","field":"p0.library","diff":"placement"},"key":"trigger | pass_to | p0.library | placement","cards":5}
+{"shape":{"template":"trigger","op":"pass_to","field":"p0.library","diff":"placement"},"key":"trigger | pass_to | p0.library | placement","cards":6}
 {"card":"Claim the Kingdom","template":"trigger#0.1","status":"diverge","api":"ChangesZone:Pump+CounterAdded:Sacrifice","sets":["MSH"],"detail":"step 2 (pass_to) p0.hand: gorge \"[Wastes]\", xmage \"[]\""}
 {"card":"Construct a Cosmic Cube","template":"trigger#0.1","status":"diverge","api":"Drawn:Token+CounterAdded:Sacrifice","sets":["MSH"],"detail":"step 2 (pass_to) p0.hand: gorge \"[Wastes]\", xmage \"[]\""}
 {"card":"Doom Reigns Supreme","template":"trigger#0.1","status":"diverge","api":"ChangesZone:LoseLife+CounterAdded:Sacrifice","sets":["MSH"],"detail":"step 2 (pass_to) p0.hand: gorge \"[Wastes]\", xmage \"[]\""}
 {"card":"Rewrite History","template":"trigger#0.1","status":"diverge","api":"TapAll:Draw+CounterAdded:Sacrifice","sets":["MSH"],"detail":"step 2 (pass_to) p0.hand: gorge \"[Wastes]\", xmage \"[]\""}
+{"card":"Spinneret and Spiderling","template":"trigger#0.1","status":"diverge","api":"AttackersDeclared:PutCounter+DamageDoneOnce:Dig","sets":["SPM"],"detail":"step 1 (pass_to) p0.exile: gorge \"[Wastes]\", xmage \"[]\""}
 {"card":"Zuko, Conflicted","template":"trigger#0.0","status":"diverge","api":"Phase:Charm","sets":["TLA"],"detail":"step 0 (pass_to) p0.hand: gorge \"[Wastes]\", xmage \"[]\""}
