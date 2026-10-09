@@ -89,7 +89,10 @@ func TestZoneChangeResiduesHaveNamedSkips(t *testing.T) {
 	reg := loadGenRegistry(t)
 	for _, tc := range []struct{ name, key, want string }{
 		{"Zenos yae Galvus", "trigger#0.1", "trigger no recipe: zone-change filter ChosenCardStrict"},
-		{"Hedge Shredder", "trigger#0.1", "trigger no recipe: library to graveyard"},
+		// Hedge Shredder left this table when main implemented
+		// ChangeType$ Card.TriggeredCards (merge ec0a97a7d): its
+		// library-to-graveyard row is served now, asserted by
+		// TestHedgeShredderResidueIsServed.
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			c, ok := reg.Lookup(tc.name)

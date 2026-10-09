@@ -425,15 +425,15 @@ func triggerServe(reg *cards.Registry, f *cards.Face, name string, req levelb.Re
 			copy(it.XAbility[offset:], c.xability)
 		}
 	}
-	// Every activate step must carry its XMage rule text at its own index:
-	// the runner throws on an activate step with an empty xmage_ability, and
-	// a misaligned parallel slice would activate the wrong source. A refusal
-	// here names a recipe bug, never a fixture miss.
+	// Every activate step must carry its XMage rule text at its own index,
+	// and no other step may carry any: the runner throws on an activate step
+	// with an empty xmage_ability, and a misaligned parallel slice would
+	// activate the wrong source (or hand XMage a rule text for a step that
+	// activates nothing). A refusal here names a recipe bug, never a fixture
+	// miss.
 	for i, st := range sc.Steps {
-		if st.Op != "activate" {
-			continue
-		}
-		if i >= len(it.XAbility) || it.XAbility[i] == "" {
+		text := i < len(it.XAbility) && it.XAbility[i] != ""
+		if (st.Op == "activate") != text {
 			return it, false
 		}
 	}
