@@ -9,7 +9,12 @@ import (
 )
 
 // comboManaColourPrefix selects the XMage per-colour mana ability matching
-// gorge's resolved choice for a plain tap-for-mana Combo ability.
+// gorge's resolved choice for a plain tap-for-mana Combo ability. A
+// variable-amount ability (Forge `Each$ X`; only Brigid, Doun's Mind carries
+// it on a Mana AB) reads "{T}: Add X {C}" in XMage: its DynamicManaAbility
+// rule text is "Add X {G}, where X is the number of other creatures you
+// control" (Mage.Sets .../cards/b/BrigidClachansHeart.java), and the amount
+// itself is engine-computed on both sides, so neither asks a number.
 func comboManaColourPrefix(sa *cards.SA, cost string, step int, res rules.OracleResult) (string, bool) {
 	if sa.API != "Mana" || strings.TrimSpace(cost) != "T" {
 		return "", false
@@ -37,7 +42,11 @@ func comboManaColourPrefix(sa *cards.SA, cost string, step int, res rules.Oracle
 			return "", false
 		}
 	}
-	return "{T}: Add {" + string(pool[0]) + "}", true
+	amount := ""
+	if strings.TrimSpace(sa.Params["Each"]) != "" {
+		amount = "X "
+	}
+	return "{T}: Add " + amount + "{" + string(pool[0]) + "}", true
 }
 
 // dropColourChoices removes queued colour answers once XMage selects the
