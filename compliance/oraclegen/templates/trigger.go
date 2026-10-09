@@ -30,7 +30,7 @@ func triggerSubs(sub string) bool {
 		"trigger.spell-cast", "trigger.spell-cast-self", "trigger.becomes-target", "trigger.life-gained", "trigger.drawn", "trigger.phase", levelb.PhaseOtherSub,
 		"trigger.dies-other", "trigger.zone-change-residue", "trigger.scry", "trigger.surveil", "trigger.noncombat-damage", "trigger.combat-damage-all",
 		"trigger.loyalty-activated", "trigger.discarded", "trigger.attacks-one-target", classLevelGainedSub,
-		"trigger.spell-cast-opponent", "trigger.spell-cast-self-cast", "trigger.commit-crime", "trigger.ability-activated",
+		"trigger.spell-cast-opponent", "trigger.spell-cast-self-cast", "trigger.spell-cast-opponent-turn", "trigger.commit-crime", "trigger.ability-activated",
 		levelb.UnlockDoorSub, levelb.FullyUnlockSub, stateSelfCountersSub, levelb.CounterAddedSub,
 		levelb.TurnedFaceUpSub, levelb.TurnedFaceUpOtherSub:
 		return true
@@ -109,7 +109,7 @@ func triggerFires(reg *cards.Registry, f *cards.Face, name string, req levelb.Re
 				}
 			}
 		}
-		if req.Sub == "trigger.spell-cast" || req.Sub == "trigger.spell-cast-opponent" {
+		if req.Sub == "trigger.spell-cast" || req.Sub == "trigger.spell-cast-opponent" || req.Sub == "trigger.spell-cast-opponent-turn" {
 			if reason := spellCastNarrowSkip(&f.Triggers[idx]); reason != "" {
 				return skip(reason)
 			}
