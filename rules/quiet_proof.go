@@ -338,6 +338,18 @@ func quietActiveKWGrantBlocker(head string) bool {
 	if strings.EqualFold(head, "Flash") {
 		return true
 	}
+	// The cost-substituting heads that print on no priced face: a granted
+	// PayLifeInsteadOf:B (K'rrik, Son of Yawgmoth) makes a black pip payable
+	// with 2 life, so the walk prices a hand cast below its printed floor
+	// while the per-face classifier cannot see the grant. Affinity is owned
+	// by continuousMintsCostStatic (it mints a bound ReduceCost static,
+	// reported as qbBoardCostGrant); the residual cost-substitution family
+	// lives here.
+	for _, h := range quietCostSubstituteKWHeads {
+		if strings.EqualFold(head, h) {
+			return true
+		}
+	}
 	for _, h := range quietCastOpenHeads {
 		// Affinity is owned by continuousMintsCostStatic (an Affinity grant
 		// mints a bound ReduceCost static, reported as qbBoardCostGrant); do
@@ -351,6 +363,16 @@ func quietActiveKWGrantBlocker(head string) bool {
 	}
 	return false
 }
+
+// quietCostSubstituteKWHeads are AddKeyword$ heads that substitute or reduce
+// the mana a cast must pay WITHOUT printing on the priced face, so the
+// per-face classifier cannot see them. PayLifeInsteadOf:B (K'rrik, Son of
+// Yawgmoth's "For each {B} in a cost, you may pay 2 life rather than pay that
+// mana") is the one corpus shape: the walk prices a black pip at 2 life, so a
+// hand cast becomes affordable below its printed floor. It is deliberately
+// coarse -- any active PayLifeInsteadOf head blocks, whether or not the
+// current board can actually use it -- which can only cost coverage.
+var quietCostSubstituteKWHeads = [...]string{"PayLifeInsteadOf"}
 
 // quietManaCeiling returns the seat's mana ceiling, whether it is unbounded
 // (a counted source's amount is indeterminate), and whether the seat holds
@@ -440,6 +462,17 @@ func (e *Engine) quietHandBlocker(p state.PlayerID, ceiling int32, unbounded, so
 				continue
 			}
 			timingOpen := qf.instantSpeed || sorceryOpen
+			// A NONLAND face printed with Morph/Megamorph/Disguise is cast
+			// face down for {3} in place of its printed cost (CR 702.37a), so
+			// a creature whose face-up cost is unaffordable (Krosan Colossus,
+			// Exalted Angel, Boltbender) still blocks at {3} whenever its
+			// timing is open. This must gate every nonland face, not only the
+			// land branch above: the walk offers the down-cast through
+			// spellTimingOK (timingOpen) and offerCastable({3}), independent
+			// of the printed floor.
+			if timingOpen && quietFaceHasDownCast(f) && quietAffordable(3, ceiling, unbounded) {
+				return qbHandSpell
+			}
 			if !timingOpen {
 				continue
 			}

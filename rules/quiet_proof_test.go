@@ -554,6 +554,82 @@ func TestQuietProofFixtures(t *testing.T) {
 			},
 			blocker: qbBattlefieldAbility,
 		},
+		{
+			// findings-t3 MAJOR 1: a NONLAND Morph creature whose face-up
+			// cost is unaffordable is still cast face down for {3} (CR
+			// 702.37a), so the down-cast arm must gate every nonland face,
+			// not only the land branch. Krosan Colossus is {6}{G}{G}{G}
+			// (face-up 9) with Morph {6}{G}{G}; at a 4-mana ceiling (one
+			// untapped Plains plus 3 in the pool) the face-up cast is
+			// unaffordable while the walk offers the {3} down-cast. A
+			// printed-floor-only proof calls this window quiet and the
+			// contract check below fails.
+			name: "nonland morph creature unaffordable face-up blocks via the {3} face-down cast",
+			build: func(t *testing.T) (*Engine, state.PlayerID) {
+				c := lookup(t, reg, "Krosan Colossus")
+				if !c.Faces[0].HasKeyword("Morph") {
+					t.Fatal("precondition: Krosan Colossus does not print Morph in the corpus")
+				}
+				e := quietBaseWith(t, reg, []*cards.Card{c})
+				id := addHand(t, e, 0, c)
+				e.G.Players[0].Pool[state.MC] = 3
+				// Precondition: the printed face-up cost is above the ceiling
+				// and the {3} down-cast is affordable, so the row exercises
+				// the arm rather than passing for another reason.
+				ceiling, unbounded, restricted := e.quietManaCeiling(0)
+				if restricted || unbounded || ceiling < 3 {
+					t.Fatalf("precondition: ceiling %d unbounded=%v restricted=%v is not the {3} band", ceiling, unbounded, restricted)
+				}
+				ff := e.walkFaceFactsOf(e.G.Obj(id).Face())
+				if ff == nil || ff.quiet.castFloor <= ceiling {
+					t.Fatal("precondition: the face-up cast is affordable; the row does not test the down-cast arm")
+				}
+				return e, 0
+			},
+			blocker: qbHandSpell,
+		},
+		{
+			// findings-t3 MAJOR 2: K'rrik, Son of Yawgmoth's
+			// AddKeyword$ PayLifeInsteadOf:B is a granted cost substitution
+			// (not a ReduceCost static), so the walk prices a black spell
+			// below its printed floor while the per-face classifier cannot
+			// see the grant. Walking Corpse ({1}{B}, printed floor 2, no
+			// targets) at a 1-mana ceiling is quiet to the printed proof but
+			// offered by the walk (pay {1}, 2 life for the {B} pip).
+			name: "granted PayLifeInsteadOf:B blocks (K'rrik)",
+			build: func(t *testing.T) (*Engine, state.PlayerID) {
+				krrik := lookup(t, reg, "K'rrik, Son of Yawgmoth")
+				corpse := lookup(t, reg, "Walking Corpse")
+				e := quietBaseWith(t, reg, []*cards.Card{krrik, corpse})
+				// Return the base untapped Plains to the library so the
+				// ceiling is exactly the funded pool ({1}); otherwise the
+				// printed floor {1}{B}=2 would fit a 2-mana ceiling and the
+				// hand-spell blocker would mask the granted substitution.
+				for _, id := range append([]state.ObjID{}, e.G.Zone(state.ZBattlefield, 0)...) {
+					if o := e.G.Obj(id); o != nil && o.Face() != nil && o.Face().Name == "Plains" {
+						e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: state.ZBattlefield, To: state.ZLibrary})
+					}
+				}
+				addZone(t, e, 0, krrik, state.ZBattlefield)
+				id := addHand(t, e, 0, corpse)
+				e.G.Players[0].Pool[state.MC] = 1
+				if !asEval(e).PayLifeInsteadOfB(0) {
+					t.Fatal("precondition: K'rrik's PayLifeInsteadOf:B grant is not active")
+				}
+				ff := e.walkFaceFactsOf(e.G.Obj(id).Face())
+				if ff == nil || ff.quiet.castFloor <= 1 {
+					t.Fatal("precondition: the black spell's printed floor is not above the 1-mana ceiling")
+				}
+				// The row is only meaningful if the walk really offers the
+				// cast the printed proof misses; assert the offer directly so
+				// a board where nothing is offered cannot pass the row.
+				if !hasCastOption(e.legalActions(0), id) {
+					t.Fatalf("precondition: the walk does not offer the black spell under K'rrik: %v", optKinds(e.legalActions(0)))
+				}
+				return e, 0
+			},
+			blocker: qbBoardKeyword,
+		},
 	}
 	for _, row := range rows {
 		t.Run(row.name, func(t *testing.T) {
