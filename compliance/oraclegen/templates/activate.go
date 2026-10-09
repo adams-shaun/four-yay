@@ -207,6 +207,9 @@ func activateWithFixture(reg *cards.Registry, f *cards.Face, name string, req le
 	addActivationCostAnswers(it.XAnswers, activateStep, cost, res.Decisions)
 	costAnswers := append([]oraclegen.XAnswer(nil), it.XAnswers[activateStep][costAnswerStart:]...)
 	it.XAnswers[activateStep] = append(costAnswers, it.XAnswers[activateStep][:costAnswerStart]...)
+	// The hoist above puts the cost picks first; a setup permanent's as-enters
+	// choice must still lead the step, or XMage's dialog eats the cost answer.
+	oraclegen.HoistSetupChoices(it.XAnswers, activateStep)
 	dropCostCompound(it.XAnswers, activateStep, res.Decisions)
 	dropUnproducedManaColours(it.XAnswers, activateStep, res)
 	it.XAnswers = scriptPreludeSacrifice(it.XAnswers, prelude, len(sc.Steps))

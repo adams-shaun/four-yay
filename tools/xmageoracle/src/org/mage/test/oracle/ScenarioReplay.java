@@ -198,11 +198,34 @@ public class ScenarioReplay extends CardTestPlayerBase {
         // stale alias. Other choice values and the target path stay unchanged.
         private Game choiceGame;
 
+        /** Also: the paid additional cost's sacrifice is posed as a target-group
+         * `choose`, which reads XMage's CHOICE queue, not the target queue
+         * (TargetSacrifice.pay -> TargetImpl.choose -> Player.choose ->
+         * makeChoose over getChoices()). Push this cast's recorded pick so
+         * makeChoose consumes it and strict mode records the decision, rather
+         * than letting XMage's AI auto-choose a legal object. */
         @Override
         public boolean choose(Outcome outcome, mage.target.Target target, Ability source, Game game) {
             Game previous = choiceGame;
             choiceGame = game;
             try {
+                if (isSacrificeChoice(target)) {
+                    UUID abilityControllerId = target.getAffectedAbilityControllerId(this.getId());
+                    List<UUID> candidates = new ArrayList<>(target.possibleTargets(abilityControllerId, source, game));
+                    for (String pick : owner.castCostPicks) {
+                        if (getChoices().contains(pick)) {
+                            continue;
+                        }
+                        // Queue only a pick that names a legal sacrifice; an
+                        // unmatched pick is left out, so makeChoose's strict
+                        // "invalid target" failure names it rather than silently
+                        // paying the cost with some other object.
+                        if (costPickChoice(java.util.Collections.singletonList(pick), candidates,
+                                (id, answer) -> hasObjectTargetNameOrAlias(game.getPermanent(id), answer)) != null) {
+                            addChoice(pick);
+                        }
+                    }
+                }
                 return super.choose(outcome, target, source, game);
             } finally {
                 choiceGame = previous;
@@ -493,34 +516,6 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 }
             }
             return null;
-        }
-
-        /** The paid additional cost's sacrifice is posed as a target-group
-         * `choose`, which reads XMage's CHOICE queue, not the target queue
-         * (TargetSacrifice.pay -> TargetImpl.choose -> Player.choose ->
-         * makeChoose over getChoices()). Push this cast's recorded pick so
-         * makeChoose consumes it and strict mode records the decision, rather
-         * than letting XMage's AI auto-choose a legal object. */
-        @Override
-        public boolean choose(Outcome outcome, mage.target.Target target, Ability source, Game game) {
-            if (isSacrificeChoice(target)) {
-                UUID abilityControllerId = target.getAffectedAbilityControllerId(this.getId());
-                List<UUID> candidates = new ArrayList<>(target.possibleTargets(abilityControllerId, source, game));
-                for (String pick : owner.castCostPicks) {
-                    if (getChoices().contains(pick)) {
-                        continue;
-                    }
-                    // Queue only a pick that names a legal sacrifice; an
-                    // unmatched pick is left out, so makeChoose's strict
-                    // "invalid target" failure names it rather than silently
-                    // paying the cost with some other object.
-                    if (costPickChoice(java.util.Collections.singletonList(pick), candidates,
-                            (id, answer) -> hasObjectTargetNameOrAlias(game.getPermanent(id), answer)) != null) {
-                        addChoice(pick);
-                    }
-                }
-            }
-            return super.choose(outcome, target, source, game);
         }
 
         /** The candidate an XMage attach ask should take, or null when the ask
@@ -1667,13 +1662,14 @@ public class ScenarioReplay extends CardTestPlayerBase {
         return c != null && c.getAbilities().stream().anyMatch(a -> a instanceof AlternativeSourceCosts);
     }
 
-    /** Whether a cast step's cast_mode is one this driver elects: Bargain and
-     * "optionalcost" are wired, and an absent or empty mode is the ordinary
+    /** Whether a cast step's cast_mode is one this driver elects: Bargain,
+     * "optionalcost" and the face-down Disguise/Morph/Megamorph casts are wired, and an absent or empty mode is the ordinary
      * cast. Any other mode is a scenario the driver cannot replay and must
      * reject loudly rather than cast at face value. */
     static boolean castModeSupported(String mode) {
         return mode == null || mode.isEmpty()
-                || mode.equals("bargained") || mode.equals("optionalcost");
+                || mode.equals("bargained") || mode.equals("optionalcost")
+                || mode.equals("disguised") || mode.equals("morphed") || mode.equals("megamorphed");
     }
 
     /** The XMage target string for one scenario target ref: its alias when
@@ -2203,6 +2199,14 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     throw new IllegalArgumentException("cast_mode " + castMode + " unsupported");
                 }
                 bargainedCast = "bargained".equals(castMode);
+                // "disguised" casts the card face down for {3}; XMage selects
+                // that cast by suffixing the card name ("<card> using
+                // Disguise", DisguiseTest/CovetedFalconTest). "morphed" and
+                // "megamorphed" are the same face-down cast for the Morph and
+                // Megamorph families; XMage defines no Megamorph spelling, as
+                // both set SpellAbilityCastMode.MORPH, so both suffix " using
+                // Morph" (MorphAbility.java:79-88; MegamorphTest.java:24).
+                String mode = castMode;
                 if (!sc0.has("xmage_answers")) {
                     answers(st, p);
                 }
@@ -2224,40 +2228,48 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 // The cast command names the SpellAbility, not the card
                 // object: a split/Room half is cast by its half name while
                 // the hand holds the whole "A // B" card (castSpelling).
-                String card = castSpelling(refName(str(st, "card")));
+                String cardName = castSpelling(refName(str(st, "card")));
+                // A face-down Morph/Megamorph/Disguise cast names the
+                // SpellAbility by its XMage cast spelling; every plain cast
+                // names the card itself. Morph and Megamorph share "using
+                // Morph".
+                String castSuffix = "morphed".equals(mode) || "megamorphed".equals(mode)
+                        ? " using Morph"
+                        : "disguised".equals(mode) ? " using Disguise" : "";
+                String card = cardName + castSuffix;
                 List<String> tg = targets(st);
-                if (hasAlternativeSourceCost(card)) {
+                if (hasAlternativeSourceCost(cardName)) {
                     // A plain cast step: gorge paid the mana cost, so decline
                     // the alternative cost (evoke, impending, dash, ...)
                     // XMage offers through its "Cast with no alternative
                     // cost" choice, rather than leave it to the AI.
                     setChoice(p, "Cast with no alternative cost");
                 }
-                List<Integer> skips = castTargetSkipsAt(stepIdx, card, tg.size());
-                if (splitScripted && spellTargetsDivided(card) && skips.isEmpty()) {
+                List<Integer> skips = castTargetSkipsAt(stepIdx, cardName, tg.size());
+                if (splitScripted && spellTargetsDivided(cardName) && skips.isEmpty()) {
                     // The scripted "<ref>^X=<share>" answers name the targets
                     // and gorge's split; a target string here would be a
                     // second, unconsumed set.
                     castSpell(turn, phase, p, card);
-                    cast.add(card);
+                    cast.add(cardName);
                     return;
                 }
-                Ability castAbility = spellAbility(card);
+                Ability castAbility = spellAbility(cardName);
                 if (!skips.isEmpty()) {
                     // The generator named every empty optional target object
                     // and where it falls between the filled ones, so the queue
                     // is exactly the plan: no blind trailing skip.
                     boolean queued = castAbility != null
                             && (needsQueuedCastTargets(castAbility) || firstTargetInLaterMode(castAbility));
-                    if (spellTargetsDivided(card) || queueAdjustedCastTargets(queued, false, tg.size())) {
-                        throw new IllegalArgumentException("cast step " + stepIdx + " carries xmage_target_skips for " + card
+                    if (spellTargetsDivided(cardName) || queueAdjustedCastTargets(queued, false, tg.size())) {
+                        throw new IllegalArgumentException("cast step " + stepIdx + " carries xmage_target_skips for " + cardName
                                 + ", a divided, adjusted or later-mode-target spell the explicit skip plan does not cover");
                     }
                     queueCastTargetsWithSkips(p, tg, skips);
                     castSpell(turn, phase, p, card);
-                } else if (!tg.isEmpty() && castQueuedTargets(turn, phase, p, card, tg, castAbility)) {
+                } else if (!tg.isEmpty() && castQueuedTargets(turn, phase, p, cardName, tg, castAbility)) {
                     // Cast with its targets queued: see castQueuedTargets.
-                } else if (tg.size() == 1 && isSeatRef(tg.get(0)) && !hasGift(card)) {
+                } else if (tg.size() == 1 && isSeatRef(tg.get(0)) && !hasGift(cardName)) {
                     castSpell(turn, phase, p, card, seat(seatOf(tg.get(0))));
                 } else if (tg.size() == 1 && isSeatRef(tg.get(0))) {
                     // A Gift spell (Mind Spiral, Sazacap's Brew): the castSpell
@@ -2268,7 +2280,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     castSpell(turn, phase, p, card);
                 } else if (tg.isEmpty()) {
                     castSpell(turn, phase, p, card);
-                    cast.add(card);
+                    cast.add(cardName);
                     return;
                 } else if (tg.size() == 1 && cast.contains(castSpelling(refName(tg.get(0))))) {
                     // Targeting a spell cast by an earlier step: wait for it
@@ -2289,7 +2301,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     // each ref carries. A trailing skip closes any slot XMage
                     // offers that this scenario did not fill (a reflexive
                     // sub-ability with no legal target, say).
-                    if (spellTargetsDivided(card)) {
+                    if (spellTargetsDivided(cardName)) {
                         // A divided-amount target (TargetAmount: Biogenic
                         // Upgrade, Synchronized Charge) takes the whole set
                         // as one castSpell string and lets XMage split it,
@@ -2300,13 +2312,13 @@ public class ScenarioReplay extends CardTestPlayerBase {
                             names.add(xmageSpelling(refName(t)));
                         }
                         castSpell(turn, phase, p, card, String.join("^", names));
-                        cast.add(card);
+                        cast.add(cardName);
                         return;
                     }
                     for (String t : tg) {
                         queueCastTarget(p, t);
                     }
-                    if (!singleTargetFilled(card, tg.size())) {
+                    if (!singleTargetFilled(cardName, tg.size())) {
                         // Close an "up to N" slot the scenario left short,
                         // or a later slot (Rhino's Rampage's reflexive
                         // trigger). A skip after the one multi-target slot
@@ -2315,7 +2327,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     }
                     castSpell(turn, phase, p, card);
                 }
-                cast.add(card);
+                cast.add(cardName);
                 return;
             }
             case "activate": {

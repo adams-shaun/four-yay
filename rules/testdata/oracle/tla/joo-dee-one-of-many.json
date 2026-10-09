@@ -1,0 +1,67 @@
+{
+  "card": "Joo Dee, One of Many",
+  "family": "tla",
+  "author": "agent-20261008T221615Z-4967a8b1 (Oracle + CR only)",
+  "oracle_sha": "d6aec2559db7",
+  "scenarios": [
+    {
+      "name": "sacrifice-the-original-keeps-the-copy",
+      "cr": ["701.17", "704.5d", "111.7"],
+      "why": "Joo Dee's ability costs a creature sacrifice after creating a token copy of itself. Naming the original as the sacrifice puts the printed card in the graveyard, while the token copy stays on the battlefield; a token that leaves the battlefield ceases to exist, so the graveyard holds exactly the original (CR 701.17 sacrifice, CR 704.5d and CR 111.7).",
+      "setup": {
+        "p0": {"battlefield": ["Joo Dee, One of Many"]},
+        "p1": {"battlefield": ["Grizzly Bears"]}
+      },
+      "steps": [
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Joo Dee, One of Many",
+          "mana": "B",
+          "ability_index": 0
+        },
+        {
+          "op": "resolve",
+          "seat": 0,
+          "answers": [
+            {"kind": "choose", "pick": ["p0:Joo Dee, One of Many"]}
+          ]
+        }
+      ],
+      "expect": [
+        {"card": "p0:Joo Dee, One of Many", "zone": "graveyard"},
+        {"card": "p0:token:Joo Dee, One of Many", "zone": "battlefield"},
+        {"graveyard_size": {"p0": 1}}
+      ]
+    },
+    {
+      "name": "sacrifice-the-copy-keeps-the-original",
+      "cr": ["701.17", "704.5d", "111.7"],
+      "why": "Naming the token copy as the sacrifice leaves the printed Joo Dee on the battlefield; the token that left the battlefield ceases to exist and is not a card, so the graveyard is empty (CR 701.17 sacrifice, CR 704.5d and CR 111.7).",
+      "setup": {
+        "p0": {"battlefield": ["Joo Dee, One of Many"]},
+        "p1": {"battlefield": ["Grizzly Bears"]}
+      },
+      "steps": [
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Joo Dee, One of Many",
+          "mana": "B",
+          "ability_index": 0
+        },
+        {
+          "op": "resolve",
+          "seat": 0,
+          "answers": [
+            {"kind": "choose", "pick": ["p0:token:Joo Dee, One of Many"]}
+          ]
+        }
+      ],
+      "expect": [
+        {"card": "p0:Joo Dee, One of Many", "zone": "battlefield"},
+        {"graveyard_size": {"p0": 0}}
+      ]
+    }
+  ]
+}

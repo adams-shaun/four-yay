@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"resolve","field":"p0.hand","diff":"gorge+[] xmage+[Llanowar Elves]"},"key":"activate | resolve | p0.hand | gorge+[] xmage+[Llanowar Elves]","cards":1}
+{"card":"Dawn-Blessed Pennant","template":"activate#0.0","status":"diverge","api":"ChangesZone:GainLife","sets":["ECL"],"detail":"step 1 (resolve) p0.hand: gorge \"[]\", xmage \"[Llanowar Elves]\""}

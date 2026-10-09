@@ -1,2 +1,0 @@
-{"shape":{"template":"trigger","op":"harness","field":"xmage","diff":"IllegalArgumentException: Choice key […] not found in […]"},"key":"trigger | harness | xmage | IllegalArgumentException: Choice key […] not found in […]","cards":1}
-{"card":"Gathering Stone","template":"trigger#0.1","status":"harness","api":"ChangesZone:PeekAndReveal+Phase:PeekAndReveal","sets":["ECL"],"detail":"xmage: IllegalArgumentException: Choice key [Yes] not found in []"}
