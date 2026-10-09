@@ -41,6 +41,7 @@
 package templates
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -100,8 +101,17 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 	// fixture such as p1's Ornithopter can be). It is tried only in the final
 	// fallback pass, never on a candidate an earlier path already served, so a
 	// row that served without it keeps its scenario bytes (Zoetic Glyph).
-	served := func(base oraclegen.Item, res rules.OracleResult, plan staticProbePlan, withHost bool) (oraclegen.Item, bool) {
+	// counterShift is the +n/+n the probe-counters fixture put on the base
+	// probe: the compared probe spec's P/T is raised by it, so the counters
+	// alone are the baseline and only a change the static itself makes is
+	// observable.
+	served := func(base oraclegen.Item, res rules.OracleResult, plan staticProbePlan, withHost bool, counterShift int32) (oraclegen.Item, bool) {
 		specs := staticProbeSpecs(reg, append([]string{staticProbe}, plan.probes...))
+		if counterShift != 0 {
+			if spec, ok := specs[staticProbe]; ok {
+				specs[staticProbe] = shiftProbePT(spec, counterShift)
+			}
+		}
 		snap := res.Snapshots[len(res.Snapshots)-1]
 		if withHost {
 			specs = staticWithAttachHost(reg, snap, f.Name, specs)
@@ -150,7 +160,7 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 			}
 			break
 		}
-		if it, ok := served(base, res, plan, false); ok {
+		if it, ok := served(base, res, plan, false, 0); ok {
 			return it, nil
 		}
 		candidates = append(candidates, staticCandidate{base, res, plan})
@@ -168,10 +178,36 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 			if err != nil || len(res.Fails) != 0 || len(res.Snapshots) == 0 {
 				continue
 			}
-			if it, ok := served(base, res, plan, false); ok {
+			if it, ok := served(base, res, plan, false, 0); ok {
 				return it, nil
 			}
 			candidates = append(candidates, staticCandidate{base, res, plan})
+		}
+	}
+	// A static whose affected permanent carries a counter gate the bare
+	// scenario and every condition fixture leaves at zero
+	// (Creature.YouCtrl+counters_GE1_P1P1, Permanent.YouCtrl+HasCounters):
+	// retry with the probe holding the counters the gate names. It runs only
+	// after every existing candidate failed, so an already-served row keeps
+	// its bytes, and the compared probe spec is shifted by the counters, so a
+	// static the engine does not implement still shows nothing and falls
+	// through to its named gap.
+	if fx, ok := staticProbeCounterFixture(&st, affected); ok {
+		for _, plan := range plans {
+			base, why := staticBase(reg, c, f, name, req, plan, &fx)
+			if why != "" {
+				continue
+			}
+			res, err := rules.RunOracleScenarioJSON(reg, base.Raw())
+			if err != nil || len(res.Fails) != 0 || len(res.Snapshots) == 0 {
+				continue
+			}
+			// Only P1P1 counters move the probe's P/T; a gate on another kind
+			// leaves the compared spec alone.
+			shift := int32(fx.probeCounters["P1P1"])
+			if it, ok := served(base, res, plan, false, shift); ok {
+				return it, nil
+			}
 		}
 	}
 	// Retry Aura rows whose cast target is killed by their own -X/-X static
@@ -192,9 +228,16 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 	// runs only after every existing candidate failed, so it can never win an
 	// earlier candidate and change an already-served row's scenario bytes.
 	for _, cand := range candidates {
-		if it, ok := served(cand.base, cand.res, cand.plan, true); ok {
+		if it, ok := served(cand.base, cand.res, cand.plan, true, 0); ok {
 			return it, nil
 		}
+	}
+	// A removal of all abilities defined by the permanent the card enchants
+	// (Flood the Engine, Frozen in Ice, ...) is unobservable on the vanilla
+	// fixture; retry it on a host that prints an ability. After every existing
+	// path, so a served row keeps its bytes.
+	if it, ok := staticAbilityRemovalItem(reg, f, name, req, st); ok {
+		return it, nil
 	}
 	// A static that acts on cards outside the battlefield changes nothing a
 	// snapshot shows; it is observed as an offered option instead
@@ -208,6 +251,15 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 			return it, nil
 		}
 		return skip(staticLookAtReason)
+	}
+	// A player-rule static (SetMaxHandSize$) changes no snapshot field; it is
+	// observed as a runner expectation of the effective maximum
+	// (static_hand_size.go). A value the engine does not price keeps its
+	// named gap below.
+	if st.HasParam(cards.PKSetMaxHandSize) {
+		if it, ok := staticMaxHandSizeItem(reg, f, name, req, st); ok {
+			return it, nil
+		}
 	}
 	if it, ok := staticSpellLifelinkItem(reg, c, f, name, req, st); ok {
 		return it, nil
@@ -261,7 +313,7 @@ func staticBase(reg *cards.Registry, c *cards.Card, f *cards.Face, name string, 
 	probes := append([]string{staticProbe}, plan.probes...)
 	var base oraclegen.Item
 	switch {
-	case staticCounterGated(&st) && !staticSelfETB(f):
+	case staticCounterGated(&st) && (!staticSelfETB(f) || stationGatedSelf(f, &st)):
 		// The card starts on the battlefield holding the counters its gate
 		// names, so the effect is already on at the first checkpoint. A card
 		// with its own ETB trigger cannot use this path: XMage never fires a
@@ -349,6 +401,27 @@ func staticSlotOf(f *cards.Face, req levelb.Requirement) (cards.Static, string) 
 	}
 	st := f.Statics[i]
 	return st, st.ParamStr(cards.PKAffected)
+}
+
+// shiftProbePT returns spec with its creature P/T raised by n/n: the probe
+// holds P1P1 counters the fixture placed, so the compared baseline is the P/T
+// the counters alone give it and only a change the static itself makes is
+// observable.
+func shiftProbePT(spec staticProbeSpec, n int32) staticProbeSpec {
+	if !spec.creature || spec.pt == "" || n <= 0 {
+		return spec
+	}
+	slash := strings.IndexByte(spec.pt, '/')
+	if slash < 0 {
+		return spec
+	}
+	p, err1 := strconv.Atoi(spec.pt[:slash])
+	t, err2 := strconv.Atoi(spec.pt[slash+1:])
+	if err1 != nil || err2 != nil {
+		return spec
+	}
+	spec.pt = fmt.Sprintf("%d/%d", int32(p)+n, int32(t)+n)
+	return spec
 }
 
 // staticCounterGated reports whether st applies only while its own source

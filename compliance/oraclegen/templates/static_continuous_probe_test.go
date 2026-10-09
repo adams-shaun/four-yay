@@ -221,10 +221,16 @@ func TestStaticContinuousBearRowUnchanged(t *testing.T) {
 // must otherwise show nothing, so the test pins the reason text. A grant of a
 // named ability (Bria's Prowess, Ward) is no longer here: the named-keyword
 // vocabulary serves those, pinned by TestStaticNamedKeywordGrant.
+//
+// A counter gate the probe-counters fixture CAN place is no longer a skip:
+// Vigorbloom Vanguard's counter-gated vigilance is served, pinned by
+// TestStaticCounterGatesServed. Agatha's Soul Cauldron stays here: its
+// GainsAbilitiesOf$ Creature.ExiledWithSource grant observes nothing even with
+// the counters on the probes, so the row falls through to the named gap.
 func TestStaticContinuousNamedSkips(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	for _, tc := range []struct{ card, key, want string }{
-		{"Vigorbloom Vanguard", "static#0.0", "counters"},
+		{"Agatha's Soul Cauldron", "static#0.1", "counters"},
 		{"Gideon's Memorial", "static#0.0", "token"},
 		{"Firion, Wild Rose Warrior", "static#0.0", "equipped"},
 	} {
