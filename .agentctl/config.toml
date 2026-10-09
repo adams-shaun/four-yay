@@ -356,7 +356,7 @@ env = { GOMEMLIMIT = "1GiB", GOMAXPROCS = "4", GOFLAGS = "-p=4 -trimpath" }
 # their own processes, ./view, ./internal/codeshape and every package the
 # branch touched. Run from the BASE copy so a branch cannot edit its own gate.
 name = "go test (affected)"
-cmd = ["bash", "-c", "set -o pipefail; if [ -n \"${GORGE_HEAVY_LOCK:-}\" ]; then lock=\"$GORGE_HEAVY_LOCK\"; else common=\"$(git rev-parse --path-format=absolute --git-common-dir)\"; lock=\"$(dirname \"$common\")/.ds4/heavy.lock\"; fi; lanes=${GORGE_HEAVY_LANES:-2}; mkdir -p \"$(dirname \"$lock\")\"; acquired=; deadline=$(( $(date +%s) + 1500 )); while [ -z \"$acquired\" ]; do i=1; while [ \"$i\" -le \"$lanes\" ]; do f=\"$lock\"; [ \"$i\" = 1 ] || f=\"$lock.lane$i\"; : >>\"$f\" 2>/dev/null || { i=$((i+1)); continue; }; exec 9>>\"$f\"; if flock -n 9 2>/dev/null; then acquired=\"$f\"; break; fi; i=$((i+1)); done; if [ -z \"$acquired\" ]; then now=$(date +%s); if [ \"$now\" -lt \"$deadline\" ]; then rem=$(( deadline - now )); [ \"$rem\" -gt 5 ] && rem=5; sleep \"$rem\" 9>&-; else echo \"gate: every heavy lane of $lock still held after 1500s; affected gate not run\" >&2; exit 75; fi; fi; done; systemd-run --user --scope -q -p MemoryMax=16G -p CPUQuota=1600% bash -c 'set -o pipefail; git show {base}:scripts/gate_affected.sh | bash -s {base}'; rc=$?; exit \"$rc\""]
+cmd = ["bash", "-c", "set -o pipefail; if [ -n \"${GORGE_HEAVY_LOCK:-}\" ]; then lock=\"$GORGE_HEAVY_LOCK\"; else common=\"$(git rev-parse --path-format=absolute --git-common-dir)\"; lock=\"$(dirname \"$common\")/.ds4/heavy.lock\"; fi; lanes=${GORGE_HEAVY_LANES:-3}; mkdir -p \"$(dirname \"$lock\")\"; acquired=; deadline=$(( $(date +%s) + 1500 )); while [ -z \"$acquired\" ]; do i=1; while [ \"$i\" -le \"$lanes\" ]; do f=\"$lock\"; [ \"$i\" = 1 ] || f=\"$lock.lane$i\"; : >>\"$f\" 2>/dev/null || { i=$((i+1)); continue; }; exec 9>>\"$f\"; if flock -n 9 2>/dev/null; then acquired=\"$f\"; break; fi; i=$((i+1)); done; if [ -z \"$acquired\" ]; then now=$(date +%s); if [ \"$now\" -lt \"$deadline\" ]; then rem=$(( deadline - now )); [ \"$rem\" -gt 5 ] && rem=5; sleep \"$rem\" 9>&-; else echo \"gate: every heavy lane of $lock still held after 1500s; affected gate not run\" >&2; exit 75; fi; fi; done; systemd-run --user --scope -q -p MemoryMax=16G -p CPUQuota=1600% bash -c 'set -o pipefail; git show {base}:scripts/gate_affected.sh | bash -s {base}'; rc=$?; exit \"$rc\""]
 # 2026-10-05 (operator): this gate is HEAVY-class work, so it takes a lane of
 # the repo heavy pool like postmerge_batch.sh and heavy.sh. The lane
 # acquisition is INLINED here: the path is derived inline from the shared git
@@ -364,7 +364,14 @@ cmd = ["bash", "-c", "set -o pipefail; if [ -n \"${GORGE_HEAVY_LOCK:-}\" ]; then
 # scripts/heavy_lock.sh does, and the lane scan is the same first-free lane
 # over GORGE_HEAVY_LANES lanes with lane 1 = the base file (2026-10-09: the
 # single lock became a 2-lane pool when the box went to 120 GiB, so this gate
-# and the post-merge full suite can run at the same time). It is inlined
+# and the post-merge full suite can run at the same time; later the same day
+# cli-20261009T224425Z-a610bfaf raised the pool to 3 lanes: the batch cadence
+# runs the full suite back to back with ~60 s gaps, and a second heavy job
+# (driver_replay_batch, another seat's gate) then made BOTH lanes busy — 3 of
+# 5 gate runs 2026-10-09 16:14-16:50 spent 245-330 s waiting for a lane before
+# 20-125 s of work, which is the gate_wall_s pole. The third lane lets the
+# gate run beside the suite AND one heavy job; heavy_lock.sh's default and
+# broker.sh's HEAVY_MAX_LEASES move with it). It is inlined
 # because no branch-only file has to come from {base} (extracting a helper
 # that did not exist in `main` failed the extraction on the ticket that
 # introduced it). A branch still cannot weaken this: nothing here is read from
