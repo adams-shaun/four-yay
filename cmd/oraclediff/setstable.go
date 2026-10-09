@@ -9,8 +9,13 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/adams-shaun/gorge/compliance"
 	"github.com/adams-shaun/gorge/compliance/adopt"
 )
+
+// printedDir is where compliance/printed/<SET>.json lives, relative to the
+// repo root, as gate.Check and adopt.Status read it.
+const printedDir = "compliance/printed"
 
 // runSetsTable runs the compliance gate at BOTH levels over the committed
 // printed sets and renders one row per set:
@@ -27,10 +32,12 @@ import (
 // not clean -- leftovers there mean the report is wrong at the source.
 //
 // The gate is measured, not read from compliance/declared.json, so the
-// level-B column works before any set is declared B. Both levels run
-// through the same child-process batches as `status -all` (one status
-// child per level, at most adopt.ChildMaxCards cards each), because a
-// gate run's heap cannot shrink in-process. Output is deterministic: no
+// level-B column works before any set is declared B. Only the sets with a
+// committed compliance/printed/<SET>.json are measured (that is the set
+// source; a manifest-only set has no gate claim at either level). Both
+// levels run through the same child-process batches as `status -all` (one
+// status child per level, at most adopt.ChildMaxCards cards each), because
+// a gate run's heap cannot shrink in-process. Output is deterministic: no
 // wall clock, the git head is the only identifier.
 func runSetsTable(dir, out, level string, only []string, procs int) error {
 	levels, err := parseLevels(level)
@@ -54,6 +61,16 @@ func runSetsTable(dir, out, level string, only []string, procs int) error {
 	if len(only) > 0 {
 		codes = only
 	}
+	// A manifest-only set (no compliance/printed list) has no gate claim:
+	// Build falls back to its manifest cards for the census, but the gate
+	// walk reports "no printed list" for every card. Keep them out.
+	measured := make([]string, 0, len(codes))
+	for _, c := range codes {
+		if _, err := compliance.LoadPrinted(printedDir, c); err == nil {
+			measured = append(measured, c)
+		}
+	}
+	codes = measured
 	byLevel := map[string][]adopt.SetStatus{}
 	for _, l := range levels {
 		sets, err := cs.StatusChunked(codes, procs, func(batch []string) ([]adopt.SetStatus, error) {
