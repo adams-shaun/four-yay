@@ -21,9 +21,10 @@ var sacrificeSpells = []struct{ spell, victim, decoy string }{
 // sacrificeTriggerRecipe builds the causes of the trigger.sacrificed
 // sub-family: a token maker's prelude for a token filter, Village Rites /
 // Deadly Dispute for a creature or artifact victim the filter accepts, and the
-// card's own sacrifice ability for a self filter. Every cause's steps stop at
-// the spell, leaving the trigger on the stack for the generator's own settling
-// to resolve.
+// card's own sacrifice ability -- or, for a self filter on a card without one,
+// Angelic Purge answered with the card -- for a self filter. Every cause's
+// steps stop at the spell, leaving the trigger on the stack for the
+// generator's own settling to resolve.
 func sacrificeTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards.Trigger) ([]triggerCause, string, bool) {
 	filter := t.ParamStr(cards.PKValidCard)
 	var causes []triggerCause
@@ -37,6 +38,8 @@ func sacrificeTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *
 	causes = append(causes, fixtureSacrificeCauses(reg, name, filter)...)
 	if namesSelfFold(filter) {
 		if c, ok := selfSacrificeCause(f, name); ok {
+			causes = append(causes, c)
+		} else if c, ok := externalSelfSacrificeCause(reg, f, name); ok {
 			causes = append(causes, c)
 		}
 	}
@@ -131,6 +134,36 @@ func fixtureSacrificeCauses(reg *cards.Registry, name, filter string) []triggerC
 		causes = append(causes, triggerCause{opponentHand: []string{fx.spell}, opponentBattlefield: field, steps: []oraclegen.Step{{Op: "pass", Seat: 0}, cast}})
 	}
 	return causes
+}
+
+// externalSelfSacrificeCause casts Angelic Purge ({2}{W}, "as an additional
+// cost to cast this spell, sacrifice a permanent") with the sacrifice pick
+// answered with the card itself, for a Card.Self sacrifice trigger on a card
+// with no sacrifice ability of its own. The target (p0's Grizzly Bears) is a
+// decoy the spell's own effect exiles. An Aura cannot sit unattached on the
+// battlefield, so it starts in p0's hand and a prelude casts it onto the
+// Bears first, exactly as the enchanted-upkeep recipe does.
+func externalSelfSacrificeCause(reg *cards.Registry, f *cards.Face, name string) (triggerCause, bool) {
+	cast, ok := castProbe(reg, "Angelic Purge", "p0:"+bearsProbe)
+	if !ok {
+		return triggerCause{}, false
+	}
+	cast.Answers = []oraclegen.Answer{{Kind: "choose", Pick: []string{name}}}
+	c := triggerCause{
+		hand:        []string{"Angelic Purge"},
+		battlefield: []string{bearsProbe},
+		steps:       []oraclegen.Step{cast},
+	}
+	if oraclegen.HasType(f, "Aura") {
+		attach, ok := castProbe(reg, name, "p0:"+bearsProbe)
+		if !ok {
+			return triggerCause{}, false
+		}
+		c.selfInHand = true
+		c.hand = []string{name, "Angelic Purge"}
+		c.prelude = []oraclegen.Step{attach, {Op: "resolve"}}
+	}
+	return c, true
 }
 
 // selfSacrificeCause activates the card's own `Sac<1/CARDNAME>` ability: the

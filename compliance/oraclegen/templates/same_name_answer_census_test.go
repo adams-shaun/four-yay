@@ -147,13 +147,23 @@ func sameNameBucketRank(bucket string) int {
 // granted-trigger side alone reproduces 3/2 with exactly these five items, so
 // the move is the granted-trigger serving, not the merge.
 //
+// Re-measured on the level-B Card.Self-sacrifice-without-own-ability land
+// (this branch): DSK unproven 33 -> 34. Serving Disturbing Mirth's
+// Mode$ Sacrificed | ValidCard$ Card.Self trigger (its only sacrifice cause is
+// an external spell, so externalSelfSacrificeCause casts Angelic Purge and
+// answers the Sac<1/Permanent> cost with the card) generates one new scenario,
+// Disturbing Mirth/trigger#0.1, whose ManifestDread chooser pick is a
+// rank-derived library card (ref "p0:Wastes#N"), so no exact answer exists --
+// Unproven, not Unresolved. The item tracks the new scenario one-for-one:
+// measured DSK 34 -> 33 with the external-self-sacrifice cause reverted.
+//
 // Unresolved stayed 0 in every set through all moves; that is the
 // defect measure.
 var wantSameNameCensus = map[string]string{
 	"BIG": `{"alias":0,"copy":0,"unresolved":0,"unproven":1,"items":null}`,
 	"BLB": `{"alias":3,"copy":0,"unresolved":0,"unproven":4,"items":null}`,
 	"DFT": `{"alias":0,"copy":0,"unresolved":0,"unproven":3,"items":null}`,
-	"DSK": `{"alias":2,"copy":0,"unresolved":0,"unproven":33,"items":null}`,
+	"DSK": `{"alias":2,"copy":0,"unresolved":0,"unproven":34,"items":null}`,
 	"ECL": `{"alias":0,"copy":0,"unresolved":0,"unproven":5,"items":null}`,
 	"EOE": `{"alias":3,"copy":0,"unresolved":0,"unproven":2,"items":null}`,
 	"FDN": `{"alias":0,"copy":1,"unresolved":0,"unproven":2,"items":null}`,
