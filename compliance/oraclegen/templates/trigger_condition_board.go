@@ -65,6 +65,7 @@ func triggerConditionFixtures(reg *cards.Registry, f *cards.Face, t *cards.Trigg
 		out = append(out, opponentComparisonFixtures(f, check, t.ParamStr(cards.PKSVarCompare))...)
 	}
 	out = append(out, triggerSolvedCasePreludes(reg, f, t)...)
+	snowPresenceSwap(t, out)
 	return out
 }
 
