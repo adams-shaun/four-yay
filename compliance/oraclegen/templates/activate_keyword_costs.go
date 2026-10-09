@@ -41,7 +41,8 @@ func activationX(cost string, xMin ...int) int {
 		}
 	}
 	for _, tok := range toks {
-		if tok == "PayLife<X>" || tok == "Waterbend<X>" || strings.HasPrefix(tok, "ExileFromGrave<X/") {
+		if tok == "PayLife<X>" || tok == "Waterbend<X>" || strings.HasPrefix(tok, "ExileFromGrave<X/") ||
+			strings.HasPrefix(tok, "tapXType<X/") {
 			return 1
 		}
 	}

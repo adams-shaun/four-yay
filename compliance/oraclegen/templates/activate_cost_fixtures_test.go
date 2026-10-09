@@ -20,7 +20,10 @@ func TestActivateCostTokenShapes(t *testing.T) {
 		{"tapXType<Any/Creature.Other+withTotalPowerGE 3>", "", ""},
 		{"tapXType<1/Elf>", "", ""},
 		{"tapXType<2/Permanent>", "", ""},
-		{"tapXType<X/Artifact>", "", "tapXType<X>"},
+		// An announced tapXType<X/filter> count is served with one tapped
+		// catalogue permanent (cli-20261009T031408Z-5823e7de): the X is the
+		// tap election's own selection, never a posed ask.
+		{"tapXType<X/Artifact>", "", ""},
 		{"tapXType<2/Permanent.token>", "", ""},
 		{"tapXType<2/Artifact.token>", "", ""}, // Food/Treasure/Clue are artifact tokens
 		{"tapXType<2/Elf.token>", "", "tapXType<token-filter>"},
@@ -32,7 +35,7 @@ func TestActivateCostTokenShapes(t *testing.T) {
 		{"tapXType<1/Mount.Other;Vehicle.Other/another Mount or Vehicle>", "", ""},
 		{"tapXType<10/Elf>", "", "tapXType<count-above-catalogue>"},
 		{"tapXType<10/Elf/Elves>", "", "tapXType<count-above-catalogue>"},
-		{"tapXType<X/Artifact/artifacts>", "", "tapXType<X>"},
+		{"tapXType<X/Artifact/artifacts>", "", ""},
 		{"2 R Discard<1/NICKNAME>", "", "Discard<...>"}, // NICKNAME is a self-discard only from hand
 		{"1 T Discard<1/Card.Legendary+sharesNameWith Valid Permanent.Legendary+YouCtrl/legendary card>", "", "Discard<...>"},
 		{"1 R Discard<0/Hand> Sac<1/CARDNAME>", "CR", ""},

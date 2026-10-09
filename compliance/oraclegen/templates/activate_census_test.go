@@ -109,10 +109,13 @@ var wantActivateCensus = map[string]map[string]int{
 		"skip:activate cost gap: Sac<token>": 1,
 	},
 	"EOE": {
-		"served:activate.battlefield":             37,
+		// +1 Secluded Starforge activate#0.1: the announced tapXType<X/Artifact>
+		// count is served with one tapped catalogue artifact, the X being the
+		// tap election's own selection (cli-20261009T031408Z-5823e7de).
+		"served:activate.battlefield":             38,
 		"served:activate.mana":                    23,
 		"skip:activate cost gap: SubCounter<...>": 1,
-		"skip:activate cost gap: tapXType<X>":     1,
+
 	},
 	"FDN": {
 		"served:activate.battlefield":                             89,

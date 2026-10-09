@@ -521,7 +521,7 @@ func candidatesFor(reg *cards.Registry, filter, parentTarget string) []cand {
 		return withRole(subtypeBattlefield(reg, base, mine))
 	}
 	if role == roleAttacker && (strings.Contains(alt[0], ".token") || strings.Contains(alt[0], "+token") || base == "token") {
-		return withRole(tokenCandidates(true))
+		return withRole(hasteTokenCandidates())
 	}
 	creatures := []cand{{seat: opp, zone: "battlefield", card: "Grizzly Bears"}, {seat: opp, zone: "battlefield", card: "Serra Angel"}, {seat: opp, zone: "battlefield", card: "Ornithopter"}, {seat: opp, zone: "battlefield", card: "Llanowar Elves"}, {seat: opp, zone: "battlefield", card: "Hill Giant"}}
 	switch base {
@@ -706,6 +706,23 @@ func tokenCandidates(mine bool) []cand {
 			{Op: "resolve"},
 		},
 	}}
+}
+
+// hasteTokenCandidates is tokenCandidates for an attacking-token filter: the
+// token a plain Dragon Fodder prelude makes has summoning sickness and the
+// engine refuses to declare it attacking (Old Hob, Alleycat Blues' "target
+// attacking creature token"), so Fervor is resolved first and the token
+// enters with haste.
+func hasteTokenCandidates() []cand {
+	out := tokenCandidates(true)
+	if len(out) == 0 {
+		return nil
+	}
+	out[0].pre = append([]Step{
+		{Op: "cast", Seat: 0, Card: "p0:Fervor", Mana: "CCR", Targets: nil},
+		{Op: "resolve"},
+	}, out[0].pre...)
+	return out
 }
 
 // enchantedCandidates puts a creature you control on the battlefield and

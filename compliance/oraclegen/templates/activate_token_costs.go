@@ -124,7 +124,7 @@ func tokenCostHasFixture(tok string) bool {
 		_, ok := sacFilterFixtures(tok, 0)
 		return ok
 	}
-	_, gap := tapXTypeResolve(tok)
+	_, gap := tapXTypeResolve(tok, 0)
 	return gap == ""
 }
 

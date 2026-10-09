@@ -79,11 +79,11 @@ func activationCostIn(cost, zone, name string, xMin ...int) (pool, gap string) {
 				continue
 			}
 		case "Return":
-			if selfZoneCost(tok) {
+			if selfZoneCost(tok) || returnCreatureFixture(tok) != "" {
 				continue
 			}
 		case "tapXType":
-			if tapXTypeFixtureSupported(tok) || tokenCostSupported(tok) {
+			if tapXTypeFixtureSupported(tok, x) || tokenCostSupported(tok) {
 				continue
 			}
 			return "", tapXTypeGapClass(tok)
@@ -213,6 +213,25 @@ func graveyardCostFixtures(tok string) []string {
 	return filterCostFixtures(tok)
 }
 
+// returnCreatureFixture names the tapped catalogue creature that pays a
+// Return<1/Creature.tapped> cost (Urban Retreat's "Return a tapped creature
+// you control to its owner's hand"); "" when the shape is unsupported.
+func returnCreatureFixture(tok string) string {
+	payload, ok := bracketPayload(tok)
+	if !ok {
+		return ""
+	}
+	parts := strings.Split(payload, "/")
+	if len(parts) < 2 || strings.TrimSpace(parts[0]) != "1" {
+		return ""
+	}
+	switch strings.ToLower(strings.TrimSpace(parts[1])) {
+	case "creature.tapped", "creature.youctrl.tapped", "creature.other.tapped":
+		return "Grizzly Bears"
+	}
+	return ""
+}
+
 // namedSelfCount reports n when an ExileFromGrave token's filter names the
 // source card itself ("...+namedCARDNAME", Say Its Name's second exile
 // count): the payment's fixtures are copies of the source in the graveyard,
@@ -314,8 +333,8 @@ func evidenceCostFixtures(tok string) []string {
 }
 
 // tapXTypeFixtures returns the catalogue permanents that pay a tapXType cost.
-func tapXTypeFixtures(tok string) ([]string, bool) {
-	picks, gap := tapXTypeResolve(tok)
+func tapXTypeFixtures(tok string, x int) ([]string, bool) {
+	picks, gap := tapXTypeResolve(tok, x)
 	return picks, gap == ""
 }
 
@@ -327,7 +346,11 @@ var tapXTypePowers = map[string]int{"Grizzly Bears": 2, "Llanowar Elves": 1, "Ne
 // the gap class naming why no catalogue permanent pays the cost. The payload
 // is `count/filter[/description]`; the Forge description is display text and
 // is dropped, so a described filter reads exactly as an undescribed one.
-func tapXTypeResolve(tok string) ([]string, string) {
+// tapXTypeResolve names the catalogue permanents a tapXType cost taps and the
+// gap class when it cannot. The announced `<X/filter>` count (Secluded
+// Starforge's tapXType<X/Artifact>, whose X is the tap election's own
+// selection) reads x, defaulting to 1 untapped permanent.
+func tapXTypeResolve(tok string, x int) ([]string, string) {
 	payload, ok := bracketPayload(tok)
 	if !ok {
 		return nil, "tapXType<malformed>"
@@ -336,7 +359,8 @@ func tapXTypeResolve(tok string) ([]string, string) {
 	if len(parts) < 2 {
 		return nil, "tapXType<malformed>"
 	}
-	if strings.EqualFold(strings.TrimSpace(parts[0]), "X") {
+	tapX := strings.EqualFold(strings.TrimSpace(parts[0]), "X")
+	if tapX && x < 1 {
 		return nil, "tapXType<X>"
 	}
 	filter := parts[1]
@@ -351,7 +375,9 @@ func tapXTypeResolve(tok string) ([]string, string) {
 		filter = filter[:i]
 	}
 	count := 0
-	if strings.EqualFold(parts[0], "Any") {
+	if tapX {
+		count = x
+	} else if strings.EqualFold(parts[0], "Any") {
 		if threshold == 0 {
 			return nil, "tapXType<unsupported-filter>"
 		}
@@ -444,14 +470,14 @@ func uniqueFixtureNames(names []string) []string {
 	return out
 }
 
-func tapXTypeFixtureSupported(tok string) bool { _, ok := tapXTypeFixtures(tok); return ok }
+func tapXTypeFixtureSupported(tok string, x int) bool { _, ok := tapXTypeFixtures(tok, x); return ok }
 
 // tapXTypeGapClass keeps census buckets useful without exposing every raw
 // filter payload. Unsupported X counts, token filters and counts above the
 // catalogue are distinct classes; remaining parser/filter shapes share the
 // unsupported-filter bucket.
 func tapXTypeGapClass(tok string) string {
-	_, gap := tapXTypeResolve(tok)
+	_, gap := tapXTypeResolve(tok, 0)
 	return gap
 }
 
@@ -498,7 +524,7 @@ func addTapXTypeAnswers(answers [][]oraclegen.XAnswer, step int, cost string, de
 		if !strings.HasPrefix(tok, "tapXType") {
 			continue
 		}
-		picks, ok := tapXTypeFixtures(tok)
+		picks, ok := tapXTypeFixtures(tok, 0)
 		if !ok {
 			if needs, isToken := tokenCostNeeds(tok); isToken {
 				// The tokens a prelude made: one answer per tapped token.
@@ -574,12 +600,12 @@ func hasPickKind(d rules.OracleDecision, kind string) bool {
 	return false
 }
 
-func addTapXTypeFixtures(p0 *oraclegen.Seat, cost string) {
+func addTapXTypeFixtures(p0 *oraclegen.Seat, cost string, x int) {
 	for _, tok := range costTokens(cost) {
 		if !strings.HasPrefix(tok, "tapXType") {
 			continue
 		}
-		picks, ok := tapXTypeFixtures(tok)
+		picks, ok := tapXTypeFixtures(tok, x)
 		if !ok {
 			continue
 		}

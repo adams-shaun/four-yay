@@ -462,6 +462,31 @@ func addActivationCostAnswers(answers [][]oraclegen.XAnswer, step int, cost, nam
 					}
 				}
 			}
+		case "Return":
+			// The engine's observed returncost pick is authoritative (a broad
+			// "tapped creature" filter can reach the fixture creature); the
+			// catalogue fixture is the fallback when the ask was answered
+			// before the decisions were recorded.
+			observed := false
+			for _, d := range decisions {
+				if d.Step != step || d.Seat != 0 || d.Kind != "choose_n" {
+					continue
+				}
+				for i, kind := range d.PickKinds {
+					if kind != "returncost" {
+						continue
+					}
+					observed = true
+					if i < len(d.Picks) {
+						picks = append(picks, observedCostPick(d, i))
+					}
+				}
+			}
+			if !observed {
+				if card := returnCreatureFixture(tok); card != "" {
+					picks = []string{card}
+				}
+			}
 		case "Sac":
 			// The engine's observed pick is authoritative. A broad filter can
 			// include the ability's source, so a catalogue fixture is not
@@ -587,6 +612,11 @@ func addActivationCostFixtures(p0 *oraclegen.Seat, name, cost string, x ...int) 
 			for _, name := range activationCostFixturesX(tok, xv) {
 				p0.Battlefield = appendFixtureUnique(p0.Battlefield, name)
 			}
+		case "Return":
+			if card := returnCreatureFixture(tok); card != "" {
+				p0.Battlefield = appendFixtureUnique(p0.Battlefield, card)
+				p0.Tapped = appendFixtureUnique(p0.Tapped, card)
+			}
 		case "Sac":
 			// The fixture table is the single authority; a self-sacrifice
 			// places nothing (the source is already on the battlefield). An
@@ -601,7 +631,7 @@ func addActivationCostFixtures(p0 *oraclegen.Seat, name, cost string, x ...int) 
 			}
 		}
 	}
-	addTapXTypeFixtures(p0, cost)
+	addTapXTypeFixtures(p0, cost, xv)
 	keywordCostFixtures(p0, cost)
 }
 

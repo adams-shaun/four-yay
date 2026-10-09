@@ -121,14 +121,25 @@ func TestActivateSourceCounterCosts(t *testing.T) {
 	for _, tc := range []struct {
 		name, key, kind string
 		n               int32
+		etb             int32
 	}{
-		{"Weather Maker", "activate#0.2", "CHARGE", 3},
-		{"Wishclaw Talisman", "activate#0.0", "WISH", 1},
-		{"Brambleback Brute", "activate#0.0", "M1M1", 1},
+		{"Weather Maker", "activate#0.2", "CHARGE", 3, 0},
+		// A face whose etbCounter keyword already enters with the kind is
+		// seeded only for the shortfall: Wishclaw Talisman enters with three
+		// wish counters, Brambleback Brute with two -1/-1 counters, so the
+		// placement itself covers the cost and nothing is seeded
+		// (cli-20261009T031408Z-5823e7de, following adf42bde9's shortfall
+		// seeding).
+		{"Wishclaw Talisman", "activate#0.0", "WISH", 1, 3},
+		{"Brambleback Brute", "activate#0.0", "M1M1", 1, 2},
 	} {
 		it, _ := activateRequirement(t, reg, tc.name, tc.key)
-		if got := it.Setup["p0"].Counters[tc.name][tc.kind]; got != tc.n {
-			t.Errorf("%s %s: counters = %v, want %d %s", tc.name, tc.key, it.Setup["p0"].Counters, tc.n, tc.kind)
+		want := tc.n - tc.etb
+		if want < 0 {
+			want = 0
+		}
+		if got := it.Setup["p0"].Counters[tc.name][tc.kind]; got != want {
+			t.Errorf("%s %s: counters = %v, want %d %s", tc.name, tc.key, it.Setup["p0"].Counters, tc.n-tc.etb, tc.kind)
 		}
 		res, ok := oraclegen.PlaysThrough(reg, it.Scenario)
 		if !ok || len(res.Fails) != 0 {
