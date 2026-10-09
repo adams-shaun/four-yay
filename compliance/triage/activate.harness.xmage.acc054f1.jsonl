@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: {T}, Remove two charge counters from this artifact"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: {T}, Remove two charge counters from this artifact","cards":1}
-{"card":"Weather Maker","template":"activate#0.1","status":"harness","api":"ChangesZone:PutCounter","sets":["TMT"],"detail":"xmage: AssertionError: Can't find ability to activate command: {T}, Remove two charge counters from this artifact"}

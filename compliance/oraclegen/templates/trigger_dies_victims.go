@@ -106,6 +106,9 @@ func diesOtherRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards.T
 	if damagedByVictim(filter) {
 		return damagedByCauses(f, name, filter)
 	}
+	if causes, why, ok := diesSpecialVictimCauses(reg, f, name, t); ok {
+		return causes, why
+	}
 	var pre, prelude []oraclegen.Step
 	aura := strings.Contains(filter, "AttachedBy") || strings.Contains(filter, "EnchantedBy")
 	equip := strings.Contains(filter, "EquippedBy")

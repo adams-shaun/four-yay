@@ -114,6 +114,10 @@ type walkFaceFacts struct {
 	// (legal_walk_flash.go). A pure function of f.Statics, so it is read
 	// only while the facts are fullyCurrent.
 	flash bool
+	// quiet holds the quiet-seat proof's per-face facts
+	// (rules/quiet_facts.go), a pure function of the face's own lists like
+	// every other member.
+	quiet quietFaceFacts
 }
 
 // verifyFresh panics when a field of ff a reader may use differs from a
@@ -192,8 +196,9 @@ func walkFaceFactsEqual(a, b *walkFaceFacts) bool {
 		a.trigLookBack != b.trigLookBack || a.grantsTrig != b.grantsTrig || a.trigFirst != b.trigFirst || a.trigLen != b.trigLen ||
 		a.statFirst != b.statFirst || a.statLen != b.statLen || a.replFirst != b.replFirst || a.replLen != b.replLen ||
 		a.svars != b.svars || a.svarsLen != b.svarsLen ||
-		a.staticOn != b.staticOn || a.staticOff != b.staticOff || a.mayPlay != b.mayPlay ||
-		a.flash != b.flash {
+		a.staticOn != b.staticOn || a.staticOff != b.staticOff ||
+		a.mayPlay != b.mayPlay ||
+		a.flash != b.flash || a.quiet != b.quiet {
 		return false
 	}
 	if (a.altCosts == nil) != (b.altCosts == nil) || len(a.altCosts) != len(b.altCosts) {
@@ -303,6 +308,9 @@ func computeWalkFaceFactsMode(f *cards.Face, includeScan bool) walkFaceFacts {
 			}
 		}
 	}
+	// The quiet facts depend on ff.altCosts (a compiled alternative-cost
+	// keyword entry is castOpen), so they are built after the alt-cost loop.
+	ff.quiet = computeQuietFaceFacts(f, len(ff.altCosts) > 0)
 	for _, ab := range f.Abilities {
 		if ab == nil {
 			continue
@@ -313,7 +321,7 @@ func computeWalkFaceFactsMode(f *cards.Face, includeScan bool) walkFaceFacts {
 		if ab.Kind != "AB" {
 			continue
 		}
-		if cards.IsManaAbilityAPI(ab.API) && !loyaltyAbilityText(ab) {
+		if cards.IsManaAbilitySA(ab) && !loyaltyAbilityText(ab) {
 			continue
 		}
 		m := abilityZoneMask(ab)

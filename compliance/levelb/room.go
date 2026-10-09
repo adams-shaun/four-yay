@@ -65,3 +65,20 @@ func IsRoomCard(c *cards.Card) bool {
 func roomDoorServable(c *cards.Card) bool {
 	return IsRoomCard(c)
 }
+
+// RoomStaticServable reports whether a static on a Room's second door is
+// served by casting that door: only the sub-families whose builders either
+// already cast the card (panharmonicon's cast base) or are being given the
+// room-door cast base qualify. Any other sub keeps the face gap, because its
+// builder would place the door on the battlefield by setup, where neither
+// engine unlocks it.
+func RoomStaticServable(c *cards.Card, sub string) bool {
+	if !IsRoomCard(c) {
+		return false
+	}
+	switch sub {
+	case "static.continuous", "static.panharmonicon", "static.untap-other-player":
+		return true
+	}
+	return false
+}

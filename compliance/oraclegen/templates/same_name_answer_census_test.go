@@ -104,9 +104,9 @@ func sameNameBucketRank(bucket string) int {
 // disappears if the phase-other recipe hook is reverted.
 //
 // Re-measured once more on the gated combat-legality static land
-// (cli-20261009T031407Z-6fac1771): MKM unproven 0 -> 1. Serving Furtive
-// Courier's gated cant-block-by static (CantBlockBy | ValidAttacker$
-// Card.Self+attacking | CheckSVar$ SaccedThisTurn) generates
+// (cli-20261009T031407Z-6fac1771, merged here from main): MKM unproven 0 -> 1.
+// Serving Furtive Courier's gated cant-block-by static (CantBlockBy |
+// ValidAttacker$ Card.Self+attacking | CheckSVar$ SaccedThisTurn) generates
 // Furtive Courier/static#0.0, whose gate setup sacrifices an artifact; the
 // card's own attacks trigger then draws and discards, and that discard-mode
 // pick is a rank-derived library card (ref "p0:Wastes#N") offered beside an
@@ -114,31 +114,83 @@ func sameNameBucketRank(bucket string) int {
 // The item tracks the new scenario one-for-one and disappears if the gated
 // static hook in levelb.classifyStatic is reverted.
 //
-// Re-measured once more for cli-20261009T031407Z-cb26eec8 (Level B: observe
-// statics that grant an activated ability): two Aura grants add one Alias item
-// each. Ringing Strike Mastery (TDM) and Friendly Neighborhood (SPM) are cast
-// by the fixture onto an OPPOSING permanent (p1:Grizzly Bears / p1:Forest)
-// while p0's own same-named probe (Grizzly Bears / Forest) is the grant
-// recipient, so the emitted cast-target answer is an exact ref that resolves
-// the same-name pick -- Alias 1 -> 2 in each set, Unresolved stayed 0. The
-// item tracks each new scenario one-for-one and disappears if the
-// granted-activated-ability observation is reverted.
+// Re-measured on the level-B trigger-condition/activation land (this branch):
+// MKM unproven 0 -> 1. Serving Case of the Burning Masks' solved activation
+// (IsPresent$ Card.Self+IsSolved, activate_restriction.go solvedCasePreludes)
+// generates one new scenario, Case of the Burning Masks/activate#0.0, whose
+// Dig-then-ChooseCard pick is a rank-derived library ref with two or more
+// same-name candidates, so no exact answer exists -- Unproven, not Unresolved.
+// The item tracks the new scenario one-for-one and disappears if the
+// solved-Case prelude is reverted.
 //
-// Unresolved stayed 0 in every set through all six moves; that is the
+// The two MKM moves each landed on its own side of a merge from the same
+// base, so the merged pins carry both new scenarios: MKM unproven 1 -> 2,
+// alongside the cb26eec8 SPM/TDM alias 2 moves.
+//
+// Re-measured for cli-20261009T031407Z-cb26eec8 (Level B: observe statics
+// that grant an activated ability): two Aura grants add one Alias item each.
+// Ringing Strike Mastery (TDM) and Friendly Neighborhood (SPM) are cast by the
+// fixture onto an OPPOSING permanent (p1:Grizzly Bears / p1:Forest) while p0's
+// own same-named probe (Grizzly Bears / Forest) is the grant recipient, so the
+// emitted cast-target answer is an exact ref that resolves the same-name pick
+// -- Alias 1 -> 2 in each set, Unresolved stayed 0. The item tracks each new
+// scenario one-for-one and disappears if the granted-activated-ability
+// observation is reverted.
+//
+// Re-measured at the merge of cli-20261009T031407Z-6fac1771's level-B
+// granted-trigger observation (the AddTrigger grant fired by its cause steps)
+// into current main: EOE alias 2 -> 3, unproven 1 -> 2. The observation
+// generates two new EOE scenarios -- Dawnsire, Sunstar Dreadnought static#0.0
+// (its same-name pick is resolved exactly via an alias) and Entropic
+// Battlecruiser static#0.0 (its same-name pick ref is rank-derived, so
+// Unproven). Measured per side: main alone reproduces the old 2/1; the
+// granted-trigger side alone reproduces 3/2 with exactly these five items, so
+// the move is the granted-trigger serving, not the merge.
+//
+// Re-measured for the declined-object-pick routing (c5ccc3049, this branch's
+// ticket agent-20261009T041343Z-30c2d145 round 2): BLB unproven 4 -> 5.
+// That change routes Fireglass Mentor/trigger#0.0's declined two-option exile
+// look ask onto XMage's mandatory TargetCardInExile 1..1 pose: the serving
+// trigger template forces the rerun so gorge picks the first exiled card too,
+// and the step's answer becomes the name "Wastes" (RetargetForcedLookPicks)
+// where it was the skip token "[choice_skip]" before. A skip token is not a
+// name selection, so the census never counted the item; the named answer
+// does. The pick is one of TWO same-name Wastes in the exile look
+// (p0:Wastes#27 / p0:Wastes#39), and an exile-look ref is rank-derived, so
+// ClassifySameName marks it Unanswerable: Unproven, not Unresolved -- no
+// exact answer exists, which is why the mandatory-target script names the
+// card rather than an alias. One-for-one: reverting c5ccc3049 and re-running
+// the BLB scan lists exactly the old four items (Cache Grab, Calamitous
+// Tide, Feed the Cycle, Ral Crackling Wit -- untouched by that commit, whose
+// answers are name picks over rank-derived library/hidden Wastes from before
+// it); restoring it adds Fireglass Mentor/trigger#0.0 and nothing else
+// (.ds4/scratch/probe1.log / probe2.log). Unresolved stayed 0.
+//
+// Re-measured on the level-B Card.Self-sacrifice-without-own-ability land
+// (this branch): DSK unproven 33 -> 34. Serving Disturbing Mirth's
+// Mode$ Sacrificed | ValidCard$ Card.Self trigger (its only sacrifice cause is
+// an external spell, so externalSelfSacrificeCause casts Angelic Purge and
+// answers the Sac<1/Permanent> cost with the card) generates one new scenario,
+// Disturbing Mirth/trigger#0.1, whose ManifestDread chooser pick is a
+// rank-derived library card (ref "p0:Wastes#N"), so no exact answer exists --
+// Unproven, not Unresolved. The item tracks the new scenario one-for-one:
+// measured DSK 34 -> 33 with the external-self-sacrifice cause reverted.
+//
+// Unresolved stayed 0 in every set through all moves; that is the
 // defect measure.
 var wantSameNameCensus = map[string]string{
 	"BIG": `{"alias":0,"copy":0,"unresolved":0,"unproven":1,"items":null}`,
-	"BLB": `{"alias":3,"copy":0,"unresolved":0,"unproven":4,"items":null}`,
+	"BLB": `{"alias":3,"copy":0,"unresolved":0,"unproven":5,"items":null}`,
 	"DFT": `{"alias":0,"copy":0,"unresolved":0,"unproven":3,"items":null}`,
-	"DSK": `{"alias":2,"copy":0,"unresolved":0,"unproven":33,"items":null}`,
+	"DSK": `{"alias":2,"copy":0,"unresolved":0,"unproven":34,"items":null}`,
 	"ECL": `{"alias":0,"copy":0,"unresolved":0,"unproven":5,"items":null}`,
-	"EOE": `{"alias":2,"copy":0,"unresolved":0,"unproven":1,"items":null}`,
+	"EOE": `{"alias":3,"copy":0,"unresolved":0,"unproven":2,"items":null}`,
 	"FDN": `{"alias":0,"copy":1,"unresolved":0,"unproven":2,"items":null}`,
 	"FIN": `{"alias":0,"copy":0,"unresolved":0,"unproven":4,"items":null}`,
 	"FRA": `{"alias":0,"copy":0,"unresolved":0,"unproven":2,"items":null}`,
 	"HOB": `{"alias":0,"copy":0,"unresolved":0,"unproven":2,"items":null}`,
 	"LCI": `{"alias":0,"copy":0,"unresolved":0,"unproven":5,"items":null}`,
-	"MKM": `{"alias":3,"copy":0,"unresolved":0,"unproven":1,"items":null}`,
+	"MKM": `{"alias":3,"copy":0,"unresolved":0,"unproven":2,"items":null}`,
 	"MSH": `{"alias":1,"copy":0,"unresolved":0,"unproven":3,"items":null}`,
 	"OTJ": `{"alias":2,"copy":1,"unresolved":0,"unproven":1,"items":null}`,
 	"SOS": `{"alias":0,"copy":0,"unresolved":0,"unproven":5,"items":null}`,

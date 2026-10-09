@@ -47,7 +47,7 @@ func selfFilterItem(t *testing.T, reg *cards.Registry, name, key string) (oracle
 	return it, res.Snapshots[len(res.Snapshots)-1]
 }
 
-func permNamed(snap rules.OracleSnapshot, name string) (rules.OracleSnapPerm, bool) {
+func permNamedSnap(snap rules.OracleSnapshot, name string) (rules.OracleSnapPerm, bool) {
 	for _, p := range snap.Permanents {
 		if p.Controller == 0 && p.Name == name {
 			return p, true
@@ -77,7 +77,7 @@ func TestStaticSelfCounterGate(t *testing.T) {
 	if got := it.Setup["p0"].Counters[name]["P1P1"]; got != 3 {
 		t.Fatalf("%s setup counters = %v, want P1P1:3", name, it.Setup["p0"].Counters[name])
 	}
-	p, ok := permNamed(final, name)
+	p, ok := permNamedSnap(final, name)
 	if !ok {
 		t.Fatalf("%s not on the final battlefield", name)
 	}
@@ -115,7 +115,7 @@ func TestStaticFilterHasCounters(t *testing.T) {
 	if onCounter == "Grizzly Bears" {
 		t.Fatalf("%s: the counter is on the probe, which would shift its compared P/T", name)
 	}
-	p, ok := permNamed(final, name)
+	p, ok := permNamedSnap(final, name)
 	if !ok {
 		t.Fatalf("%s not on the final battlefield", name)
 	}
@@ -147,7 +147,7 @@ func TestStaticFilterNamedCount(t *testing.T) {
 	if n < 8 {
 		t.Fatalf("only %d permanents named %s on the final battlefield, want >=8", n, name)
 	}
-	p, ok := permNamed(final, name)
+	p, ok := permNamedSnap(final, name)
 	if !ok {
 		t.Fatalf("%s not on the final battlefield", name)
 	}
@@ -165,7 +165,7 @@ func TestStaticFilterLegendaryProbe(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	const name = "Serah Farron"
 	_, final := selfFilterItem(t, reg, name, "static#1.1")
-	probe, ok := permNamed(final, "Barktooth Warbeard")
+	probe, ok := permNamedSnap(final, "Barktooth Warbeard")
 	if !ok {
 		t.Fatalf("legendary probe Barktooth Warbeard is not on the final battlefield")
 	}
@@ -200,7 +200,7 @@ func TestStaticSourceCounterEquipment(t *testing.T) {
 	if !attached {
 		t.Fatalf("%s: no attach step from the Equipment to the probe: %+v", name, it.Steps)
 	}
-	probe, ok := permNamed(final, probeName)
+	probe, ok := permNamedSnap(final, probeName)
 	if !ok {
 		t.Fatalf("%s: probe %s is not on the final battlefield", name, probeName)
 	}
@@ -236,7 +236,7 @@ func TestStaticEnchantedProbe(t *testing.T) {
 			if !attached {
 				t.Fatalf("%s: no attach step onto the probe: %+v", tc.card, it.Steps)
 			}
-			probe, ok := permNamed(final, probeName)
+			probe, ok := permNamedSnap(final, probeName)
 			if !ok {
 				t.Fatalf("%s: probe %s is not on the final battlefield", tc.card, probeName)
 			}

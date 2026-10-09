@@ -7,7 +7,7 @@
 #     cache, so a landing that did not touch rules costs seconds, not a re-run
 #     of the lane. The cached replay is byte-identical to the live -v output
 #     except the final `ok ... (cached)` line, which cmd/ledger does not read.
-#   - capped: 2 GB / 2 vCPU scope, GOMAXPROCS=2 GOMEMLIMIT=1536MiB, like every
+#   - capped: 4 GB / 4 vCPU scope, GOMAXPROCS=4 GOMEMLIMIT=3GiB, like every
 #     other test run on this box.
 #   - serialised on its OWN lock, <main checkout>/.ds4/ledger.lock (flock -o so
 #     the fd is not inherited by the test binary). Not the shared heavy lock
@@ -37,7 +37,7 @@ mkdir -p "$(dirname "$OUT")"
 
 scope=()
 if command -v systemd-run >/dev/null 2>&1; then
-	scope=(systemd-run --user --scope -q -p MemoryMax=2G -p CPUQuota=200%)
+	scope=(systemd-run --user --scope -q -p MemoryMax=4G -p CPUQuota=400%)
 fi
 
 TMP=$(mktemp "$OUT.XXXXXX") || exit 2
@@ -45,7 +45,7 @@ trap 'rm -f "$TMP"' EXIT
 
 # -E 99: a lock timeout is distinguishable from go test's own exit 1 (FAIL).
 lock=(flock -o -E 99 -w "$WAIT" "$LOCK")
-"${lock[@]}" "${scope[@]}" env GOMAXPROCS=2 GOMEMLIMIT=1536MiB \
+"${lock[@]}" "${scope[@]}" env GOMAXPROCS=4 GOMEMLIMIT=3GiB \
 	go test -timeout 2m ./rules -run TestCR -v >"$TMP"
 rc=$?
 if [ "$rc" -eq 99 ]; then

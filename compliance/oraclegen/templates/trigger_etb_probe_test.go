@@ -47,16 +47,19 @@ func TestTriggerETBProbe(t *testing.T) {
 	}
 }
 
-// TestTriggerETBProbeNamedSkip: a filter no probe can satisfy by construction
-// (a token, a face-down permanent, a chosen type, an opponent's permanent)
-// skips with the filter named, never the bare "did not fire".
-func TestTriggerETBProbeNamedSkip(t *testing.T) {
+// TestTriggerETBProbeSpecialFilters: a filter the cast/played probe walk
+// cannot satisfy by construction (a token, a face-down permanent, a chosen
+// type, an opponent's permanent) is served by its dedicated cause, and the
+// scenario's probe names the mechanism: a token maker, a face-down cast, a
+// cast of the chosen type's creature, and a p1 cast for the opponent's
+// permanent (ticket g17).
+func TestTriggerETBProbeSpecialFilters(t *testing.T) {
 	reg := loadGenRegistry(t)
-	for _, tc := range []struct{ name, key, want string }{
-		{"Belladonna Took", "trigger#0.0", "trigger no recipe: etb filter token"},
-		{"Cryptid Inspector", "trigger#0.0", "trigger no recipe: etb filter faceDown"},
-		{"Dawn-Blessed Pennant", "trigger#0.0", "trigger no recipe: etb filter ChosenType"},
-		{"Gideon the Oathless", "trigger#0.0", "trigger no recipe: etb filter OppCtrl"},
+	for _, tc := range []struct{ name, key, probe string }{
+		{"Belladonna Took", "trigger#0.0", "Sprout"},
+		{"Cryptid Inspector", "trigger#0.0", "disguised"},
+		{"Dawn-Blessed Pennant", "trigger#0.0", "Arc Runner"},
+		{"Gideon the Oathless", "trigger#0.0", "p1:"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			c, ok := reg.Lookup(tc.name)
@@ -70,9 +73,19 @@ func TestTriggerETBProbeNamedSkip(t *testing.T) {
 				if r.Sub != "trigger.etb-other" {
 					t.Fatalf("precondition: %s %s classified %s", tc.name, tc.key, r.Sub)
 				}
-				_, skip := GenerateB(reg, tc.name, r)
-				if skip == nil || !strings.HasPrefix(skip.Reason, tc.want) {
-					t.Fatalf("skip = %v, want prefix %q", skip, tc.want)
+				it, skip := GenerateB(reg, tc.name, r)
+				if skip != nil {
+					t.Fatalf("%s %s: %s", tc.name, tc.key, skip.Reason)
+				}
+				matched := false
+				for _, st := range it.Scenario.Steps {
+					matched = matched || strings.Contains(st.Card, tc.probe) || st.CastMode == tc.probe
+				}
+				if !matched {
+					t.Fatalf("no step names the %s mechanism: steps = %+v", tc.probe, it.Scenario.Steps)
+				}
+				if res, ok := oraclegen.PlaysThrough(reg, it.Scenario); !ok || len(res.Fails) != 0 {
+					t.Fatalf("does not play through gorge: ok=%v fails=%v", ok, res.Fails)
 				}
 				return
 			}

@@ -13,7 +13,7 @@ import (
 var (
 	bounceProbes    = []string{"Unsummon"}
 	exileZoneProbes = []string{"Swords to Plowshares", "Path to Exile"}
-	reanimateProbes = []string{"Raise Dead", "Disentomb"}
+	reanimateProbes = []string{"Raise Dead", "Disentomb", "Breath of Life"}
 	// artifactProbes and enchantmentProbes destroy a noncreature permanent.
 	artifactProbes    = []string{"Shatter"}
 	enchantmentProbes = []string{"Disenchant", "Naturalize"}
@@ -51,6 +51,9 @@ func zoneProbes(dest string) []string {
 func zoneTriggerRecipe(reg *cards.Registry, name string, t *cards.Trigger, sub string) ([]triggerCause, string) {
 	filter := levelb.ZoneChangeFilter(t)
 	if sub == "trigger.zone-change-residue" {
+		if causes, why, ok := residueCauses(reg, name, t, filter); ok {
+			return causes, why
+		}
 		return nil, zoneChangeSkip(filter, t)
 	}
 	dest := t.ParamStr(cards.PKDestination)

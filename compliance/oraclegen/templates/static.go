@@ -33,7 +33,13 @@ func staticSubs(sub string) bool {
 	case "static.disable-triggers", "static.combat-damage-toughness", "static.can-attack-defender", "static.can-attack-defender-svar", "static.cant-block-by", "static.cant-be-cast-threshold", "static.cant-be-cast-combat", "static.cant-be-activated-combat", "static.cant-block-self", "static.cant-block-by-self", "static.min-blockers",
 		"static.cant-be-cast-opponent-turn", "static.cant-be-cast-first-turns", "static.cant-be-cast-limit", "static.cant-be-activated-opponent-turn", "static.cant-be-activated-all", "static.cant-be-activated-enchanted", "static.panharmonicon", "static.optional-cost",
 		"static.cant-attack-enchanted", "static.cant-block-enchanted", "static.cant-block-by-blocker-filter", "static.cant-gain-life", "static.mana-convert-creature-spells", "static.cant-be-activated-named",
-		"static.cant-attack-gated", "static.cant-block-gated", "static.cant-block-by-gated", "static.can-attack-defender-gated", "static.max-blockers", "static.must-attack-self":
+		"static.cant-be-activated-named-enters",
+		"static.tap-power-value", "static.cast-with-flash", "static.untap-other-player", "static.cant-draw",
+		"static.cant-attack-gated", "static.cant-block-gated", "static.cant-block-by-gated", "static.can-attack-defender-gated", "static.max-blockers", "static.must-attack-self",
+		"static.unspent-mana", "static.no-cleanup-damage", "static.ignore-legend-rule", "static.cant-be-copied", "static.cant-put-counter",
+		"static.activate-as-if-haste", "static.activations-powerup", "static.plot-zone", "static.ignore-hexproof", "static.cant-be-suspected",
+		"static.cant-prevent-damage", "static.cant-prevent-damage-combat", "static.cant-attack-unless-tax", "static.cant-block-unless-tax",
+		"static.mana-convert-case-spells", "static.mana-convert-abilities":
 		return true
 	}
 	return false
@@ -94,6 +100,8 @@ func staticRequirement(reg *cards.Registry, f *cards.Face, name string, req leve
 		return manaConvertCreatureItem(reg, f, name, req)
 	case "static.cant-be-activated-named":
 		return cantBeActivatedNamedItem(reg, f, name, req)
+	case "static.cant-be-activated-named-enters":
+		return cantBeActivatedNamedEntersItem(reg, f, name, req)
 	case "static.cant-be-cast-threshold":
 		return staticCastOffer(reg, f, name, req, false)
 	case "static.cant-be-cast-combat":
@@ -116,6 +124,44 @@ func staticRequirement(reg *cards.Registry, f *cards.Face, name string, req leve
 		return panharmoniconItem(reg, f, name, req)
 	case "static.optional-cost":
 		return optionalCostItem(reg, f, name, req)
+	case "static.tap-power-value":
+		return tapPowerValueItem(reg, f, name, req)
+	case "static.cast-with-flash":
+		return castWithFlashItem(reg, f, name, req)
+	case "static.untap-other-player":
+		return untapOtherPlayerItem(reg, f, name, req)
+	case "static.cant-draw":
+		return cantDrawItem(reg, f, name, req)
+	case "static.unspent-mana":
+		return unspentManaItem(reg, f, name, req)
+	case "static.no-cleanup-damage":
+		return noCleanupDamageItem(reg, f, name, req)
+	case "static.ignore-legend-rule":
+		return ignoreLegendRuleItem(reg, f, name, req)
+	case "static.cant-be-copied":
+		return cantBeCopiedItem(reg, f, name, req)
+	case "static.cant-put-counter":
+		return cantPutCounterItem(reg, f, name, req)
+	case "static.activate-as-if-haste":
+		return activateAsIfHasteItem(reg, f, name, req)
+	case "static.activations-powerup":
+		return activationsPowerUpItem(reg, f, name, req)
+	case "static.plot-zone":
+		return plotZoneItem(reg, f, name, req)
+	case "static.ignore-hexproof":
+		return ignoreHexproofItem(reg, f, name, req)
+	case "static.cant-be-suspected":
+		return cantBeSuspectedItem(reg, f, name, req)
+	case "static.cant-prevent-damage", "static.cant-prevent-damage-combat":
+		return cantPreventDamageItem(reg, f, name, req)
+	case "static.cant-attack-unless-tax":
+		return cantAttackUnlessTaxItem(reg, f, name, req)
+	case "static.cant-block-unless-tax":
+		return cantBlockUnlessTaxItem(reg, f, name, req)
+	case "static.mana-convert-case-spells":
+		return manaConvertCaseItem(reg, f, name, req)
+	case "static.mana-convert-abilities":
+		return manaConvertAbilityItem(reg, f, name, req)
 	}
 	return skip("no observation for " + req.Sub)
 }

@@ -26,6 +26,9 @@ var servedStaticGrantRows = []struct {
 	{"Resonating Lute", "static#0.0", "activate", "Add two mana of any one color"},
 	{"Night of the Sweets' Revenge", "static#0.0", "activate", "Add G"},
 	{"Mm'menon, the Right Hand", "static#0.2", "activate", "Add U"},
+	// Petrified Hamlet: "{T}: Add {C}." granted to the LAND the source's ETB
+	// trigger names (static_named_enters.go); the probe is the named land.
+	{"Petrified Hamlet", "static#0.1", "activate", "Add"},
 	// "Planeswalkers you control have '[-N]: ...'".
 	{"Way of the Cryomancer", "static#0.0", "activate", "copy it"},
 	{"Way of the Deathbringer", "static#0.0", "activate", "sacrifice a creature"},
@@ -115,16 +118,12 @@ func TestStaticGrantedAbilityRowCountPinned(t *testing.T) {
 // is skipped for, so none falls back to the generic "effect not observable".
 func TestStaticGrantedAbilityNamedSkips(t *testing.T) {
 	for _, r := range []struct{ card, key, reason string }{
-		{"The Aetherspark", "static#0.1", "static grants a triggered ability (needs a probe-sourced trigger cause)"},
-		{"Barrensteppe Siege", "static#0.0", "static grants a triggered ability (needs a probe-sourced trigger cause)"},
+		// The Aetherspark static#0.1 and Barrensteppe Siege static#0.0 moved
+		// to the granted-trigger observation (static_granted_trigger_test.go).
 		{"Frostcliff Siege", "static#0.1", "static grants a static ability (observed only through its own effect)"},
 		{"Tomik, Orzhov Lawmage", "static#0.0", "static grants a static ability (observed only through its own effect)"},
-		{"Marvin, Murderous Mimic", "static#0.0", "static gains the activated abilities of other cards (needs a donor card)"},
 		{"Koh, the Face Stealer", "static#0.0", "static gains the activated abilities of other cards (needs a donor card)"},
 		{"Etrata, Deadly Fugitive", "static#0.0", "static grants an activated ability (needs the driver's activate on a granted ability)"},
-		{"Avatar of Burgeoning Echoes", "static#0.0", "static grants a loyalty ability the probe planeswalkers cannot pay for"},
-		{"Way of the Pyromancer", "static#0.0", "static grants a loyalty ability that adds mana (its offered label names no text to assert)"},
-		{"Petrified Hamlet", "static#0.1", "static grants a mana ability to a recipient the fixture cannot give it (a token or a chosen-name recipient)"},
 	} {
 		t.Run(r.card+"/"+r.key, func(t *testing.T) {
 			it, skip := zoneItem(t, r.card, r.key)

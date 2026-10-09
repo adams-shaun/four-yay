@@ -7,6 +7,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/compliance/oraclegen"
 	"github.com/adams-shaun/gorge/effects"
+	"github.com/adams-shaun/gorge/rules"
 )
 
 // conditionPrelude is one deliberately cheap way to make a conditional
@@ -28,10 +29,21 @@ type conditionPrelude struct {
 	// lets the activate and trigger templates label the prelude's activations
 	// for XMage exactly as they label their own.
 	xability []string
+	// activationCost is the Forge cost of a prelude activate step whose
+	// non-mana cost carries a choice (an Exile<1/Creature> exile): XMage asks
+	// it while paying, and scriptPreludeActivationCost lifts the same fixture
+	// picks the standalone activate template scripts. "" on every other
+	// prelude.
+	activationCost string
 	// life is p0's setup life total when nonzero: an activation gated on
 	// "at least N life" (Count$YourLifeTotal against a literal or a
 	// starting-life offset) sets it rather than gaining the life by a cast.
 	life int32
+	// solvedCase marks a prelude whose steps end with the solve sequence
+	// (pass to the end step, resolve the "To solve" trigger): the phase
+	// recipe also emits the pass_to that waits for the row trigger's own p0
+	// phase, which a plain prelude must not move.
+	solvedCase bool
 }
 
 // conditionPreludes offers condition setup candidates in stable order. It
@@ -103,9 +115,17 @@ func conditionPreludes(reg *cards.Registry, params, svars map[string]string) []c
 	if contains("validgraveyard", "presentzone$ graveyard", "delirium", "threshold") {
 		add(conditionPrelude{graveyard: []string{"Llanowar Elves", "Island", "Shock", "Sol Ring"}})
 	}
+	// Threshold counts cards, not card types, and a threshold trigger may
+	// remove one at random (Tersa Lightshatter exiles a card at random from
+	// the graveyard when it attacks). Same-name copies leave the same
+	// snapshot whichever card each engine's random pick takes; delirium still
+	// needs the four card types bigGraveyard holds.
+	if contains("threshold") && !contains("delirium") {
+		add(conditionPrelude{graveyard: oraclegen.Repeat("Wastes", 9)})
+	}
 	// Four card types (delirium), seven cards (threshold) and eight permanent
 	// cards (descend 8) in one graveyard, distinct so that setup keeps each.
-	if contains("delirium", "threshold", "permanent.youown", "validgraveyard") {
+	if contains("delirium", "permanent.youown", "validgraveyard") {
 		add(conditionPrelude{graveyard: bigGraveyard})
 	}
 	if contains("lesson.youown") {
@@ -206,6 +226,11 @@ func conditionPreludes(reg *cards.Registry, params, svars map[string]string) []c
 	}
 	if strings.Contains(text, "counters_ge1_m1m1") {
 		add(conditionPrelude{counters: map[string]map[string]int{"__SOURCE__": {"M1M1": 1}}})
+	}
+	if contains("hellbent") {
+		if pre, ok := hellbentPrelude(reg); ok {
+			add(pre)
+		}
 	}
 	if len(out) > 1 {
 		combined := conditionPrelude{}
@@ -322,14 +347,21 @@ func triggerConditionSkip(t *cards.Trigger, svars map[string]string) string {
 // Bears are distinct from the trigger source, and the explicit choice prevents
 // the deterministic fallback from sacrificing the source instead.
 func sacrificeConditionPrelude(reg *cards.Registry) (conditionPrelude, bool) {
+	return sacrificeConditionPreludeOf(reg, "Grizzly Bears")
+}
+
+// sacrificeConditionPreludeOf is sacrificeConditionPrelude with the sacrificed
+// fixture named: a count that filters its sacrifices by type needs a fixture
+// whose printed types cover the spec (cost_svar_amount.go's artifact read).
+func sacrificeConditionPreludeOf(reg *cards.Registry, sacrificee string) (conditionPrelude, bool) {
 	cast, ok := castProbe(reg, "Village Rites")
 	if !ok {
 		return conditionPrelude{}, false
 	}
-	cast.Answers = []oraclegen.Answer{{Kind: "choose", Pick: []string{"Grizzly Bears"}}}
+	cast.Answers = []oraclegen.Answer{{Kind: "choose", Pick: []string{sacrificee}}}
 	return conditionPrelude{
 		hand:        []string{"Village Rites"},
-		battlefield: []string{"Grizzly Bears"},
+		battlefield: []string{sacrificee},
 		steps:       []oraclegen.Step{cast, {Op: "resolve"}},
 	}, true
 }
@@ -360,6 +392,32 @@ func scriptPreludeSacrifice(xa [][]oraclegen.XAnswer, prelude []oraclegen.Step, 
 				xa[i] = append(xa[i], oraclegen.XAnswer{Seat: st.Seat, Kind: "choice", Value: a.Pick[0]})
 			}
 		}
+	}
+	return xa
+}
+
+// scriptPreludeActivationCost carries a prelude activate step's cost picks to
+// XMage. Gorge's runner answers a cost selector deterministically, but the
+// observed decisions do not script it — the same gap
+// scriptCauseActivationCost covers for a cause step — so a prelude activation
+// whose cost carries a fixture is exported with the same helper the
+// standalone activate template uses. The prelude opens the scenario, so a
+// prelude step index is the scenario step index.
+func scriptPreludeActivationCost(xa [][]oraclegen.XAnswer, prelude []oraclegen.Step, cost string, steps int, decisions []rules.OracleDecision) [][]oraclegen.XAnswer {
+	if cost == "" {
+		return xa
+	}
+	for i, st := range prelude {
+		if i >= steps {
+			break
+		}
+		if st.Op != "activate" {
+			continue
+		}
+		if len(xa) == 0 {
+			xa = make([][]oraclegen.XAnswer, steps)
+		}
+		addActivationCostAnswers(xa, i, cost, decisions)
 	}
 	return xa
 }

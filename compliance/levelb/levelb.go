@@ -94,7 +94,11 @@ func Requirements(c *cards.Card) []Requirement {
 				continue
 			}
 			sub, gap := classifyStatic(f, &f.Statics[si])
-			out = append(out, newReq("static", fi, strconv.Itoa(si), sub, gap, false, servable))
+			// A Room's second door is served by casting it (roomDoorServable's
+			// trigger rule); a static on that door is served the same way when
+			// the static's own sub-family already has a template.
+			out = append(out, newReq("static", fi, strconv.Itoa(si), sub, gap, false,
+				servable || (gap == "" && RoomStaticServable(c, sub))))
 		}
 	}
 	// Combat requirements last, in face order.
@@ -168,6 +172,15 @@ func classifyActivate(sa *cards.SA) (sub, gap string) {
 	return "activate.battlefield", ""
 }
 
+// ClassifyTrigger is the exported form of classifyTrigger, for the
+// compliance template that classifies a static's GRANTED trigger body (the
+// same T:-shaped text a printed T: line has) to pick its cause sub-family.
+// It is a pure function of the IR and does not move the requirement set:
+// requirements are classified by classifyTrigger alone.
+func ClassifyTrigger(f *cards.Face, t *cards.Trigger) (sub, gap string, covered bool) {
+	return classifyTrigger(f, t)
+}
+
 // classifyTrigger returns the trigger's sub-family, its gap, and whether the
 // level-A scenario already covers it.
 func classifyTrigger(f *cards.Face, t *cards.Trigger) (sub, gap string, covered bool) {
@@ -187,6 +200,9 @@ func classifyTrigger(f *cards.Face, t *cards.Trigger) (sub, gap string, covered 
 		return sub, "", false
 	}
 	if sub, ok := classifyStateTrigger(t); ok {
+		return sub, "", false
+	}
+	if sub, ok := classifyManaTrigger(t); ok {
 		return sub, "", false
 	}
 	switch t.ModeKind() {
@@ -262,7 +278,17 @@ func classifyTrigger(f *cards.Face, t *cards.Trigger) (sub, gap string, covered 
 		return gapMode()
 
 	case cards.TriggerDrawn:
-		if strings.EqualFold(t.ParamStr(cards.PKValidPlayer), "You") || namesYouCtrl(t.ParamStr(cards.PKValidCard)) {
+		vp := strings.ToLower(strings.TrimSpace(t.ParamStr(cards.PKValidPlayer)))
+		vc := t.ParamStr(cards.PKValidCard)
+		if strings.EqualFold(vp, "you") || namesYouCtrl(vc) {
+			return "trigger.drawn", "", false
+		}
+		// An opponent-draws filter (ValidCard$ Card.OppOwn) or an
+		// opponent/player ValidPlayer is served by the other-player cause.
+		if vp == "opponent" || vp == "player" || filterHasToken(vc, "OppOwn") || filterHasToken(vc, "OppCtrl") {
+			return "trigger.drawn-other", "", false
+		}
+		if vp == "" && strings.TrimSpace(vc) == "" {
 			return "trigger.drawn", "", false
 		}
 		return gapMode()
@@ -314,6 +340,9 @@ func classifyStatic(f *cards.Face, st *cards.Static) (sub, gap string) {
 			}
 			return "static.cost", ""
 		}
+		if vc := st.ParamStr(cards.PKValidCard); strings.Contains(vc, "NamedCard") || strings.Contains(vc, "ChosenType") {
+			return "static.cost", "opponent-cast cost static: chosen-name/chosen-type recipient unsupported"
+		}
 		return "static.cost", "opponent-cast cost static"
 	}
 	for _, s := range servableStaticModes {
@@ -321,8 +350,23 @@ func classifyStatic(f *cards.Face, st *cards.Static) (sub, gap string) {
 			return s.sub, ""
 		}
 	}
+	if TapPowerValueShape(st) {
+		return "static.tap-power-value", ""
+	}
+	if CastWithFlashShape(st) {
+		return "static.cast-with-flash", ""
+	}
+	if UntapOtherPlayerShape(st) {
+		return "static.untap-other-player", ""
+	}
+	if CantDrawShape(st) {
+		return "static.cant-draw", ""
+	}
 	if sub, ok := supportedLegalityStatic(f, st); ok {
 		return sub, ""
+	}
+	if sub, gap := serveStaticMode(f, st); sub != "" || gap != "" {
+		return sub, gap
 	}
 	if sub, ok := gatedLegalityStatic(f, st); ok {
 		return sub, ""
@@ -366,11 +410,17 @@ func supportedLegalityStatic(f *cards.Face, st *cards.Static) (string, bool) {
 		}
 	case "cantgainlife":
 		switch strings.ToLower(st.ParamStr(cards.PKValidPlayer)) {
-		case "player", "you":
+		case "player", "you", "":
 			// Unconditional: only ValidPlayer$ plus the Mode and display
-			// parameters.
-			allowed := 1
-			for _, k := range []cards.ParamKey{cards.PKMode, cards.PKDescription} {
+			// parameters. "" is Forge's implicit "every player" (Mornsong
+			// Aria, which carries no ValidPlayer$ at all); Secondary$ True (a
+			// static that is one rider of a wider Oracle sentence) stays
+			// display-only.
+			allowed := 0
+			if st.HasParam(cards.PKValidPlayer) {
+				allowed++
+			}
+			for _, k := range []cards.ParamKey{cards.PKMode, cards.PKDescription, cards.PKSecondary} {
 				if st.HasParam(k) {
 					allowed++
 				}
@@ -416,6 +466,9 @@ func supportedLegalityStatic(f *cards.Face, st *cards.Static) (string, bool) {
 	case "cantbeactivated":
 		if NamedCardActivationStatic(f, st) {
 			return "static.cant-be-activated-named", true
+		}
+		if NamedCardActivationEntersStatic(f, st) {
+			return "static.cant-be-activated-named-enters", true
 		}
 		if strings.EqualFold(st.ParamStr(cards.PKValidCard), "Card") && strings.EqualFold(st.ParamStr(cards.PKValidSA), "Activated.!ManaAbility") && strings.EqualFold(st.ParamStr(cards.PKPhases), "BeginCombat->EndCombat") && !st.HasParam(cards.PKActivator) && !st.HasParam(cards.PKAffectedZone) && !st.HasParam(cards.PKCondition) {
 			return "static.cant-be-activated-combat", true
@@ -488,6 +541,35 @@ func faceHasSubtype(f *cards.Face, t string) bool {
 // whose as-enters replacement names the card (NameCard).
 func NamedCardActivationStatic(f *cards.Face, st *cards.Static) bool {
 	if f.IsLand() || f.ManaCost == "" || !strings.EqualFold(st.ParamStr(cards.PKValidCard), "Card.NamedCard") ||
+		!strings.EqualFold(st.ParamStr(cards.PKValidSA), "Activated.!ManaAbility") {
+		return false
+	}
+	allowed := 2
+	for _, k := range []cards.ParamKey{cards.PKMode, cards.PKDescription, cards.PKSecondary} {
+		if st.HasParam(k) {
+			allowed++
+		}
+	}
+	if len(st.Params) != allowed {
+		return false
+	}
+	for _, body := range f.SVars {
+		if strings.Contains(body, "DB$ NameCard") {
+			return true
+		}
+	}
+	return false
+}
+
+// NamedCardActivationEntersStatic reports whether st is Petrified Hamlet's
+// shape: the same chosen-name lock (CantBeActivated ValidCard$ Card.NamedCard
+// on non-mana activations) on a land whose ETB trigger poses the NameCard ask
+// while the trigger resolves ("When this land enters, choose a land card
+// name"), not through an as-enters replacement. The name is chosen
+// mid-trigger-resolution, so the observation plays the land and answers the
+// ask with the library top (static_named_enters.go).
+func NamedCardActivationEntersStatic(f *cards.Face, st *cards.Static) bool {
+	if !f.IsLand() || !strings.EqualFold(st.ParamStr(cards.PKValidCard), "Card.NamedCard") ||
 		!strings.EqualFold(st.ParamStr(cards.PKValidSA), "Activated.!ManaAbility") {
 		return false
 	}

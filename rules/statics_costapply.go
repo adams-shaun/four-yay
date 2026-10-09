@@ -671,9 +671,9 @@ func (e *Engine) abilityConstraintMatches(scope costScope, p state.PlayerID, id 
 	case abilityConstraintMatchesEmpty:
 		return true
 	case abilityConstraintMatchesManaAbility:
-		return ab.API == "Mana"
+		return cards.IsManaAbilitySA(ab)
 	case abilityConstraintMatchesManaAbilityX:
-		return ab.API != "Mana"
+		return !cards.IsManaAbilitySA(ab)
 	case abilityConstraintMatchesLoyalty:
 		return e.isLoyaltyAbility(ab)
 	case abilityConstraintMatchesYouCtrl:

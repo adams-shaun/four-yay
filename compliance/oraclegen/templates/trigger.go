@@ -27,12 +27,13 @@ var TriggerFires = Template{ID: "trigger", Version: 1}
 func triggerSubs(sub string) bool {
 	switch sub {
 	case "trigger.etb-other", "trigger.etb-land", "trigger.dies", "trigger.leaves-graveyard", "trigger.ltb-other", ltbSelfSub, "trigger.attacks", "trigger.combat-damage",
-		"trigger.spell-cast", "trigger.spell-cast-self", "trigger.becomes-target", "trigger.life-gained", "trigger.drawn", "trigger.phase", levelb.PhaseOtherSub,
+		"trigger.spell-cast", "trigger.spell-cast-self", "trigger.becomes-target", "trigger.life-gained", "trigger.drawn", "trigger.drawn-other", "trigger.life-lost", "trigger.phase", levelb.PhaseOtherSub,
 		"trigger.dies-other", "trigger.zone-change-residue", "trigger.scry", "trigger.surveil", "trigger.noncombat-damage", "trigger.combat-damage-all",
 		"trigger.loyalty-activated", "trigger.discarded", "trigger.attacks-one-target", classLevelGainedSub,
-		"trigger.spell-cast-opponent", "trigger.spell-cast-self-cast", "trigger.commit-crime", "trigger.ability-activated",
+		"trigger.spell-cast-opponent", "trigger.spell-cast-self-cast", "trigger.spell-cast-opponent-turn", "trigger.commit-crime", "trigger.ability-activated",
 		levelb.UnlockDoorSub, levelb.FullyUnlockSub, stateSelfCountersSub, levelb.CounterAddedSub,
-		levelb.TurnedFaceUpSub, levelb.TurnedFaceUpOtherSub, levelb.SacrificeSub, levelb.DamageSub:
+		levelb.TurnedFaceUpSub, levelb.TurnedFaceUpOtherSub, levelb.SacrificeSub, levelb.DamageSub,
+		levelb.ManaExpendSub, levelb.TapsForManaSub:
 		return true
 	}
 	return tapCombatSub(sub)
@@ -50,6 +51,9 @@ func PassToSteps() []string {
 		"end",
 		"end-combat",
 		"main1@p0",
+		// The opponent-turn cast cause passes to p1's main phase before p0
+		// casts there.
+		"main1@p1",
 		"main2",
 		"upkeep@p0",
 		"upkeep@p1",
@@ -67,6 +71,11 @@ func triggerFires(reg *cards.Registry, f *cards.Face, name string, req levelb.Re
 	}
 	if req.CoveredByA {
 		return skip("covered by level A")
+	}
+	if req.Sub == levelb.TapsForManaSub {
+		// A triggered mana ability resolves off the stack, so it needs its own
+		// pool-based fire check rather than the abilityOnStack probe below.
+		return manaTapFires(reg, f, name, req)
 	}
 	causes, why, room := roomTriggerCauses(reg, name, req)
 	if !room {
@@ -99,6 +108,19 @@ func triggerFires(reg *cards.Registry, f *cards.Face, name string, req levelb.Re
 			}
 		}
 	}
+	// A sibling trigger that fires on the cause's own cast (a repartee)
+	// resolves ahead of the spell and spends the standard variants' two
+	// passes; two more pass pairs let the death reach the stack. Only a card
+	// with a second trigger can need it.
+	if !fired && len(f.Triggers) > 1 {
+		for _, c := range causes {
+			it, ok, didFire := triggerWithLong(reg, f, name, req, c, fxs)
+			fired = fired || didFire
+			if ok {
+				return it, nil
+			}
+		}
+	}
 	if !fired {
 		if attackTriggerSub(req.Sub) {
 			for _, cause := range causes {
@@ -109,7 +131,7 @@ func triggerFires(reg *cards.Registry, f *cards.Face, name string, req levelb.Re
 				}
 			}
 		}
-		if req.Sub == "trigger.spell-cast" || req.Sub == "trigger.spell-cast-opponent" {
+		if req.Sub == "trigger.spell-cast" || req.Sub == "trigger.spell-cast-opponent" || req.Sub == "trigger.spell-cast-opponent-turn" {
 			if reason := spellCastNarrowSkip(&f.Triggers[idx]); reason != "" {
 				return skip(reason)
 			}
@@ -155,6 +177,7 @@ func triggerScenario(f *cards.Face, name string, c triggerCause, req levelb.Requ
 		p0.Battlefield = appendFixtureUnique(p0.Battlefield, name)
 	}
 	p0.Hand = append(p0.Hand, c.hand...)
+	p0.Exile = appendFixtureCounts(p0.Exile, c.exile)
 	if filler := etbDiscardFiller(f); filler != "" && !grave && !c.selfInHand && !c.castSelfX {
 		p0.Hand = append([]string{filler}, p0.Hand...)
 	}
@@ -168,6 +191,22 @@ func triggerScenario(f *cards.Face, name string, c triggerCause, req levelb.Requ
 	p0.Graveyard = appendFixtureCounts(p0.Graveyard, c.graveyard)
 	p1.Hand = appendFixtureCounts(p1.Hand, c.opponentHand)
 	p1.Battlefield = appendFixtureCounts(p1.Battlefield, c.opponentBattlefield)
+	oppCounterCards := make([]string, 0, len(c.opponentCounters))
+	for card := range c.opponentCounters {
+		oppCounterCards = append(oppCounterCards, card)
+	}
+	sort.Strings(oppCounterCards)
+	for _, card := range oppCounterCards {
+		kinds := c.opponentCounters[card]
+		counterKinds := make([]string, 0, len(kinds))
+		for kind := range kinds {
+			counterKinds = append(counterKinds, kind)
+		}
+		sort.Strings(counterKinds)
+		for _, kind := range counterKinds {
+			p1 = oraclegen.WithCounters(p1, card, kind, int32(kinds[kind]))
+		}
+	}
 	for _, card := range c.tapped {
 		if card == "__SOURCE__" {
 			card = name
@@ -225,6 +264,33 @@ func triggerWith(reg *cards.Registry, f *cards.Face, name string, req levelb.Req
 	return it, false, fired
 }
 
+// triggerWithLong retries one cause with two more pass pairs: a sibling
+// trigger that fires on the cause's own cast (Scolding Administrator's
+// Repartee) resolves ahead of the spell, so the death the row trigger waits
+// for reaches the stack after the standard variants' two passes have been
+// spent on the sibling's resolution.
+func triggerWithLong(reg *cards.Registry, f *cards.Face, name string, req levelb.Requirement, c triggerCause, fxs []oraclegen.Fixture) (it oraclegen.Item, ok, fired bool) {
+	probe := c.probeSteps
+	if probe == nil {
+		probe = c.steps
+	}
+	longPasses := []oraclegen.Step{{Op: "pass", Seat: 0}, {Op: "pass", Seat: 1}, {Op: "pass", Seat: 0}, {Op: "pass", Seat: 1}}
+	settled := append(append([]oraclegen.Step(nil), probe...), longPasses...)
+	checkpoint := append(append([]oraclegen.Step(nil), settled...), oraclegen.Step{Op: "pass_to", Decision: "priority"})
+	for i := range fxs {
+		for _, steps := range [][]oraclegen.Step{settled, checkpoint} {
+			_, res, ok := oraclegen.Settle(reg, triggerScenario(f, name, c, req, steps, &fxs[i]))
+			if ok && abilityOnStack(res.Snapshots, name, f.Name, stackSlot(req)) {
+				served, ok := triggerServe(reg, f, name, req, c, &fxs[i])
+				if ok {
+					return served, true, true
+				}
+			}
+		}
+	}
+	return it, false, false
+}
+
 // triggerWithFixture tries one cause against one target fixture.
 func triggerWithFixture(reg *cards.Registry, f *cards.Face, name string, req levelb.Requirement, c triggerCause, fx *oraclegen.Fixture) (it oraclegen.Item, ok, fired bool) {
 	probe := c.probeSteps
@@ -255,10 +321,20 @@ func triggerWithFixture(reg *cards.Registry, f *cards.Face, name string, req lev
 	if !fired {
 		return it, false, false
 	}
+	it, ok = triggerServe(reg, f, name, req, c, fx)
+	return it, ok, true
+}
+
+// triggerServe builds the item for a cause whose fire the probe confirmed:
+// triggerServe builds the item for a cause whose fire the probe confirmed:
+// the scenario is played with the resolves that empty the stack, the target
+// and answer rewrite follows, and the item carries the observed decisions.
+func triggerServe(reg *cards.Registry, f *cards.Face, name string, req levelb.Requirement, c triggerCause, fx *oraclegen.Fixture) (oraclegen.Item, bool) {
+	var it oraclegen.Item
 	sc := triggerScenario(f, name, c, req, c.steps, fx)
 	n, res, ok := oraclegen.Settle(reg, sc)
 	if !ok {
-		return it, false, true
+		return it, false
 	}
 	// Only a target hidden behind a sibling's trigger_order ask needs the extra
 	// checkpoint; an item whose trigger is already on the stack keeps its steps.
@@ -276,17 +352,48 @@ func triggerWithFixture(reg *cards.Registry, f *cards.Face, name string, req lev
 	sc, castSteps := oraclegen.ChooseTargets(sc, res.Decisions)
 	res, ok = oraclegen.PlaysThrough(reg, sc)
 	if !ok {
-		return it, false, true
+		return it, false
 	}
 	if yes, changed := oraclegen.MayYes(sc, res.Decisions); changed {
 		if res2, ok2 := oraclegen.PlaysThrough(reg, yes); ok2 {
 			sc, res = yes, res2
 		}
 	}
+	// A declined hidden library search — or, when the served effect chain
+	// looks at an exile/library zone and asks "choose one of them" (Fireglass
+	// Mentor), a declined two-option look pick: re-run taking the first
+	// eligible card, so XMage's mandatory TargetCardInLibrary /
+	// TargetCardInExile ask is answered with a card instead of the skip it
+	// rejects.
+	forced := false
+	eff := servedTriggerEffect(f, req)
+	var search oraclegen.Scenario
+	var changed bool
+	if hasExileLibraryLook(eff) {
+		search, changed = oraclegen.SearchPicksFromLook(sc, res.Decisions)
+	} else {
+		search, changed = oraclegen.SearchPicks(sc, res.Decisions)
+	}
+	if changed {
+		if res2, ok2 := oraclegen.PlaysThrough(reg, search); ok2 {
+			sc, res = search, res2
+			forced = true
+		}
+	}
 	it = oraclegen.NewLevelBItem(name, req.Key, TriggerFires.Version, []string{"603.2"}, sc)
 	it.XAnswers = oraclegen.XAnswersForScenario(res, sc, oraclegen.ModeNumbers(f), castSteps)
+	if forced {
+		it.XAnswers = oraclegen.RetargetForcedLookPicks(it.XAnswers, res.Decisions)
+	}
 	it.XAnswers = scriptPreludeSacrifice(it.XAnswers, c.prelude, len(sc.Steps))
+	it.XAnswers = scriptPreludeActivationCost(it.XAnswers, c.prelude, c.preludeActivationCost, len(sc.Steps), res.Decisions)
 	it.XAnswers = scriptCauseActivationCost(it.XAnswers, c, sc.Steps, res.Decisions)
+	// A "sacrifice a permanent unless you discard a card" decline: XMage
+	// poses the cost's own ask on the target queue (trigger_declines.go).
+	it.XAnswers = scriptSacrificeUnlessDiscardDecline(it.XAnswers, eff, res.Decisions)
+	// A declined one-card pick after the chain's hidden-zone look: XMage
+	// poses it without a chooseUse (trigger_declines.go).
+	it.XAnswers = scriptLookedPickDecline(it.XAnswers, eff, res.Decisions)
 	// Ward is caused by targeting; decline its unless-pay mode so the probe
 	// does not depend on the opponent's ability to pay the ward cost.
 	for _, d := range res.Decisions {
@@ -307,7 +414,7 @@ func triggerWithFixture(reg *cards.Registry, f *cards.Face, name string, req lev
 			copy(it.XAbility[offset:], c.xability)
 		}
 	}
-	return it, true, true
+	return it, true
 }
 
 // stackSlot is the Trigger index gorge stamps on the stack entry that the

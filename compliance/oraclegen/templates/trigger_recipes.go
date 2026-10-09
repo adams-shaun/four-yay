@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/compliance/levelb"
 	"github.com/adams-shaun/gorge/compliance/oraclegen"
 )
 
@@ -11,6 +12,7 @@ import (
 // turn 1 with ops the XMage driver already has (cast, attack, pass_to).
 type triggerCause struct {
 	hand        []string                  // probe cards added to p0's hand
+	exile       []string                  // probe cards added to p0's exile (a cast-from-exile cause)
 	battlefield []string                  // extra p0 permanents (an attacker for a non-creature card)
 	tapped      []string                  // extra p0 permanents that start tapped
 	graveyard   []string                  // extra p0 graveyard cards
@@ -31,7 +33,14 @@ type triggerCause struct {
 	// target, an opponent-comparison gate) the cause needs on the other side
 	// of the table.
 	opponentBattlefield []string
-	activateCost        string // Forge cost of the activate step in steps (Crew/Saddle tap choice); "" when none
+	// opponentCounters puts counters on p1's battlefield cards at setup
+	// (card name -> kind -> count), the p1 side of counters.
+	opponentCounters map[string]map[string]int
+	activateCost     string // Forge cost of the activate step in steps (Crew/Saddle tap choice); "" when none
+	// preludeActivationCost is the Forge cost of a prelude activate step
+	// whose cost carries a choice (scriptPreludeActivationCost exports its
+	// picks); "" when no prelude activates with such a cost.
+	preludeActivationCost string
 }
 
 // Probe cards, each named with why. Spec hypothesis H4: the probe exists in
@@ -47,6 +56,10 @@ var (
 	// Divination ({2}{U}, draw two) is the plain draw; Concentrate and
 	// Inspiration are the fallbacks.
 	drawProbes = []string{"Divination", "Concentrate", "Inspiration"}
+	// Sign in Blood ({B}{B}) makes a TARGET player draw two and lose 2 life,
+	// so it is the only probe that can make an opponent draw (the "their
+	// second card each turn" triggers).
+	drawOtherProbe = "Sign in Blood"
 	// Shock (instant, {R}, 2 damage to any target) is the instant/sorcery
 	// cast cause; Grizzly Bears ({1}{G}) the creature one; and Giant Growth
 	// ({G}) the self-controlled becomes-target cause. All three are level-A fixtures.
@@ -97,27 +110,27 @@ func baseTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards
 		return ltbSelfRecipe(reg, f, name, t)
 	case "trigger.dies":
 		if !creature {
-			return nil, "dies needs a creature"
+			// A non-creature permanent dies to the removal spell its type
+			// admits; an Aura is cast on a bearer first (setup cannot place
+			// an unattached Aura) and destroyed on it.
+			return selfDiesNonCreatureCauses(reg, f, name)
 		}
 		for _, p := range destroyProbes {
 			cast(p, "p0:"+name)
 		}
 	case "trigger.attacks", "trigger.attacks-one-target", "trigger.combat-damage", "trigger.combat-damage-all":
 		combatDamage := sub == "trigger.combat-damage" || sub == "trigger.combat-damage-all"
-		var attacker string
+		var attackers []string
 		var extra []string
 		if combatDamage {
 			if !creature {
 				return nil, "combat-damage needs a creature"
 			}
-			attacker = "p0:" + name
+			attackers = []string{"p0:" + name}
 		} else {
-			attacker, extra = triggerAttacker(reg, f, name, t)
-			if attacker == "" {
-				attacker, extra = "p0:"+bearsProbe, []string{bearsProbe}
-			}
+			attackers, extra = triggerAttacker(reg, f, name, t)
 		}
-		attack := oraclegen.Step{Op: "attack", Seat: 0, Defender: "p1", Attackers: []string{attacker}}
+		attack := oraclegen.Step{Op: "attack", Seat: 0, Defender: "p1", Attackers: attackers}
 		c := triggerCause{battlefield: extra, steps: []oraclegen.Step{attack}}
 		if !combatDamage {
 			if prepared, ok := attackActivationCause(reg, f, name, t); ok {
@@ -133,10 +146,39 @@ func baseTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards
 		}
 		out = append(out, c)
 	case "trigger.spell-cast":
-		return spellCastProbeCauses(reg, name, t), ""
+		out = spellCastProbeCauses(reg, f, name, t)
+		present := strings.ToLower(t.ParamStr(cards.PKIsPresent) + t.ParamStr(cards.PKIsPresent2))
+		// A "Solved —" cast trigger fires only once the source Case is
+		// solved: the cast cause runs after the solve sequence, whose
+		// activation preludes end at p0's next main phase.
+		if solvedSelfSpec(t.ParamStr(cards.PKIsPresent)) || solvedSelfSpec(t.ParamStr(cards.PKIsPresent2)) {
+			if preludes, ok := solvedCasePreludes(reg, f); ok {
+				var with []triggerCause
+				for _, c := range out {
+					for _, p := range preludes {
+						with = append(with, applyPrelude(c, p))
+					}
+				}
+				out = append(out, with...)
+			}
+		}
+		// "Whenever you cast a spell while CARDNAME is attacking": the cast
+		// cause runs from the post-attackers priority round, where the source
+		// is attacking and an instant cast is legal.
+		if strings.Contains(present, "attacking") && f.IsCreature() {
+			atk := conditionPrelude{steps: []oraclegen.Step{{Op: "attack", Seat: 0, Defender: "p1", Attackers: []string{"p0:" + name}}}}
+			var with []triggerCause
+			for _, c := range out {
+				with = append(with, applyPrelude(c, atk))
+			}
+			out = append(out, with...)
+		}
+		return out, ""
 	case "trigger.becomes-target":
 		if !creature {
-			return nil, "becomes-target needs a creature"
+			// A non-creature permanent is targeted by the opponent's removal
+			// spell its type admits (the ward ask is declined as ever).
+			return becomesTargetNonCreatureCauses(reg, f, name)
 		}
 		// Keep both controller shapes: YouCtrl target triggers need p0's own
 		// spell, while ward and OppCtrl triggers need p1's spell.
@@ -149,12 +191,40 @@ func baseTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards
 		for _, p := range lifegainProbes {
 			cast(p)
 		}
+	case "trigger.life-lost":
+		// Shock at the losing player: the source's controller for You/Player
+		// ("whenever you lose life" / "whenever a player loses life"), an
+		// opponent for Opponent ("whenever an opponent loses life during your
+		// turn", Kefka). Damage to a player is a loss of life, so the engine's
+		// LifeLost matcher sees it; PlayerTurn$ True is satisfied because turn
+		// 1 is p0's turn.
+		target := "p0"
+		if strings.EqualFold(t.ParamStr(cards.PKValidPlayer), "Opponent") {
+			target = "p1"
+		}
+		if c, ok := castCause(reg, name, shockProbe, target); ok {
+			out = append(out, c)
+		}
 	case "trigger.drawn":
 		for _, p := range drawProbes {
 			if c, ok := castCause(reg, name, p); ok {
 				out = append(out, withDrawCheckpoint(c))
 			}
 		}
+	case "trigger.drawn-other":
+		// Sign in Blood makes the target player draw two, so the "second card
+		// drawn" trigger fires. The drawer is p1 when the trigger names an
+		// opponent (ValidPlayer Opponent, or a ValidCard Card.OppOwn filter),
+		// else p0 (ValidPlayer Player / a bare each-player draw).
+		target := "p0"
+		if strings.EqualFold(t.ParamStr(cards.PKValidPlayer), "Opponent") || filterHasTokenFold(t.ParamStr(cards.PKValidCard), "oppown") {
+			target = "p1"
+		}
+		if c, ok := castCause(reg, name, drawOtherProbe, target); ok {
+			out = append(out, withDrawCheckpoint(c))
+		}
+	case levelb.ManaExpendSub:
+		return manaExpendCauses(reg, name, t)
 	case "trigger.phase":
 		step, ok := phaseStep(t.ParamStr(cards.PKPhase))
 		if !ok {
@@ -196,6 +266,21 @@ func baseTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards
 		fixtures := triggerConditionFixtures(reg, f, t)
 		for _, condition := range fixtures {
 			out = append(out, applyPrelude(base, condition))
+			if !condition.solvedCase {
+				continue
+			}
+			// A solved Case is true only from the solve resolve on, so the
+			// row trigger's own phase must be p0's next one: a begin-combat
+			// or end-step You-gated row trigger would otherwise stop at p1's
+			// first matching phase, where the You gate holds it back.
+			if vp := t.ParamStr(cards.PKValidPlayer); vp == "" || strings.EqualFold(vp, "You") {
+				forced := applyPrelude(base, condition)
+				forced.steps = append([]oraclegen.Step(nil), base.steps...)
+				if forced.steps[0].Active != "p0" {
+					forced.steps[0].Active = "p0"
+					out = append(out, forced)
+				}
+			}
 		}
 		if active == "p0" && step != "main1" {
 			// Setup passes turn 1's upkeep and draw with the fixture in

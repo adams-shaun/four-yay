@@ -257,7 +257,10 @@ func (e *Engine) grantedSVarsFor(id state.ObjID) map[string]string {
 // YouCtrl resolves against the granting static's controller, so a stolen
 // Oracle reveals to its controller, never to a library owner the grant does
 // not cover. A read over active()'s sorted slice; the answer is boolean, so
-// no order reaches anything ordered.
+// no order reaches anything ordered. The same rule's read over an arbitrary
+// object (a face-down permanent, Found Footage) is the oracle runner's
+// mayLookAtObject: the spec matching is shared, the object here comes from a
+// zone lookup the battlefield read cannot do.
 func (e *Engine) MayLookAtLibraryTop(p state.PlayerID) bool {
 	lib := e.G.Zone(state.ZLibrary, p)
 	if len(lib) == 0 {
@@ -511,7 +514,18 @@ func resolveChosenTypes(list []string, o *state.Object) ([]string, bool) {
 	return out, true
 }
 
-// adjustLandPlaysKeys are the keys the implemented AdjustLandPlays grant carries.
+// adjustLandPlaysKeys are the keys the implemented AdjustLandPlays grant
+// carries: the grant's own params plus the "as long as" gate keys the
+// staticEffects walk evaluates through continuousGateHolds BEFORE this
+// grant is built. IsPresent$/IsPresent2$ (with the PresentCompare$/
+// PresentZone$ values they read), Condition$, CheckSVar$ (with
+// SVarCompare$) and ClassBand$ are therefore already an intervening-if
+// here: Thranduil's Company's "As long as you control another Elf, you may
+// play an additional land" is granted exactly while the gate holds, and the
+// next rescan drops it when the Elf leaves. Secondary$ (a Forge-side
+// duplicate marker) and any richer VALUE still fail closed.
 var adjustLandPlaysKeys = state.NewNameSet(
 	"Mode", "AdjustLandPlays", "Affected", "Description",
+	"ClassBand", "IsPresent", "IsPresent2", "PresentCompare", "PresentZone",
+	"Condition", "CheckSVar", "SVarCompare",
 )

@@ -69,12 +69,20 @@ func combatNotOffered(reg *cards.Registry, f *cards.Face, name string, req level
 			it, skip = defenderNotOfferedItem(reg, f, name, req)
 			return it, skip, true
 		}
+		if selfCombatRestrictionStatic(f, "CantAttack") != nil {
+			it, skip = selfRestrictionAttackItem(reg, f, name, req)
+			return it, skip, true
+		}
 	case "combat.block":
 		for i := range f.Statics {
 			if strings.EqualFold(f.Statics[i].Mode, "CantBlock") && f.IsCreature() && levelb.SelfLegalityStatic(&f.Statics[i], cards.PKValidCard) {
 				it, skip = cantBlockSelfItem(reg, f, name, req)
 				return it, skip, true
 			}
+		}
+		if f.IsCreature() && selfCombatRestrictionStatic(f, "CantBlock") != nil {
+			it, skip = selfRestrictionBlockItem(reg, f, name, req)
+			return it, skip, true
 		}
 	}
 	return oraclegen.Item{}, nil, false

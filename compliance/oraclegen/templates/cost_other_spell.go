@@ -20,6 +20,11 @@ type costActivation struct {
 	index   int
 	prefix  string
 	targets []string
+	// label selects a special action by its option label ("Unlock Prop
+	// Room") instead of an IR ability index: the action has no ability
+	// index. prefix is its XMage rule text, which the replay needs either
+	// way.
+	label string
 }
 
 // otherCostProbes derives probe candidates for a static that makes OTHER
@@ -44,7 +49,10 @@ func otherCostProbes(reg *cards.Registry, source *cards.Face, name string, idx i
 		filter = "Card"
 	}
 	if strings.Contains(filter, "token") {
-		return nil, "token fixture unavailable"
+		// The reduced abilities belong to tokens (Mutagen Man), which are
+		// not registry probes: activating one needs the token's XMage
+		// ability rule text, which no agreed replay pins yet.
+		return nil, "token ability fixture unavailable (no XMage-proven token ability text)"
 	}
 	base := costProbe{battlefield: []string{name}}
 	if band := classStaticBand(&st); band >= 2 {
@@ -81,6 +89,19 @@ func otherCostProbes(reg *cards.Registry, source *cards.Face, name string, idx i
 		// honest reduced price.
 		fullPriceOffer = castProvenanceDeniesOffer(filter)
 	}
+	if strings.Contains(filter, "ChosenType") {
+		// The filter matches the type the source itself chooses as it
+		// enters (Gathering Stone): rewrite it to a concrete creature type
+		// and answer the as-enters ask in setup, so the probe's spells
+		// match the type the static will read. A face with no ChooseType
+		// entry keeps the named gap.
+		chosen, ok := chosenTypeFixture(source)
+		if !ok {
+			return nil, "chosen-type entry unavailable (" + filter + ")"
+		}
+		filter = strings.ReplaceAll(filter, "ChosenType", chosen)
+		base.setupAnswers = []oraclegen.Answer{{Kind: "choose", Pick: []string{chosen}}}
+	}
 	if !spellFilterSupported(filter, prov) {
 		return nil, "ValidCard filter unsupported"
 	}
@@ -99,6 +120,11 @@ func otherCostProbes(reg *cards.Registry, source *cards.Face, name string, idx i
 	if reason != "" {
 		return nil, reason
 	}
+	if strings.EqualFold(st.Params["ValidSpell"], "Static.Plotting") {
+		// "Plotting cards from your hand costs {N} less": the plot action is
+		// the priced event, so it is its own probe shape (cost_plot_probe.go).
+		return plotCostProbes(reg, name, reduction, base), ""
+	}
 	if ability {
 		return abilityCostProbes(reg, name, st, filter, reduction, base)
 	}
@@ -116,7 +142,13 @@ func costStaticConditions(reg *cards.Registry, st cards.Static, p *costProbe) st
 	switch strings.ToLower(st.Params["Condition"]) {
 	case "", "playerturn":
 	case "notplayerturn":
-		return "NotPlayerTurn needs an opponent-turn probe"
+		// The gate is false on p0's own turn, so the probe casts on p1's
+		// first main phase instead: pass_to reaches it, p1's pass hands p0
+		// priority, and only an instant is legal there (CR 117.1a).
+		p.pre = append(p.pre,
+			oraclegen.Step{Op: "pass_to", Step: "main1", Active: "p1"},
+			oraclegen.Step{Op: "pass", Seat: 1})
+		p.instantOnly = true
 	default:
 		return "condition unsupported"
 	}
@@ -299,6 +331,9 @@ func spellCostProbes(reg *cards.Registry, name string, st cards.Static, filter s
 			continue
 		}
 		face := card.Faces[0]
+		if base.instantOnly && !face.IsInstant() {
+			continue
+		}
 		if face.Name == name || !probeNameUsable(face.Name) || face.ManaCost == "" || face.ManaCost == "no cost" || !spellFilterMatches(card, face, filter, provNone) || costFaceTargets(face) {
 			continue
 		}
@@ -337,10 +372,10 @@ func costFaceTargets(f *cards.Face) bool {
 // activated ability the static makes cheaper. An Equip static targets its own
 // source, so the probe equips the source.
 func abilityCostProbes(reg *cards.Registry, name string, st cards.Static, filter string, reduction int, base costProbe) ([]costProbe, string) {
-	wantKind := strings.TrimPrefix(st.Params["ValidSpell"], "Activated.")
-	if strings.HasPrefix(st.Params["ValidSpell"], "Static.") {
-		return nil, "static-ability cost probe unsupported"
+	if kind, ok := strings.CutPrefix(st.Params["ValidSpell"], "Static."); ok {
+		return staticAbilityCostProbes(reg, reduction, base, kind)
 	}
+	wantKind := strings.TrimPrefix(st.Params["ValidSpell"], "Activated.")
 	if st.Params["ValidSpell"] == "" {
 		wantKind = ""
 	}

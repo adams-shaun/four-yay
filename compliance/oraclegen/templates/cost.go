@@ -51,8 +51,11 @@ type costProbe struct {
 	// castFrom names the zone the probe casts its spell from ("graveyard",
 	// the cast-provenance probe's Flashback cast): the spell is seeded there
 	// and NOT in the hand, and castMode elects that cast's option.
-	castFrom   string
-	castMode   string
+	castFrom string
+	castMode string
+	// plotText is the XMage rule text ("Plot {2}{U}") the cast_mode "plot"
+	// step is activated by; it travels as the step's xmage_ability.
+	plotText   string
 	answers    []oraclegen.Answer
 	mustReplay bool
 	skipReason string
@@ -62,6 +65,13 @@ type costProbe struct {
 	// divergence, not as a skipped row.
 	full     string
 	opponent bool
+	// instantOnly restricts a spell probe to instants: the probe casts on an
+	// opponent's turn (Condition$ NotPlayerTurn), where only an instant is
+	// legal (CR 117.1a).
+	instantOnly bool
+	// setupAnswers answer an as-enters choice the setup placement itself
+	// poses (Gathering Stone's chosen type), before the first gameplay step.
+	setupAnswers []oraclegen.Answer
 }
 
 func costStatic(reg *cards.Registry, f *cards.Face, name string, req levelb.Requirement) (oraclegen.Item, *oraclegen.Skip) {
@@ -174,6 +184,9 @@ func parameterCostProbes(reg *cards.Registry, f *cards.Face, name string, idx in
 			if extra, why := oraclegen.PoolFor(st.Params["Cost"]); why == "" {
 				p.mana = extra + base
 			}
+		} else if st.Params["Amount"] == "" && !raiseCostTokenProbes(&p, st.Params["Cost"]) {
+			// The token table does not own this Cost$: p keeps the printed
+			// price, and the named skip below stands.
 		}
 		if cost := st.Params["Cost"]; strings.Contains(cost, "BeholdExile<1/") {
 			for typ, card := range beholdFixture {
@@ -186,9 +199,9 @@ func parameterCostProbes(reg *cards.Registry, f *cards.Face, name string, idx in
 				p.hand = appendUnique(p.hand, elfBeholdFixture(reg)...)
 			}
 		}
-		// An additional cost the generator cannot pay (Waterbend, Blight,
-		// ChooseCard, a behold type with no fixture) must not become a probe
-		// whose precondition is false.
+		// An additional cost the token table cannot pay (Waterbend<X>, a
+		// BeholdExile type with no fixture) must not become a probe whose
+		// precondition is false.
 		p.mustReplay = true
 		return []costProbe{p}, "", true
 	}
@@ -220,6 +233,14 @@ func parameterCostProbes(reg *cards.Registry, f *cards.Face, name string, idx in
 	p.answers = append(p.answers, xAnswers(f)...)
 	// The amount, the count it tallies and every gate come from the static's
 	// own parameters (costConditionProbes); unknown grammars are named gaps.
+	// An amount the cast itself announces (Count$xPaid over a Sac<X> part)
+	// is served by the cast before the board-count paths see it.
+	if probes, gap, handled := announcedSacXProbes(reg, f, st, name, p, base); handled {
+		if len(probes) == 0 {
+			return nil, gap, true
+		}
+		return probes, "", true
+	}
 	probes, reduction, gap := costConditionProbes(reg, f, st, name, p)
 	if gap != "" {
 		return nil, gap, true

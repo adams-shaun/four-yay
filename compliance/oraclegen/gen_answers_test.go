@@ -19,6 +19,9 @@ import (
 func TestXAnswersQueueRoutingShapes(t *testing.T) {
 	tests := []struct {
 		name string
+		// pre is a decision XMage's driver sees before d in the same step
+		// (a look_ack's pacing ask), when the routing reads the neighbours.
+		pre  *rules.OracleDecision
 		d    rules.OracleDecision
 		want []XAnswer
 	}{
@@ -43,10 +46,14 @@ func TestXAnswersQueueRoutingShapes(t *testing.T) {
 			want: []XAnswer{{0, "choice", "Forest"}, {0, "choice", "Island"}},
 		},
 		{
-			// chooseTriggeredAbility matches the ability's rule text (getRule),
-			// which carries no "<Source>: " prefix.
-			name: "trigger order: source prefix stripped for chooseTriggeredAbility",
-			d:    rules.OracleDecision{Step: 0, Seat: 1, Kind: "order", GorgeKind: "trigger_order", Options: 2, Picks: []string{"Celebrate the Mountain-king: When this enters, do a thing.", "Celebrate the Mountain-king: When this enters, do another."}, PickIdx: []int{0, 1}, PickKinds: []string{"trigger", "trigger"}},
+			// chooseTriggeredAbility matches the ability's rule text (getRule)
+			// or its source object's NAME. These two picks share one source
+			// (Celebrate the Mountain-king), so a name could not tell them
+			// apart and the rule text is the only distinguishing answer: a
+			// same-source order keeps the inert text form. A distinct-source
+			// order names each source; see gen_trigger_order_test.go.
+			name: "trigger order with one shared source: rule text for chooseTriggeredAbility",
+			d:    rules.OracleDecision{Step: 0, Seat: 1, Kind: "order", GorgeKind: "trigger_order", Options: 2, Picks: []string{"Celebrate the Mountain-king: When this enters, do a thing.", "Celebrate the Mountain-king: When this enters, do another."}, PickRefs: []string{"p1:Celebrate the Mountain-king", "p1:Celebrate the Mountain-king"}, PickIdx: []int{0, 1}, PickKinds: []string{"trigger", "trigger"}},
 			want: []XAnswer{{1, "choice", "When this enters, do a thing."}, {1, "choice", "When this enters, do another."}},
 		},
 		{
@@ -138,6 +145,56 @@ func TestXAnswersQueueRoutingShapes(t *testing.T) {
 			want: []XAnswer{{0, "choice", "no"}, {0, "target", "[target_skip]"}},
 		},
 		{
+			// A declined one-card pick after a hidden-zone look keeps the
+			// measured pair at the routing level: the same decision shape
+			// agrees with it on a cast item (Break Out's cast-resolve row),
+			// so the XMage pose follows the card, not the decision. The
+			// trigger template re-scripts the card-side-proven look chooser
+			// (Whiskervale Forerunner) to the lone target skip.
+			name: "declined look pick max 1: the measured pair at routing",
+			pre:  &rules.OracleDecision{Step: 0, Seat: 0, Kind: "choose_n", GorgeKind: "choose", Resume: "look_ack", Options: 1, Min: 1, Max: 1, Picks: []string{"Continue"}, PickIdx: []int{0}, PickKinds: []string{"yes"}, First: "Continue", Via: "answer"},
+			d:    rules.OracleDecision{Step: 0, Seat: 0, Kind: "choose_n", GorgeKind: "choose", Resume: "choice", Options: 1, Min: 0, Max: 1, OptionRefs: []string{"p0:Grizzly Bears"}},
+			want: []XAnswer{{0, "choice", "no"}, {0, "target", "[target_skip]"}},
+		},
+		{
+			// The max-2 look ask keeps the measured pair (Zimone's
+			// Experiment agrees only with it).
+			name: "declined look pick max 2: the measured pair",
+			pre:  &rules.OracleDecision{Step: 0, Seat: 0, Kind: "choose_n", GorgeKind: "choose", Resume: "look_ack", Options: 1, Min: 1, Max: 1, Picks: []string{"Continue"}, PickIdx: []int{0}, PickKinds: []string{"yes"}, First: "Continue", Via: "answer"},
+			d:    rules.OracleDecision{Step: 0, Seat: 0, Kind: "choose_n", GorgeKind: "choose", Resume: "choice", Options: 2, Min: 0, Max: 2, OptionRefs: []string{"p0:Grizzly Bears", "p0:Forest"}},
+			want: []XAnswer{{0, "choice", "no"}, {0, "target", "[target_skip]"}},
+		},
+		{
+			// A declined "you may put it into your hand" hidden pick: XMage
+			// poses the optional ask on the target queue only (measured
+			// driver error on Sparring Dummy: "Found wrong choice command"
+			// for the pair's "no").
+			name: "declined hidden pick: target skip only",
+			d:    rules.OracleDecision{Step: 0, Seat: 0, Kind: "choose_n", GorgeKind: "choose", Resume: "hidden_pick", Options: 1, Min: 0, Max: 1, First: "Wastes", OptionRefs: []string{"p0:Wastes#27"}},
+			want: []XAnswer{{0, "target", "[target_skip]"}},
+		},
+		{
+			// A declined optional Play after a hidden-zone look: XMage poses
+			// the "cast from among them" ask on the target queue only
+			// (measured driver error on Cosmic Cube: "Found wrong choice
+			// command" for the chooseUse "no"). A plain Play carrier
+			// (Discover, Cascade — no look) stays with the "no".
+			name: "declined optional play after look: target skip only",
+			pre:  &rules.OracleDecision{Step: 0, Seat: 0, Kind: "choose_n", GorgeKind: "choose", Resume: "look_ack", Options: 1, Min: 1, Max: 1, Picks: []string{"Continue"}, PickIdx: []int{0}, PickKinds: []string{"yes"}, First: "Continue", Via: "answer"},
+			d:    rules.OracleDecision{Step: 0, Seat: 0, Kind: "mode", GorgeKind: "mode", Resume: "play", Options: 2, Min: 0, Max: 1, First: "Play Grizzly Bears", OptionRefs: []string{"p0:Grizzly Bears#2", "p0:Shock"}},
+			want: []XAnswer{{0, "target", "[target_skip]"}},
+		},
+		{
+			// A declined two-option look pick is not scripted from the pair
+			// branch: SearchPicks forces the first card and the serving
+			// template retargets the answer onto XMage's mandatory
+			// TargetCardInExile (Fireglass Mentor). Without the forced pick
+			// the routing's own skip shape is what the decision carries.
+			name: "declined two-option look pick: choice skip",
+			d:    rules.OracleDecision{Step: 0, Seat: 0, Kind: "choose_n", GorgeKind: "choose", Resume: "choice", Options: 2, Min: 0, Max: 1, OptionRefs: []string{"p0:Wastes#27", "p0:Wastes#39"}},
+			want: []XAnswer{{0, "choice", "[choice_skip]"}},
+		},
+		{
 			// A mana ability's colour pick is a real choice dialog; XMage's
 			// Choice key is the colour NAME.
 			name: "mana colour: Add W maps to White",
@@ -165,12 +222,25 @@ func TestXAnswersQueueRoutingShapes(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Every non-skip fixture must genuinely offer the picks it pins;
-			// a vacuous fixture would assert nothing about the routing.
-			if tt.want != nil && len(tt.d.Picks) == 0 && tt.d.Options < 2 {
-				t.Fatal("fixture must contain at least one pick")
+			ds := []rules.OracleDecision{tt.d}
+			if tt.pre != nil {
+				ds = append([]rules.OracleDecision{*tt.pre}, ds...)
 			}
-			got := XAnswers([]rules.OracleDecision{tt.d}, 1, nil)
+			// Every non-skip fixture must genuinely offer the picks it pins;
+			// a vacuous fixture would assert nothing about the routing. A
+			// declined ask pins the decline script itself: the decline must
+			// be legal (Min 0) and the ask actually offered (Options > 0).
+			if tt.want != nil {
+				for _, d := range ds {
+					if len(d.Picks) != 0 {
+						continue
+					}
+					if d.Min != 0 || d.Options == 0 {
+						t.Fatalf("declined fixture %s must be an optional ask with options offered", tt.name)
+					}
+				}
+			}
+			got := XAnswers(ds, 1, nil)
 			var want [][]XAnswer
 			if tt.want != nil {
 				want = [][]XAnswer{tt.want}

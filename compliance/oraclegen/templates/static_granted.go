@@ -16,15 +16,23 @@
 //     re-attaches it to its own probe (attachProbe) before the assertion.
 //   - AddAbility$ naming a loyalty ability ("Planeswalkers you control have
 //     '[-2]: ...'"): a planeswalker probe with enough loyalty is offered an
-//     activation labelled with the granted ability's first sentence.
+//     activation labelled with the granted ability's first sentence. A cost
+//     beyond the probe's printed starting loyalty is paid by placing the
+//     difference on the probe as LOYALTY counters at setup (Avatar of
+//     Burgeoning Echoes' [-10]). A loyalty ability that ADDS MANA (Way of the
+//     Pyromancer's "[+1]: Add {R}.") is not a mana ability (CR 605.1a), so it
+//     is offered as an ordinary ability and observed the same way.
 //   - AdjustLandPlays$ (a second land drop): p0 holds two lands, plays one,
 //     and the other is offered as a play. Without the static the control has
 //     no second drop.
 //
 // Every other grant shape keeps a named skip (staticGrantGap): a granted
-// trigger, a static ability, abilities gained from another card and an SVar a
-// granted trigger reads. Each needs an observation this file does not build,
-// named in the skip so the census tells the shapes apart.
+// ability the probes cannot pay for or receive, a static ability, abilities
+// gained from another card and an SVar a granted trigger reads. A granted
+// TRIGGER is observed by firing it (static_granted_trigger.go); the skip
+// below names only the grants that observation cannot serve. Each needs an
+// observation this file does not build, named in the skip so the census tells
+// the shapes apart.
 package templates
 
 import (
@@ -96,13 +104,14 @@ func grantedLoyaltyCost(sa *cards.SA) int {
 }
 
 // grantedLoyaltyAbility is the loyalty ability an AddAbility$ static grants,
-// nil for a loyalty ability that adds mana: its offered option's label carries
-// none of its text (measured: "Add", "Add {R}" and "[+1]" miss it on a
-// planeswalker probe while the control's own abilities answer "+1"), so there
-// is nothing to tell the grant from the probe's printed abilities.
+// nil when the grant is not one. A loyalty ability that ADDS MANA is included:
+// it is not a mana ability (CR 605.1a excludes loyalty abilities from the
+// definition), so the engine offers it as an ordinary ability labelled
+// "<probe>: <ability text>" (Way of the Pyromancer's "[+1]: Add {R}."), and
+// the label's own text tells the grant from the probe's printed abilities.
 func grantedLoyaltyAbility(f *cards.Face, st cards.Static) *cards.SA {
 	sa := cards.ResolveSVar(f.SVars, strings.TrimSpace(st.ParamStr(cards.PKAddAbility)))
-	if sa == nil || sa.Kind != "AB" || grantedLoyaltyCost(sa) < 0 || sa.API == "Mana" {
+	if sa == nil || sa.Kind != "AB" || grantedLoyaltyCost(sa) < 0 {
 		return nil
 	}
 	return sa
@@ -133,6 +142,32 @@ func grantedManaLabel(sa *cards.SA) string {
 func grantedLandPlays(st cards.Static) bool {
 	n, err := strconv.Atoi(strings.TrimSpace(st.ParamStr(cards.PKAdjustLandPlays)))
 	return err == nil && n > 0
+}
+
+// firstPlayNeedsResolve reports whether the source card's own trigger fires
+// when the first land enters or is played (a Landfall ChangesZone or a
+// LandPlayed trigger): the trigger sits on the stack at the second land's
+// offer checkpoint, where the land-play gate is not at sorcery speed, so the
+// scenario resolves it first. A source with no land-entry trigger keeps its
+// scenario bytes (the resolve is only emitted for a source that has one).
+func firstPlayNeedsResolve(f *cards.Face) bool {
+	for i := range f.Triggers {
+		tr := &f.Triggers[i]
+		switch tr.Mode {
+		case "LandPlayed":
+			return true
+		case "ChangesZone":
+			if !strings.Contains(tr.ParamStr(cards.PKDestination), "Battlefield") {
+				continue
+			}
+			for _, w := range affectedWords(tr.ParamStr(cards.PKValidCard)) {
+				if w == "Land" {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
 
 // grantedActivatedAbility is the non-mana, non-loyalty activated ability an
@@ -168,21 +203,51 @@ func grantOfferable(f *cards.Face, st cards.Static) bool {
 // probe) or an extra land drop (one).
 func grantTries(reg *cards.Registry, f *cards.Face, st cards.Static) []offerTry {
 	if grantedLandPlays(st) {
-		return []offerTry{{
+		t := offerTry{
 			probe: grantLandPlaySecond, zone: offerHand, kind: "play",
 			firstPlay: grantLandPlayFirst, extraHand: []string{grantLandPlayFirst},
-		}}
+			resolveFirstPlay: firstPlayNeedsResolve(f),
+		}
+		// An "as long as" rider (Thranduil's Company's IsPresent$
+		// Elf.YouCtrl+Other) is an intervening-if the engine evaluates, so
+		// the scenario must hold the board the gate reads or the grant never
+		// exists and the observation proves nothing. The same presence
+		// fixture machinery the condition fixtures use builds it; a presence
+		// no fixture reaches leaves the row to its named gap.
+		if present := st.ParamStr(cards.PKIsPresent); present != "" {
+			zone := st.ParamStr(cards.PKPresentZone)
+			if zone == "" {
+				zone = "Battlefield"
+			}
+			fx, ok := staticPresence(present, zone, 1)
+			if !ok {
+				return nil
+			}
+			t.extraBF = fx.battlefield
+		}
+		return []offerTry{t}
 	}
 	if sa := grantedLoyaltyAbility(f, st); sa != nil {
+		need := grantedLoyaltyCost(sa)
 		var tries []offerTry
 		for _, p := range grantPlaneswalkerNames {
 			c, ok := reg.Lookup(p)
 			if !ok || len(c.Faces) == 0 {
 				continue
 			}
-			if loyalty, err := strconv.Atoi(c.Faces[0].Loyalty); err == nil && loyalty >= grantedLoyaltyCost(sa) {
-				tries = append(tries, offerTry{probe: p, kind: "activate", label: grantedLoyaltyLabel(sa), extraBF: []string{p}})
+			loyalty, err := strconv.Atoi(c.Faces[0].Loyalty)
+			if err != nil {
+				continue
 			}
+			t := offerTry{probe: p, kind: "activate", label: grantedLoyaltyLabel(sa), extraBF: []string{p}}
+			if loyalty < need {
+				// The granted cost is more loyalty than the probe prints:
+				// the setup puts the difference on it as LOYALTY counters,
+				// so the activation is payable. The control keeps the
+				// counters, so a match is still the grant's doing.
+				t.probeLoyalty = int32(need - loyalty)
+			}
+			tries = append(tries, t)
 		}
 		return tries
 	}
@@ -242,7 +307,7 @@ const (
 	staticGrantLoyaltyReason     = "grants a loyalty ability the probe planeswalkers cannot pay for"
 	staticGrantLoyaltyManaReason = "grants a loyalty ability that adds mana (its offered label names no text to assert)"
 	staticGrantActivateReason    = "grants an activated ability (needs the driver's activate on a granted ability)"
-	staticGrantTriggerReason     = "grants a triggered ability (needs a probe-sourced trigger cause)"
+	staticGrantTriggerReason     = "grants a triggered ability (needs a probe-sourced trigger cause)" // static_granted_trigger.go serves the shapes it can; the rest keep this skip
 	staticGrantReplacementReason = "grants a replacement effect (needs an event the replacement can change)"
 	staticGrantStaticReason      = "grants a static ability (observed only through its own effect)"
 	staticGrantGainsReason       = "gains the activated abilities of other cards (needs a donor card)"

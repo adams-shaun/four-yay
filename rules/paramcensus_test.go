@@ -1467,6 +1467,11 @@ var stringMapParams = map[string]string{
 	// Goad-static helpers inspect map arguments copied from parsed SVar
 	// statics, not card SA Params; their callers classify the actual source.
 	"effects:goadStaticGrantReadable:params": "parsed Goad static-line Params map, not a card SA Params map",
+	// effects/restrictions.go replacementRedirectsToExile: params is one
+	// ReplaceWith$ line parseReplacementLine built from the face's SVar
+	// table (the Fizzle$ rider the exile-redirect admission reads), not a
+	// card Params map.
+	"effects:replacementRedirectsToExile:params": "parseReplacementLine-built ReplaceWith$ line map, not a card Params map",
 	// effects/misc.go compoundRememberedSpec: params is the map parseStaticLine
 	// built from one SVar static line -- its ValidCard$/ValidTarget$ keys are
 	// consumed here, but the map originates in an SVar body, not a card's
@@ -1975,6 +1980,15 @@ var apiSpecificRulesStat = map[string]string{
 	// grant path does, keeping the permissions a given host granted, so its
 	// read is family-attributed exactly like the grant path's.
 	"Engine.mayPlayGrantedBy": "Continuous.MayPlay",
+	// quietStaticMayPlay (rules/quiet_facts.go), the quiet-seat proof's
+	// per-face may-play scan: quietCastOpen and quietSelfReducePipFloor call
+	// it over a face's own Statics slice to detect any may-play cost key
+	// (MayPlay$/MayPlayAltManaCost$/MayPlayWithoutManaCost$) that could
+	// substitute or remove the cast's mana cost -- the same family keys
+	// mayPlayKinds and mayPlayAltCosts read, so its reads are
+	// family-attributed like theirs and never join the generic Continuous
+	// union.
+	"quietStaticMayPlay": "Continuous.MayPlay",
 }
 
 // statFamilyInternal names the rules functions whose static reads are family
@@ -2026,8 +2040,17 @@ var handRoots = struct {
 		// []string{"RaiseCost", "ReduceCost"} both call activeStatics with a
 		// variable; the literals sit at their callers. Declared instead of
 		// refactored so the scan stays read-only over production code.
-		"RaiseCost":    {"Engine.costModifiersWithTargets", "Engine.costModifiersWithTargetsX", "Engine.paymentPlanHasTargetDependentModifier"},
-		"ReduceCost":   {"Engine.costModifiersWithTargets", "Engine.costModifiersWithTargetsX", "Engine.paymentPlanHasTargetDependentModifier"},
+		"RaiseCost": {"Engine.costModifiersWithTargets", "Engine.costModifiersWithTargetsX", "Engine.paymentPlanHasTargetDependentModifier"},
+		// quietSelfReducePipFloor (rules/quiet_facts.go) prices the
+		// quiet-seat proof's §2.5 self-ReduceCost refinement: it scans the
+		// face's own Statics slice for self-scoped generic-only ReduceCost
+		// lines and reads the same ValidCard$/Color$ the pricing side reads
+		// (statics_costmods.go:431, statics_costapply.go:45), with no
+		// activeStatics call -- the same direct-scan shape
+		// mustAttackRequired has. Its may-play key reads live in
+		// quietStaticMayPlay and are family-attributed below.
+		"ReduceCost": {"Engine.costModifiersWithTargets", "Engine.costModifiersWithTargetsX", "Engine.paymentPlanHasTargetDependentModifier",
+			"quietSelfReducePipFloor"},
 		"SetCost":      {"Engine.paymentPlanHasTargetDependentModifier"},
 		"OptionalCost": {"Engine.optionalCostViews"},
 		// paymentPlanManaConvertName (payment_plan_interference.go) names the

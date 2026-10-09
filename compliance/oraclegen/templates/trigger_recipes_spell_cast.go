@@ -17,7 +17,7 @@ var spellCastGE = regexp.MustCompile(`(?i)(?:ManaSpent|cmc)\s*GE\s*(\d+)`)
 // spellCastProbeCauses orders causes from the most constrained shape to a
 // corpus-ordered fallback. Firing, rather than a second copy of Forge's
 // filter grammar, decides whether each candidate is suitable.
-func spellCastProbeCauses(reg *cards.Registry, name string, t *cards.Trigger) []triggerCause {
+func spellCastProbeCauses(reg *cards.Registry, f *cards.Face, name string, t *cards.Trigger) []triggerCause {
 	filter := t.ParamStr(cards.PKValidCard)
 	targets := t.ParamStr(cards.PKTargetsValid)
 	targetProbe := strings.Contains(targets, "Creature") || strings.Contains(targets, "Self") || strings.Contains(t.ParamStr(cards.PKValidTgts), "Creature")
@@ -119,7 +119,13 @@ func spellCastProbeCauses(reg *cards.Registry, name string, t *cards.Trigger) []
 			break
 		}
 	}
-	return out
+	// A provenance-gated trigger (cast from exile / not from hand, an
+	// Adventure face) needs its own cause ahead of the ordinary hand probes:
+	// the hand cast never satisfies the predicate, so it would only waste a
+	// fixture pass before the row skipped. The prepared-copy cast (the
+	// CR 722.3c FlagPreparedCopy provenance) is the same shape.
+	return append(spellCastPreparedCause(reg, f, name, t),
+		append(spellCastProvenanceCauses(reg, f, name, t), out...)...)
 }
 
 // filterAcceptedFirst moves the probes gorge's own matcher accepts for the
@@ -244,20 +250,25 @@ func spellCastNarrowSkip(t *cards.Trigger) string {
 			return "spell-cast unsupported " + shape.reason
 		}
 	}
-	if strings.EqualFold(t.ParamStr(cards.PKOpponentTurn), "True") {
-		return "spell-cast opponent-turn condition"
-	}
+	// No OpponentTurn$ branch: levelb routes every OpponentTurn$ True row to
+	// the trigger.spell-cast-opponent-turn sub, whose cast-family cause
+	// passes to p1's main phase before the cast, so an unserved row here is
+	// an ordinary non-firing cast, not a missing opponent-turn cause.
 	if unknown := effects.UnknownPredicates(t.ParamStr(cards.PKValidCard)); len(unknown) > 0 {
 		return "spell-cast filter predicate gorge does not implement (" + strings.Join(unknown, ",") + ")"
 	}
 	if t.ParamStr(cards.PKIsPresent) != "" || t.ParamStr(cards.PKIsPresent2) != "" {
+		// The attacking presence ("while CARDNAME is attacking") is served by
+		// baseTriggerRecipe's attack prelude; the solved Case presence has
+		// its own solvedCasePreludes. A row that reaches here unserved is
+		// named by what its presence actually needs.
+		if solvedSelfSpec(t.ParamStr(cards.PKIsPresent)) || solvedSelfSpec(t.ParamStr(cards.PKIsPresent2)) {
+			return "spell-cast IsSolved condition (needs a solved Case)"
+		}
 		return "spell-cast IsPresent condition"
 	}
 	if strings.Contains(strings.ToLower(t.ParamStr(cards.PKCondition)), "level") || strings.Contains(strings.ToLower(t.ParamStr(cards.PKCheckSVar)), "level") {
 		return "spell-cast class-level condition"
-	}
-	if strings.Contains(strings.ToLower(t.ParamStr(cards.PKValidSA)), "singletarget") {
-		return "spell-cast singleTarget condition (engine matcher unsupported)"
 	}
 	return ""
 }

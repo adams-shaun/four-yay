@@ -60,7 +60,9 @@ func TestXMageOptionalTargetSkipsRoundTrip(t *testing.T) {
 	}
 }
 
-func optSlot(filter string) Slot { return Slot{Filter: filter, Optional: true, ZeroOrOne: true} }
+func optSlot(filter string) Slot {
+	return Slot{Filter: filter, Optional: true, ZeroOrOne: true, Min: 0, Max: 1}
+}
 
 func castPlan(n int) (Scenario, []string) {
 	targets := make([]string, n)
@@ -148,9 +150,6 @@ func TestXMageOptionalTargetSkipBoundaries(t *testing.T) {
 	none("nothing omitted", four[:3], nil, sc3, good, map[int]bool{0: true})
 	short := append([]rules.OracleDecision(nil), good[:2]...)
 	none("a filled slot posed no decision", four, []int{1}, sc3, short, map[int]bool{0: true})
-	wide := append([]rules.OracleDecision(nil), good...)
-	wide[1].Max = 2
-	none("a 0..N object", four, []int{1}, sc3, wide, map[int]bool{0: true})
 	declined := append([]rules.OracleDecision(nil), good...)
 	declined[0].PickRefs = nil
 	none("a declined slot", four, []int{1}, sc3, declined, map[int]bool{0: true})
@@ -159,17 +158,69 @@ func TestXMageOptionalTargetSkipBoundaries(t *testing.T) {
 	none("a pick that is not the cast's target", four, []int{1}, sc3, moved, map[int]bool{0: true})
 	none("two target-carrying steps", four, []int{1}, sc3, good, map[int]bool{0: true, 1: true})
 	none("a target-less cast", four, []int{1}, sc3, good, map[int]bool{})
-	ranged := []Slot{optSlot("A"), {Filter: "B", Optional: true}, optSlot("C"), optSlot("D")}
-	none("an up-to-N slot omitted", ranged, []int{1}, sc3, good, map[int]bool{0: true})
-	none("a nonliteral filled slot", ranged, []int{0}, sc3, good, map[int]bool{0: true})
+	// A slot whose bounds cannot be read off the text (Min/Max 0) is never
+	// closed by a derived skip, filled or omitted.
+	unreadable := []Slot{optSlot("A"), {Filter: "B", Optional: true}, optSlot("C"), optSlot("D")}
+	none("an unreadable bound omitted", unreadable, []int{1}, sc3, good, map[int]bool{0: true})
+	none("an unreadable bound filled", unreadable, []int{0}, sc3, good, map[int]bool{0: true})
 	none("every slot omitted", four[:1], []int{0}, Scenario{Steps: []Step{{Op: "cast"}}}, nil, map[int]bool{0: true})
 	act := sc3
 	act.Steps = []Step{{Op: "activate", Targets: t3}, {Op: "resolve"}}
 	none("an activate step", four, []int{1}, act, good, map[int]bool{0: true})
 
+	// A multi-pick slot (Min..Max, Max>1) filled with fewer than Max picks is
+	// closed by a skip after its last pick -- the widening Terrific Team-Up
+	// and Allies at Last need -- but only while candidates remain: an object
+	// whose legal set is exhausted completes by itself (TargetImpl
+	// isChoiceCompleted's moreSelectCount == 0), and a queued skip would be
+	// left for the next ask.
+	multi := []Slot{{Filter: "A", Min: 1, Max: 2}, {Filter: "B", Min: 1, Max: 1}}
+	scM, tM := castPlan(2)
+	mds := []rules.OracleDecision{
+		{Step: 0, Kind: "target", Via: "target", Min: 1, Max: 2, PickRefs: []string{tM[0]},
+			OptionRefs: []string{tM[0], "p0:CardB2"}},
+		{Step: 0, Kind: "target", Via: "target", Min: 1, Max: 1, PickRefs: []string{tM[1]},
+			OptionRefs: []string{tM[1]}},
+	}
+	gotM := targetSkips(multi, nil, scM, mds, map[int]bool{0: true})
+	if gotM == nil || len(gotM[0]) != 1 || gotM[0][0] != (XTargetSkip{At: 1, Slot: 0}) {
+		t.Fatalf("multi-pick plan = %v, want [{at:1,slot:0}]", gotM)
+	}
+	if q := strings.Join(interleave(tM, gotM[0]), ","); q != "p0:CardA,[target_skip],p0:CardB" {
+		t.Errorf("multi-pick queue = %s", q)
+	}
+	// The exhausted shape (one candidate, one pick, Max 2) derives no plan:
+	// XMage completes the object itself (the Cease // Desist class).
+	exhausted := []rules.OracleDecision{
+		{Step: 0, Kind: "target", Via: "target", Min: 1, Max: 2, PickRefs: []string{tM[0]},
+			OptionRefs: []string{tM[0]}},
+		{Step: 0, Kind: "target", Via: "target", Min: 1, Max: 1, PickRefs: []string{tM[1]},
+			OptionRefs: []string{tM[1]}},
+	}
+	if got := targetSkips(multi, nil, scM, exhausted, map[int]bool{0: true}); got != nil {
+		t.Errorf("an exhausted multi-pick slot derived a plan: %v", got)
+	}
+	// A multi-pick slot filled to its maximum needs no skip (XMage closes it
+	// itself, so a skip would be left unused).
+	scFull, tFull := castPlan(3)
+	fullM := []rules.OracleDecision{
+		{Step: 0, Kind: "target", Via: "target", Min: 1, Max: 2, PickRefs: []string{tFull[0], tFull[1]}},
+		{Step: 0, Kind: "target", Via: "target", Min: 1, Max: 1, PickRefs: []string{tFull[2]}},
+	}
+	if got := targetSkips(multi, nil, scFull, fullM, map[int]bool{0: true}); got != nil {
+		t.Errorf("a slot filled to its maximum derived a plan: %v", got)
+	}
+	// An omitted 0..2 object (min 0) is closable too: one skip closes it.
+	upToTwo := []Slot{optSlot("A"), {Filter: "B", Optional: true, Min: 0, Max: 2}, optSlot("C"), optSlot("D")}
+	scU, tU := castPlan(3)
+	gotU := targetSkips(upToTwo, []int{1}, scU, targetDecisions(0, tU), map[int]bool{0: true})
+	if gotU == nil || len(gotU[0]) != 1 || gotU[0][0] != (XTargetSkip{At: 1, Slot: 1}) {
+		t.Errorf("omitted 0..2 plan = %v, want [{at:1,slot:1}]", gotU)
+	}
+
 	// CheckTargetSkips rejects malformed plans.
 	step := func(n int) []Step { s, _ := castPlan(n); return s.Steps }
-	required := []Slot{optSlot("A"), {Filter: "B"}, optSlot("C")}
+	required := []Slot{optSlot("A"), {Filter: "B", Min: 1, Max: 1}, optSlot("C")}
 	bad := []struct {
 		name  string
 		slots []Slot
@@ -178,8 +229,7 @@ func TestXMageOptionalTargetSkipBoundaries(t *testing.T) {
 	}{
 		{"length mismatch", four, step(3), [][]XTargetSkip{{{At: 1, Slot: 1}}}},
 		{"required slot skipped", required, step(2), [][]XTargetSkip{{{At: 1, Slot: 1}}, nil}},
-		{"required slot filled", required, step(2), [][]XTargetSkip{{{At: 0, Slot: 0}}, nil}},
-		{"nonliteral filled slot", ranged, step(3), [][]XTargetSkip{{{At: 0, Slot: 0}}, nil}},
+		{"nonliteral slot skipped", unreadable, step(3), [][]XTargetSkip{{{At: 0, Slot: 0}, {At: 1, Slot: 1}}, nil}},
 		{"slot out of range", four, step(3), [][]XTargetSkip{{{At: 1, Slot: 9}}, nil}},
 		{"negative slot", four, step(3), [][]XTargetSkip{{{At: 0, Slot: -1}}, nil}},
 		{"wrong offset", four, step(3), [][]XTargetSkip{{{At: 2, Slot: 1}}, nil}},
@@ -195,6 +245,18 @@ func TestXMageOptionalTargetSkipBoundaries(t *testing.T) {
 	}
 	if err := CheckTargetSkips(four, step(3), [][]XTargetSkip{{{At: 1, Slot: 1}}, nil}); err != nil {
 		t.Errorf("precondition: the well-formed plan is rejected: %v", err)
+	}
+	// A required slot may be FILLED next to a skip on an optional object: the
+	// queue is [skip, required pick, pick], and the accounting admits it.
+	if err := CheckTargetSkips(required, step(2), [][]XTargetSkip{{{At: 0, Slot: 0}}, nil}); err != nil {
+		t.Errorf("a plan skipping an optional object before a filled required one is rejected: %v", err)
+	}
+	// The multi-pick plan validates and its queue matches the driver's.
+	if err := CheckTargetSkips(multi, scM.Steps, gotM); err != nil {
+		t.Errorf("multi-pick plan rejected: %v", err)
+	}
+	if err := CheckTargetSkips(upToTwo, scU.Steps, gotU); err != nil {
+		t.Errorf("omitted 0..2 plan rejected: %v", err)
 	}
 }
 

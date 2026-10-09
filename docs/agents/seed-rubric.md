@@ -106,7 +106,7 @@ every brief also carries the context that keeps the seat's run short -- the
 exact `file:line` of the mechanism, the commands to run and their caps, what is
 already ruled out, and who is working nearby -- with any unverified premise
 under a `Hypothesis:` label. `file_ticket` appends the test-budget footer
-(every test 2 GB / 2 vCPU / 1 min, focused and capped, never `./...` or
+(every test 4 GB / 4 vCPU / 1 min, focused and capped, never `./...` or
 `-count=1`) to every brief it files.
 
 ### 5. Journal
