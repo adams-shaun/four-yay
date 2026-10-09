@@ -192,12 +192,26 @@ func sourceRemovedControlFails(reg *cards.Registry, sc oraclegen.Scenario, sourc
 	}
 	control.Setup["p0"] = p0
 	control.Steps = append([]oraclegen.Step(nil), sc.Steps...)
-	last := &control.Steps[len(control.Steps)-1]
-	last.Expect = append([]oraclegen.Expect(nil), last.Expect...)
-	if len(last.Expect) != 1 || last.Expect[0].Offered == nil {
+	// The flipped assertion rides the last step that carries one, not
+	// literally the last step: the opponent-turn shapes end with the pass
+	// pair (p0 passes, then p1), and the offer is checked at the checkpoint
+	// after p0's pass, where p1 holds priority.
+	last := -1
+	for i := len(control.Steps) - 1; i >= 0; i-- {
+		if len(control.Steps[i].Expect) > 0 {
+			last = i
+			break
+		}
+	}
+	if last < 0 {
 		return "last step has no single offered assertion"
 	}
-	last.Expect[0].Want = boolPtr(true)
+	lastStep := &control.Steps[last]
+	lastStep.Expect = append([]oraclegen.Expect(nil), lastStep.Expect...)
+	if len(lastStep.Expect) != 1 || lastStep.Expect[0].Offered == nil {
+		return "last step has no single offered assertion"
+	}
+	lastStep.Expect[0].Want = boolPtr(true)
 	res, ok := runStatic(reg, control)
 	if !ok {
 		return "control did not run"
