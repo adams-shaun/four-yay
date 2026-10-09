@@ -25,8 +25,14 @@ import (
 // (unknown predicates fail closed inside the matcher, so an unreadable
 // filter counts zero, never everything). Several references sum -- Forge's
 // Count$ reads the same way -- and the /Op suffix applies through
-// applyCountOp like every other head.
-func evalRefProperty(h Host, c *Ctx, expr string) (int32, bool) {
+// applyCountOp like every other head. depth is the evaluator's own
+// recursion depth, passed through so the suffix's SVar-named operand
+// (Doran, Besieged by Time's TriggeredAttacker$CardPower/Minus.Z1) resolves
+// the named body against the same face's SVar table the SVar$ head reads,
+// instead of silently dropping it (applyCountOp's numeric-only read parsed
+// no number and left the base value standing, which turned "+X/+X where X
+// is the difference between power and toughness" into "+power/+power").
+func evalRefProperty(h Host, c *Ctx, expr string, depth int) (int32, bool) {
 	ref, prop, found := strings.Cut(expr, "$")
 	if !found || h == nil {
 		return 0, false
@@ -46,7 +52,7 @@ func evalRefProperty(h Host, c *Ctx, expr string) (int32, bool) {
 	if (ref == "TargetedObjects" || ref == "TargetedObjectsDistinct") && prop == "Amount" {
 		n := int32(len(ts))
 		if hasOp {
-			n = applyCountOp(n, op)
+			n = applyCountOpOperand(h, c, n, op, depth)
 		}
 		return n, true
 	}
@@ -292,7 +298,7 @@ func evalRefProperty(h Host, c *Ctx, expr string) (int32, bool) {
 		}
 	}
 	if hasOp {
-		n = applyCountOp(n, op)
+		n = applyCountOpOperand(h, c, n, op, depth)
 	}
 	return n, true
 }

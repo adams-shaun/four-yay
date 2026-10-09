@@ -163,12 +163,16 @@ func sacrificedNumeric(c *Ctx, f func(state.SacrificedInfo) int32) int32 {
 	return n
 }
 
-func evalRememberedOK(h Host, c *Ctx, body string) (int32, bool) {
+// evalRememberedOK resolves a Remembered$ count body. depth rides through to
+// evalRefProperty so the /Op suffix's SVar-named operand resolves against the
+// same face's SVar table (the same read the SVar$ head's own suffix gets),
+// instead of the numeric-only parse silently dropping it.
+func evalRememberedOK(h Host, c *Ctx, body string, depth int) (int32, bool) {
 	body, op, hasOp := strings.Cut(body, "/")
 	if strings.TrimSpace(body) == "Amount" {
 		n := int32(len(rememberedExcludingCapture(h, c)))
 		if hasOp {
-			n = applyCountOp(n, op)
+			n = applyCountOpOperand(h, c, n, op, depth)
 		}
 		return n, true
 	}
@@ -178,9 +182,9 @@ func evalRememberedOK(h Host, c *Ctx, body string) (int32, bool) {
 	// prefix cut wins. An unmodelled property still degrades to zero, the
 	// same conservative no-op evalSacrificed's default takes, and the
 	// property verdict rides through: an unmodelled one is NOT evaluated.
-	if n, ok := evalRefProperty(h, c, "Remembered$"+body); ok {
+	if n, ok := evalRefProperty(h, c, "Remembered$"+body, depth); ok {
 		if hasOp {
-			n = applyCountOp(n, op)
+			n = applyCountOpOperand(h, c, n, op, depth)
 		}
 		return n, true
 	}
