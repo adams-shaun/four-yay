@@ -391,19 +391,21 @@ cmd = ["bash", "-c", "set -o pipefail; if [ -n \"${GORGE_HEAVY_LOCK:-}\" ]; then
 # 2026-10-09 (cli-20261009T114433Z-45f2f307): GOMEMLIMIT 1536MiB -> 3GiB with
 # the operator's doubled per-test budget (0d5e1a093 doubled the seat scope's
 # GOMEMLIMIT the same day; this gate env was missed). Measured: a ./rules
-# shard's working set is 1.2-1.9 GiB RSS (serial, GOMEMLIMIT=3GiB), so 1536MiB
-# sits UNDER it and the GC thrash stretched the two-shard rules phase from the
-# 62 s documented 2026-10-08 to 78.8 s under this gate's own scope. The
-# shard lines in scripts/gate_affected.sh override both GOMAXPROCS and
-# GOMEMLIMIT themselves now; this env stays the ceiling for vet, the others
-# set and the two Kr8 runs (others peak ~1.0 GiB at -p=6, Kr8 ~12 s each).
+# shard's working set is 1.2-1.9 GiB RSS (serial, GOMEMLIMIT=3GiB), so
+# 1536MiB sits UNDER it and GC thrash stretches the rules phase (the
+# 2026-10-08 two-shard figure of 62 s read 78.8 s under this gate's own
+# scope). The shard lines in scripts/gate_affected.sh override both
+# GOMAXPROCS and GOMEMLIMIT themselves; this env stays the ceiling for vet,
+# the others set and the two Kr8 runs (others peak ~1.0 GiB at -p=6, Kr8 ~12
+# s each).
 #
-# gate_affected bounds the test phase to concurrent test binaries bounded by
-# -p (each rules shard and each Kr8/cardfuzz/searchprobe/overshoot invocation
-# uses -p=1; the others set runs -p=6); its vet phase is sequential and uses
-# -p=6. Worst case is three rules shards (~1.9 GiB peak RSS each, serially
-# measured 2026-10-09) + six others (~1.0 GiB total) + the two Kr8 binaries,
-# all inside the 16G scope with headroom.
+# 2026-10-09 (cli-20261009T130325Z-2978e52d, gate-shard4): ./rules now runs
+# four concurrent shards at GOMAXPROCS=4 each, alongside the two Kr8 runs,
+# searchprobe, the host overshoot check and the $others run at -p=6: at most
+# ~14 test binaries resident at the peak. No test's peak RSS is above ~2 GiB
+# (internal/testutil/testdata/rss_exceptions.txt is EMPTY as of 2026-10-09);
+# worst case four rules shards at 1.2-1.9 GiB each plus the others and the
+# two Kr8 binaries stays under the 16G scope with headroom.
 timeout = 2100
 env = { GOMEMLIMIT = "3GiB", GOMAXPROCS = "2", GOGC = "200", GOFLAGS = "-p=2 -trimpath" }
 

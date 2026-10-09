@@ -40,36 +40,35 @@ gate_affected_default_build_pkgs() {
   return 0
 }
 
-# Split the top-level ./rules tests into three concurrent `go test -run`
-# patterns (see the call site below). Output: exactly three regexes, one per
+# Split the top-level ./rules tests into four concurrent `go test -run`
+# patterns (see the call site below). Output: exactly four regexes, one per
 # line, whose union is every top-level test. A test is bucketed by the
-# character after "Test", buckets are balanced by test count, and the character
-# set comes from `go test -list`, so a new test under an existing first
-# character is always covered. Any surprise in the listing (empty list, a name
-# shorter than five characters, fewer than three distinct first characters, no
-# characters) returns nonzero and the caller falls back to the single unsplit
-# run, so a malformed list can never silently drop a test.
+# character after "Test", buckets are balanced by test count, and the
+# character set comes from `go test -list`, so a new test under an existing
+# first character is always covered. Any surprise in the listing (empty list,
+# a name shorter than five characters, fewer than four distinct first
+# characters, no characters) returns nonzero and the caller falls back to the
+# single unsplit run, so a malformed list can never silently drop a test.
 #
-# Measured 2026-10-08 (this box, 4 cores, `systemd-run ... CPUQuota=400%`,
-# rules test binary pre-warmed): one `go test -p=1 -skip ... ./rules` 84 s at
-# 241% CPU (the package does NOT saturate the cores: 1693 tests call
-# t.Parallel, the rest run serially); the same run split two ways finished in
-# 62 s wall (shards 59.5 s / 55.0 s, counts 3264 / 3267). Listing and splitting
-# costs ~1 s.
+# Why four, not two (cli-20261009T130325Z-2978e52d): the two-way split leaves
+# the rules phase as the gate's long pole at ~2.4 cores per shard while the
+# gate's own scope is CPUQuota=1600%. Measured 2026-10-09 (this worktree,
+# `systemd-run ... -p MemoryMax=16G -p CPUQuota=1600%`, the gate's own env
+# GOMEMLIMIT=1536MiB GOGC=200, rules test binary pre-warmed, corpus present):
+#   two shards, GOMAXPROCS=2 each (today's gate)  -> 98 s wall (95.1 / 70.0)
+#   four shards, GOMAXPROCS=4 each                -> 45 s wall
+#     (44.4 / 20.3 / 18.6 / 19.4, test counts 1633 / 1658 / 1660 / 1627)
+# Same -skip, same tests, same reported output; only the partition and the
+# per-process GOMAXPROCS change. Listing and splitting costs ~1 s.
 #
-# Measured 2026-10-09 (cli-20261009T114433Z-45f2f307, in the gate's own 16 G /
-# 1600% scope, rules test binary pre-warmed). The 2026-10-08 two-way figure no
-# longer holds under the gate env the 2026-10-05 config change added
-# (GOMAXPROCS=2, GOMEMLIMIT=1536MiB, GOGC=200): two `go test -p=1` shards of
-# the then-list took 78.8 s wall there (77.0 / 56.8 s), because GOMEMLIMIT
-# sits under the shard working set and GOMAXPROCS=2 serialises the 1693
-# t.Parallel tests. The shards now override both (GOMAXPROCS=4 GOMEMLIMIT=3GiB,
-# the operator's doubled 2026-10-09 per-test budget). Three count-balanced
-# shards of the 6578-test list, run concurrently exactly as the gate runs
-# them, finished in 37-45 s wall at 590-611% CPU; serially each shard peaked
-# at 1.2 / 1.4 / 1.9 GiB RSS, so the three together stay far under the 16 GiB
-# scope. The rules phase drops from ~79 s to ~40 s. Counts 2187 / 2210 / 2181
-# (±1%).
+# Each shard line also overrides GOMEMLIMIT to 3GiB with the operator's
+# doubled 2026-10-09 per-test budget (cli-20261009T114433Z-45f2f307): the gate
+# env's 1536MiB sits UNDER a shard's 1.2-1.9 GiB working set, and the GC
+# thrash stretched the two-shard rules phase from the 62 s documented
+# 2026-10-08 to 78.8 s under this gate's own scope (GOMAXPROCS=2 also
+# serialises the 1693 t.Parallel tests). At the doubled budget three
+# count-balanced shards measured 37-45 s wall at 590-611% CPU, serially
+# peaking 1.2-1.9 GiB RSS each.
 rules_shard_patterns_from_list() {
   local list chars
   list=$(cat)
@@ -80,18 +79,16 @@ rules_shard_patterns_from_list() {
     function esc(c) { gsub(/[][\\^-]/, "\\\\&", c); return c }
     { cnt[NR] = $1; ch[NR] = $2 }
     END {
-      l0 = l1 = l2 = 0
+      nb = 4
       for (i = 1; i <= NR; i++) {
-        if (l0 <= l1 && l0 <= l2) { c0 = c0 esc(ch[i]); l0 += cnt[i] }
-        else if (l1 <= l2)        { c1 = c1 esc(ch[i]); l1 += cnt[i] }
-        else                      { c2 = c2 esc(ch[i]); l2 += cnt[i] }
+        b = 1
+        for (j = 2; j <= nb; j++) if (l[j] < l[b]) b = j
+        c[b] = c[b] esc(ch[i]); l[b] += cnt[i]
       }
       # An empty bucket would print an invalid empty character class; fail the
       # helper instead so the caller falls back to the unsplit run.
-      if (c0 == "" || c1 == "" || c2 == "") exit 1
-      print "^Test[" c0 "]"
-      print "^Test[" c1 "]"
-      print "^Test[" c2 "]"
+      for (j = 1; j <= nb; j++) if (c[j] == "") exit 1
+      for (j = 1; j <= nb; j++) print "^Test[" c[j] "]"
     }'
 }
 
@@ -175,29 +172,36 @@ wait "$v" || rc=1
 wait "$w" || rc=1
 [ "$rc" = 0 ] || exit 1
 
-# The main ./rules run is the longest single test job in the gate, so split it
-# in three by test name and run the thirds concurrently. `-skip` still removes
-# the process-global tests (they run in their own gate or post-merge); the
-# three `-run` patterns are a complete, disjoint partition of every remaining
-# test (verified by construction in rules_shard_run_patterns, which falls back
-# to the unsplit run if it cannot list the tests). All shards keep -p=1 so the
-# number of test binaries does not grow beyond the shards themselves, and all
-# override the gate env's GOMAXPROCS=2 / GOMEMLIMIT=1536MiB exactly as the vet
-# line above already overrides GOMAXPROCS: measured 2026-10-09, GOMAXPROCS=2
-# serialises the t.Parallel tests and GOMEMLIMIT=1536MiB sits under the shard
-# working set, which together stretch two shards from the 62 s documented in
-# 2026-10-08 to 78.8 s (numbers in the shard-helper comment above). The two
-# short Kr8 runs (b, c) have finished by the time the long shards are at their
-# peak.
-shard1=; shard2=; shard3=
-{ read -r shard1; read -r shard2; read -r shard3; } < <(rules_shard_run_patterns) || true
-if [ -n "$shard1" ] && [ -n "$shard2" ] && [ -n "$shard3" ]; then
+# The main ./rules run is the longest single test job in the gate and it does
+# not use the whole scope quota (241% of 400% measured above for one process;
+# the scope is CPUQuota=1600%), so split it four ways by test name and run the
+# shards concurrently, each with GOMAXPROCS=4: the gate env exports
+# GOMAXPROCS=2, which would hold every shard's t.Parallel pool to two tests at
+# a time. Measured 2026-10-09 (numbers above): two shards at the inherited
+# GOMAXPROCS=2 took 98 s wall; four shards at GOMAXPROCS=4 took 45 s. Each
+# shard line also overrides GOMEMLIMIT to 3GiB, the operator's doubled
+# 2026-10-09 per-test budget: the gate env's 1536MiB sits under the shard
+# working set and the GC thrash stretched the two-shard rules phase to 78.8 s
+# under this gate's own scope (cli-20261009T114433Z-45f2f307).
+# `-skip` still removes the process-global tests (they run in their own gate
+# or post-merge); the four `-run` patterns are a complete, disjoint partition
+# of every remaining test (verified by construction in
+# rules_shard_run_patterns, which falls back to the unsplit run if it cannot
+# list the tests). Every shard keeps -p=1 (single package); the extra
+# concurrent binaries fit the scope: no test's peak RSS is above ~2 GiB
+# (internal/testutil/testdata/rss_exceptions.txt is EMPTY) and each binary is
+# held near its GOMEMLIMIT=3GiB soft limit.
+shard1=; shard2=; shard3=; shard4=
+{ read -r shard1; read -r shard2; read -r shard3; read -r shard4; } < <(rules_shard_run_patterns) || true
+if [ -n "$shard1" ] && [ -n "$shard2" ] && [ -n "$shard3" ] && [ -n "$shard4" ]; then
   GOMAXPROCS=4 GOMEMLIMIT=3GiB go test -p=1 -skip "^($global|$kr8|$postmerge)$" -run "$shard1" ./rules/ & a1=$!
   GOMAXPROCS=4 GOMEMLIMIT=3GiB go test -p=1 -skip "^($global|$kr8|$postmerge)$" -run "$shard2" ./rules/ & a2=$!
   GOMAXPROCS=4 GOMEMLIMIT=3GiB go test -p=1 -skip "^($global|$kr8|$postmerge)$" -run "$shard3" ./rules/ & a3=$!
+  GOMAXPROCS=4 GOMEMLIMIT=3GiB go test -p=1 -skip "^($global|$kr8|$postmerge)$" -run "$shard4" ./rules/ & a4=$!
 else
   GOMAXPROCS=4 GOMEMLIMIT=3GiB go test -p=1 -skip "^($global|$kr8|$postmerge)$" ./rules/ & a1=$!
-  a2=; a3=
+  a2=; a3=; a4=
+fi
 fi
 go test -p=1 -run '^TestKr8WorldsInFuzzGames$' ./rules/ & b=$!
 go test -p=1 -run '^TestKr8HeadsCheckpointAll$' ./rules/ & c=$!
@@ -205,20 +209,21 @@ go test -p=1 -run '^TestKr8HeadsCheckpointAll$' ./rules/ & c=$!
 # ran strictly one at a time and were the long pole of the gate. Measured on
 # the `$others` set alone under the gate scope (800% quota, test results
 # expired with `go clean -testcache`): -p=2 62.3 s, -p=4 40.8 s, -p=6 32.5 s,
-# peak RSS ~1.0 GiB. At most six others binaries run here (the two Kr8 runs
-# have already finished, ./rules is three concurrent shards), so the scope
-# stays well under its 16 GiB MemoryMax.
+# peak RSS ~1.0 GiB. With ./rules now four concurrent shards the peak resident
+# set is ~14 test binaries, each held near its GOMEMLIMIT=3GiB soft limit (the
+# doubled 2026-10-09 per-test budget; a rules shard peaks 1.2-1.9 GiB RSS
+# serially, no test above ~2 GiB and internal/testutil/testdata/
+# rss_exceptions.txt is EMPTY): ~10 GiB against the scope's 16 GiB
+# MemoryMax, and most $others binaries are far smaller.
 GOMAXPROCS=6 go test -p=6 -skip "^($global)$" $others & d=$!
 # Event-text changes (any new or reworded event) move the committed
 # overshoot capture and the searchprobe digests; e2e19ebae and 5fa9f31a both
 # broke them unseen by this gate on 2026-10-05. Both checks are seconds, so
-# they start as soon as the two short Kr8 runs free their slots instead of
-# waiting for ./rules and every other package to finish.
-wait "$b" || rc=1
-wait "$c" || rc=1
+# they start with everything else instead of waiting for the two short Kr8
+# runs to finish first.
 go test -p=1 ./internal/searchprobe/ & e=$!
 go test -p=1 -run '^TestCommittedOvershootCaptureReplaysToTheParkedAsk$' ./host/ & f=$!
-pids="$a1 $a2 $a3 $d $e $f"
+pids="$a1 $a2 $a3 $a4 $b $c $d $e $f"
 if [ "$traj" = 1 ]; then
   go test -p=1 -run '^(TestRoundTenFindings|TestForbiddenRitualRepeatYesFinding)$' ./cmd/cardfuzz/ & g=$!
   pids="$pids $g"

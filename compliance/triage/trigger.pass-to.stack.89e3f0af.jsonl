@@ -1,6 +1,4 @@
-{"shape":{"template":"trigger","op":"pass_to","field":"stack","diff":"gorge=[ability:$CARD@p0] xmage=[]"},"key":"trigger | pass_to | stack | gorge=[ability:$CARD@p0] xmage=[]","cards":5}
-{"card":"Case of the Crimson Pulse","template":"trigger#0.1","status":"diverge","api":"ChangesZone:Discard+Phase:AlterAttribute+Phase:Discard","sets":["MKM"],"detail":"step 0 (pass_to) stack: gorge \"[ability:Case of the Crimson Pulse@p0]\", xmage \"[]\""}
-{"card":"Case of the Crimson Pulse","template":"trigger#0.2","status":"diverge","api":"ChangesZone:Discard+Phase:AlterAttribute+Phase:Discard","sets":["MKM"],"detail":"step 0 (pass_to) stack: gorge \"[ability:Case of the Crimson Pulse@p0]\", xmage \"[]\""}
+{"shape":{"template":"trigger","op":"pass_to","field":"stack","diff":"gorge=[ability:$CARD@p0] xmage=[]"},"key":"trigger | pass_to | stack | gorge=[ability:$CARD@p0] xmage=[]","cards":3}
 {"card":"Ferocification","template":"trigger#0.0","status":"diverge","api":"Phase:Charm","sets":["OTJ"],"detail":"step 0 (pass_to) stack: gorge \"[ability:Ferocification@p0]\", xmage \"[]\""}
 {"card":"Oblivious Bookworm","template":"trigger#0.2","status":"diverge","api":"Phase:Draw+TurnFaceUp:Pump+Phase:Cleanup","sets":["DSK"],"detail":"step 0 (pass_to) stack: gorge \"[ability:Oblivious Bookworm@p0]\", xmage \"[]\""}
 {"card":"Sylvan Scavenging","template":"trigger#0.0","status":"diverge","api":"Phase:Charm","sets":["FDN"],"detail":"step 0 (pass_to) stack: gorge \"[ability:Sylvan Scavenging@p0]\", xmage \"[]\""}
