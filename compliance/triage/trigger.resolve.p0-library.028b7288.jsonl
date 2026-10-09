@@ -1,8 +1,9 @@
-{"shape":{"template":"trigger","op":"resolve","field":"p0.library","diff":"placement"},"key":"trigger | resolve | p0.library | placement","cards":13}
+{"shape":{"template":"trigger","op":"resolve","field":"p0.library","diff":"placement"},"key":"trigger | resolve | p0.library | placement","cards":14}
 {"card":"Broodheart Engine","template":"trigger#0.0","status":"diverge","api":"Phase:Surveil","sets":["DFT"],"detail":"step 1 (resolve) p0.graveyard: gorge \"[]\", xmage \"[Wastes]\""}
 {"card":"Choco, Seeker of Paradise","template":"trigger#0.0","status":"diverge","api":"AttackersDeclared:Dig+ChangesZone:Pump","sets":["FIN"],"detail":"step 1 (resolve) p0.hand: gorge \"[]\", xmage \"[Wastes]\""}
 {"card":"Coveted Falcon","template":"trigger#0.1","status":"diverge","api":"Attacks:GainControl+TurnFaceUp:Pump","sets":["MKM"],"detail":"step 3 (resolve) p0.hand: gorge \"[]\", xmage \"[Wastes]\""}
 {"card":"Essence Anchor","template":"trigger#0.0","status":"diverge","api":"Phase:Surveil","sets":["TDM"],"detail":"step 1 (resolve) p0.graveyard: gorge \"[]\", xmage \"[Wastes]\""}
+{"card":"Expedited Inheritance","template":"trigger#0.0","status":"diverge","api":"DamageDoneOnce:Dig","sets":["MKM"],"detail":"step 1 (resolve) p0.exile: gorge \"[Wastes]\", xmage \"[Wastes, Wastes]\""}
 {"card":"Eye of Jace","template":"trigger#0.0","status":"diverge","api":"Phase:Surveil","sets":["FRA"],"detail":"step 1 (resolve) p0.graveyard: gorge \"[]\", xmage \"[Wastes]\""}
 {"card":"Grave Researcher","template":"trigger#0.0","status":"diverge","api":"Phase:Surveil","sets":["SOS"],"detail":"step 1 (resolve) p0.graveyard: gorge \"[]\", xmage \"[Wastes]\""}
 {"card":"Hedge Shredder","template":"trigger#0.0","status":"diverge","api":"Attacks:Mill+ChangesZoneAll:ChangeZoneAll","sets":["DSK"],"detail":"step 3 (resolve) p0.graveyard: gorge \"[Wastes, Wastes]\", xmage \"[]\""}
