@@ -331,29 +331,35 @@ func parseSeatRef(s string) (state.PlayerID, bool) {
 	return state.PlayerID(n), true
 }
 
-// splitRef parses "p1:Name", "p1:Name#2" and "p1:token:Name#2".
-func splitRef(ref string) (seat state.PlayerID, name string, token bool, nth int, err error) {
+// splitRef parses "p1:Name", "p1:Name#2", "p1:token:Name#2" and
+// "p1:ability:Name#2" (an ability object PENDING on the stack, named by its
+// source card's name: the plain ref cannot serve, the source permanent sits
+// on the battlefield under the same name and the plain loop returns it
+// first).
+func splitRef(ref string) (seat state.PlayerID, name string, token, ability bool, nth int, err error) {
 	i := strings.IndexByte(ref, ':')
 	if i < 0 {
-		return 0, "", false, 0, harnessf("bad card ref %q (want pN:Name)", ref)
+		return 0, "", false, false, 0, harnessf("bad card ref %q (want pN:Name)", ref)
 	}
 	p, ok := parseSeatRef(ref[:i])
 	if !ok {
-		return 0, "", false, 0, harnessf("bad seat in ref %q", ref)
+		return 0, "", false, false, 0, harnessf("bad seat in ref %q", ref)
 	}
 	name = ref[i+1:]
 	if strings.HasPrefix(name, "token:") {
 		token, name = true, strings.TrimPrefix(name, "token:")
+	} else if strings.HasPrefix(name, "ability:") {
+		ability, name = true, strings.TrimPrefix(name, "ability:")
 	}
 	nth = 1
 	if j := strings.LastIndexByte(name, '#'); j >= 0 {
 		n, perr := strconv.Atoi(name[j+1:])
 		if perr != nil || n < 1 {
-			return 0, "", false, 0, harnessf("bad ordinal in ref %q", ref)
+			return 0, "", false, false, 0, harnessf("bad ordinal in ref %q", ref)
 		}
 		name, nth = name[:j], n
 	}
-	return p, name, token, nth, nil
+	return p, name, token, ability, nth, nil
 }
 
 func (r *oracleRun) objName(o *state.Object) string {
@@ -387,27 +393,38 @@ func (r *oracleRun) fieldName(o *state.Object) string {
 
 // resolve maps a card ref to an object id: setup-bound refs first (a card
 // keeps its ObjID across zones), then the k-th matching object in id order.
+// An "ability:" ref resolves to the k-th PENDING ability object on the stack
+// whose controller is the named seat and whose SOURCE face's name matches
+// (the same walk objRef emits; only a stack object is offered -- CR 115.5
+// targets a spell or ability ON the stack).
 func (r *oracleRun) resolve(ref string) (state.ObjID, error) {
 	if id, ok := r.refs[ref]; ok {
 		return id, nil
 	}
-	seat, name, token, nth, err := splitRef(ref)
+	seat, name, token, ability, nth, err := splitRef(ref)
 	if err != nil {
 		return 0, err
 	}
 	seen := 0
 	for i := range r.e.G.Objs {
 		o := &r.e.G.Objs[i]
-		if o.Zone == state.ZCeased || o.Ability != nil || o.Face() == nil {
-			continue
-		}
-		if token {
-			if !o.IsToken || o.Controller != seat || o.Zone != state.ZBattlefield ||
-				!strings.Contains(strings.ToLower(o.Face().Name), strings.ToLower(name)) {
+		if ability {
+			if o.Zone != state.ZStack || o.Ability == nil || o.Controller != seat ||
+				cards.NormalizeName(r.objName(r.e.G.Obj(o.Source))) != cards.NormalizeName(name) {
 				continue
 			}
-		} else if o.Owner != seat || (o.Face().Name != name && oracleAltFaceMode(o, name) == "") {
-			continue
+		} else {
+			if o.Zone == state.ZCeased || o.Ability != nil || o.Face() == nil {
+				continue
+			}
+			if token {
+				if !o.IsToken || o.Controller != seat || o.Zone != state.ZBattlefield ||
+					!strings.Contains(strings.ToLower(o.Face().Name), strings.ToLower(name)) {
+					continue
+				}
+			} else if o.Owner != seat || (o.Face().Name != name && oracleAltFaceMode(o, name) == "") {
+				continue
+			}
 		}
 		seen++
 		if seen == nth {
@@ -1166,6 +1183,7 @@ func (r *oracleRun) addMana(seat state.PlayerID, mana string) error {
 	if d == nil || d.Kind != decision.KPriority || d.Player != seat {
 		return harnessf("mana: p%d does not hold priority", seat)
 	}
+	before := r.e.Pending()
 	for _, c := range mana {
 		if !strings.ContainsRune("WUBRGC", c) {
 			return harnessf("mana: bad symbol %q", c)
@@ -1173,6 +1191,7 @@ func (r *oracleRun) addMana(seat state.PlayerID, mana string) error {
 		r.e.emit(events.Event{Kind: events.ManaAdd, Player: seat, Counter: string(c), Amount: 1})
 	}
 	r.e.priorityRound()
+	regrantStalePriority(r.e, pendingSeq(before))
 	r.logf("  [mana] p%d +%s", seat, mana)
 	return nil
 }
@@ -1189,6 +1208,32 @@ func (r *oracleRun) priorityFor(seat state.PlayerID, op string) (*decision.Decis
 	return d, nil
 }
 
+// regrantStalePriority re-poses a priority decision whose option list
+// pre-dates what the caller's emit just queued: putTriggersOnStack returns
+// early when it pushes a trigger while a priority decision is ALREADY
+// pending (rules/trigger_queue.go), leaving that decision -- and its stale
+// option list -- pending, so an action the push made available (Kirol's
+// CopySpellAbility targeting the just-pushed ETB trigger) is never offered.
+// One more round drains the queue and grants a fresh decision. Cheap no-op
+// in the common case: a fresh grant (new Seq) or a mid-flow ask returns
+// without a second walk.
+func regrantStalePriority(e *Engine, beforeSeq uint64) {
+	d := e.Pending()
+	if d == nil || d.Kind != decision.KPriority || d.Seq != beforeSeq {
+		return
+	}
+	e.priorityRound()
+}
+
+// pendingSeq is a pending decision's Seq, 0 when nothing is pending (0 is
+// never a posed decision's Seq, so a nil pending never matches a re-grant).
+func pendingSeq(d *decision.Decision) uint64 {
+	if d == nil {
+		return 0
+	}
+	return d.Seq
+}
+
 func oraclePrelude(r *oracleRun, st oracleStep, seat state.PlayerID) error {
 	if oracleOpCodes.Code(st.Op) == oracleOpAttach {
 		equipment, err := r.resolve(st.Card)
@@ -1199,12 +1244,16 @@ func oraclePrelude(r *oracleRun, st oracleStep, seat state.PlayerID) error {
 		if err != nil {
 			return err
 		}
+		before := r.e.Pending()
 		r.e.emit(events.Event{Kind: events.Attach, Obj: equipment, IDs: []state.ObjID{bearer}})
 		r.e.priorityRound()
+		regrantStalePriority(r.e, pendingSeq(before))
 		return r.untilPriority("attach")
 	}
+	before := r.e.Pending()
 	r.e.emit(events.Event{Kind: events.LifeChange, Player: seat, Amount: st.Amount})
 	r.e.priorityRound()
+	regrantStalePriority(r.e, pendingSeq(before))
 	return r.untilPriority("life")
 }
 
@@ -1676,8 +1725,10 @@ func (r *oracleRun) do(st oracleStep) error {
 		if !ok {
 			return harnessf("move: unknown zone %q", st.To)
 		}
+		before := e.Pending()
 		e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: e.G.Obj(id).Zone, To: to})
 		e.priorityRound()
+		regrantStalePriority(e, pendingSeq(before))
 		return r.untilPriority("move")
 	case oracleOpAttach, oracleOpLife:
 		return oraclePrelude(r, st, seat)

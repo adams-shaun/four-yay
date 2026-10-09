@@ -40,7 +40,7 @@ func oracleCastWantMode(st oracleStep, o *state.Object) string {
 	if st.CastMode != "" {
 		return st.CastMode
 	}
-	_, name, token, _, err := splitRef(st.Card)
+	_, name, token, _, _, err := splitRef(st.Card)
 	if err != nil || token {
 		return ""
 	}
