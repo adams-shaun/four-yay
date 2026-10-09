@@ -365,11 +365,15 @@ public final class ScenarioReplayDriverContractTest {
     }
 
     private static void bargain() throws Exception {
-        // cast_mode acceptance: Bargain is the only elected mode, an absent
-        // mode is the ordinary cast, and anything else is rejected loudly
-        // (previously EVERY cast_mode was rejected, before its cost was paid).
+        // cast_mode acceptance: the driver elects Bargain and main's
+        // "optionalcost" cast, an absent mode is the ordinary cast, and
+        // anything else is rejected loudly (previously EVERY cast_mode was
+        // rejected, before its cost was paid). The "optionalcost" check is
+        // the regression guard: the reference commit's first cut dropped it.
         check(castModeSupported("").equals("true"), "an absent cast_mode must be the ordinary cast");
         check(castModeSupported("bargained").equals("true"), "bargained cast_mode was not accepted");
+        check(castModeSupported("optionalcost").equals("true"),
+                "optionalcost cast_mode was not accepted");
         check(castModeSupported("kicked").equals("false"), "kicked cast_mode must stay unsupported");
         check(castModeSupported("adventure_alt").equals("false"),
                 "an unwired cast_mode must be rejected, not cast at face value");
