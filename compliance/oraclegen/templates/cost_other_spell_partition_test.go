@@ -5,15 +5,17 @@ import (
 )
 
 // TestCostStaticOtherSpellAppendixPartition pins the exact disposition of the
-// brief's 45 "cost static probe not supported" rows: 38 produce a generated
-// scenario and the remaining seven are narrower named skips. Artist's Talent
+// brief's 45 "cost static probe not supported" rows: 40 produce a generated
+// scenario and the remaining five are narrower named skips. Artist's Talent
 // moved from the named-skip column to served when the shared Class level-up
 // prelude landed (its ReduceCost static is live from level 2 on), and Samut,
-// the Driving Force when the probe learned to set p0's speed. The sibling
-// TestCostStaticOtherSpellAppendixRows asserts only the aggregate (>= 30); a
-// regression that turned a served row back into a skip, or changed a named
-// skip's reason to the bare form, would still satisfy that aggregate, so this
-// test pins each row.
+// the Driving Force when the probe learned to set p0's speed; Inquisitive
+// Glimmer's Unlock static and Geyser Drake's NotPlayerTurn gate when the
+// special-action probes learned the Room unlock and the opponent-turn cast.
+// The sibling TestCostStaticOtherSpellAppendixRows asserts only the aggregate
+// (>= 30); a regression that turned a served row back into a skip, or changed
+// a named skip's reason to the bare form, would still satisfy that aggregate,
+// so this test pins each row.
 func TestCostStaticOtherSpellAppendixPartition(t *testing.T) {
 	reg := loadGenRegistry(t)
 
@@ -23,7 +25,7 @@ func TestCostStaticOtherSpellAppendixPartition(t *testing.T) {
 		"Stormcatch Mentor":              true,
 		"Boom Scholar":                   true,
 		"Voyager Quickwelder":            true,
-		"Inquisitive Glimmer":            true, // static#0.0 only; static#0.1 is skipped below
+		"Inquisitive Glimmer":            true, // static#0.0 and static#0.1 (the Room unlock probe)
 		"Doran, Besieged by Time":        true,
 		"Uthros Psionicist":              true,
 		"Ballyrush Banneret":             true,
@@ -57,20 +59,22 @@ func TestCostStaticOtherSpellAppendixPartition(t *testing.T) {
 		"Raging Battle Mouse":            true,
 		"Artist's Talent":                true, // ClassBand$ 2 ReduceCost, served by the Class-level prelude
 		"Samut, the Driving Force":       true, // Amount$ Count$YourSpeed, served by a setup speed of 2
+		"Geyser Drake":                   true, // Condition$ NotPlayerTurn, served by the opponent-turn cast
 	}
 	// skipped is keyed by "<name>/<key>" because two cards have a served face
 	// and a skipped face.
 	skipped := map[string]string{
-		"Inquisitive Glimmer/static#0.1":          "static-ability cost probe unsupported",
 		"Doc Aurlock, Grizzled Genius/static#0.0": "cast-provenance probe unsupported",
-		"Doc Aurlock, Grizzled Genius/static#0.1": "static-ability cost probe unsupported",
+		"Doc Aurlock, Grizzled Genius/static#0.1": "plotting probe unavailable (cast_mode plot is not XMage-replayable)",
 		"Bilbo, Thief in the Night/static#0.0":    "cast-provenance probe unsupported",
-		"Geyser Drake/static#0.0":                 "NotPlayerTurn needs an opponent-turn probe",
-		"Mutagen Man, Living Ooze/static#0.0":     "token fixture unavailable",
+		"Mutagen Man, Living Ooze/static#0.0":     "token ability fixture unavailable (no XMage-proven token ability text)",
 		"Beluna Grandsquall/static#0.0":           "cast-provenance probe unsupported",
 	}
-	if len(served)+len(skipped) != 45 {
-		t.Fatalf("precondition: %d served + %d skipped = %d, want 45", len(served), len(skipped), len(served)+len(skipped))
+	// Inquisitive Glimmer holds two of the 45 rows (static#0.0 and
+	// static#0.1, both served), so the map arithmetic is one short: 39
+	// served names + 5 skipped keys = 44.
+	if len(served)+len(skipped) != 44 {
+		t.Fatalf("precondition: %d served + %d skipped = %d, want 44 (Inquisitive Glimmer carries two served rows of the 45)", len(served), len(skipped), len(served)+len(skipped))
 	}
 
 	rows := []struct{ name, key string }{
@@ -120,7 +124,7 @@ func TestCostStaticOtherSpellAppendixPartition(t *testing.T) {
 		}
 		scenarios++
 	}
-	if scenarios != 38 || named != 7 {
-		t.Errorf("partition = %d scenarios + %d named skips, want 38 + 7", scenarios, named)
+	if scenarios != 40 || named != 5 {
+		t.Errorf("partition = %d scenarios + %d named skips, want 40 + 5", scenarios, named)
 	}
 }
