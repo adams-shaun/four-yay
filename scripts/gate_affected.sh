@@ -97,6 +97,26 @@ rules_shard_run_patterns() {
     | rules_shard_patterns_from_list
 }
 
+# The four compliance/oraclegen/templates shard selectors (tpl=1 in the gate
+# body), one per line: three anchored -run patterns plus the -skip remainder.
+# The remainder is the ANCHORED union of the other three, so h4 runs exactly
+# what the named patterns miss -- a future name that merely extends one of
+# the prefixes (TestSameNameAnswerCensusChunk00Extra) runs in h4 instead of
+# being skipped by it and matched by no shard (r2 review of
+# cli-20261009T182406Z-a616bfea: the unanchored skip that used to sit in the
+# gate body deleted it from every shard silently). The smoke test
+# (scripts/tests/gate_affected_smoke.sh) pins the partition against the
+# package's real `go test -list` output.
+templates_shard_patterns() {
+  local even='^TestSameNameAnswerCensusChunk[0-9][02468]$'
+  local odd='^TestSameNameAnswerCensusChunk[0-9][13579]$'
+  local named='^TestSetup(Colour|CreatureType)Census$'
+  local bare_even bare_odd bare_named rest
+  bare_even="${even#?}"; bare_odd="${odd#?}"; bare_named="${named#?}"
+  rest="${bare_even%?}|${bare_odd%?}|${bare_named%?}"
+  printf '%s\n' "$even" "$odd" "$named" "^(${rest})$"
+}
+
 # When sourced by scripts/tests/gate_affected_smoke.sh, expose the helpers
 # without running the gate. Detect sourcing structurally: an environment
 # variable must never bypass the gate when the script is executed normally.
@@ -139,9 +159,12 @@ others=$(printf '%s\n' $others ./compliance/gate ./compliance/adopt | sort -u)
 # construction and needs no listing step: the odd/even chunk index handles a
 # future Chunk05+ automatically, a new Setup census falls to the -skip
 # remainder (which runs everything the other three do not), and no test can
-# be dropped. Perf drift is the only failure mode: a heavy test the named
-# patterns miss lands in the remainder and the pole creeps up -- never a
-# coverage hole.
+# be dropped. The remainder's skip is anchored to the exact union of the
+# three named patterns (templates_shard_patterns), so a future name that
+# merely extends one of the prefixes runs in the remainder instead of being
+# dropped from every shard. Perf drift is the only failure mode: a heavy
+# test the named patterns miss lands in the remainder and the pole creeps up
+# -- never a coverage hole.
 tpl=0
 if printf '%s\n' $others | /usr/bin/grep -qx './compliance/oraclegen/templates'; then
   others=$(printf '%s\n' $others | /usr/bin/grep -vx './compliance/oraclegen/templates')
@@ -178,7 +201,16 @@ echo "gate_affected: rules + $(echo $others)$( [ "$tpl" = 1 ] && echo ' + oracle
 # `$others` set plus ./rules took 75.9 s / 147 cpu-s; `GOMAXPROCS=6 go vet -p=6`
 # took 18.8 s / 68 cpu-s, peak RSS 3.7 GiB (under the 8 GiB scope). The quota,
 # not the flag, is the ceiling -- at 800% the extra -p is real parallelism.
-GOMAXPROCS=6 go vet -p=6 $others ./rules & v=$!
+vet_pkgs="$others ./rules"
+if [ "$tpl" = 1 ]; then
+  # templates was pulled out of $others for the sharding below; vet it here
+  # anyway, so a vet-only defect (copylocks, unusedresult, lostcancel, ...)
+  # still fails the per-ticket gate (r2 review of
+  # cli-20261009T182406Z-a616bfea; postmerge's `go vet ./...` only catches
+  # it on main after the batch).
+  vet_pkgs="$vet_pkgs ./compliance/oraclegen/templates"
+fi
+GOMAXPROCS=6 go vet -p=6 $vet_pkgs & v=$!
 # Build the ./rules test binary ONCE before the concurrent rules runs.
 # They are separate `go test` processes, and a process does not see a compile
 # another one is still running, so each used to compile and link the same
@@ -253,15 +285,19 @@ go test -p=1 ./internal/searchprobe/ & e=$!
 go test -p=1 -run '^TestCommittedOvershootCaptureReplaysToTheParkedAsk$' ./host/ & f=$!
 pids="$a1 $a2 $a3 $a4 $b $c $d $e $f"
 # The four templates shards (tpl=1, extracted above): three named -run
-# patterns plus the -skip remainder. Each stays under the operator's 1-minute
+# patterns plus the -skip remainder, read one per line from
+# templates_shard_patterns. Each stays under the operator's 1-minute
 # per-test budget (measured split below, whole package 80.3 s), and the
-# remainder is the complement of the other three, so the union is the whole
-# package whatever a future generator ticket adds.
+# remainder's skip is anchored to the exact union of the other three, so the
+# union is the whole package whatever a future generator ticket adds -- a
+# name extending a prefix runs in the remainder, never in no shard.
 if [ "$tpl" = 1 ]; then
-  go test -p=1 -run '^TestSameNameAnswerCensusChunk[0-9][02468]$' ./compliance/oraclegen/templates & h1=$!
-  go test -p=1 -run '^TestSameNameAnswerCensusChunk[0-9][13579]$' ./compliance/oraclegen/templates & h2=$!
-  go test -p=1 -run '^TestSetup(Colour|CreatureType)Census$' ./compliance/oraclegen/templates & h3=$!
-  go test -p=1 -skip '(TestSameNameAnswerCensusChunk[0-9]|TestSetup(Colour|CreatureType)Census)' ./compliance/oraclegen/templates & h4=$!
+  { read -r tpl1; read -r tpl2; read -r tpl3; read -r tpl4; } \
+    < <(templates_shard_patterns)
+  go test -p=1 -run "$tpl1" ./compliance/oraclegen/templates & h1=$!
+  go test -p=1 -run "$tpl2" ./compliance/oraclegen/templates & h2=$!
+  go test -p=1 -run "$tpl3" ./compliance/oraclegen/templates & h3=$!
+  go test -p=1 -skip "$tpl4" ./compliance/oraclegen/templates & h4=$!
   pids="$pids $h1 $h2 $h3 $h4"
 fi
 if [ "$traj" = 1 ]; then

@@ -171,6 +171,74 @@ else
 	printf 'skip real-list shard check (no ./rules tests listed)\n'
 fi
 
+# --- the compliance/oraclegen/templates shard selectors: exactly four, all
+# anchored, the remainder the anchored union of the three named patterns
+# (templates_shard_patterns). An unanchored -skip remainder deleted any
+# future name that merely extends one of the prefixes from EVERY shard (r2
+# review of cli-20261009T182406Z-a616bfea), so the class is pinned below
+# with synthetic names, not just today's list.
+TPLSEL=$(bash -c "source '$GATE'; templates_shard_patterns")
+nlines=$(printf '%s\n' "$TPLSEL" | /usr/bin/grep -c .)
+[ "$nlines" = 4 ]
+check "templates shard helper emits exactly four selectors" $? "nlines=$nlines out=$TPLSEL"
+tplbad=$(python3 - "$TPLSEL" <<'PY'
+import sys
+sel = [l for l in sys.argv[1].split('\n') if l]
+if len(sel) != 4:
+    print(f'want 4 selectors, got {len(sel)}')
+elif any(not (s.startswith('^') and s.endswith('$')) for s in sel):
+    print('unanchored selector: ' + ' '.join(sel))
+elif sel[3] != '^(' + '|'.join(s[1:-1] for s in sel[:3]) + ')$':
+    print(f'remainder is not the anchored union of the -run shards: {sel[3]}')
+PY
+)
+[ -z "$tplbad" ]
+check "templates remainder skip is the anchored union of the three -run patterns" $? "$tplbad"
+
+# The class the anchoring pins: a future name that merely extends one of the
+# prefixes runs in the remainder shard, never in no shard. (h4 = everything
+# the skip does not match, so its share of a name's hit count is 1 minus the
+# skip match.)
+tplbad=$(python3 - "$TPLSEL" <<'PY'
+import re, sys
+even, odd, named, rest = (l for l in sys.argv[1].split('\n') if l)
+run = [re.compile(p) for p in (even, odd, named)]
+skip = re.compile(rest)
+for n in ('TestSameNameAnswerCensusChunk00',
+          'TestSameNameAnswerCensusChunk00Extra',
+          'TestSetupColourCensus', 'TestSetupColourCensusChunk00'):
+    hits = sum(1 for p in run if p.match(n)) + (0 if skip.match(n) else 1)
+    if hits != 1:
+        print(f'{n}={hits}')
+        break
+PY
+)
+[ -z "$tplbad" ]
+check "a future prefix-extending name is still run by exactly one shard" $? "miss=[$tplbad]"
+
+# The real ./compliance/oraclegen/templates list: every listed test must be
+# run by exactly one of the four shards, mirroring the REALLIST check above.
+TPLLIST=$(go test -list '.*' ./compliance/oraclegen/templates 2>/dev/null | /usr/bin/grep '^Test' || true)
+if [ -n "$TPLLIST" ]; then
+	tplbad=$(python3 - "$TPLSEL" "$TPLLIST" <<'PY'
+import re, sys
+even, odd, named, rest = (l for l in sys.argv[1].split('\n') if l)
+run = [re.compile(p) for p in (even, odd, named)]
+skip = re.compile(rest)
+bad = []
+for n in (l for l in sys.argv[2].split('\n') if l):
+	hits = sum(1 for p in run if p.match(n)) + (0 if skip.match(n) else 1)
+	if hits != 1:
+		bad.append(f'{n}={hits}')
+print(' '.join(bad))
+PY
+)
+	[ -z "$tplbad" ]
+	check "every real oraclegen/templates test is run by exactly one shard" $? "miss=[$tplbad]"
+else
+	printf 'skip real templates-list check (no oraclegen/templates tests listed)\n'
+fi
+
 # The fallback: a list the helper cannot partition returns nonzero, so the
 # gate runs the unsplit command instead of dropping tests.
 printf '' | patterns >/dev/null 2>&1
