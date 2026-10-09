@@ -96,7 +96,7 @@ var wantCensus = map[string]map[string]int{
 		"static.cost":                12,
 		"static.gap:AlternativeCost": 1,
 
-		"static.gap:CastWithFlash":            1,
+		"static.cast-with-flash":              1, // the gap moved when the cast-with-flash template classified (cli-20261009T031409Z-da8b8021)
 		"trigger.attacks":                     26,
 		"trigger.attacks-attached":            1,
 		"trigger.becomes-target":              6,
