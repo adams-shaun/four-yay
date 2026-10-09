@@ -98,6 +98,13 @@ func TestSetupCreatureTypeChoiceLeadsSiblingRows(t *testing.T) {
 // actually targets rather than only the level-A universe. Measured 2026-10-06
 // with this ticket's generator; a template, predicate or generator change
 // that moves a count shows up as a diff, and so does a stale pin.
+//
+// Re-measured for cli-20261009T031408Z-5823e7de (Level B activate fixtures):
+// LCI 3 -> 4. Serving Cavernous Maw's activate#0.1 (a level-B activate row)
+// generates the new scenario LCI Cavernous Maw/activate#0.1/v1, whose setup
+// places a permanent carrying an as-enters creature-type ask (the type count
+// over two named zones the row's restriction reads). The item tracks the new
+// scenario one-for-one and disappears if that activate serving is reverted.
 var wantSetupTypeCensus = map[string][2]int{
 	"BIG": {0, 0},
 	"EOE": {0, 0},
@@ -107,7 +114,7 @@ var wantSetupTypeCensus = map[string][2]int{
 	"BLB": {3, 3},
 	"ECL": {6, 6},
 	"DFT": {1, 1},
-	"LCI": {3, 3},
+	"LCI": {4, 4},
 }
 
 // setupTypeCensusSets is the level-A census list plus the level-B sets whose

@@ -147,13 +147,21 @@ func sameNameBucketRank(bucket string) int {
 // granted-trigger side alone reproduces 3/2 with exactly these five items, so
 // the move is the granted-trigger serving, not the merge.
 //
+// Re-measured for cli-20261009T031408Z-5823e7de (Level B activate fixtures):
+// DSK unproven 33 -> 34. Serving Say Its Name's activate#0.1 (a level-B
+// activate row) generates the new scenario DSK Say Its Name/activate#0.1/v1,
+// whose two same-name picks are rank-derived library refs ("p0:Say Its
+// Name#2"/"#3", the cards the ability exiles by name), so no exact answer
+// exists -- Unproven, not Unresolved. The item tracks the new scenario
+// one-for-one and disappears if that activate serving is reverted.
+//
 // Unresolved stayed 0 in every set through all moves; that is the
 // defect measure.
 var wantSameNameCensus = map[string]string{
 	"BIG": `{"alias":0,"copy":0,"unresolved":0,"unproven":1,"items":null}`,
 	"BLB": `{"alias":3,"copy":0,"unresolved":0,"unproven":4,"items":null}`,
 	"DFT": `{"alias":0,"copy":0,"unresolved":0,"unproven":3,"items":null}`,
-	"DSK": `{"alias":2,"copy":0,"unresolved":0,"unproven":33,"items":null}`,
+	"DSK": `{"alias":2,"copy":0,"unresolved":0,"unproven":34,"items":null}`,
 	"ECL": `{"alias":0,"copy":0,"unresolved":0,"unproven":5,"items":null}`,
 	"EOE": `{"alias":3,"copy":0,"unresolved":0,"unproven":2,"items":null}`,
 	"FDN": `{"alias":0,"copy":1,"unresolved":0,"unproven":2,"items":null}`,
