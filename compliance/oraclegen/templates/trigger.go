@@ -32,6 +32,8 @@ func triggerSubs(sub string) bool {
 		"trigger.loyalty-activated", "trigger.discarded", "trigger.attacks-one-target", classLevelGainedSub,
 		"trigger.transformed", "trigger.cycled", "trigger.land-played",
 		"trigger.spell-cast-opponent", "trigger.spell-cast-self-cast", "trigger.spell-cast-opponent-turn", "trigger.commit-crime", "trigger.ability-activated",
+		"trigger.attacks-opponent", "trigger.attached", "trigger.untap-all", "trigger.blocks-vehicle", "trigger.excess-damage",
+		"trigger.ability-activated-opponent", "trigger.ability-triggered", "trigger.case-solved",
 		levelb.UnlockDoorSub, levelb.FullyUnlockSub, stateSelfCountersSub, levelb.CounterAddedSub,
 		levelb.TurnedFaceUpSub, levelb.TurnedFaceUpOtherSub, levelb.SacrificeSub, levelb.DamageSub,
 		levelb.ManaExpendSub, levelb.TapsForManaSub:
