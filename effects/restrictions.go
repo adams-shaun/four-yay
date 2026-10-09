@@ -787,6 +787,13 @@ func replacementLineWith(params map[string]string) string {
 // The same promise is the whole point of Jace, Vryn's Prodigy, Dire Fleet
 // Daredevil, Gaea's Will and the other ~20 carriers of this shape.
 func replacementRedirectsToExile(params map[string]string, body string, svars map[string]string) bool {
+	// Fizzle$ is admitted only in its no-op spelling: "False" (and absent)
+	// means the replacement applies normally; a true fizzle would cancel the
+	// replaced event outright, a semantics this plain redirect cannot carry,
+	// so anything else stays on the loud-Note path.
+	if f := strings.TrimSpace(params["Fizzle"]); f != "" && !strings.EqualFold(f, "False") {
+		return false
+	}
 	for k := range params {
 		if !replacementRedirectsToExileKeys.Has(k) {
 			return false
@@ -1126,7 +1133,7 @@ var absentDurationMeansThisTurnSet = state.NewNameSet(
 	"CantGainLife",
 )
 
-var replacementRedirectsToExileKeys = state.NewNameSet("Event", "ValidCard", "ValidLKI", "Origin", "Destination", "ActiveZones", "EffectZone", "ReplaceWith", "Description")
+var replacementRedirectsToExileKeys = state.NewNameSet("Event", "ValidCard", "ValidLKI", "Origin", "Destination", "ActiveZones", "EffectZone", "ReplaceWith", "Description", "Fizzle")
 
 var effectOneShotDelayedModeSet = state.NewNameSet(
 	"SpellCast",
@@ -1200,6 +1207,13 @@ var redirectExileBodyCodes = state.NewStrCodes(
 	state.StrEntry[redirectExileBodyCode]{Key: "Destination", Val: redirectExileBodyAllowed},
 	state.StrEntry[redirectExileBodyCode]{Key: "Origin", Val: redirectExileBodyAllowed},
 	state.StrEntry[redirectExileBodyCode]{Key: "StackDescription", Val: redirectExileBodyAllowed},
+	// WithCountersType$/WithCountersAmount$ (Goliath Daydreamer's "exile that
+	// card with a dream counter instead of putting it into your graveyard as
+	// it resolves"): the body's ChangeZone puts the counters on the moved
+	// card itself (zone_change.go's WithCounters support), so the redirect
+	// cannot lose them.
+	state.StrEntry[redirectExileBodyCode]{Key: "WithCountersType", Val: redirectExileBodyAllowed},
+	state.StrEntry[redirectExileBodyCode]{Key: "WithCountersAmount", Val: redirectExileBodyAllowed},
 	state.StrEntry[redirectExileBodyCode]{Key: "Hidden", Val: redirectExileBodyHidden},
 	state.StrEntry[redirectExileBodyCode]{Key: "SubAbility", Val: redirectExileBodySubAbility},
 )

@@ -33,6 +33,7 @@ func staticSubs(sub string) bool {
 	case "static.disable-triggers", "static.combat-damage-toughness", "static.can-attack-defender", "static.can-attack-defender-svar", "static.cant-block-by", "static.cant-be-cast-threshold", "static.cant-be-cast-combat", "static.cant-be-activated-combat", "static.cant-block-self", "static.cant-block-by-self", "static.min-blockers",
 		"static.cant-be-cast-opponent-turn", "static.cant-be-cast-first-turns", "static.cant-be-cast-limit", "static.cant-be-activated-opponent-turn", "static.cant-be-activated-all", "static.cant-be-activated-enchanted", "static.panharmonicon", "static.optional-cost",
 		"static.cant-attack-enchanted", "static.cant-block-enchanted", "static.cant-block-by-blocker-filter", "static.cant-gain-life", "static.mana-convert-creature-spells", "static.cant-be-activated-named",
+		"static.cant-be-activated-named-enters",
 		"static.tap-power-value", "static.cast-with-flash", "static.untap-other-player", "static.cant-draw",
 		"static.cant-attack-gated", "static.cant-block-gated", "static.cant-block-by-gated", "static.can-attack-defender-gated", "static.max-blockers", "static.must-attack-self":
 		return true
@@ -95,6 +96,8 @@ func staticRequirement(reg *cards.Registry, f *cards.Face, name string, req leve
 		return manaConvertCreatureItem(reg, f, name, req)
 	case "static.cant-be-activated-named":
 		return cantBeActivatedNamedItem(reg, f, name, req)
+	case "static.cant-be-activated-named-enters":
+		return cantBeActivatedNamedEntersItem(reg, f, name, req)
 	case "static.cant-be-cast-threshold":
 		return staticCastOffer(reg, f, name, req, false)
 	case "static.cant-be-cast-combat":

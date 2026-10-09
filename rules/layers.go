@@ -369,7 +369,7 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 						// an AddType$ (Luxior's equipped walker stops being a planeswalker
 						// and becomes a creature) but STANDS ALONE on the devotion gods,
 						// so the emission cannot gate on the AddType family.
-						if st.HasParam(cards.PKAddType) || st.HasParam(cards.PKAddTypes) || st.HasParam(cards.PKAddAllCreatureTypes) || strings.TrimSpace(st.ParamStr(cards.PKRemoveType)) != "" {
+						if st.HasParam(cards.PKAddType) || st.HasParam(cards.PKAddTypes) || st.HasParam(cards.PKAddAllCreatureTypes) || strings.TrimSpace(st.ParamStr(cards.PKRemoveType)) != "" || st.HasParam(cards.PKRemoveLandTypes) {
 							ty := base
 							ty.Layer = LType
 							ty.AddTypes = statList(st, "AddTypes")
@@ -430,8 +430,9 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 							ty.RemoveCardTypes = st.HasParam(cards.PKRemoveCardTypes)
 							ty.RemoveCreatureTypes = st.HasParam(cards.PKRemoveCreatureTypes)
 							ty.RemoveTypes = statList(st, "RemoveType")
+							ty.RemoveLandTypes = st.HasParam(cards.PKRemoveLandTypes)
 							ty.AffectedZone = strings.TrimSpace(st.ParamStr(cards.PKAffectedZone))
-							if len(ty.AddTypes) > 0 || ty.RemoveCardTypes || ty.RemoveCreatureTypes || ty.AddAllCreatureTypes || len(ty.RemoveTypes) > 0 {
+							if len(ty.AddTypes) > 0 || ty.RemoveCardTypes || ty.RemoveCreatureTypes || ty.AddAllCreatureTypes || ty.RemoveLandTypes || len(ty.RemoveTypes) > 0 {
 								out = append(out, ty)
 							}
 						}

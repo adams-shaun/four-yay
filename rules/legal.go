@@ -147,9 +147,6 @@ func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, c
 			scratch, out = out, tail.buf
 		}
 	}
-	add := func(kind, label string, obj state.ObjID) {
-		out = append(out, decision.Option{Index: len(out), Kind: kind, Label: label, Obj: obj})
-	}
 	// The shared offer gates and the section walkers live on legalWalk
 	// (legal_walk.go, legal_walk_hand.go, legal_walk_alt.go,
 	// legal_walk_battlefield.go); every section prices through the one
@@ -190,6 +187,17 @@ func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, c
 	if w.rec != nil {
 		w.rec.finish(out)
 	}
+	return w.postWalkTail(out, walkHW, tail, scratch, window, forAsk, temp, dst)
+}
+
+// postWalkTail is the offer walk's post-walk tail, extracted verbatim from
+// legalActionsWalkWithWindow (quiet-seat Q2, design
+// docs/superpowers/specs/2026-10-08-quiet-seat-walk-skip-design.md §3.3) so
+// the quiet serve (rules/quiet_serve.go) runs the same code: the post-walk
+// filters, then pass, then concede, then the result build (the arena tail's
+// in-place commit, or a copy) and the scratch-buffer restore.
+func (w *legalWalk) postWalkTail(out []decision.Option, walkHW int, tail optTail, scratch []decision.Option, window *windowCollector, forAsk, temp bool, dst []decision.Option) []decision.Option {
+	e, p, hyp, castsOnly := w.e, w.p, w.hyp, w.castsOnly
 
 	// K:Split second (CR 702.62, rules/split_second.go): while a split-second
 	// spell is on the stack, players can't cast spells or activate abilities
@@ -215,13 +223,13 @@ func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, c
 	// it explicitly: from M2d-3 the FINAL option is "concede" (R-M3, always
 	// last), and a client defaulting to the final option would concede on
 	// every single priority decision.
-	add("pass", "Pass priority", 0)
+	out = append(out, decision.Option{Index: len(out), Kind: "pass", Label: "Pass priority", Obj: 0})
 	// M2d-3 (R-M3): concession, last after pass. Choosing it emits the
 	// existing PlayerLost event with Text "conceded" (CR 104.3a) -- see
 	// handlePriority. Offered on every priority decision, i.e. to every
 	// living seat: grantPriority never hands a Lost seat priority, so no
 	// extra guard is needed here.
-	add("concede", "Concede", 0)
+	out = append(out, decision.Option{Index: len(out), Kind: "concede", Label: "Concede", Obj: 0})
 	var res []decision.Option
 	switch {
 	case tail.buf != nil && tail.commit(out, max(walkHW, len(out))):

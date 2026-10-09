@@ -1866,6 +1866,12 @@ func isScenarioRefShaped(s string) bool {
 	return i > 1 && s[0] == 'p' && strings.Trim(s[1:i], "0123456789") == ""
 }
 
+// IsScenarioRefShaped is the exported form of isScenarioRefShaped, for
+// template answer writers that must never emit "@" before a non-ref label.
+func IsScenarioRefShaped(s string) bool {
+	return isScenarioRefShaped(s)
+}
+
 // trigSpan records where one trigger-order decision's name answers sit in a
 // step's answer list, and the inert text answers that replace them when the
 // step also scripts other asks.

@@ -304,6 +304,15 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 			return it, nil
 		}
 	}
+	// A chosen-name mana grant (Petrified Hamlet's "Lands with the chosen
+	// name have '{T}: Add {C}.') is observed on the named probe land the
+	// source's ETB trigger names (static_named_enters.go); the grant gap's
+	// fixture cannot give a recipient its chosen name.
+	if namedCardManaGrant(f, &st) {
+		if it, skip := staticGrantedNamedCardItem(reg, f, name, req, &st); skip == nil {
+			return it, nil
+		}
+	}
 	if gated || speedGated {
 		if gatedGrantWhy != "" {
 			return skip(gatedGrantWhy)

@@ -126,9 +126,17 @@ gorge_heavy_run() { # [-w SECS] [-s] -- cmd...: run cmd holding one lane
 			shift
 			break
 			;;
-		*)
+		-*)
 			printf 'heavy_lock.sh: unknown option %s\n' "$1" >&2
 			return 2
+			;;
+		*)
+			# First non-option argument: the command starts here. The
+			# script callers (sb-gauntlet, m1b-distill, postmerge_batch)
+			# pass `gorge_heavy_run systemd-run ...` with no `--`, so an
+			# argument that is not an option must end option parsing --
+			# treating it as an unknown option reds every heavy runner.
+			break
 			;;
 		esac
 	done
