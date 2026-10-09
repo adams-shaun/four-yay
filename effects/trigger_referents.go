@@ -232,6 +232,25 @@ type TriggerContext struct {
 	// batch total.
 	TriggerDamageSources []state.ObjID
 	TriggerDamageTargets []state.Target
+	// TriggerAttackers is the attackers that passed THIS trigger line's own
+	// ValidAttackers$ filter when a Mode$ AttackersDeclared /
+	// AttackersDeclaredOneTarget trigger fired (rules/trigmatch's shared
+	// AttackersDeclaredMatchedAttackers walk, called at the queue point in
+	// checkFaceTriggers). It is what the count ref
+	// TriggerObjectsAttackers$Amount reads -- The Earth King's "search your
+	// library for up to that many basic land cards", where "that many" is the
+	// count of attackers the line's powerGE4 filter admitted, not the whole
+	// declared batch: Ctx.Remembered for a batch AttackersDeclared trigger is
+	// every declared attacker plus the defending player (triggerRemembered's
+	// batch shape), a superset this ref must never read. Deliberately the
+	// MATCHED SUBSET only, in declaration order, with no trailing player
+	// entry (evalRefProperty's Amount skips players anyway, but the capture
+	// simply never includes one). Not serialized into events.Event -- the
+	// per-stack capture is rebuilt by the same replay re-derivation as
+	// TriggerPaidX/TriggerConverge, because pushTrigger re-executes. Empty
+	// outside an AttackersDeclared capture (a hand-built context reads a
+	// legitimate zero, never a Remembered fallback).
+	TriggerAttackers []state.ObjID
 }
 
 // TriggeredCardController is the one resolver for "that card's controller"

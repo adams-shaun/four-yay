@@ -24,9 +24,8 @@ import (
 // Each row's probe must play through gorge at the exact reduced price, and
 // the same cast must fail once the card's own statics are removed, so a probe
 // that pays the printed cost (or an engine that ignores the reduction) cannot
-// pass. The two remaining Static.* shapes stay named skips, pinned with their
-// reasons: a plotting probe cannot be replayed by the XMage driver, and a
-// token's ability has no XMage-proven rule text to activate it by.
+// pass. The one remaining Static.* shape stays a named skip, pinned with its
+// reason: a token's ability has no XMage-proven rule text to activate it by.
 func TestCostStaticSpecialActionProbes(t *testing.T) {
 	reg := loadGenRegistry(t)
 	for _, tc := range []struct {
@@ -126,13 +125,12 @@ func TestCostStaticSpecialActionProbes(t *testing.T) {
 	}
 }
 
-// TestCostStaticSpecialActionSkips pins the two named skips the special-action
-// work leaves behind, with the exact reasons: a bare "not supported" would
+// TestCostStaticSpecialActionSkips pins the one named skip the special-action
+// work leaves behind, with the exact reason: a bare "not supported" would
 // hide which prerequisite is missing.
 func TestCostStaticSpecialActionSkips(t *testing.T) {
 	reg := loadGenRegistry(t)
 	for _, tc := range []struct{ name, key, reason string }{
-		{"Doc Aurlock, Grizzled Genius", "static#0.1", "plotting probe unavailable (cast_mode plot is not XMage-replayable)"},
 		{"Mutagen Man, Living Ooze", "static#0.0", "token ability fixture unavailable (no XMage-proven token ability text)"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

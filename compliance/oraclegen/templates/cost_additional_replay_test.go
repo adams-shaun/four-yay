@@ -1,7 +1,6 @@
 package templates
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/adams-shaun/gorge/compliance/levelb"
@@ -10,19 +9,18 @@ import (
 
 // An own additional-cost probe is kept only when it plays through gorge: a
 // cost grammar the generator cannot pay is a named skip, never a scenario
-// whose precondition is false. Champions of the Perfect's BeholdExile<1/Elf>
-// now has an Elf fixture (elfBeholdFixture), so it is served; the other three
-// costs (Waterbend<5>, Blight<X>, ChooseCard) have no fixture and stay named.
+// whose precondition is false. Every one of these costs is now paid by a
+// table rather than a per-card branch: Champions of the Perfect's
+// BeholdExile<1/Elf> has an Elf fixture (elfBeholdFixture), and
+// cost_raise_tokens.go pays Waterbend<N> (Benevolent River Spirit, Water
+// Whip), Blight<X> (Soul Immolation) and Close Encounter's ChooseCard.
+// Crashing Wave's Waterbend<X> casts at the pool-bound X = 0.
 func TestCostStaticOwnAdditionalCostRequiresReplay(t *testing.T) {
 	reg := loadGenRegistry(t)
-	unmodelled := map[string]string{
-		"Benevolent River Spirit": "Waterbend<5>",
-		"Soul Immolation":         "Blight<X>",
-		"Close Encounter":         "ChooseCard<",
-	}
-	names := []string{"Champion of the Clachan", "Officious Interrogation", "Dragon's Prey", "Crashing Wave", "Champions of the Perfect"}
-	for n := range unmodelled {
-		names = append(names, n)
+	names := []string{
+		"Champion of the Clachan", "Officious Interrogation", "Dragon's Prey",
+		"Crashing Wave", "Champions of the Perfect",
+		"Benevolent River Spirit", "Water Whip", "Soul Immolation", "Close Encounter",
 	}
 	for _, name := range names {
 		t.Run(name, func(t *testing.T) {
@@ -41,12 +39,6 @@ func TestCostStaticOwnAdditionalCostRequiresReplay(t *testing.T) {
 				t.Fatalf("precondition: %s static#0.0 = %+v, want served", name, req)
 			}
 			it, skip := GenerateB(reg, name, *req)
-			if cost, ok := unmodelled[name]; ok {
-				if skip == nil || !strings.Contains(skip.Reason, cost) {
-					t.Fatalf("%s: item=%v skip=%+v, want a named skip naming %q", name, it.Name, skip, cost)
-				}
-				return
-			}
 			if skip != nil {
 				t.Fatalf("%s must be served, got skip %s", name, skip.Reason)
 			}

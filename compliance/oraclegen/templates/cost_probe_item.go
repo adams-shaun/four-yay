@@ -173,5 +173,11 @@ func costProbeItem(reg *cards.Registry, f *cards.Face, name string, req levelb.R
 			}
 		}
 	}
+	if p.plotText != "" {
+		if i := plotStepIndex(it.Steps); i >= 0 {
+			it.XAbility = growXAbility(it.XAbility, len(it.Steps))
+			it.XAbility[i] = p.plotText
+		}
+	}
 	return it
 }

@@ -394,6 +394,8 @@ public final class ScenarioReplayDriverContractTest {
         check(castModeSupported("bargained").equals("true"), "bargained cast_mode was not accepted");
         check(castModeSupported("optionalcost").equals("true"),
                 "optionalcost cast_mode was not accepted");
+        check(castModeSupported("plot").equals("true"), "plot cast_mode was not accepted");
+        check(castModeSupported("plot_cast").equals("false"), "plot_cast cast_mode must stay unsupported");
         check(castModeSupported("kicked").equals("false"), "kicked cast_mode must stay unsupported");
         check(castModeSupported("adventure_alt").equals("false"),
                 "an unwired cast_mode must be rejected, not cast at face value");
