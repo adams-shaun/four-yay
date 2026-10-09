@@ -119,6 +119,36 @@ func TestZoneChangeResiduesHaveNamedSkips(t *testing.T) {
 			t.Fatalf("precondition: %s carries no requirement %s", tc.name, tc.key)
 		})
 	}
+
+	// Hedge Shredder used to hold the "library to graveyard" named skip: its
+	// body's ChangeType$ Card.TriggeredCards was an unknown predicate, so the
+	// cause builder refused rather than generate a scenario whose body moves
+	// nothing. The predicate is registered now (ticket
+	// agent-20261009T090319Z-4d835724, commit 8e9f1097c), so the residue
+	// builds its mill cause and the named skip is gone.
+	t.Run("Hedge Shredder", func(t *testing.T) {
+		c, ok := reg.Lookup("Hedge Shredder")
+		if !ok {
+			t.Fatal("Hedge Shredder not in the corpus")
+		}
+		for _, r := range levelb.Requirements(c) {
+			if r.Key != "trigger#0.1" {
+				continue
+			}
+			if r.Sub != "trigger.zone-change-residue" {
+				t.Fatalf("precondition: Hedge Shredder trigger#0.1 classified %s", r.Sub)
+			}
+			it, skip := GenerateB(reg, "Hedge Shredder", r)
+			if skip != nil {
+				t.Fatalf("Hedge Shredder trigger#0.1 keeps a named skip after Card.TriggeredCards registered: %q", skip.Reason)
+			}
+			if len(it.Steps) < 2 || it.Steps[0].Op != "cast" || it.Steps[0].Card != "p0:Tome Scour" {
+				t.Fatalf("Hedge Shredder trigger#0.1 generated without the mill cause: %+v", it.Steps)
+			}
+			return
+		}
+		t.Fatal("precondition: Hedge Shredder carries no requirement trigger#0.1")
+	})
 	for _, tc := range []struct {
 		filter, origin, destination, want string
 	}{
