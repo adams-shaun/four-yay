@@ -81,12 +81,17 @@ func classifyEventTrigger(t *cards.Trigger) (sub string, ok bool) {
 			strings.EqualFold(t.ParamStr(cards.PKValidSource), "You") {
 			return "trigger.loyalty-activated", true
 		}
+	case cards.TriggerLifeLost:
+		// The recipe casts Shock at the losing player (the source's
+		// controller for You/Player, an opponent for Opponent); the engine's
+		// LifeLost matcher still decides per card whether the loss fires it.
+		return "trigger.life-lost", true
 	case cards.TriggerDiscarded:
-		if namesSelf(t.ParamStr(cards.PKValidCard)) {
+		if namesSelf(t.ParamStr(cards.PKValidCard)) || discardByController(t) {
 			return "trigger.discarded", true
 		}
 	case cards.TriggerDiscardedAll:
-		if strings.EqualFold(t.ParamStr(cards.PKValidPlayer), "Player") {
+		if discardByController(t) {
 			return "trigger.discarded", true
 		}
 	case cards.TriggerAttackersDeclaredOneTarget:
@@ -104,6 +109,22 @@ func classifyEventTrigger(t *cards.Trigger) (sub string, ok bool) {
 		return sub, true
 	}
 	return classifySacrificeTrigger(t)
+}
+
+// discardByController reports whether a discard trigger's ValidPlayer names
+// the trigger's own controller ("you", "player" or absent) and its ValidCard
+// filter does not restrict the discarded card to one an opponent owns or
+// controls. The level-B discard recipe makes the controller discard a probe
+// creature, so only these shapes are servable; an opponent-scoped discard
+// stays a gap.
+func discardByController(t *cards.Trigger) bool {
+	switch strings.ToLower(strings.TrimSpace(t.ParamStr(cards.PKValidPlayer))) {
+	case "", "you", "player":
+	default:
+		return false
+	}
+	filter := strings.ToLower(t.ParamStr(cards.PKValidCard))
+	return !strings.Contains(filter, "oppown") && !strings.Contains(filter, "oppctrl")
 }
 
 // selfCastTrigger reports the narrow self-cast shape that the level-A

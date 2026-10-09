@@ -53,6 +53,10 @@ var (
 	// Divination ({2}{U}, draw two) is the plain draw; Concentrate and
 	// Inspiration are the fallbacks.
 	drawProbes = []string{"Divination", "Concentrate", "Inspiration"}
+	// Sign in Blood ({B}{B}) makes a TARGET player draw two and lose 2 life,
+	// so it is the only probe that can make an opponent draw (the "their
+	// second card each turn" triggers).
+	drawOtherProbe = "Sign in Blood"
 	// Shock (instant, {R}, 2 damage to any target) is the instant/sorcery
 	// cast cause; Grizzly Bears ({1}{G}) the creature one; and Giant Growth
 	// ({G}) the self-controlled becomes-target cause. All three are level-A fixtures.
@@ -179,11 +183,37 @@ func baseTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards
 		for _, p := range lifegainProbes {
 			cast(p)
 		}
+	case "trigger.life-lost":
+		// Shock at the losing player: the source's controller for You/Player
+		// ("whenever you lose life" / "whenever a player loses life"), an
+		// opponent for Opponent ("whenever an opponent loses life during your
+		// turn", Kefka). Damage to a player is a loss of life, so the engine's
+		// LifeLost matcher sees it; PlayerTurn$ True is satisfied because turn
+		// 1 is p0's turn.
+		target := "p0"
+		if strings.EqualFold(t.ParamStr(cards.PKValidPlayer), "Opponent") {
+			target = "p1"
+		}
+		if c, ok := castCause(reg, name, shockProbe, target); ok {
+			out = append(out, c)
+		}
 	case "trigger.drawn":
 		for _, p := range drawProbes {
 			if c, ok := castCause(reg, name, p); ok {
 				out = append(out, withDrawCheckpoint(c))
 			}
+		}
+	case "trigger.drawn-other":
+		// Sign in Blood makes the target player draw two, so the "second card
+		// drawn" trigger fires. The drawer is p1 when the trigger names an
+		// opponent (ValidPlayer Opponent, or a ValidCard Card.OppOwn filter),
+		// else p0 (ValidPlayer Player / a bare each-player draw).
+		target := "p0"
+		if strings.EqualFold(t.ParamStr(cards.PKValidPlayer), "Opponent") || filterHasTokenFold(t.ParamStr(cards.PKValidCard), "oppown") {
+			target = "p1"
+		}
+		if c, ok := castCause(reg, name, drawOtherProbe, target); ok {
+			out = append(out, withDrawCheckpoint(c))
 		}
 	case levelb.ManaExpendSub:
 		return manaExpendCauses(reg, name, t)

@@ -27,7 +27,7 @@ var TriggerFires = Template{ID: "trigger", Version: 1}
 func triggerSubs(sub string) bool {
 	switch sub {
 	case "trigger.etb-other", "trigger.etb-land", "trigger.dies", "trigger.leaves-graveyard", "trigger.ltb-other", ltbSelfSub, "trigger.attacks", "trigger.combat-damage",
-		"trigger.spell-cast", "trigger.spell-cast-self", "trigger.becomes-target", "trigger.life-gained", "trigger.drawn", "trigger.phase", levelb.PhaseOtherSub,
+		"trigger.spell-cast", "trigger.spell-cast-self", "trigger.becomes-target", "trigger.life-gained", "trigger.drawn", "trigger.drawn-other", "trigger.life-lost", "trigger.phase", levelb.PhaseOtherSub,
 		"trigger.dies-other", "trigger.zone-change-residue", "trigger.scry", "trigger.surveil", "trigger.noncombat-damage", "trigger.combat-damage-all",
 		"trigger.loyalty-activated", "trigger.discarded", "trigger.attacks-one-target", classLevelGainedSub,
 		"trigger.spell-cast-opponent", "trigger.spell-cast-self-cast", "trigger.spell-cast-opponent-turn", "trigger.commit-crime", "trigger.ability-activated",
