@@ -186,5 +186,13 @@ printf 'TestAlpha\nTestBravo\nTestAlphaTwo\n' | patterns >/dev/null 2>&1
 [ "$?" != 0 ]
 check "fewer than four first characters makes the shard helper fail (caller falls back)" $?
 
+# --- the Kr8 runs: TestKr8WorldsInFuzzGames runs six t.Parallel games, so it
+# is the same shape as the shards and must carry the same GOMAXPROCS override;
+# at the gate env's GOMAXPROCS=2 it runs two games at a time (measured 23.7 s
+# vs 14.5 s at 6, alone). Removing either override must fail this check.
+nkr8=$(grep -cE "^GOMAXPROCS=4 GOMEMLIMIT=3GiB go test -p=1 -run .*TestKr8" "$GATE")
+[ "$nkr8" = 2 ]
+check "both Kr8 runs override the gate env's GOMAXPROCS (t.Parallel, like the shards)" $? "nkr8=$nkr8"
+
 printf '\ngate_affected_smoke: %s\n' "$([ $fails = 0 ] && echo ALL GREEN || echo FAILURES ABOVE)"
 exit "$fails"
