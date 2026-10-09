@@ -440,6 +440,11 @@ func applyCountOp(n int32, op string) int32 {
 		v = (v + 2) / 3
 	case op == "Negative":
 		v = -v
+	case strings.HasPrefix(op, "Abs"):
+		// Doran's `SVar$Y1/Abs` over `CardPower/Minus.Z1`: |power-toughness|.
+		if v < 0 {
+			v = -v
+		}
 	case strings.HasPrefix(op, "Divide"):
 		// Forge's AmountOperators division family, one arm for every
 		// rounding direction the corpus spells:

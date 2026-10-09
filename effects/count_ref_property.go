@@ -292,7 +292,7 @@ func evalRefProperty(h Host, c *Ctx, expr string) (int32, bool) {
 		}
 	}
 	if hasOp {
-		n = applyCountOp(n, op)
+		n = applyCountOpOperand(h, c, n, op, 0)
 	}
 	return n, true
 }
