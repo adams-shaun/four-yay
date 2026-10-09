@@ -108,8 +108,11 @@ func main() {
 	cpuprof := flag.String("cpuprofile", "", "write a CPU profile of the run (after the corpus loads) here")
 	memprof := flag.String("memprofile", "", "write an allocation profile of the run (after the corpus loads; MemProfileRate 64KiB) here")
 	walkstats := flag.Bool("walkstats", false, "random/bot rows: also print the priority legal-walk reuse table (spec 2026-10-06-legal-walk-design §1.5) to stderr")
+	quietstats := flag.Bool("quietstats", false, "print the quiet-seat proof counters at exit (needs -ldflags \"-X github.com/adams-shaun/gorge/rules.quietStatsFlag=1\")")
 	flag.Parse()
 	walkStatsFlag = *walkstats
+	quietStatsFlag = *quietstats
+	setupQuietStats()
 	// Both profiles start once the corpus is loaded, so the one-off gob
 	// decode and catalog build do not crowd the row's own hotspots.
 	if *memprof != "" {
@@ -188,6 +191,7 @@ func main() {
 	if walkStatsFlag {
 		wm.report()
 	}
+	printQuietStats()
 	if st := resolve.ReadStats(); st != (resolve.Stats{}) {
 		// The resolution kernel's counters for this run (a kernel-on
 		// binary), on stderr.

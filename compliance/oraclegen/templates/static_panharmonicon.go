@@ -88,6 +88,10 @@ func panharmoniconItem(reg *cards.Registry, f *cards.Face, name string, req leve
 	skip := func(why string) (oraclegen.Item, *oraclegen.Skip) {
 		return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: "static Panharmonicon " + why}
 	}
+	c, found := reg.Lookup(name)
+	if !found || len(c.Faces) == 0 {
+		return skip("card not in corpus")
+	}
 	st, _ := staticSlotOf(f, req)
 	if st.Mode == "" {
 		return skip("static slot not found")
@@ -128,7 +132,18 @@ func panharmoniconItem(reg *cards.Registry, f *cards.Face, name string, req leve
 		}
 	}
 	for _, r := range recipes {
-		sc := r.scenario(f, name, req, true)
+		var sc oraclegen.Scenario
+		if req.Face > 0 && levelb.IsRoomCard(c) {
+			// A Room's second door is cast, never placed: the recipe's
+			// scenario starts with the door cast and unlocked.
+			ok2 := false
+			sc, ok2 = roomPanharmoniconScenario(f, name, req, r)
+			if !ok2 {
+				continue
+			}
+		} else {
+			sc = r.scenario(f, name, req, true)
+		}
 		res, ok := runStatic(reg, sc)
 		if !ok || len(res.Fails) != 0 || len(res.Snapshots) == 0 {
 			continue
@@ -136,8 +151,10 @@ func panharmoniconItem(reg *cards.Registry, f *cards.Face, name string, req leve
 		if n, others := listenerAbilities(res.Snapshots[len(res.Snapshots)-1], "p0:"+r.listener); n != 2 || others != 0 {
 			continue
 		}
-		control, ok := runStatic(reg, r.scenario(f, name, req, false))
-		if !ok || len(control.Fails) != 0 || len(control.Snapshots) == 0 {
+		// The control has no card under test at all: the listener's trigger
+		// alone must be on the stack.
+		control, cok := runStatic(reg, r.scenario(f, name, req, false))
+		if !cok || len(control.Fails) != 0 || len(control.Snapshots) == 0 {
 			continue
 		}
 		if n, others := listenerAbilities(control.Snapshots[len(control.Snapshots)-1], "p0:"+r.listener); n != 1 || others != 0 {

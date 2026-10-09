@@ -11,6 +11,8 @@
 #   ROWS  ';'-separated enginebench argument strings (default: enginebench-lib.sh DEFAULT_ROWS)
 #   REPS  repetitions per row (default 2: the smallest ABBA)
 #   SECS  -secs for every timed row (default: BUDGET split over every run, enginebench-lib.sh)
+#   BUILD_ARGS  extra go build arguments passed through to enginebench-build.sh
+#               (for example BUILD_ARGS="-tags enginebench_az")
 #   GOGC  passed through to both binaries if set
 set -euo pipefail
 . "$(dirname "$0")/enginebench-lib.sh"
@@ -19,8 +21,9 @@ cand_rev=${2:?usage: enginebench-pair.sh BASE CAND [OUT]}
 mkdir -p "$BENCH_DIR/results"
 out=${3:-$BENCH_DIR/results/pair-$(date +%Y%m%dT%H%M%S).jsonl}
 reps=${REPS:-2}
-base=$("$(dirname "$0")/enginebench-build.sh" "$base_rev")
-cand=$("$(dirname "$0")/enginebench-build.sh" "$cand_rev")
+IFS=' ' read -r -a buildargs <<<"${BUILD_ARGS:-}"
+base=$("$(dirname "$0")/enginebench-build.sh" "$base_rev" ${buildargs[@]+"${buildargs[@]}"})
+cand=$("$(dirname "$0")/enginebench-build.sh" "$cand_rev" ${buildargs[@]+"${buildargs[@]}"})
 echo "base $base_rev -> $base"
 echo "cand $cand_rev -> $cand"
 echo "results -> $out"

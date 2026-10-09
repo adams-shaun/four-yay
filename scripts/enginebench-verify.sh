@@ -9,10 +9,13 @@
 #
 #   ROWS  ';'-separated rows (default: sampler, random A/B, bot A)
 #   SECS  -secs for every row (default: BUDGET split over the rows, enginebench-lib.sh)
+#   BUILD_ARGS  extra go build arguments passed through to enginebench-build.sh
+#               (for example BUILD_ARGS="-tags enginebench_az")
 set -euo pipefail
 . "$(dirname "$0")/enginebench-lib.sh"
 rev=${1:-.}
-bin=$("$(dirname "$0")/enginebench-build.sh" "$rev" -ldflags "-X github.com/adams-shaun/gorge/rules.derivedMemoVerifyFlag=1")
+IFS=' ' read -r -a buildargs <<<"${BUILD_ARGS:-}"
+bin=$("$(dirname "$0")/enginebench-build.sh" "$rev" -ldflags "-X github.com/adams-shaun/gorge/rules.derivedMemoVerifyFlag=1" ${buildargs[@]+"${buildargs[@]}"})
 out=$BENCH_DIR/results/verify-$(date +%Y%m%dT%H%M%S).jsonl
 mkdir -p "$BENCH_DIR/results"
 echo "verify binary $bin -> $out"

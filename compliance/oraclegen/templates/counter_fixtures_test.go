@@ -64,13 +64,18 @@ func TestStaticCounterGateStation(t *testing.T) {
 }
 
 // TestStaticCounterGateGrantUsesNamedTriggerGap: the 10+ station static only
-// grants a trigger, which the offered-ability observation cannot serve.
+// grants a trigger, which the granted-trigger observation serves by firing it
+// (static_granted_trigger.go) from the gate-on fixture: the card placed with
+// the gate's ten counters.
 func TestStaticCounterGateGrantUsesNamedTriggerGap(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	const name = "Dawnsire, Sunstar Dreadnought"
-	_, skip := GenerateB(reg, name, counterReq(t, reg, name, "static#0.0"))
-	if skip == nil || skip.Reason != "static "+staticGrantTriggerReason {
-		t.Fatalf("static#0.0 skip = %v, want %q", skip, "static "+staticGrantTriggerReason)
+	it, skip := GenerateB(reg, name, counterReq(t, reg, name, "static#0.0"))
+	if skip != nil {
+		t.Fatalf("static#0.0 skip = %v, want the granted-trigger item", skip)
+	}
+	if got := it.Setup["p0"].Counters[name]["CHARGE"]; got != 10 {
+		t.Fatalf("gate-on fixture holds %d CHARGE counters, want the GE10 gate's 10", got)
 	}
 }
 
@@ -107,9 +112,15 @@ func TestStaticMaxSpeedFixture(t *testing.T) {
 	if setup["p0"].Speed != 4 {
 		t.Fatalf("withMaxSpeed left p0 at speed %d, want 4", setup["p0"].Speed)
 	}
-	_, skip := GenerateB(reg, name, counterReq(t, reg, name, "static#0.0"))
-	if skip == nil || skip.Reason != "static "+staticGrantTriggerReason {
-		t.Fatalf("%s static#0.0 skip = %v, want %q", name, skip, "static "+staticGrantTriggerReason)
+	// The MaxSpeed-gated trigger grant is served by firing the granted
+	// trigger from the gate-on fixture (static_granted_trigger.go): p0 sits
+	// at speed 4 in its scenario.
+	it, skip := GenerateB(reg, name, counterReq(t, reg, name, "static#0.0"))
+	if skip != nil {
+		t.Fatalf("%s static#0.0 skip = %v, want the granted-trigger item", name, skip)
+	}
+	if it.Setup["p0"].Speed != 4 {
+		t.Fatalf("granted-trigger fixture has p0 at speed %d, want the gate's 4", it.Setup["p0"].Speed)
 	}
 }
 

@@ -1,0 +1,2 @@
+{"shape":{"template":"static","op":"resolve","field":"permanents","diff":"gorge+Lecture Hall; xmage+$CARD"},"key":"static | resolve | permanents | gorge+Lecture Hall; xmage+$CARD","cards":1}
+{"card":"Restricted Office","template":"static#1.0","status":"diverge","api":"UnlockDoor:DestroyAll","detail":"step 1 (resolve) permanents: gorge \"c0 o0 Lecture Hall [enchantment room] {U}\", xmage \"c0 o0 Restricted Office [enchantment room] {WU}\""}
