@@ -325,7 +325,11 @@ func optSummary(os []decision.Option) []string {
 
 // priorityOptions is askPriority's offer list: the memo's when it is
 // provably the walk's, otherwise the real walk (stored for the next window).
-func (e *Engine) priorityOptions(p state.PlayerID, window *windowCollector) []decision.Option {
+func (e *Engine) priorityOptions(p state.PlayerID, window *windowCollector) (out []decision.Option) {
+	if quietStatsEnabled() {
+		t0 := quietNow()
+		defer func() { e.quietObserve(p, out, uint64(quietNow()-t0)) }()
+	}
 	if !e.prioMemoUsable(window) {
 		prioMemoSkips.Add(1)
 		return e.legalActionsWithWindow(p, window)

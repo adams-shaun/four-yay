@@ -94,7 +94,11 @@ func Requirements(c *cards.Card) []Requirement {
 				continue
 			}
 			sub, gap := classifyStatic(f, &f.Statics[si])
-			out = append(out, newReq("static", fi, strconv.Itoa(si), sub, gap, false, servable))
+			// A Room's second door is served by casting it (roomDoorServable's
+			// trigger rule); a static on that door is served the same way when
+			// the static's own sub-family already has a template.
+			out = append(out, newReq("static", fi, strconv.Itoa(si), sub, gap, false,
+				servable || (gap == "" && RoomStaticServable(c, sub))))
 		}
 	}
 	// Combat requirements last, in face order.
@@ -166,6 +170,15 @@ func classifyActivate(sa *cards.SA) (sub, gap string) {
 		return "activate.mana", ""
 	}
 	return "activate.battlefield", ""
+}
+
+// ClassifyTrigger is the exported form of classifyTrigger, for the
+// compliance template that classifies a static's GRANTED trigger body (the
+// same T:-shaped text a printed T: line has) to pick its cause sub-family.
+// It is a pure function of the IR and does not move the requirement set:
+// requirements are classified by classifyTrigger alone.
+func ClassifyTrigger(f *cards.Face, t *cards.Trigger) (sub, gap string, covered bool) {
+	return classifyTrigger(f, t)
 }
 
 // classifyTrigger returns the trigger's sub-family, its gap, and whether the
@@ -321,6 +334,18 @@ func classifyStatic(f *cards.Face, st *cards.Static) (sub, gap string) {
 			return s.sub, ""
 		}
 	}
+	if TapPowerValueShape(st) {
+		return "static.tap-power-value", ""
+	}
+	if CastWithFlashShape(st) {
+		return "static.cast-with-flash", ""
+	}
+	if UntapOtherPlayerShape(st) {
+		return "static.untap-other-player", ""
+	}
+	if CantDrawShape(st) {
+		return "static.cant-draw", ""
+	}
 	if sub, ok := supportedLegalityStatic(f, st); ok {
 		return sub, ""
 	}
@@ -366,11 +391,17 @@ func supportedLegalityStatic(f *cards.Face, st *cards.Static) (string, bool) {
 		}
 	case "cantgainlife":
 		switch strings.ToLower(st.ParamStr(cards.PKValidPlayer)) {
-		case "player", "you":
+		case "player", "you", "":
 			// Unconditional: only ValidPlayer$ plus the Mode and display
-			// parameters.
-			allowed := 1
-			for _, k := range []cards.ParamKey{cards.PKMode, cards.PKDescription} {
+			// parameters. "" is Forge's implicit "every player" (Mornsong
+			// Aria, which carries no ValidPlayer$ at all); Secondary$ True (a
+			// static that is one rider of a wider Oracle sentence) stays
+			// display-only.
+			allowed := 0
+			if st.HasParam(cards.PKValidPlayer) {
+				allowed++
+			}
+			for _, k := range []cards.ParamKey{cards.PKMode, cards.PKDescription, cards.PKSecondary} {
 				if st.HasParam(k) {
 					allowed++
 				}

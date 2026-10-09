@@ -112,6 +112,7 @@ func runSearch(r *result, w workload, base uint64, secs float64, mode string, si
 		r.SimsPSC = float64(det.Work) / (det.SearchedCPUMS / 1000)
 	}
 	r.Detail = det
+	printQuietStats()
 	return nil
 }
 

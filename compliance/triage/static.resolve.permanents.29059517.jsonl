@@ -1,0 +1,2 @@
+{"shape":{"template":"static","op":"resolve","field":"permanents","diff":"gorge+Prop Room; xmage+$CARD"},"key":"static | resolve | permanents | gorge+Prop Room; xmage+$CARD","cards":1}
+{"card":"Dazzling Theater","template":"static#1.0","status":"diverge","api":"-","detail":"step 1 (resolve) permanents: gorge \"c0 o0 Prop Room [enchantment room] {W}\", xmage \"c0 o0 Dazzling Theater [enchantment room] {W}\""}
