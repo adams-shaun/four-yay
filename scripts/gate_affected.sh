@@ -127,6 +127,26 @@ others=$(printf '%s\n' $pkgs ./internal/codeshape ./view | sort -u)
 # ./rules, so a stale verdict parks the ticket for a host replay instead of
 # turning main red.
 others=$(printf '%s\n' $others ./compliance/gate ./compliance/adopt | sort -u)
+# compliance/oraclegen/templates is the touched-package long pole when a
+# generator ticket lands (3 of 8 gate runs on 2026-10-09 measured it at
+# 79-93 s vs the ~50 s Kr8Worlds pole): measured standalone under the gate
+# env (this worktree, 2026-10-09, MemoryMax=4G CPUQuota=400% GOMAXPROCS=4
+# GOMEMLIMIT=3GiB) the whole package is 80.3 s over 454 tests whose times sum
+# to 106 s -- the SameNameAnswer census chunks (55.2 s over 9) and the two
+# Setup censuses (26.3 s over 11) carry 81 s of it. It is pulled out of the
+# `$others` run and sharded four ways below, next to the rules shards. The
+# split is a PARITY/complement partition, so it covers every test by
+# construction and needs no listing step: the odd/even chunk index handles a
+# future Chunk05+ automatically, a new Setup census falls to the -skip
+# remainder (which runs everything the other three do not), and no test can
+# be dropped. Perf drift is the only failure mode: a heavy test the named
+# patterns miss lands in the remainder and the pole creeps up -- never a
+# coverage hole.
+tpl=0
+if printf '%s\n' $others | /usr/bin/grep -qx './compliance/oraclegen/templates'; then
+  others=$(printf '%s\n' $others | /usr/bin/grep -vx './compliance/oraclegen/templates')
+  tpl=1
+fi
 # Trajectory-pinned packages: tests that replay seeded bot games and pin a
 # finding by (seed, event seq), or replay a committed recorded game event for
 # event. Any engine change that emits, drops or reorders an event renumbers
@@ -141,7 +161,7 @@ if git diff --name-only "$mb" HEAD | /usr/bin/grep -v -E '_test\.go$' | /usr/bin
   traj=1
   others=$(printf '%s\n' $others ./internal/paymirror ./cmd/repro | sort -u)
 fi
-echo "gate_affected: rules + $(echo $others)$([ $traj = 1 ] && echo ' + cardfuzz findings')"
+echo "gate_affected: rules + $(echo $others)$( [ "$tpl" = 1 ] && echo ' + oraclegen/templates shards' )$([ $traj = 1 ] && echo ' + cardfuzz findings')"
 
 # Gate wall is the longest chain, so the phases below overlap everything that
 # does not depend on another phase (measured on the 2026-10-06 gate logs: for
@@ -232,6 +252,18 @@ GOMAXPROCS=6 go test -p=6 -skip "^($global)$" $others & d=$!
 go test -p=1 ./internal/searchprobe/ & e=$!
 go test -p=1 -run '^TestCommittedOvershootCaptureReplaysToTheParkedAsk$' ./host/ & f=$!
 pids="$a1 $a2 $a3 $a4 $b $c $d $e $f"
+# The four templates shards (tpl=1, extracted above): three named -run
+# patterns plus the -skip remainder. Each stays under the operator's 1-minute
+# per-test budget (measured split below, whole package 80.3 s), and the
+# remainder is the complement of the other three, so the union is the whole
+# package whatever a future generator ticket adds.
+if [ "$tpl" = 1 ]; then
+  go test -p=1 -run '^TestSameNameAnswerCensusChunk[0-9][02468]$' ./compliance/oraclegen/templates & h1=$!
+  go test -p=1 -run '^TestSameNameAnswerCensusChunk[0-9][13579]$' ./compliance/oraclegen/templates & h2=$!
+  go test -p=1 -run '^TestSetup(Colour|CreatureType)Census$' ./compliance/oraclegen/templates & h3=$!
+  go test -p=1 -skip '(TestSameNameAnswerCensusChunk[0-9]|TestSetup(Colour|CreatureType)Census)' ./compliance/oraclegen/templates & h4=$!
+  pids="$pids $h1 $h2 $h3 $h4"
+fi
 if [ "$traj" = 1 ]; then
   go test -p=1 -run '^(TestRoundTenFindings|TestForbiddenRitualRepeatYesFinding)$' ./cmd/cardfuzz/ & g=$!
   pids="$pids $g"
