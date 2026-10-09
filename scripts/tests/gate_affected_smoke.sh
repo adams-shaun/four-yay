@@ -131,8 +131,8 @@ patterns() ( bash -c "source '$GATE'; rules_shard_patterns_from_list" )
 SYN=$(printf 'TestAlpha\nTestBravo\nTestAlphaTwo\nTest3141Discard\nTestZulu\nTestZuluTwo\nTestZuluThree\n')
 out=$(printf '%s\n' "$SYN" | patterns)
 nlines=$(printf '%s\n' "$out" | /usr/bin/grep -c '^\^Test\[')
-[ "$nlines" = 2 ]
-check "shard helper emits exactly two patterns" $? "nlines=$nlines out=$out"
+[ "$nlines" = 4 ]
+check "shard helper emits exactly four patterns" $? "nlines=$nlines out=$out"
 uncovered=$(python3 - "$out" "$SYN" <<'PY'
 import re, sys
 pats = [l for l in sys.argv[1].split('\n') if l.startswith('^Test[')]
