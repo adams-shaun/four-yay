@@ -479,12 +479,17 @@ func xmageKeywordText(head string, sa *cards.SA, line string) (string, bool) {
 	cost := strings.TrimLeft(rest, "—-")
 	switch head {
 	case "Equip", "Cycling":
-		// A dash-led line whose cost text itself spells the ability's
-		// leading mana symbol IS the ability's printed alternate-cost form
-		// ("Equip—Pay {3} or discard a card.", "Equip—{2}, Pay 2 life.");
-		// a dash-led line that does not spell it belongs to another
-		// ability, and printedEquip supplies the plain "Equip {N}" text.
-		if symbol := leadingCostSymbol(sa.ParamStr(cards.PKCost)); symbol != "" && !strings.Contains(cost, symbol) {
+		// A dash-led line whose cost text embeds the ability's leading mana
+		// symbol IS its printed alternate-cost form only when the symbol is
+		// not the line's first token ("Equip—Pay {3} or discard a card."):
+		// XMage's EquipAbility renders a compound mana-plus-non-mana cost
+		// with the non-mana part first ("Equip—Pay 2 life.{2}"), so a line
+		// that opens with the symbol ("Equip—{2}, Pay 2 life.") is ordered
+		// by XMage and stays ambiguous. A dash-led line that does not spell
+		// the symbol belongs to another ability; printedEquip supplies the
+		// plain "Equip {N}" text.
+		if symbol := leadingCostSymbol(sa.ParamStr(cards.PKCost)); symbol != "" &&
+			(strings.HasPrefix(cost, symbol) || !strings.Contains(cost, symbol)) {
 			return "", false
 		}
 		return header + name + "&mdash;" + cost, true

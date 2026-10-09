@@ -9,11 +9,17 @@ import (
 	"github.com/adams-shaun/gorge/internal/testutil"
 )
 
-// TestActivateLevelBRowsR5 serves ten example rows of the g10 activate class
+// TestActivateLevelBRowsR5 serves nine example rows of the g10 activate class
 // this round (ticket cli-20261009T031408Z-5823e7de, round r5) cleared. Each
 // case first asserts the PRECONDITION the served scenario depends on -- the
 // filter or cost shape the mechanism serves -- then that the item generates
 // and the scenario plays through gorge with zero fails.
+//
+// My Precious (HOB) is NOT served: its "Equip—{2}, Pay 2 life." line opens
+// with the mana symbol, and XMage's EquipAbility renders the non-mana part
+// first ("Equip—Pay 2 life.{2}"), so the mapping stays ambiguous by design
+// (compliance/oraclegen/xmage_ability_ambiguity_test.go). Only the word-led
+// alternate-cost shape (Bloodthorn Flail) is the printed prefix.
 func TestActivateLevelBRowsR5(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	for _, tc := range []struct {
@@ -25,8 +31,6 @@ func TestActivateLevelBRowsR5(t *testing.T) {
 		// LCI: K:Equip:3 with AlternateCost$ Discard -- the dash-led printed
 		// equip line ("Equip—Pay {3} or discard a card.") is the prefix.
 		{"Bloodthorn Flail", "activate#0.0", "Keyword$ Equip"},
-		// HOB: the same alternate-cost equip shape ("Equip—{2}, Pay 2 life.").
-		{"My Precious", "activate#0.0", "Keyword$ Equip"},
 		// FDN: Creature.Zombie+YouOwn@Graveyard -- a subtype-qualified card
 		// filter in the graveyard, served by a real corpus Zombie card.
 		{"Zul Ashur, Lich Lord", "activate#0.0", "Creature.Zombie"},
