@@ -109,6 +109,26 @@ func classifyEventTrigger(t *cards.Trigger) (sub string, ok bool) {
 		if namesYouCtrl(t.ParamStr(cards.PKValidAttackers)) && strings.EqualFold(t.ParamStr(cards.PKAttackedTarget), "Player") {
 			return "trigger.attacks-one-target", true
 		}
+	case cards.TriggerCaseSolved:
+		// "Whenever you solve a Case" (Case File Auditor): the cause is a
+		// probe Case solved by its own end-step "To solve" trigger (CR
+		// 719.3a), whose Solved grant the engine's matcher reads.
+		if strings.EqualFold(t.ParamStr(cards.PKValidPlayer), "You") {
+			return "trigger.case-solved", true
+		}
+	case cards.TriggerAbilityTriggered:
+		// "Whenever a creature you control attacking causes a triggered
+		// ability of that creature to trigger" (Firebender Ascension): the
+		// cause is p0 attacking with a probe creature that has its own
+		// attack trigger, which emits the engine's AbilityTriggered marker.
+		// A ValidDestination$/ValidSpellAbility$ shape stays a gap (the
+		// marker does not model them and the matcher fails closed).
+		if strings.EqualFold(t.ParamStr(cards.PKTriggeredOwnAbility), "True") &&
+			t.ParamStr(cards.PKValidDestination) == "" && t.ParamStr(cards.PKValidSpellAbility) == "" &&
+			strings.Contains(strings.ToLower(t.ParamStr(cards.PKValidMode)), "attacks") &&
+			strings.Contains(strings.ToLower(t.ParamStr(cards.PKValidSource)), "youctrl") {
+			return "trigger.ability-triggered", true
+		}
 	case cards.TriggerClassLevelGained:
 		// "When this Class becomes level N": the card's own Class. The body
 		// carries ClassBand$ N (the level that fires it).

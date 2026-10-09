@@ -21,6 +21,20 @@ const auraProbe = "Holy Strength"
 // point of excess damage from Shock (2 damage).
 const excessDamageProbe = "Elvish Mystic"
 
+// abilityTriggeredProbe is the attacker whose own attack trigger is the
+// causing ability an AbilityTriggered watcher reads.
+const abilityTriggeredProbe = "Borderland Marauder"
+
+// caseSolvedProbe is the Case whose "To solve" condition already holds at
+// setup (nothing is suspected, and setup drops the Case's enter trigger), so
+// its bare solve sequence is the cause a CaseSolved watcher reads.
+const caseSolvedProbe = "Case of the Stashed Skeleton"
+
+// attachExtraProbe is the second creature beside an attachment's bearer, so
+// a "becomes attached" trigger whose effect targets another creature you
+// control (Blade of Shared Souls) has a legal target at queue time.
+const attachExtraProbe = "Llanowar Elves"
+
 // remainderTriggerRecipe builds the causes for the remainder sub-families.
 // ok is false for every other sub-family, which baseTriggerRecipe then treats
 // as it always has.
@@ -73,6 +87,36 @@ func remainderTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *
 		for _, probe := range loyaltyProbes {
 			add(opponentLoyaltyCause(reg, name, probe))
 		}
+	case "trigger.ability-triggered":
+		// Borderland Marauder's own "whenever this attacks" line is the
+		// causing ability: attacking with it emits the engine's
+		// AbilityTriggered marker (ValidMode Attacks, own ability), which
+		// the row's watcher reads.
+		if _, exists := reg.Lookup(abilityTriggeredProbe); !exists {
+			return nil, "ability-triggered probe not in corpus", true
+		}
+		add(triggerCause{
+			battlefield: []string{abilityTriggeredProbe},
+			steps:       []oraclegen.Step{{Op: "attack", Seat: 0, Defender: "p1", Attackers: []string{"p0:" + abilityTriggeredProbe}}},
+		}, true)
+	case "trigger.case-solved":
+		// A probe Case on p0's battlefield is solved by its own end-step
+		// "To solve" trigger (CR 719.3a): pass to the end step, resolve the
+		// solve trigger with two passes, and the row trigger is on the stack
+		// from the Solved grant. Case of the Stashed Skeleton's solve
+		// condition holds at setup (nothing is suspected, and setup drops
+		// the Case's enter trigger).
+		if _, exists := reg.Lookup(caseSolvedProbe); !exists {
+			return nil, "case-solved probe not in corpus", true
+		}
+		add(triggerCause{
+			battlefield: []string{caseSolvedProbe},
+			steps: []oraclegen.Step{
+				{Op: "pass_to", Step: "end"},
+				{Op: "pass", Seat: 0},
+				{Op: "pass", Seat: 1},
+			},
+		}, true)
 	default:
 		return nil, "", false
 	}
@@ -93,8 +137,11 @@ func attachedCause(reg *cards.Registry, f *cards.Face, name string, t *cards.Tri
 		if _, ok := reg.Lookup(bearsProbe); !ok {
 			return triggerCause{}, false
 		}
+		// A second plain creature beside the bearer, so a trigger whose
+		// effect targets "another creature you control" (Blade of Shared
+		// Souls) has a legal target at queue time.
 		return triggerCause{
-			battlefield: []string{bearsProbe},
+			battlefield: []string{bearsProbe, attachExtraProbe},
 			steps: []oraclegen.Step{{
 				Op: "attach", Seat: 0, Card: "p0:" + name, AttachedTo: "p0:" + bearsProbe,
 			}},

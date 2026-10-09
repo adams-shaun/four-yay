@@ -29,6 +29,8 @@ func TestCombatRemainderClassification(t *testing.T) {
 		{"your opponent is attacked", "AttackersDeclared", creature, map[string]string{"AttackedTarget": "Opponent", "ValidAttackers": "Creature"}, "trigger.attacks-opponent"},
 		{"a Vehicle blocks", "Blocks", vehicle, map[string]string{"ValidCard": "Card.Self"}, "trigger.blocks-vehicle"},
 		{"opponent loyalty activation", "AbilityCast", creature, map[string]string{"ValidSA": "Activated.Loyalty+OppCtrl"}, "trigger.ability-activated-opponent"},
+		{"an attacker's own trigger fires", "AbilityTriggered", creature, map[string]string{"TriggeredOwnAbility": "True", "ValidMode": "Attacks,AttackersDeclared", "ValidSource": "Creature.YouCtrl"}, "trigger.ability-triggered"},
+		{"you solve a Case", "CaseSolved", creature, map[string]string{"ValidPlayer": "You", "ValidCard": "Case"}, "trigger.case-solved"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			got := Requirements(cardOf(&cards.Face{Types: tc.types, Triggers: []cards.Trigger{trig(tc.mode, tc.params)}}))
@@ -54,6 +56,19 @@ func TestCombatRemainderClassification(t *testing.T) {
 		}
 	})
 	// Shapes with no cause the recipes can build stay named gaps.
+	t.Run("an attached effect targeting TriggeredTarget", func(t *testing.T) {
+		f := &cards.Face{
+			Types: []string{"Artifact", "Equipment"},
+			SVars: map[string]string{"TrigCopy": "DB$ Clone | ValidTgts$ Creature.YouCtrl+!TriggeredTarget"},
+			Triggers: []cards.Trigger{trig("Attached", map[string]string{
+				"ValidSource": "Card.Self", "ValidTarget": "Creature", "Execute": "TrigCopy",
+			})},
+		}
+		got := Requirements(cardOf(f))
+		if len(got) != 1 || got[0].Sub != "trigger.gap:Attached" || got[0].Gap == "" {
+			t.Fatalf("classification = %+v, want the gap trigger.gap:Attached", got)
+		}
+	})
 	for _, tc := range []struct {
 		name, mode string
 		types      []string
@@ -67,6 +82,8 @@ func TestCombatRemainderClassification(t *testing.T) {
 		{"combat excess damage", "ExcessDamageAll", creature, map[string]string{"ValidTarget": "Creature.OppCtrl", "CombatDamage": "True"}, "trigger.gap:ExcessDamageAll"},
 		{"a non-Vehicle blocks itself", "Blocks", []string{"Artifact"}, map[string]string{"ValidCard": "Card.Self"}, "trigger.gap:Blocks"},
 		{"an opponent's untap step", "UntapAll", creature, map[string]string{"ValidPlayer": "Opponent", "Phase": "Untap", "ValidCards": "Permanent"}, "trigger.gap:UntapAll"},
+		{"an ability-triggered line with a destination", "AbilityTriggered", creature, map[string]string{"TriggeredOwnAbility": "True", "ValidMode": "Attacks", "ValidSource": "Creature.YouCtrl", "ValidDestination": "Graveyard"}, "trigger.gap:AbilityTriggered"},
+		{"an opponent solves a Case", "CaseSolved", creature, map[string]string{"ValidPlayer": "Opponent", "ValidCard": "Case"}, "trigger.gap:CaseSolved"},
 	} {
 		t.Run("gap "+tc.name, func(t *testing.T) {
 			got := Requirements(cardOf(&cards.Face{Types: tc.types, Triggers: []cards.Trigger{trig(tc.mode, tc.params)}}))

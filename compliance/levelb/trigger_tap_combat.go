@@ -52,7 +52,7 @@ func classifyTapCombatTrigger(f *cards.Face, t *cards.Trigger) (sub string, ok b
 		// Three source shapes are servable: the card itself (an
 		// Equipment/Reconfigure), an Aura you control, and an Aura (any)
 		// attaching to the source.
-		if strings.TrimSpace(t.ParamStr(cards.PKValidTarget)) == "" {
+		if strings.TrimSpace(t.ParamStr(cards.PKValidTarget)) == "" || attachedTargetsTriggerRole(f, t) {
 			break
 		}
 		switch {
@@ -211,4 +211,18 @@ func vehicleFace(f *cards.Face) bool {
 		}
 	}
 	return false
+}
+
+// attachedTargetsTriggerRole reports an Attached trigger whose effect target
+// spec names TriggeredTarget (Blade of Shared Souls' "another target creature
+// you control"). The push-time target ask builds its spec context from the
+// trigger's stack object, which does not carry the TriggerTarget role, so
+// the spec fails closed, the trigger is never put on the stack, and no cause
+// can serve it; it stays a gap until that ask binds the role.
+func attachedTargetsTriggerRole(f *cards.Face, t *cards.Trigger) bool {
+	sa := cards.ResolveSVar(f.SVars, t.ParamStr(cards.PKExecute))
+	if sa == nil {
+		return false
+	}
+	return strings.Contains(strings.ToLower(sa.ParamStr(cards.PKValidTgts)), "triggeredtarget")
 }

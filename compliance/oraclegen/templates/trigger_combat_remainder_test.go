@@ -17,7 +17,10 @@ func TestCombatRemainderTriggerRecipes(t *testing.T) {
 	reg := loadGenRegistry(t)
 	for _, tc := range []struct{ name, key, sub, slot string }{
 		{"Assimilation Aegis", "trigger#0.1", "trigger.attached", "1"},
+		{"Enormous Energy Blade", "trigger#0.0", "trigger.attached", "0"},
+		{"Inchblade Companion", "trigger#0.0", "trigger.attached", "0"},
 		{"Bramble Elemental", "trigger#0.0", "trigger.attached", "0"},
+		{"Brood Keeper", "trigger#0.0", "trigger.attached", "0"},
 		{"Siona, Captain of the Pyleas", "trigger#0.1", "trigger.attached", "1"},
 		{"The Millennium Calendar", "trigger#0.0", "trigger.untap-all", "0"},
 		{"Magmatic Galleon", "trigger#0.1", "trigger.excess-damage", "1"},
@@ -25,6 +28,8 @@ func TestCombatRemainderTriggerRecipes(t *testing.T) {
 		{"Party Dude", "trigger#0.2", "trigger.attacks-opponent", "2"},
 		{"Spider-Mobile", "trigger#0.1", "trigger.blocks-vehicle", "1"},
 		{"Gideon the Oathless", "trigger#0.1", "trigger.ability-activated-opponent", "1"},
+		{"Firebender Ascension", "trigger#0.1", "trigger.ability-triggered", "1"},
+		{"Case File Auditor", "trigger#0.1", "trigger.case-solved", "1"},
 	} {
 		t.Run(tc.name+"/"+tc.key, func(t *testing.T) {
 			it := triggerRequirement(t, reg, tc.name, tc.key, tc.sub)
@@ -161,6 +166,7 @@ func TestCombatRemainderNamedGaps(t *testing.T) {
 	for _, tc := range []struct{ name, key string }{
 		{"Eriette, the Beguiler", "trigger#0.0"},
 		{"Metamorphic Alteration", "trigger#0.0"},
+		{"Blade of Shared Souls", "trigger#0.0"},
 		{"Unstable Glyphbridge", "trigger#1.0"},
 	} {
 		c, ok := reg.Lookup(tc.name)
