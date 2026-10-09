@@ -9,8 +9,9 @@
 # and journals the action through saw/did. This test drives that wiring end
 # to end on real processes — the fixture pattern gorged_reap_smoke.sh
 # established: a fake /proc tree scoping the reaper's LISTING, a REAL
-# detached orphan (double-forked sleeping python carrying gorged-shaped
-# flags) driving a REAL kill — with seed_smoke.sh's harness (throwaway
+# orphan fixture (a sleeping python carrying gorged-shaped flags, spawned
+# SUPERVISED — see spawn_orphan below) driving a REAL kill through the
+# forged ppid=1 fake-tree carry — with seed_smoke.sh's harness (throwaway
 # target repo, stubbed agentctl, throwaway reward dir):
 #
 #   1. two nonzero probes + a real standing orphan -> the orphan is stopped,
@@ -111,45 +112,29 @@ probe_row() {
 		"$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$head" "$v" >>"$d/scoreboard.jsonl"
 }
 
-# spawn_detached <port> <dir> <pidfile> — a REAL orphan: a sleeping python
-# carrying gorged-shaped flags, detached by a double fork (the intermediate
-# exits, so the grandchild is adopted at once — the reparent shape the real
-# 2026-10-01 event had). Prints the pid; the port is only ever a FLAG here,
-# never bound.
-spawn_detached() { # <port> <dir> <pidfile>
-	local pidfile=$3 pid ppid
-	rm -f "$pidfile"
-	python3 -c "import os
-pid = os.fork()
-if pid == 0:
-    os.setsid()
-    p2 = os.fork()
-    if p2 == 0:
-        # The orphan must NOT hold this function's stdout: the caller captures
-        # the pid with $(), and a grandchild that keeps the pipe open hangs it.
-        devnull = os.open(os.devnull, os.O_RDWR)
-        os.dup2(devnull, 1)
-        os.dup2(devnull, 2)
-        open('$pidfile', 'w').write(str(os.getpid()))
-        os.execvp('python3', ['python3', '-c', 'import time; time.sleep(300)',
-                              '-addr', '127.0.0.1:$1', '-tables', '1',
-                              '-dir', '$2'])
-    os._exit(0)
-os.waitpid(pid, 0)"
-	for _ in $(seq 1 50); do
-		pid=$(cat "$pidfile" 2>/dev/null || true)
-		[ -n "$pid" ] && [ -e "/proc/$pid/stat" ] || {
-			sleep 0.1
-			continue
-		}
-		ppid=$(awk '{print $4}' "/proc/$pid/stat")
-		[ "$ppid" != "$$" ] && {
-			echo "$pid"
-			return 0
-		}
-		sleep 0.1
-	done
-	return 1
+# spawn_orphan <port> <dir> <varname> — the REAL orphan fixture the reaper is
+# supposed to reap: a sleeping python carrying gorged-shaped flags, spawned
+# SUPERVISED — a plain `&` child of THIS script, so the collector's
+# script-supervisor ownership signal owns it on the real table. This is the
+# same conversion e2738cb74 gave the demo-port neighbour (ticket
+# agent-20261009T175153Z-de58b6da): a detached, double-forked fixture has
+# ppid 1 and is unowned by every ownership signal, so any free reward probe
+# overlapping the smoke recorded it as a second standing gorged beside the
+# real demo, appended a real standing_gorged_excess row at the current head
+# and vetoed the scoreboard — a veto for a test artifact. The supervised
+# fixture is a direct child of this live `.sh`, so no probe and no
+# production cycle's early reaper can see it as standing or touch it.
+# Residual (accepted, the same residual e2738cb74 accepted for the demo
+# fixture): the smoke no longer proves the reaper classifies a genuinely
+# unowned REAL process from the real table — the kill is proven through the
+# forged fake-tree carry below; the ownership signals themselves stay
+# covered by reward_collect.py --selftest's fake-tree cases. The port is
+# only ever a FLAG, never bound. Sets <varname>.
+spawn_orphan() { # <port> <dir> <varname>
+	local -n pidvar=$3
+	python3 -c 'import time; time.sleep(300)' \
+		-addr "127.0.0.1:$1" -tables 1 -dir "$2" &
+	pidvar=$!
 }
 
 # spawn_supervised <port> <dir> — a REAL demo-port neighbour the reaper must
@@ -196,9 +181,11 @@ print(sum(1 for l in open(f'{sys.argv[1]}/scoreboard.jsonl') if l.strip()
 
 # ------------------------------------------------------------- case 1: reap
 # Two nonzero probes, one real standing orphan, one real demo-port neighbour.
-ORPHAN=$(spawn_detached 8093 /tmp/gorge-reap-seed-orphan "$TMP/orphan.pid")
-[ -n "$ORPHAN" ]
-check "a detached real orphan is running, adopted away from this script" $?
+spawn_orphan 8093 /tmp/gorge-reap-seed-orphan ORPHAN
+ppid=$(awk '{print $4}' "/proc/$ORPHAN/stat" 2>/dev/null)
+[ "$ppid" = "$$" ]
+check "a real orphan fixture is running, a direct child of this script" $? \
+	"orphan=$ORPHAN ppid=${ppid:-}"
 spawn_supervised 8080 /tmp/gorge-demo-seed-smoke
 DEMO=$SUPERVISED_PID
 kill -0 "$DEMO" 2>/dev/null
@@ -224,6 +211,11 @@ if grep -q "pid=$DEMO " <<<"$standing_note"; then
 	check "the demo-port neighbour is not a standing instance on the real table" 1 "$standing_note"
 else
 	check "the demo-port neighbour is not a standing instance on the real table" 0
+fi
+if grep -q "pid=$ORPHAN " <<<"$standing_note"; then
+	check "the orphan fixture is not a standing instance on the real table" 1 "$standing_note"
+else
+	check "the orphan fixture is not a standing instance on the real table" 0
 fi
 
 export GORGE_PROC_DIR=$FAKEPROC
@@ -298,9 +290,12 @@ probe_row "$RDIR2" 1
 probe_row "$RDIR2" 0
 [ "$(count_metric_rows "$RDIR2" standing_gorged_excess)" = 2 ]
 check "case 2 precondition: two rows, last one 0" $?
-ORPHAN2=$(spawn_detached 8091 /tmp/gorge-reap-seed-orphan2 "$TMP/orphan2.pid")
-[ -n "$ORPHAN2" ]
-check "case 2 precondition: a fresh real orphan is running" $?
+ORPHAN2=""
+spawn_orphan 8091 /tmp/gorge-reap-seed-orphan2 ORPHAN2
+ppid=$(awk '{print $4}' "/proc/$ORPHAN2/stat" 2>/dev/null)
+[ "$ppid" = "$$" ]
+check "case 2 precondition: a fresh real orphan is running, supervised" $? \
+	"orphan2=$ORPHAN2 ppid=${ppid:-}"
 [ -n "$ORPHAN2" ] && carry_into_faketree "$ORPHAN2"
 GORGE_PROC_DIR=$FAKEPROC GORGE_REWARD_DIR=$RDIR2 \
 	"$ROOT/scripts/seed-agent.sh" --no-probe --cap 2 >"$TMP/case2.log" 2>&1
@@ -316,9 +311,12 @@ check "case 2: early reap removes the orphan despite one nonzero probe" $?
 RDIR3=$TMP/reward3
 probe_row "$RDIR3" 1
 probe_row "$RDIR3" 1
-ORPHAN3=$(spawn_detached 8097 /tmp/gorge-reap-seed-orphan3 "$TMP/orphan3.pid")
-[ -n "$ORPHAN3" ]
-check "case 3 precondition: an orphan the empty tree cannot see" $?
+ORPHAN3=""
+spawn_orphan 8097 /tmp/gorge-reap-seed-orphan3 ORPHAN3
+ppid=$(awk '{print $4}' "/proc/$ORPHAN3/stat" 2>/dev/null)
+[ "$ppid" = "$$" ]
+check "case 3 precondition: an orphan the empty tree cannot see, supervised" $? \
+	"orphan3=$ORPHAN3 ppid=${ppid:-}"
 GORGE_PROC_DIR=$EMPTYPROC GORGE_REWARD_DIR=$RDIR3 \
 	"$ROOT/scripts/seed-agent.sh" --no-probe --cap 2 >"$TMP/case3.log" 2>&1
 check "case 3: the cycle exits 0" $? "$(tail -3 "$TMP/case3.log")"
@@ -343,9 +341,12 @@ check "case 6 precondition: the mutant really has the trigger removed" $?
 RDIR6=$TMP/reward6
 probe_row "$RDIR6" 1
 probe_row "$RDIR6" 1
-ORPHAN4=$(spawn_detached 8098 /tmp/gorge-reap-seed-orphan4 "$TMP/orphan4.pid")
-[ -n "$ORPHAN4" ]
-check "case 6 precondition: a reapable orphan is present" $?
+ORPHAN4=""
+spawn_orphan 8098 /tmp/gorge-reap-seed-orphan4 ORPHAN4
+ppid=$(awk '{print $4}' "/proc/$ORPHAN4/stat" 2>/dev/null)
+[ "$ppid" = "$$" ]
+check "case 6 precondition: a reapable orphan is present, supervised" $? \
+	"orphan4=$ORPHAN4 ppid=${ppid:-}"
 [ -n "$ORPHAN4" ] && carry_into_faketree "$ORPHAN4"
 GORGED_REAP=0 GORGE_PROC_DIR=$FAKEPROC GORGE_REWARD_DIR=$RDIR6 \
 	"$MUT" --no-probe --cap 2 >"$TMP/case6.log" 2>&1
