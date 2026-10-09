@@ -1745,6 +1745,20 @@ public class ScenarioReplay extends CardTestPlayerBase {
         return (!xmageName.isEmpty() && n.equals(gorgeName)) ? xmageName : n;
     }
 
+    /** The front half of a split/Room card's "A // B" name, or the name
+     * unchanged when it is not a split name. */
+    static String frontHalf(String n) {
+        int i = n.indexOf(" // ");
+        return i < 0 ? n : n.substring(0, i);
+    }
+
+    /** The back half of a split/Room card's "A // B" name, or the name
+     * unchanged when it is not a split name. */
+    static String backHalf(String n) {
+        int i = n.indexOf(" // ");
+        return i < 0 ? n : n.substring(i + 4);
+    }
+
     /** The spelling XMage's cast command matches: the name of the card's
      * SpellAbility, which differs from the card object's name for a split or
      * Room card. XMage names a half's ability "Cast <half>" (SplitCard splits
@@ -1752,22 +1766,53 @@ public class ScenarioReplay extends CardTestPlayerBase {
      * the whole "A // B"; casting the whole name finds no ability ("Can't
      * find ability to activate command: Cast Walk-In Closet"). So a cast
      * step names the scenario's face (gorgeName) and setup still deals the
-     * whole card through xmageSpelling. */
-    private String castSpelling(String n) {
+     * whole card through xmageSpelling. A whole-name cast of a card that is
+     * NOT the card under test -- a generator probe Room dealt by setup
+     * (roomUnlockProbe) -- is the front half's ability the same way; the
+     * under-test whole name maps to gorgeName so an alias spelling is kept.
+     * Returns null when the name is not a split spelling and the caller
+     * falls through to xmageSpelling. */
+    static String castSpellingRule(String gorgeName, String xmageName, String n) {
         if (!xmageName.isEmpty() && n.equals(gorgeName) && xmageName.contains(" // ")) {
             return gorgeName;
         }
-        return xmageSpelling(n);
+        if (n.contains(" // ")) {
+            return n.equals(xmageName) ? gorgeName : frontHalf(n);
+        }
+        return null;
+    }
+
+    private String castSpelling(String n) {
+        String s = castSpellingRule(gorgeName, xmageName, n);
+        return s != null ? s : xmageSpelling(n);
+    }
+
+    /** One snapshot value's spelling rewrite: gorge spells every card object
+     * by its front face, so XMage's whole "A // B" object name for a
+     * split/Room card (the card under test's whole name, a probe's, an MDFC
+     * land's) is rewritten to its front half, and the spell of a face-1 cast
+     * -- which XMage names by the back half's ability -- is rewritten to the
+     * front the way gorge names the spell. The card under test's back half
+     * is the only back half a scenario can name, so it is the only alias. */
+    static String gorgeSpellingRule(String gorgeName, String xmageName, String s) {
+        if (!xmageName.isEmpty()) {
+            if (s.equals(xmageName)) {
+                return gorgeName;
+            }
+            if (xmageName.contains(" // ") && s.equals(backHalf(xmageName))) {
+                return gorgeName;
+            }
+        }
+        return frontHalf(s);
     }
 
     /** Rewrites XMage's spelling of the card under test back to the scenario's
      * (gorge) spelling throughout a value, so the comparator sees one name. */
     private JsonElement gorgeSpellings(JsonElement e) {
-        if (xmageName.isEmpty()) {
-            return e;
-        }
         if (e.isJsonPrimitive() && e.getAsJsonPrimitive().isString()) {
-            return e.getAsString().equals(xmageName) ? new JsonPrimitive(gorgeName) : e;
+            String s = e.getAsString();
+            String r = gorgeSpellingRule(gorgeName, xmageName, s);
+            return r.equals(s) ? e : new JsonPrimitive(r);
         }
         if (e.isJsonArray()) {
             JsonArray a = new JsonArray();

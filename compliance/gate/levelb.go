@@ -56,14 +56,27 @@ func checkB(reg *cards.Registry, root, set string) ([]Problem, error) {
 // requirement order. It is the whole per-card level-B walk, so the covered-
 // by-A path can be exercised with a synthetic card.
 func bProblems(reg *cards.Registry, name string, c *cards.Card, scan *setScan, bad func(string, string, ...any)) {
+	// The pass names a level-B scenario (and keys its verdict rows) by the
+	// card's first face -- a Room or split card's verdict lives under
+	// "Bottomless Pool", not "Bottomless Pool // Locker Room" -- and
+	// generates the scenario from the face, the way checkA looks level-A
+	// rows up and genManifest names its items. name stays the whole printed
+	// spelling the XMage stamp is read from.
+	face := name
+	if c != nil && len(c.Faces) > 0 && c.Faces[0].Name != "" {
+		face = c.Faces[0].Name
+	}
 	rows := scan.verdicts[name]
+	if len(rows) == 0 && face != name {
+		rows = scan.verdicts[face]
+	}
 	for _, req := range levelb.Requirements(c) {
 		if req.CoveredByA {
 			// The level-A cast-resolve scenario already settles it; the
 			// level-A row covers the card.
 			continue
 		}
-		it, skip := templates.GenerateB(reg, name, req)
+		it, skip := templates.GenerateB(reg, face, req)
 		if skip != nil {
 			bad(name, "no generated scenario (%s: %s) and no hand oracle scenario", req.Key, skip.Reason)
 			continue
