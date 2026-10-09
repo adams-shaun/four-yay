@@ -109,9 +109,14 @@ func classifyEventTrigger(t *cards.Trigger) (sub string, ok bool) {
 		// ValidCard$ ...+YouDontOwn) stay gaps: the plain play cause plays a
 		// p0-owned land from its hand, and a Static$ LandPlayed trigger never
 		// reaches the stack to be observed.
+		// p0's own land drop from its hand plays an ordinary land of yours,
+		// so the ValidCard filter must accept any such land: empty, a bare
+		// `Land`, or `Land.YouCtrl` only. A filter that narrows the land
+		// (Shanid's `Land.Legendary+YouCtrl`) or a not-owned one names a
+		// land the plain play cause cannot supply and stays a gap.
 		origin := t.ParamStr(cards.PKOrigin)
 		if (strings.TrimSpace(origin) == "" || strings.EqualFold(origin, "Hand")) &&
-			!filterHasToken(t.ParamStr(cards.PKValidCard), "YouDontOwn") {
+			landPlayedFilterBare(t.ParamStr(cards.PKValidCard)) {
 			return "trigger.land-played", true
 		}
 	case cards.TriggerDiscarded:
@@ -153,6 +158,19 @@ func discardByController(t *cards.Trigger) bool {
 	}
 	filter := strings.ToLower(t.ParamStr(cards.PKValidCard))
 	return !strings.Contains(filter, "oppown") && !strings.Contains(filter, "oppctrl")
+}
+
+// landPlayedFilterBare reports whether a LandPlayed trigger's ValidCard
+// filter accepts any land its controller plays from hand: empty, a bare
+// `Land`, or `Land.YouCtrl` only. A filter that narrows the land (Shanid's
+// `Land.Legendary+YouCtrl`) or a not-owned one names a land the plain hand
+// land drop cannot supply, so it stays a gap.
+func landPlayedFilterBare(filter string) bool {
+	switch strings.ToLower(strings.TrimSpace(filter)) {
+	case "", "land", "land.youctrl":
+		return true
+	}
+	return false
 }
 
 // selfCastTrigger reports the narrow self-cast shape that the level-A

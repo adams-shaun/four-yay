@@ -61,20 +61,24 @@ func transformTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *
 	}
 	graveyard := transformCostGraveyard(enablerSVarCost(enabler))
 	steps := []oraclegen.Step{}
+	xability := []string{}
 	if step != "main1" {
 		// A later-phase enabler (Ultimecia's end step) is reached by pass_to;
 		// a main-phase one fired at turn-1's own boundary and is already on
-		// the stack when the steps begin.
+		// the stack when the steps begin. The XMage rule text stays "" on
+		// this step: xability is parallel to steps from here on, each prefix
+		// at its own activation's index (the runner throws on an activate
+		// step with an empty xmage_ability and activates whatever text a
+		// misaligned entry puts at that index).
 		steps = append(steps, oraclegen.Step{Op: "pass_to", Seat: 0, Step: step})
+		xability = append(xability, "")
 	}
-	xability := []string(nil)
 	if len(graveyard) > 0 {
 		// A component-bearing may-pay settles its mana half from the pool
 		// only (rules/cumulative.go triggeredCostComponentsPayable: the
 		// window never opens a mana-activation ask for a component cost), so
 		// the cause taps every land for mana at the end-step priority before
 		// the passes pool-charge the payment.
-		var acts []oraclegen.Step
 		seen := map[string]int{}
 		for _, land := range lands {
 			lf, ok := reg.Lookup(land)
@@ -92,25 +96,21 @@ func transformTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *
 			if seen[land] > 1 {
 				ref = fmt.Sprintf("%s#%d", ref, seen[land])
 			}
-			acts = append(acts, oraclegen.Step{Op: "activate", Seat: 0, Card: ref,
+			steps = append(steps, oraclegen.Step{Op: "activate", Seat: 0, Card: ref,
 				Ability: "Activate " + land + " for mana"})
 			xability = append(xability, prefixes[0])
 		}
-		steps = append(steps, acts...)
 	}
 	steps = append(steps,
 		oraclegen.Step{Op: "pass_to", Seat: 0, Decision: "priority"},
 		oraclegen.Step{Op: "pass", Seat: 0},
 		oraclegen.Step{Op: "pass", Seat: 1},
 	)
+	xability = append(xability, "", "", "")
 	base := triggerCause{battlefield: lands, graveyard: graveyard, steps: steps,
 		selfBackUp: reqFace == 0, selfFrontUp: reqFace == 1}
-	if len(xability) > 0 {
-		// Parallel to steps: the XMage rule-text of each activation, "" on the
-		// other steps (the triggerServe XAbility splice reads it by offset).
-		xab := make([]string, len(steps))
-		copy(xab, xability)
-		base.xability = xab
+	if len(graveyard) > 0 {
+		base.xability = xability
 	}
 	out := []triggerCause{base}
 	// The enabler's own condition (IsPresent$ Bird.YouCtrl GE4 on Sidequest)
@@ -142,7 +142,18 @@ func cycledTriggerRecipe(f *cards.Face, name string) ([]triggerCause, string) {
 		if gap != "" {
 			return nil, "cycling cost gap: " + gap
 		}
+		// The activate step carries the ability's XMage rule text at its own
+		// index, exactly as every served activate step does: the runner
+		// throws on an activate step with an empty xmage_ability.
+		prefixes, why := oraclegen.XMageAbility(f)
+		if why != "" {
+			return nil, "cycling xmage text ambiguous: " + why
+		}
 		idx := i
+		prefix, ok := prefixes[idx]
+		if !ok || prefix == "" {
+			return nil, "cycling xmage text ambiguous"
+		}
 		return []triggerCause{{
 			selfInHand: true,
 			hand:       []string{name},
@@ -150,6 +161,7 @@ func cycledTriggerRecipe(f *cards.Face, name string) ([]triggerCause, string) {
 				Op: "activate", Seat: 0, Card: "p0:" + name,
 				Mana: pool, AbilityIndex: &idx,
 			}},
+			xability: []string{prefix},
 		}}, ""
 	}
 	return nil, "cycled has no cycling ability"
