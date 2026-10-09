@@ -51,6 +51,141 @@ func (s damageSubject) combatCause() triggerCause {
 	return c
 }
 
+// controllerDamagedTarget reports a recipient filter that names the trigger
+// source's controller (You): p1 attacking p0 damages that player, while the
+// combat causes aimed at p1 cannot. An Opponent filter names p1 and is
+// already served by those.
+func controllerDamagedTarget(target string) bool {
+	return !filterHasTokenFold(target, "opponent") && filterHasTokenFold(target, "you")
+}
+
+// controllerDamageCause builds the combat that makes the subject deal combat
+// damage to the card's controller: the subject sits on p1's side and p1
+// attacks p0. The probe stops in end-combat and the emitted item passes to
+// main2, exactly as combatCause's does.
+func (s damageSubject) controllerDamageCause() triggerCause {
+	attack := oraclegen.Step{Op: "attack", Seat: 1, Defender: "p0", Attackers: []string{"p1:" + s.name}}
+	c := triggerCause{
+		opponentBattlefield: append([]string(nil), s.battlefield...),
+		steps:               []oraclegen.Step{attack, {Op: "pass_to", Step: "main2"}},
+		probeSteps:          []oraclegen.Step{attack, {Op: "pass_to", Step: "end-combat"}},
+	}
+	if s.counter {
+		c.opponentCounters = map[string]map[string]int{s.name: {"P1P1": 1}}
+	}
+	return c
+}
+
+// damageBlockCauses builds the combats that make the card damage a creature
+// the recipient filter names (a ValidTarget$ Creature filter): the card
+// attacks and p1 blocks with such a creature. The blocker candidates are the
+// ones damageRecipients' victim walk already lists; the card must have power
+// to deal a damage event at all (a 0-power card deals none).
+func damageBlockCauses(reg *cards.Registry, f *cards.Face, name, target string) []triggerCause {
+	if strings.Contains(f.PT, "*") || f.Power() < 1 {
+		return nil
+	}
+	fp := newFilterProbe(target, state.ZBattlefield)
+	candidates := []string{bearsProbe}
+	if bears, ok := reg.Lookup(bearsProbe); !ok || !fp.accepts(bears) {
+		candidates = fp.victimProbes(reg, name, 6)
+	}
+	var causes []triggerCause
+	for _, b := range existingCards(reg, candidates) {
+		if b == name || strings.HasPrefix(b, "A-") {
+			continue
+		}
+		attack := oraclegen.Step{Op: "attack", Seat: 0, Defender: "p1", Attackers: []string{"p0:" + name}}
+		block := oraclegen.Step{Op: "block", Seat: 1, Blocks: [][2]string{{"p1:" + b, "p0:" + name}}}
+		causes = append(causes, triggerCause{
+			opponentBattlefield: []string{b},
+			steps:               []oraclegen.Step{attack, block, {Op: "pass_to", Step: "main2"}},
+			probeSteps:          []oraclegen.Step{attack, block, {Op: "pass_to", Step: "end-combat"}},
+		})
+		if len(causes) == 3 {
+			break
+		}
+	}
+	return causes
+}
+
+// faceDownDamageCauses builds the combats that make a face-down creature deal
+// combat damage (a Creature.faceDown source filter): a vanilla morph-family
+// card is cast face down for {3} in the prelude and attacks. The face-down
+// cast is family-independent (CR 702.37a), so the pool is always CCC.
+func faceDownDamageCauses(reg *cards.Registry, name string) []triggerCause {
+	var causes []triggerCause
+	for _, cand := range morphDownCreatures(reg, name) {
+		card, ok := reg.Lookup(cand)
+		if !ok || len(card.Faces) != 1 {
+			continue
+		}
+		mode := morphFamilyMode(card.Faces[0])
+		if mode == "" {
+			continue
+		}
+		prelude := []oraclegen.Step{
+			{Op: "cast", Seat: 0, Card: "p0:" + cand, Mana: faceDownCastPool, CastMode: mode},
+			{Op: "resolve"},
+		}
+		attack := oraclegen.Step{Op: "attack", Seat: 0, Defender: "p1", Attackers: []string{"p0:" + cand}}
+		causes = append(causes, triggerCause{
+			hand:       []string{cand},
+			prelude:    prelude,
+			steps:      []oraclegen.Step{attack, {Op: "pass_to", Step: "main2"}},
+			probeSteps: []oraclegen.Step{attack, {Op: "pass_to", Step: "end-combat"}},
+		})
+		if len(causes) == 3 {
+			break
+		}
+	}
+	return causes
+}
+
+// morphFamilyMode returns the cast mode the face's printed morph family
+// names ("morphed"/"megamorphed"/"disguised"), "" when the face carries none.
+func morphFamilyMode(f *cards.Face) string {
+	for _, fam := range morphFamilies {
+		if _, ok := f.KeywordParam(fam.head); ok {
+			return fam.castMode
+		}
+	}
+	return ""
+}
+
+// morphDownCreatures lists, in sorted name order, the vanilla creatures
+// carrying a morph family a face-down attack cause can cast and attack with
+// (no abilities of their own to disturb the trigger). Cloak is deliberately
+// absent: the from-hand face-down cloak cast is not offered by the engine.
+func morphDownCreatures(reg *cards.Registry, skip string) []string {
+	names := make([]string, 0, reg.Len())
+	for _, c := range reg.AllCards() {
+		if len(c.Faces) != 0 {
+			names = append(names, c.Faces[0].Name)
+		}
+	}
+	sort.Strings(names)
+	var out []string
+	for _, n := range names {
+		if n == skip || !oraclegen.XMageKnown(n) {
+			continue
+		}
+		card, ok := reg.Lookup(n)
+		if !ok || len(card.Faces) != 1 {
+			continue
+		}
+		f := card.Faces[0]
+		if !f.IsCreature() || f.IsLand() || f.Name != n || len(f.Abilities) != 0 || len(f.Triggers) != 0 || len(f.Statics) != 0 || len(f.Repls) != 0 || f.CharacteristicDefining() || morphFamilyMode(f) == "" {
+			continue
+		}
+		out = append(out, n)
+		if len(out) == 4 {
+			break
+		}
+	}
+	return out
+}
+
 // damageRecipient is a Shock target: a card ref ("p0:Name" or "p1") plus the
 // setup that puts the card's Aura/Equipment on its bearer first.
 type damageRecipient struct {
@@ -97,6 +232,28 @@ func damageTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *car
 		for _, s := range damageSourceSubjects(reg, f, name, src) {
 			causes = append(causes, s.combatCause())
 		}
+	}
+	// The card's own combat damage to a creature the recipient filter names:
+	// it attacks, p1 blocks with such a creature.
+	if namesSelfFold(src) && f.IsCreature() && strings.TrimSpace(target) != "" && !targetNamesPlayer(target) {
+		causes = append(causes, damageBlockCauses(reg, f, name, target)...)
+	}
+	// Combat damage to the card's controller (ValidTarget$ You): p1 attacks
+	// p0 with a creature the source filter accepts. A combat cause aimed at
+	// p1 cannot damage p0, so the fire check rejects those and this one wins.
+	if targetNamesPlayer(target) && controllerDamagedTarget(target) {
+		for _, s := range damageSourceSubjects(reg, f, name, src) {
+			if len(s.prelude) != 0 || len(s.battlefield) == 0 {
+				continue
+			}
+			causes = append(causes, s.controllerDamageCause())
+		}
+	}
+	// Combat damage by a face-down creature (a Creature.faceDown source
+	// filter): a vanilla morph-family card is cast face down in the prelude
+	// and attacks.
+	if filterHasTokenFold(src, "facedown") {
+		causes = append(causes, faceDownDamageCauses(reg, name)...)
 	}
 	// Noncombat damage to the recipient.
 	for _, r := range damageRecipients(reg, f, name, target) {
