@@ -73,6 +73,13 @@ func activateAbility(reg *cards.Registry, f *cards.Face, name string, req levelb
 		return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: "activate cost gap: " + gap}
 	}
 	slots := oraclegen.AbilitySlotSpecs(f, sa)
+	// TargetsWithSameCreatureType$ (Secret Tunnel's "two target creatures you
+	// control that share a creature type"): the fixture pair must share a
+	// creature type, which the generic creature stand-ins never do. Mark the
+	// slots so candidatesFor serves a matched same-subtype pair.
+	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKTargetsWithSameCreatureType)), "True") {
+		slots = markSameTypePairSlots(slots)
+	}
 	stackTargets := stackTargetRefs(sa, f, name, slots)
 	for _, sl := range slots {
 		// "Target creature that attacked this turn" needs a combat prelude
@@ -104,6 +111,22 @@ func activateAbility(reg *cards.Registry, f *cards.Face, name string, req levelb
 			Reason: fmt.Sprintf("activate no fixture gorge can activate (targets %v)", filterStrings(slots))}
 	}
 	return it, nil
+}
+
+// markSameTypePairSlots marks every slot's filter with sameTypePairMarker for
+// an ability whose TargetsWithSameCreatureType$ demands a matched pair; the
+// marker rides before any '@zone' suffix so the zone extraction stays intact.
+func markSameTypePairSlots(slots []oraclegen.Slot) []oraclegen.Slot {
+	out := make([]oraclegen.Slot, len(slots))
+	for i, s := range slots {
+		if j := strings.IndexByte(s.Filter, '@'); j >= 0 {
+			s.Filter = s.Filter[:j] + "+" + oraclegen.SameTypePairMarker + s.Filter[j:]
+		} else {
+			s.Filter = s.Filter + "+" + oraclegen.SameTypePairMarker
+		}
+		out[i] = s
+	}
+	return out
 }
 
 // stackTargetRefs names the ref the stack slot's precast spell aims at: an

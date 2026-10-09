@@ -347,6 +347,14 @@ func filterPredicate(filter, word string) bool {
 	return false
 }
 
+// sameTypePairMarker marks the slots of an ability whose
+// TargetsWithSameCreatureType$ demands a matched pair (Secret Tunnel's "two
+// target creatures you control that share a creature type"): candidatesFor
+// strips it and serves two distinct same-subtype fixtures per slot, so the
+// fixture cross product pairs them. It is a generator marker, not an engine
+// predicate: it never reaches the engine.
+const SameTypePairMarker = "sameTypePair"
+
 // stripFilterWord removes one '.'/'+'-separated predicate word from every
 // alternative of filter, preserving the remaining separators ("attackingAlone"
 // out of "Creature.YouCtrl+attackingAlone" leaves "Creature.YouCtrl"). ok is
@@ -475,6 +483,10 @@ func candidatesFor(reg *cards.Registry, filter, parentTarget string, stackTarget
 	// the word so the ordinary type path arranges the candidate; a lone
 	// attacker keeps the attacker role explicitly.
 	alone := false
+	pair := false
+	if f2, ok := stripFilterWord(filter, SameTypePairMarker); ok {
+		filter, pair = f2, true
+	}
 	if f2, ok := stripFilterWord(filter, "attackingAlone"); ok {
 		filter, alone = f2, true
 	}
@@ -489,6 +501,21 @@ func candidatesFor(reg *cards.Registry, filter, parentTarget string, stackTarget
 	base := strings.ToLower(strings.SplitN(strings.TrimSpace(alt[0]), ".", 2)[0])
 	mine := strings.Contains(filter, "YouCtrl") || strings.Contains(filter, "YouOwn")
 	if role == roleNone {
+		if pair {
+			// The slots demand a matched same-type pair: serve two distinct
+			// cards of the filter's subtype (default Elf when the filter names
+			// none), and nothing else -- a cross product over the generic
+			// stand-ins never shares a creature type. A subtype the registry
+			// cannot pair fails closed.
+			sub := "elf"
+			if s, ok := filterSubtypeWord(alt[0]); ok {
+				sub = s
+			}
+			if cs := subtypeBattlefieldPair(reg, sub, mine); len(cs) > 0 {
+				return cs
+			}
+			return nil
+		}
 		if strings.Contains(filter, "+token") || strings.Contains(filter, "token+") || base == "token" {
 			if base == "artifact" {
 				return artifactTokenCandidates()
@@ -688,6 +715,54 @@ func subtypeBattlefield(reg *cards.Registry, subtype string, mine bool) []cand {
 		seat = "p0"
 	}
 	return []cand{{seat: seat, zone: "battlefield", card: name}}
+}
+
+// subtypeBattlefieldPair is subtypeBattlefield for an ability whose targets
+// must share a creature type (the sameTypePairMarker slots): two DISTINCT
+// quiet cards of one subtype, so the target pair matches
+// TargetsWithSameCreatureType$ (Secret Tunnel). No second quiet card: nil
+// (fails closed).
+func subtypeBattlefieldPair(reg *cards.Registry, subtype string, mine bool) []cand {
+	first, ok := registryQuietSubtype(reg, subtype)
+	if !ok {
+		first, ok = registrySubtype(reg, subtype)
+	}
+	if !ok {
+		return nil
+	}
+	second, ok := otherQuietSubtype(reg, subtype, first)
+	if !ok {
+		return nil
+	}
+	seat := "p1"
+	if mine {
+		seat = "p0"
+	}
+	return []cand{{seat: seat, zone: "battlefield", card: first}, {seat: seat, zone: "battlefield", card: second}}
+}
+
+// otherQuietSubtype is a second, distinct quiet card of the subtype
+// (registryQuietSubtype's criteria minus the name already picked). No second
+// quiet card: not found, fails closed.
+func otherQuietSubtype(reg *cards.Registry, subtype, not string) (string, bool) {
+	if reg == nil {
+		return "", false
+	}
+	skip := cards.NormalizeName(not)
+	for i := 0; i < reg.Len(); i++ {
+		c := reg.Card(i)
+		if len(c.Faces) != 1 {
+			continue
+		}
+		f := c.Faces[0]
+		if !XMageKnown(f.Name) || !faceHasSubtype(f, subtype) || !faceHasSubtype(f, "Creature") ||
+			faceHasSubtype(f, "Legendary") || len(f.Triggers) != 0 || len(f.Statics) != 0 ||
+			entersWithCounters(f) || cards.NormalizeName(f.Name) == skip {
+			continue
+		}
+		return f.Name, true
+	}
+	return "", false
 }
 
 // tokenCandidates makes a token you control: a prelude casts a token-maker,
