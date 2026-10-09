@@ -139,6 +139,9 @@ func classifyEventTrigger(t *cards.Trigger) (sub string, ok bool) {
 	if sub, ok := classifyDamageTrigger(t); ok {
 		return sub, true
 	}
+	if sub, ok := classifyKeywordActionTrigger(t); ok {
+		return sub, true
+	}
 	return classifySacrificeTrigger(t)
 }
 
