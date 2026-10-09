@@ -271,6 +271,30 @@ const (
 	// locked door left to unlock. The body reads both door designations from
 	// state.Object, as maintained by the DoorUnlock/DoorLock folds.
 	wordFullyUnlocked
+	// The game-long SOURCE-side damage words (Forge's dealtDamagetoAny /
+	// dealtCombatDamagetoAny): the candidate has dealt damage (combat
+	// damage) to anything this game. They read the game-long bools the
+	// DamageProvenance fold sets (state.Object.DealtDamageToAnyGame /
+	// DealtCombatDamageToAnyGame), which the TurnChange clear must never
+	// touch -- unlike the per-turn wordSourceDealtDamageThisTurn above.
+	// Corpus carriers: Karakyk Guardian, Oyaminartok, Palladia-Mors and
+	// Ratonhnhaké:ton (dealtDamagetoAny, one also through IsPresent$),
+	// Ruric Thar, Magecrusher (dealtCombatDamagetoAny).
+	wordDealtDamageToAny
+	wordDealtCombatDamageToAny
+	// wordAttackingPlayer is Forge's Card.attacking <PlayerSpec> rider: the
+	// candidate is attacking the seat <PlayerSpec> names, You = the
+	// evaluating controller (sc.You), the arg resolved through the player
+	// grammar's ONE home (MatchesPlayerSpecCtx). This reads the DEFENDER's
+	// seat (state.Object.Attacking, CR 508.1), so Oviya, Automech Artisan's
+	// "each creature that's attacking one of your opponents has trample"
+	// includes your OWN attacking creature -- it is NOT the
+	// `attacking+Opponent` plus-spelling, which is "attacking creature
+	// CONTROLLED by an opponent". key is the player-spec base word,
+	// validated against playerSpecBaseCodes by wordPredicateNewWords; a
+	// non-base argument (Seifer's `attacking Valid Planeswalker.OppCtrl`,
+	// the referent spellings) stays wordUnknown and loud.
+	wordAttackingPlayer
 )
 
 // wordPredicate classifies a bare predicate word. key is the WUBRG letter for
@@ -290,6 +314,10 @@ func wordPredicate(p string) (wordKind, string) {
 			return wordUnknown, suffix
 		}
 		return wordDamagedBy, suffix
+	}
+	// The game-long damage words and the attacking rider: wordPredicateNewWords.
+	if kind, key, ok := wordPredicateNewWords(p); ok {
+		return kind, key
 	}
 	if l, is := colorLetter[p]; is {
 		return wordColor, l
@@ -928,14 +956,16 @@ func wordMatches(kind wordKind, key string, g *state.Game, o *state.Object, sc S
 		// semantics its shape implies rather than the always-true trap an
 		// unrecognised-but-plausible token could be mistaken for.
 		return !sharesName(o, key, sc)
-	case wordDealtDamageThisTurn, wordSourceDealtDamageThisTurn:
+	case wordDealtDamageThisTurn, wordSourceDealtDamageThisTurn, wordDealtDamageToAny, wordDealtCombatDamageToAny:
 		// Forge's wasDealtDamageThisTurn: the object was dealt damage this
 		// turn. The flag is the per-object provenance events.Apply's Damage
 		// case sets (the same field the playercount HasProperty heads read)
 		// and TurnChange clears. dealtDamageThisTurn is the SOURCE side: the
 		// object DEALT damage (state.Object.DamageDealtThisTurn). The
 		// by-source refinement is a separate token and stays unknown.
-		return damageThisTurnPredicate(kind, o)
+		return damageRecordPredicate(kind, o)
+	case wordAttackingPlayer:
+		return attackingPlayerMatches(g, key, o, sc)
 	case wordDealtExcessDamageThisTurn:
 		return o.WasDealtExcessDamageThisTurn
 	case wordDealtDamageByThisGame:
@@ -1185,20 +1215,29 @@ func wordMatches(kind wordKind, key string, g *state.Game, o *state.Object, sc S
 	return false
 }
 
-// damageThisTurnPredicate evaluates the two same-turn damage predicates for
-// one candidate object. wordDealtDamageThisTurn is Forge's
-// wasDealtDamageThisTurn, the RECIPIENT side: state.Object.WasDealtDamageThisTurn,
-// the flag events.Apply's Damage case sets and TurnChange clears, so an object
-// never damaged this turn reads false. wordSourceDealtDamageThisTurn is Forge's
-// dealtDamageThisTurn, the SOURCE side: state.Object.DamageDealtThisTurn, the
-// record the DamageProvenance fold appends to and TurnChange clears, non-empty
-// only when the object itself dealt damage this turn -- the fail-closed
-// direction. Both share one wordMatches case so the added branch costs the
-// long-function ratchet nothing extra; wordDealtExcessDamageThisTurn (the
-// recipient's excess) stays its own case.
-func damageThisTurnPredicate(kind wordKind, o *state.Object) bool {
-	if kind == wordSourceDealtDamageThisTurn {
+// damageRecordPredicate evaluates the four damage-provenance predicates for
+// one candidate object, all of which read only the object itself.
+// wordDealtDamageThisTurn is Forge's wasDealtDamageThisTurn, the RECIPIENT
+// side: state.Object.WasDealtDamageThisTurn, the flag events.Apply's Damage
+// case sets and TurnChange clears, so an object never damaged this turn reads
+// false. wordSourceDealtDamageThisTurn is Forge's dealtDamageThisTurn, the
+// SOURCE side: state.Object.DamageDealtThisTurn, the record the
+// DamageProvenance fold appends to and TurnChange clears, non-empty only when
+// the object itself dealt damage this turn -- the fail-closed direction.
+// wordDealtDamageToAny / wordDealtCombatDamageToAny are the GAME-LONG
+// source-side words: the bools the same fold sets from the record's combat
+// classification, which the TurnChange clear never touches. All four share
+// one case so the added branch costs the long-function ratchet nothing
+// extra; wordDealtExcessDamageThisTurn (the recipient's excess) stays its
+// own case.
+func damageRecordPredicate(kind wordKind, o *state.Object) bool {
+	switch kind {
+	case wordSourceDealtDamageThisTurn:
 		return len(o.DamageDealtThisTurn) > 0
+	case wordDealtDamageToAny:
+		return o.DealtDamageToAnyGame
+	case wordDealtCombatDamageToAny:
+		return o.DealtCombatDamageToAnyGame
 	}
 	return o.WasDealtDamageThisTurn
 }
@@ -1379,6 +1418,8 @@ const (
 	wordPredicateWordFullyUnlocked
 	wordPredicateWordOutlaw
 	wordPredicateWordRememberedPlayerOwn
+	wordPredicateWordDealtDamageToAny
+	wordPredicateWordDealtCombatDamageToAny
 )
 
 var wordPredicateWordCodes = state.NewStrCodes(
@@ -1430,6 +1471,8 @@ var wordPredicateWordCodes = state.NewStrCodes(
 	state.StrEntry[wordPredicateWordCode]{Key: "hasABasicLandType", Val: wordPredicateWordHasABasicLandType},
 	state.StrEntry[wordPredicateWordCode]{Key: "FullyUnlocked", Val: wordPredicateWordFullyUnlocked},
 	state.StrEntry[wordPredicateWordCode]{Key: "RememberedPlayerOwn", Val: wordPredicateWordRememberedPlayerOwn},
+	state.StrEntry[wordPredicateWordCode]{Key: "dealtDamagetoAny", Val: wordPredicateWordDealtDamageToAny},
+	state.StrEntry[wordPredicateWordCode]{Key: "dealtCombatDamagetoAny", Val: wordPredicateWordDealtCombatDamageToAny},
 )
 
 type wordPredicateSharesCode uint16
