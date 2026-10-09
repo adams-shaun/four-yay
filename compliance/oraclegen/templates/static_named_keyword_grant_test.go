@@ -1,11 +1,13 @@
 package templates
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/compliance/oraclediff"
+	"github.com/adams-shaun/gorge/compliance/oraclegen"
 	"github.com/adams-shaun/gorge/internal/testutil"
 )
 
@@ -22,6 +24,7 @@ func TestStaticNamedKeywordGrant(t *testing.T) {
 		{"Hexing Squelcher", "static#0.0"},            // ECL, Ward:PayLife<2>
 		{"Thorin Oakenshield", "static#0.0"},          // HOB, Ward:1
 		{"Massacre Girl, Known Killer", "static#0.0"}, // MKM, Wither
+		{"Colossal Rattlewurm", "static#0.0"},         // OTJ, Flash (its own permanent while you control a Desert)
 	} {
 		req := probeRequirement(t, reg, tc.card, tc.key)
 		it, skip := GenerateB(reg, tc.card, req)
@@ -29,9 +32,19 @@ func TestStaticNamedKeywordGrant(t *testing.T) {
 			t.Errorf("%s %s skipped: %s", tc.card, tc.key, skip.Reason)
 			continue
 		}
-		if len(it.Compare) != 1 || it.Compare[0] != oraclediff.CompareKeywordsNamed {
-			t.Errorf("%s Compare = %v, want [%s]", tc.card, it.Compare, oraclediff.CompareKeywordsNamed)
+		// The named opt-in must be present. A second option is permitted only
+		// when the whole-card scenario forces it: Colossal Rattlewurm's
+		// graveyard search-and-shuffle is run by the scenario (a static item
+		// still casts the card), so generate_b appends no_library_order
+		// because XMage randomises the shuffled library order.
+		if !slices.Contains(it.Compare, oraclediff.CompareKeywordsNamed) {
+			t.Errorf("%s Compare = %v, want it to contain %s", tc.card, it.Compare, oraclediff.CompareKeywordsNamed)
 			continue
+		}
+		for _, c := range it.Compare {
+			if c != oraclediff.CompareKeywordsNamed && c != oraclegen.CompareNoLibraryOrder {
+				t.Errorf("%s Compare = %v, carries unexpected option %s", tc.card, it.Compare, c)
+			}
 		}
 
 		// Precondition: the evergreen vocabulary alone does NOT observe the
