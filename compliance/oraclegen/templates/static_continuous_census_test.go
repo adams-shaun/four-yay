@@ -28,9 +28,11 @@ import (
 // life it gains, and gives MayLookAt$ its own named skip, and by
 // levelb-static-granted-abilities, which observes a granted mana ability or
 // loyalty ability and an extra land drop as an offered option and gives every
-// other grant shape (activated, triggered and static abilities, abilities
-// gained from another card, an SVar) a named skip instead of the generic one,
-// and by levelb-static-not-observable-shapes, which serves the rows the
+// other grant shape (activated and static abilities, abilities gained from
+// another card, an SVar) a named skip instead of the generic one, and by
+// levelb-granted-triggers, which serves an AddTrigger$ grant by firing the
+// granted trigger (its cause steps, not an offered option), and by
+// levelb-static-not-observable-shapes, which serves the rows the
 // scenario itself broke (a prelude casting the probe card, a counter-gated base
 // without the filter's probes, an Aura whose effect lands on a non-probe host,
 // a back-face Equipment never attached): FRA Puppet Crafting moves from skip to
@@ -49,10 +51,9 @@ var wantStaticContinuousCensus = map[string]map[string]int{
 		"skip:static counts cards exiled with the source": 1,
 	},
 	"EOE": {
-		"served": 58,
-		"skip:static changes a player rule (hand size, land plays), not a permanent":   1,
-		"skip:static grants a triggered ability (needs a probe-sourced trigger cause)": 3,
-		"skip:static gated self grant is not offered in the gate-on fixture":           1,
+		"served": 61,
+		"skip:static changes a player rule (hand size, land plays), not a permanent": 1,
+		"skip:static gated self grant is not offered in the gate-on fixture":         1,
 	},
 	"FDN": {
 		"served": 68,
@@ -74,11 +75,10 @@ var wantStaticContinuousCensus = map[string]map[string]int{
 	// DFT includes the Surveyor cycle's graveyard AddAbility$ grant, whose
 	// engine-gap skip remains pinned separately.
 	"DFT": {
-		"served": 45,
+		"served": 53,
 		"skip:static amount is a computed count the fixture does not make observable":            1,
 		"skip:static characteristic-defining P/T of a non-creature (the snapshot omits its P/T)": 1,
 		"skip:static effect not observable on a probe or the card":                               2,
-		"skip:static grants a triggered ability (needs a probe-sourced trigger cause)":           8,
 		"skip:static gated self grant is not offered in the gate-on fixture":                     1,
 		"skip:static grants a static ability (observed only through its own effect)":             1,
 		"skip:static grants a replacement effect (needs an event the replacement can change)":    2,

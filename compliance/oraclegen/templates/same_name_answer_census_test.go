@@ -137,15 +137,25 @@ func sameNameBucketRank(bucket string) int {
 // scenario one-for-one and disappears if the granted-activated-ability
 // observation is reverted.
 //
-// Unresolved stayed 0 in every set through every move; that is the defect
-// measure.
+// Re-measured at the merge of cli-20261009T031407Z-6fac1771's level-B
+// granted-trigger observation (the AddTrigger grant fired by its cause steps)
+// into current main: EOE alias 2 -> 3, unproven 1 -> 2. The observation
+// generates two new EOE scenarios -- Dawnsire, Sunstar Dreadnought static#0.0
+// (its same-name pick is resolved exactly via an alias) and Entropic
+// Battlecruiser static#0.0 (its same-name pick ref is rank-derived, so
+// Unproven). Measured per side: main alone reproduces the old 2/1; the
+// granted-trigger side alone reproduces 3/2 with exactly these five items, so
+// the move is the granted-trigger serving, not the merge.
+//
+// Unresolved stayed 0 in every set through all moves; that is the
+// defect measure.
 var wantSameNameCensus = map[string]string{
 	"BIG": `{"alias":0,"copy":0,"unresolved":0,"unproven":1,"items":null}`,
 	"BLB": `{"alias":3,"copy":0,"unresolved":0,"unproven":4,"items":null}`,
 	"DFT": `{"alias":0,"copy":0,"unresolved":0,"unproven":3,"items":null}`,
 	"DSK": `{"alias":2,"copy":0,"unresolved":0,"unproven":33,"items":null}`,
 	"ECL": `{"alias":0,"copy":0,"unresolved":0,"unproven":5,"items":null}`,
-	"EOE": `{"alias":2,"copy":0,"unresolved":0,"unproven":1,"items":null}`,
+	"EOE": `{"alias":3,"copy":0,"unresolved":0,"unproven":2,"items":null}`,
 	"FDN": `{"alias":0,"copy":1,"unresolved":0,"unproven":2,"items":null}`,
 	"FIN": `{"alias":0,"copy":0,"unresolved":0,"unproven":4,"items":null}`,
 	"FRA": `{"alias":0,"copy":0,"unresolved":0,"unproven":2,"items":null}`,
