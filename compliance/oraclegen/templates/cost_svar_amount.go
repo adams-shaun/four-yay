@@ -62,6 +62,13 @@ func costPowerAmountFixture(reg *cards.Registry, f *cards.Face, amount string) (
 		}
 	}
 	if name == "" {
+		// No keyword fixture: the generic count path's own stand-in serves,
+		// because a power total IS the placed card's printed power — the
+		// probe pays exactly printed minus it (Ghalta, Primal Hunger's
+		// "total power of creatures you control" over Llanowar Elves).
+		name = staticFixtureFor(filter, 0)
+	}
+	if name == "" {
 		return 0, nil, gap + ": power fixture unavailable (" + filter + ")", true
 	}
 	power, why := fixturePower(reg, name)
