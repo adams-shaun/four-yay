@@ -127,7 +127,34 @@ func baseTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards
 		}
 		out = append(out, c)
 	case "trigger.spell-cast":
-		return spellCastProbeCauses(reg, name, t), ""
+		out = spellCastProbeCauses(reg, name, t)
+		present := strings.ToLower(t.ParamStr(cards.PKIsPresent) + t.ParamStr(cards.PKIsPresent2))
+		// A "Solved —" cast trigger fires only once the source Case is
+		// solved: the cast cause runs after the solve sequence, whose
+		// activation preludes end at p0's next main phase.
+		if solvedSelfSpec(t.ParamStr(cards.PKIsPresent)) || solvedSelfSpec(t.ParamStr(cards.PKIsPresent2)) {
+			if preludes, ok := solvedCasePreludes(reg, f); ok {
+				var with []triggerCause
+				for _, c := range out {
+					for _, p := range preludes {
+						with = append(with, applyPrelude(c, p))
+					}
+				}
+				out = append(out, with...)
+			}
+		}
+		// "Whenever you cast a spell while CARDNAME is attacking": the cast
+		// cause runs from the post-attackers priority round, where the source
+		// is attacking and an instant cast is legal.
+		if strings.Contains(present, "attacking") && f.IsCreature() {
+			atk := conditionPrelude{steps: []oraclegen.Step{{Op: "attack", Seat: 0, Defender: "p1", Attackers: []string{"p0:" + name}}}}
+			var with []triggerCause
+			for _, c := range out {
+				with = append(with, applyPrelude(c, atk))
+			}
+			out = append(out, with...)
+		}
+		return out, ""
 	case "trigger.becomes-target":
 		if !creature {
 			return nil, "becomes-target needs a creature"
@@ -190,6 +217,21 @@ func baseTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards
 		fixtures := triggerConditionFixtures(reg, f, t)
 		for _, condition := range fixtures {
 			out = append(out, applyPrelude(base, condition))
+			if !condition.solvedCase {
+				continue
+			}
+			// A solved Case is true only from the solve resolve on, so the
+			// row trigger's own phase must be p0's next one: a begin-combat
+			// or end-step You-gated row trigger would otherwise stop at p1's
+			// first matching phase, where the You gate holds it back.
+			if vp := t.ParamStr(cards.PKValidPlayer); vp == "" || strings.EqualFold(vp, "You") {
+				forced := applyPrelude(base, condition)
+				forced.steps = append([]oraclegen.Step(nil), base.steps...)
+				if forced.steps[0].Active != "p0" {
+					forced.steps[0].Active = "p0"
+					out = append(out, forced)
+				}
+			}
 		}
 		if active == "p0" && step != "main1" {
 			// Setup passes turn 1's upkeep and draw with the fixture in
