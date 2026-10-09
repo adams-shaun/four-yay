@@ -81,7 +81,7 @@ func xanswersForScenario(res rules.OracleResult, sc Scenario, modes map[string]i
 		}
 	}
 	collapseRoomLock(ds)
-	return xanswers(ds, len(sc.Steps), modes, castSteps)
+	return xanswersSetup(ds, len(sc.Steps), modes, castSteps, sc.Setup)
 }
 
 // compositeCardPick distinguishes the follow-up card selector from any other
