@@ -70,7 +70,7 @@ func TestSpellCastMulticolourCauseFires(t *testing.T) {
 	if err != nil {
 		t.Fatalf("replay err=%v", err)
 	}
-	if !abilityOnStack(res.Snapshots, "Lilah, Undefeated Slickshot", card.Faces[0].Name, stackSlot(req)) {
+	if !abilityOnStack(res.Snapshots, stackSourceWants(reg, "Lilah, Undefeated Slickshot", card.Faces[0]), stackSlot(req)) {
 		t.Fatalf("Lilah's trigger never reached the stack")
 	}
 }

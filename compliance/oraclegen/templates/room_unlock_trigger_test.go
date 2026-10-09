@@ -81,7 +81,7 @@ func TestRoomUnlockTriggerRecipesFire(t *testing.T) {
 				t.Fatalf("the probe scenario does not play through")
 			}
 			card, _ := reg.Lookup(tc.card)
-			if !abilityOnStack(probed.Snapshots, tc.card, card.Faces[req.Face].Name, stackSlot(req)) {
+			if !abilityOnStack(probed.Snapshots, stackSourceWants(reg, tc.card, card.Faces[req.Face]), stackSlot(req)) {
 				t.Fatalf("trigger %s never reached the stack", req.Key)
 			}
 		})
