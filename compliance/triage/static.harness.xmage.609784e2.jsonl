@@ -1,6 +1,7 @@
-{"shape":{"template":"static","op":"harness","field":"xmage","diff":"IllegalArgumentException: pass at step N needs seat N to be the active player"},"key":"static | harness | xmage | IllegalArgumentException: pass at step N needs seat N to be the active player","cards":11}
+{"shape":{"template":"static","op":"harness","field":"xmage","diff":"IllegalArgumentException: pass at step N needs seat N to be the active player"},"key":"static | harness | xmage | IllegalArgumentException: pass at step N needs seat N to be the active player","cards":12}
 {"card":"Bard's Company","template":"static#0.0","status":"harness","api":"ChangesZone:Recruit+Attacks:Recruit","sets":["HOB"],"detail":"xmage: IllegalArgumentException: pass at step 1 needs seat 0 to be the active player"}
 {"card":"Depower","template":"static#0.0","status":"harness","api":"Pump+Draw","sets":["MSH"],"detail":"xmage: IllegalArgumentException: pass at step 2 needs seat 0 to be the active player"}
+{"card":"Geyser Drake","template":"static#0.0","status":"harness","api":"-","sets":["OTJ"],"detail":"xmage: IllegalArgumentException: pass at step 1 needs seat 0 to be the active player"}
 {"card":"High Fae Trickster","template":"static#0.0","status":"harness","api":"-","sets":["FDN"],"detail":"xmage: IllegalArgumentException: pass at step 1 needs seat 0 to be the active player"}
 {"card":"Illusion Spinners","template":"static#0.0","status":"harness","api":"-","sets":["ECL"],"detail":"xmage: IllegalArgumentException: pass at step 1 needs seat 0 to be the active player"}
 {"card":"Radagast of Rhosgobel","template":"static#0.1","status":"harness","api":"-","sets":["HOB"],"detail":"xmage: IllegalArgumentException: pass at step 1 needs seat 0 to be the active player"}

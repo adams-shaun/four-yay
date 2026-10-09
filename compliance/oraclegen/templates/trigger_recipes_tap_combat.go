@@ -194,6 +194,17 @@ func tapCombatRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards.T
 		if m := tapAmountRE.FindStringSubmatch(t.ParamStr(cards.PKValidAttackersAmount)); m != nil {
 			need, _ = strconv.Atoi(m[1])
 		}
+		// Tomik, Wielder of Law's attacker-count gate is a CheckSVar$
+		// (Count$ValidAll Creature.attackingYouOrYourPWLKI) with an
+		// SVarCompare$ floor: send that many attackers so the engine's
+		// SVar evaluation clears the floor.
+		if t.ParamStr(cards.PKCheckSVar) != "" {
+			if m := tapAmountRE.FindStringSubmatch(strings.ToLower(t.ParamStr(cards.PKSVarCompare))); m != nil {
+				if n, err := strconv.Atoi(m[1]); err == nil && n > need {
+					need = n
+				}
+			}
+		}
 		attackers := []string{bearsProbe}
 		for _, filler := range attackFillers {
 			if len(attackers) >= need {

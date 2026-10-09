@@ -99,6 +99,7 @@ var wantTriggerCensus = map[string]map[string]int{
 		"served:trigger.etb-other":                           12, // Roiling Canopy (main) and the FRA etb-other OppCtrl recipe (branch) each serve one.
 		"served:trigger.life-gained":                         7,
 		"served:trigger.loyalty-activated":                   3,
+		"served:trigger.ability-activated-opponent":          1, // Gideon the Oathless: the opponent-loyalty cause now serves it.
 		"served:trigger.noncombat-damage":                    3,
 		"served:trigger.phase":                               16, // Paradox Shaper, Stingerquill Voxmancer, Woodwork Prodigy: the consumed !IsPrepared gate is a cast-self cause now.
 		"served:trigger.scry":                                5,
