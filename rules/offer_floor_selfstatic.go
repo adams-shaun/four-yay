@@ -5,6 +5,12 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
+// validCardSpecIsSelf reports whether a ValidCard$ spec scopes a static to
+// its own source object only. It is the ONE spelling both readers share:
+// costStaticSelfOnly (pricing) and quietSelfReducePipFloor (the quiet-seat
+// proof's pip floor), so the two cannot drift apart.
+func validCardSpecIsSelf(spec string) bool { return spec == "Card.Self" }
+
 // costStaticSelfOnly reports whether sv is a cost-modifier static whose
 // ValidCard$ is exactly `Card.Self` -- the spelling costStaticGate refuses,
 // target-independently, for every priced object other than the static's own
@@ -12,7 +18,7 @@ import (
 // ValidCard$) is not self-only: the gate chain must run for it.
 func costStaticSelfOnly(sv staticView) bool {
 	spec, has := sv.Param(cards.PKValidCard)
-	return has && spec == "Card.Self"
+	return has && validCardSpecIsSelf(spec)
 }
 
 // markCostSelfOnly sets staticView.selfOnly on every raise/reduce/set member

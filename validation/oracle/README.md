@@ -77,3 +77,52 @@ change, run the forced replay instead (every scenario, no plan):
 (~20 minutes for the 20 Standard sets), then compare every row against
 main's before trusting it, and re-confirm any sampled automatic ruling the
 rewrite reset (`oraclediff rule -card X -confirm`, e.g. Tarnation Vista).
+
+## The Forge oracle: the standing second reference
+
+Forge is the third reference beside gorge and XMage. It never enters the CI
+gate; it is corroboration weighed alongside the Oracle text and the CR
+(.ds4/forge-oracle/DESIGN.md section 3). The pass writes the compact
+three-way ledger under `compliance/adjudication/<a-z>.jsonl` (operator
+decision D1=C): card, template, scenario sha, forge ref, the section 8.1
+pattern and the first-difference field of each pair. Those are gorge's own
+vocabulary; no Forge-produced value, message or script text is committed.
+Forge's raw rows, request files and caches stay under `$FORGE_ORACLE_DIR`
+and are rebuildable from the pinned driver.
+
+Run the pass after `scripts/compliance-pass.sh`, so the XMage result cache it
+adjudicates against is current. Run the XMage pass at the same level (the
+ledger is level B):
+
+    LEVEL=B scripts/compliance-pass.sh    # first: the XMage leg
+    scripts/forge-pass.sh                 # then: every printed set
+    scripts/forge-pass.sh FDN OTJ         # or named sets only
+
+Under the heavy lock it runs, per set, `oraclediff gen` (level B),
+`forge-export`, a replay of only the requests the Forge cache does not hold,
+and `forge-diff`; then one `adjudicate` over every set. The pass does not
+pass `-mark-review`, so it never writes `compliance/verdicts` (P3-3's
+contradiction review is a deliberate separate step: `oraclediff adjudicate
+-mark-review`).
+
+`adjudicate`'s ledger writer replaces whole `<a-z>.jsonl` shards, so a pass
+over a named subset writes only those sets' rows: run the full pass (no set
+arguments) to refresh the committed ledger, and treat a named-set pass as a
+survey whose ledger is partial.
+
+The cache is keyed by request sha and its directory is named by the driver
+source sha and `FORGE_ORACLE_REF`, so a warm cache replays 0 scenarios and a
+cold one replays all of them. **A change to the Forge driver, and a
+`FORGE_ORACLE_REF` bump, are the analogue of an XMage driver change:** a new
+driver starts cold, but a `FORGE_ORACLE_REF` bump whose driver source is
+otherwise unchanged does not. Force every request to replay when you need to
+be sure the rows are current:
+
+    scripts/forge-pass.sh --force         # or FORGE_PASS_FORCE=1
+
+`scripts/tests/forge_pass_smoke.sh` pins the incremental behaviour (cold
+replays all, warm replays 0, `--force` replays all) with the runner and
+`oraclediff` stubbed, so it needs no Java, Forge checkout or corpus. A
+`FORGE_REF` bump still follows DESIGN section 7.3: merge the fork's `gorge`
+branch into `oracle-harness`, bump `FORGE_ORACLE_REF`, rerun
+`scripts/forge-oracle-setup.sh`.

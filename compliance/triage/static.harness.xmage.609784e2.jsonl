@@ -1,4 +1,11 @@
-{"shape":{"template":"static","op":"harness","field":"xmage","diff":"IllegalArgumentException: pass at step N needs seat N to be the active player"},"key":"static | harness | xmage | IllegalArgumentException: pass at step N needs seat N to be the active player","cards":3}
+{"shape":{"template":"static","op":"harness","field":"xmage","diff":"IllegalArgumentException: pass at step N needs seat N to be the active player"},"key":"static | harness | xmage | IllegalArgumentException: pass at step N needs seat N to be the active player","cards":10}
+{"card":"Bard's Company","template":"static#0.0","status":"harness","api":"ChangesZone:Recruit+Attacks:Recruit","sets":["HOB"],"detail":"xmage: IllegalArgumentException: pass at step 1 needs seat 0 to be the active player"}
 {"card":"Depower","template":"static#0.0","status":"harness","api":"Pump+Draw","sets":["MSH"],"detail":"xmage: IllegalArgumentException: pass at step 2 needs seat 0 to be the active player"}
+{"card":"High Fae Trickster","template":"static#0.0","status":"harness","api":"-","sets":["FDN"],"detail":"xmage: IllegalArgumentException: pass at step 1 needs seat 0 to be the active player"}
+{"card":"Illusion Spinners","template":"static#0.0","status":"harness","api":"-","sets":["ECL"],"detail":"xmage: IllegalArgumentException: pass at step 1 needs seat 0 to be the active player"}
+{"card":"Radagast of Rhosgobel","template":"static#0.1","status":"harness","api":"-","sets":["HOB"],"detail":"xmage: IllegalArgumentException: pass at step 1 needs seat 0 to be the active player"}
 {"card":"Run Behind","template":"static#0.0","status":"harness","api":"ChangeZone","sets":["SOS"],"detail":"xmage: IllegalArgumentException: pass at step 2 needs seat 0 to be the active player"}
+{"card":"Serpent of the Pass","template":"static#0.0","status":"harness","api":"-","sets":["TLA"],"detail":"xmage: IllegalArgumentException: pass at step 1 needs seat 0 to be the active player"}
 {"card":"Uneasy Partings","template":"static#0.0","status":"harness","api":"ChangeZone","sets":["HOB"],"detail":"xmage: IllegalArgumentException: pass at step 2 needs seat 0 to be the active player"}
+{"card":"Valley Floodcaller","template":"static#0.0","status":"harness","api":"SpellCast:PumpAll","sets":["BLB"],"detail":"xmage: IllegalArgumentException: pass at step 1 needs seat 0 to be the active player"}
+{"card":"Whirlwing Stormbrood","template":"static#0.0","status":"harness","api":"-","sets":["TDM"],"detail":"xmage: IllegalArgumentException: pass at step 1 needs seat 0 to be the active player"}

@@ -116,8 +116,9 @@ func TestTriggerConditionSkipsAreNamed(t *testing.T) {
 	reg := loadGenRegistry(t)
 	for _, tc := range []struct{ name, key, want string }{
 		{"Fearless Swashbuckler", "trigger#0.0", "trigger condition: SVar gate (SVar$Y/Plus)"},
-		{"Clandestine Meddler", "trigger#0.1", "trigger condition: attacker property"},
-		{"Tolsimir, Midnight's Light", "trigger#0.1", "trigger condition: self state"},
+		// Clandestine Meddler and Tolsimir, Midnight's Light moved to the
+		// served side: their attacker shapes are causes now
+		// (trigger_attacker_property_test.go).
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			c, ok := reg.Lookup(tc.name)

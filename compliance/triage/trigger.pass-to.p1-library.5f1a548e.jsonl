@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"pass_to","field":"p1.library","diff":"placement"},"key":"trigger | pass_to | p1.library | placement","cards":1}
+{"card":"Etrata, Deadly Fugitive","template":"trigger#0.0","status":"diverge","api":"DamageDone:Cloak","sets":["MKM"],"detail":"step 1 (pass_to) p1.library_count: gorge \"39\", xmage \"38\""}
