@@ -1,0 +1,2 @@
+{"shape":{"template":"static","op":"cast","field":"p0.graveyard","diff":"gorge+[] xmage+[Colossal Dreadmaw, Craw Wurm]"},"key":"static | cast | p0.graveyard | gorge+[] xmage+[Colossal Dreadmaw, Craw Wurm]","cards":1}
+{"card":"Analyze the Pollen","template":"static#0.0","status":"diverge","api":"ChangeZone","sets":["MKM"],"detail":"step 0 (cast) p0.graveyard: gorge \"[]\", xmage \"[Colossal Dreadmaw, Craw Wurm]\""}
