@@ -225,6 +225,12 @@ func costCountPrelude(reg *cards.Registry, f *cards.Face, svar, compare string) 
 	if body == "" {
 		body = svar
 	}
+	// "for each creature that attacked this turn" is a PlayerCountPlayers$
+	// head the shared condition classifier does not name; p0 attacks with the
+	// counted creatures, then casts the probe in the second main.
+	if attackerCountBody(body) {
+		return attackerCountPrelude(reg, compare)
+	}
 	zone, filter := costValidBody(body)
 	if filter != "" {
 		if i := strings.IndexAny(filter, "/$"); i >= 0 {
