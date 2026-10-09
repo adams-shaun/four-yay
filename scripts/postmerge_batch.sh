@@ -74,7 +74,7 @@ if [ "${1:-}" = "--parse-fails" ]; then parse_fails "$2"; exit 0; fi
 # fails_at <sha> <pkg> <regex>: 0 if the tests FAIL at sha, 1 if they pass.
 fails_at() {
   git -C "$wt" switch -q --detach "$1" || return 2
-  ! (cd "$wt" && flock -o "$LOCK" "${SCOPE[@]}" go test -p=4 -run "$3" "$2" >/dev/null 2>&1)
+  ! (cd "$wt" && gorge_heavy_run "${SCOPE[@]}" go test -p=4 -run "$3" "$2" >/dev/null 2>&1)
 }
 
 # bisect <good> <bad> <pkg> <regex>: first first-parent commit in good..bad
@@ -112,7 +112,7 @@ while true; do
       red_fails=""
       say "FULL start ${head:0:9} ($(git rev-list --first-parent --count "$last_green..$head") since last green ${last_green:0:9})"
       s=$(date +%s)
-      if flock -o "$LOCK" "${SCOPE[@]}" scripts/postmerge_full.sh "$wt" "$head" >"$OUT" 2>&1; then
+      if gorge_heavy_run "${SCOPE[@]}" scripts/postmerge_full.sh "$wt" "$head" >"$OUT" 2>&1; then
         last_tested=$head
         if git push -q origin "$head:refs/heads/main"; then
           last_green=$head

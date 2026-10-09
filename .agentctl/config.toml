@@ -346,26 +346,37 @@ env = { GOMEMLIMIT = "1GiB", GOMAXPROCS = "4", GOFLAGS = "-p=2 -trimpath" }
 # their own processes, ./view, ./internal/codeshape and every package the
 # branch touched. Run from the BASE copy so a branch cannot edit its own gate.
 name = "go test (affected)"
-cmd = ["bash", "-c", "set -o pipefail; if [ -n \"${GORGE_HEAVY_LOCK:-}\" ]; then lock=\"$GORGE_HEAVY_LOCK\"; else common=\"$(git rev-parse --path-format=absolute --git-common-dir)\"; lock=\"$(dirname \"$common\")/.ds4/heavy.lock\"; fi; mkdir -p \"$(dirname \"$lock\")\"; started=\"$(mktemp)\"; flock -o -E 75 -w 1500 \"$lock\" bash -c 'rm -f -- \"$1\"; shift; exec \"$@\"' _ \"$started\" systemd-run --user --scope -q -p MemoryMax=8G -p CPUQuota=800% bash -c 'set -o pipefail; git show {base}:scripts/gate_affected.sh | bash -s {base}'; rc=$?; if [ -e \"$started\" ] && [ \"$rc\" = 75 ]; then echo 'gate: heavy lock still held after 1500s; affected gate not run' >&2; fi; rm -f -- \"$started\"; exit \"$rc\""]
-# 2026-10-05 (operator): this gate is HEAVY-class work, so it takes the one
-# repo heavy lock like postmerge_batch.sh and heavy.sh. The lock acquisition is
-# INLINED here: the path is derived inline from the shared git common dir
-# (`git rev-parse --git-common-dir`), exactly as scripts/heavy_lock.sh does, so
-# no branch-only file has to come from {base} (extracting a helper that did not
-# exist in `main` failed the extraction on the ticket that introduced it). A
-# branch still cannot weaken this: nothing here is read from the branch, and
-# {base} is only used to fetch scripts/gate_affected.sh as before. GORGE_HEAVY_LOCK
-# overrides the path (tests/operators). `flock -o` closes the fd so it never
-# reaches the testing child; `-E 75` plus the start marker makes a bounded lock
-# timeout exit 75 with a diagnostic (the helper's marker trick, inlined), not a
-# silent hang. The wait is BOUNDED:
-# 1500 s (exit 75, command not run, gate red with a "still held" line) on top of
-# the old 600 s run budget. A heavy.sh lease cannot make it wait on a frozen job:
-# the gate-begin bracket above pauses every lease and a parked lease yields the
-# lock (heavy.sh supervisor). A heavy.sh job still PARKED in the broker wait
-# (gate active, so `may-i` refuses) holds no lock either: heavy.sh asks the
-# broker BEFORE it takes the lock. What it can wait on is a running post-merge
-# full suite, which holds the lock for its whole length and is never paused.
+cmd = ["bash", "-c", "set -o pipefail; if [ -n \"${GORGE_HEAVY_LOCK:-}\" ]; then lock=\"$GORGE_HEAVY_LOCK\"; else common=\"$(git rev-parse --path-format=absolute --git-common-dir)\"; lock=\"$(dirname \"$common\")/.ds4/heavy.lock\"; fi; lanes=${GORGE_HEAVY_LANES:-2}; mkdir -p \"$(dirname \"$lock\")\"; acquired=; deadline=$(( $(date +%s) + 1500 )); while [ -z \"$acquired\" ]; do i=1; while [ \"$i\" -le \"$lanes\" ]; do f=\"$lock\"; [ \"$i\" = 1 ] || f=\"$lock.lane$i\"; : >>\"$f\" 2>/dev/null || { i=$((i+1)); continue; }; exec 9>>\"$f\"; if flock -n 9 2>/dev/null; then acquired=\"$f\"; break; fi; i=$((i+1)); done; if [ -z \"$acquired\" ]; then now=$(date +%s); if [ \"$now\" -lt \"$deadline\" ]; then rem=$(( deadline - now )); [ \"$rem\" -gt 5 ] && rem=5; sleep \"$rem\" 9>&-; else echo \"gate: every heavy lane of $lock still held after 1500s; affected gate not run\" >&2; exit 75; fi; fi; done; systemd-run --user --scope -q -p MemoryMax=8G -p CPUQuota=800% bash -c 'set -o pipefail; git show {base}:scripts/gate_affected.sh | bash -s {base}'; rc=$?; exit \"$rc\""]
+# 2026-10-05 (operator): this gate is HEAVY-class work, so it takes a lane of
+# the repo heavy pool like postmerge_batch.sh and heavy.sh. The lane
+# acquisition is INLINED here: the path is derived inline from the shared git
+# common dir (`git rev-parse --git-common-dir`), exactly as
+# scripts/heavy_lock.sh does, and the lane scan is the same first-free lane
+# over GORGE_HEAVY_LANES lanes with lane 1 = the base file (2026-10-09: the
+# single lock became a 2-lane pool when the box went to 120 GiB, so this gate
+# and the post-merge full suite can run at the same time). It is inlined
+# because no branch-only file has to come from {base} (extracting a helper
+# that did not exist in `main` failed the extraction on the ticket that
+# introduced it). A branch still cannot weaken this: nothing here is read from
+# the branch, and {base} is only used to fetch scripts/gate_affected.sh as
+# before. GORGE_HEAVY_LOCK overrides the base path (tests/operators). The
+# lane fd (9) is held by THIS bash, which then runs systemd-run as a child:
+# the child inherits the open fd (and the lock on it, flock being a property
+# of the open file description), so the lane is held for exactly the gate's
+# lifetime and is released when this bash exits after capturing the child's
+# rc. The old `flock -o` (fd never reaches the child) is deliberately gone:
+# nothing inside gate_affected.sh takes the heavy pool, so an inherited fd
+# cannot pin anything beyond the gate itself. The wait is BOUNDED: 1500 s
+# scanning the lanes every ≤5 s, never running past the deadline (exit 75,
+# command not run, gate red with a "still held" line) on top of the old 600 s
+# run budget. A heavy.sh lease
+# cannot make it wait on a frozen job: the gate-begin bracket above pauses
+# every lease and a parked lease yields its lane (heavy.sh supervisor). A
+# heavy.sh job still PARKED in the broker wait (gate active, so `may-i`
+# refuses) holds no lane either: heavy.sh asks the broker BEFORE it takes a
+# lane. What it can wait on is a running post-merge full suite, which holds a
+# lane for its whole length and is never paused — with 2 lanes the other lane
+# stays free for a lease meanwhile.
 #
 # gate_affected bounds the test phase to four concurrent test binaries
 # (each invocation uses -p=1); its vet phase is sequential and uses -p=2.
