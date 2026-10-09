@@ -313,6 +313,11 @@ func staticBase(reg *cards.Registry, c *cards.Card, f *cards.Face, name string, 
 	probes := append([]string{staticProbe}, plan.probes...)
 	var base oraclegen.Item
 	switch {
+	case req.Face > 0 && levelb.IsRoomCard(c):
+		// A Room's second door is cast, not placed: no engine unlocks a
+		// setup-placed door (CR 709.5). The face named by its own face name
+		// is the door the runner binds to room_alt.
+		return roomDoorCastBase(reg, c, f, name, req, probes)
 	case staticCounterGated(&st) && (!staticSelfETB(f) || stationGatedSelf(f, &st)):
 		// The card starts on the battlefield holding the counters its gate
 		// names, so the effect is already on at the first checkpoint. A card
