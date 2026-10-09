@@ -105,6 +105,11 @@ pass `-mark-review`, so it never writes `compliance/verdicts` (P3-3's
 contradiction review is a deliberate separate step: `oraclediff adjudicate
 -mark-review`).
 
+`adjudicate`'s ledger writer replaces whole `<a-z>.jsonl` shards, so a pass
+over a named subset writes only those sets' rows: run the full pass (no set
+arguments) to refresh the committed ledger, and treat a named-set pass as a
+survey whose ledger is partial.
+
 The cache is keyed by request sha and its directory is named by the driver
 source sha and `FORGE_ORACLE_REF`, so a warm cache replays 0 scenarios and a
 cold one replays all of them. **A change to the Forge driver, and a
