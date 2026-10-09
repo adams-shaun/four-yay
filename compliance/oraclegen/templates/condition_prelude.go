@@ -108,9 +108,17 @@ func conditionPreludes(reg *cards.Registry, params, svars map[string]string) []c
 	if contains("validgraveyard", "presentzone$ graveyard", "delirium", "threshold") {
 		add(conditionPrelude{graveyard: []string{"Llanowar Elves", "Island", "Shock", "Sol Ring"}})
 	}
+	// Threshold counts cards, not card types, and a threshold trigger may
+	// remove one at random (Tersa Lightshatter exiles a card at random from
+	// the graveyard when it attacks). Same-name copies leave the same
+	// snapshot whichever card each engine's random pick takes; delirium still
+	// needs the four card types bigGraveyard holds.
+	if contains("threshold") && !contains("delirium") {
+		add(conditionPrelude{graveyard: oraclegen.Repeat("Wastes", 9)})
+	}
 	// Four card types (delirium), seven cards (threshold) and eight permanent
 	// cards (descend 8) in one graveyard, distinct so that setup keeps each.
-	if contains("delirium", "threshold", "permanent.youown", "validgraveyard") {
+	if contains("delirium", "permanent.youown", "validgraveyard") {
 		add(conditionPrelude{graveyard: bigGraveyard})
 	}
 	if contains("lesson.youown") {
