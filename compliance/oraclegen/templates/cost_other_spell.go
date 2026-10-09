@@ -50,9 +50,10 @@ func otherCostProbes(reg *cards.Registry, source *cards.Face, name string, idx i
 	}
 	if strings.Contains(filter, "token") {
 		// The reduced abilities belong to tokens (Mutagen Man), which are
-		// not registry probes: activating one needs the token's XMage
-		// ability rule text, which no agreed replay pins yet.
-		return nil, "token ability fixture unavailable (no XMage-proven token ability text)"
+		// not registry probes: a token-ability probe
+		// (cost_other_spell_token.go) makes one with a token maker and
+		// activates the token's own face.
+		return tokenAbilityProbes(reg, source, st, filter, costProbe{battlefield: []string{name}})
 	}
 	base := costProbe{battlefield: []string{name}}
 	if band := classStaticBand(&st); band >= 2 {

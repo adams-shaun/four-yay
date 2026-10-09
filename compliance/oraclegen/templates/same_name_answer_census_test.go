@@ -191,6 +191,19 @@ func sameNameBucketRank(bucket string) int {
 //
 // Unresolved stayed 0 in every set through all moves; that is the
 // defect measure.
+//
+// Re-measured on the level-B keyword-action-trigger land
+// (agent-20261009T160937Z-c135e2b0): DSK unproven 34 -> 35. Serving
+// Paranormal Analyst's Mode$ ManifestDread trigger (cast Manifest Dread,
+// which manifests dread and puts a card into the graveyard) generates one
+// new scenario, Paranormal Analyst/trigger#0.0, whose "put a card you put
+// into your graveyard this way into your hand" chooser pick is a
+// rank-derived library card (ref "p0:Wastes#N"), so no exact answer exists --
+// Unproven, not Unresolved. The item tracks the new scenario one-for-one and
+// disappears if the trigger.manifest-dread recipe is reverted. No other set
+// moved: the other keyword-action causes (explore, plot, saddle, collect
+// evidence, discover, gift, forage, elemental bend) generate items whose
+// picks are exact aliases or need no same-name discrimination.
 var wantSameNameCensus = map[string]string{
 	"BIG": `{"alias":0,"copy":0,"unresolved":0,"unproven":1,"items":null}`,
 	"BLB": `{"alias":3,"copy":0,"unresolved":0,"unproven":5,"items":null}`,
