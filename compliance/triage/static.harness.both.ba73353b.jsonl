@@ -1,0 +1,2 @@
+{"shape":{"template":"static","op":"harness","field":"both","diff":"checkpoint \"step N (attack)\" vs \"step N (pass_to)\""},"key":"static | harness | both | checkpoint \"step N (attack)\" vs \"step N (pass_to)\"","cards":1}
+{"card":"Ancient Adamantoise","template":"static#0.0","status":"harness","api":"ChangesZone:ChangeZone+BecomesTarget:Ward","sets":["FIN"],"detail":"both: checkpoint \"step 0 (attack)\" vs \"step 3 (pass_to)\""}

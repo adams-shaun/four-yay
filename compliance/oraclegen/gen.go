@@ -1101,6 +1101,12 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSt
 			}
 			as = append(as, XAnswer{d.Seat, "choice", map[bool]string{true: "yes", false: "no"}[yes]})
 		case "choose_n":
+			if routing.manaHoistedPick(i) {
+				// The colour answer was hoisted to the trigger-order span's
+				// queue position (manaHoistSpan); emitting it here too would
+				// double it.
+				continue
+			}
 			if d.Resume == "damage_split" {
 				if routing.ownsSplit(i) {
 					// The shares were emitted at the target ask's own queue
@@ -1242,6 +1248,19 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSt
 				// this step scripts nothing else; shared steps keep the old
 				// inert text form (demoteTriggerOrderSpans).
 				if !triggerOrderNamesDistinct(d) {
+					// A same-source span whose step later asks a mana colour
+					// pick (Ashling, Rimebound's OrTriggeredAbility mana
+					// trigger): the colour dialog fires while the span's inert
+					// rule texts sit at the queue head and pops the first one
+					// -- the text form is unconsumable only while no other
+					// dialog fires. So the colour answer leads the stream and
+					// the span scripts nothing; any later order ask falls to
+					// the replay's fallback player, as the inert form already
+					// let it.
+					if ans, ok := routing.manaHoistSpan(i); ok {
+						as = append(as, ans)
+						break
+					}
 					as = append(as, triggerOrderTextAnswers(d)...)
 					break
 				}
@@ -1500,6 +1519,13 @@ func targetDecisionAnswers(r *answerRouting, i int) []XAnswer {
 			// pick keeps its full ref, which the driver's targetName maps to
 			// the object's @alias.
 			if p := ClassifySameName(d, k); p.Alias != "" {
+				as = append(as, XAnswer{d.Seat, "target", ref})
+				continue
+			}
+			if currentFaceTargetRef(d, k) {
+				// The option label names a different object than the ref --
+				// the permanent's current face (a transformed DFC, a face-down
+				// card). The ref's identity alias selects the live object.
 				as = append(as, XAnswer{d.Seat, "target", ref})
 				continue
 			}
@@ -1885,7 +1911,10 @@ type trigSpan struct {
 // triggerOrderTextAnswers is the pre-name behaviour: the label's rule text
 // for every pick. XMage's rule wording matches gorge's TriggerDescription$
 // only by coincidence, so these are inert -- never consumed, never steering
-// the order -- but they are also unconsumable by the step's other dialogs.
+// the order -- and against most dialogs unconsumable; NOT against a firing
+// colour dialog, which pops the head and throws (measured: Ashling,
+// Rekindled/trigger#1.1). manaHoistSpan replaces the span with the colour
+// answer when the step later asks one.
 func triggerOrderTextAnswers(d rules.OracleDecision) []XAnswer {
 	out := make([]XAnswer, 0, len(d.Picks))
 	for _, label := range d.Picks {
@@ -1900,7 +1929,9 @@ func triggerOrderTextAnswers(d rules.OracleDecision) []XAnswer {
 // order dialog), so a leftover one derails them, while the text form is not
 // (measured: Baron Strucker/static#0.0, whose ETB order ask XMage poses at
 // another point than gorge recorded, replays agree only with the text form).
-// A step whose ONLY answers are trigger-order names keeps the name form: the
+// The text form is not inert against EVERY dialog: a firing colour dialog
+// pops and throws on it, which is the manaHoistSpan routing's job. A step
+// whose ONLY answers are trigger-order names keeps the name form: the
 // names are consumed by the order ask itself and steer it.
 func demoteTriggerOrderSpans(out [][]XAnswer, spans []*trigSpan) {
 	if len(spans) == 0 {

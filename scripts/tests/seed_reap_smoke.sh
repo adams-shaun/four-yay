@@ -152,6 +152,24 @@ os.waitpid(pid, 0)"
 	return 1
 }
 
+# spawn_supervised <port> <dir> — a REAL demo-port neighbour the reaper must
+# protect by its documented port contract (never reap), so it must NOT look
+# like a standing instance to the collector either. Unlike spawn_detached it
+# stays a DIRECT child of THIS script (a live `.sh`), which is exactly the
+# collector's script-supervisor ownership signal -- so a reward probe that
+# overlaps this test cannot count it. A detached fixture is indistinguishable
+# from a real leaked server: the probe at 2026-10-09T16:44 caught the detached
+# `/tmp/gorge-demo-seed-smoke` neighbour beside the intended :8080 demo and
+# vetoed the scoreboard (standing_gorged_excess=1 at head e5d3a10da) -- a veto
+# no caretaker could clear, because the reaper protects demo ports by design.
+# Sets SUPERVISED_PID. The port is only ever a FLAG, never bound.
+SUPERVISED_PID=""
+spawn_supervised() { # <port> <dir>
+	python3 -c 'import time; time.sleep(300)' \
+		-addr "127.0.0.1:$1" -tables 1 -dir "$2" &
+	SUPERVISED_PID=$!
+}
+
 # carry_into_faketree <pid> — put a REAL process's cmdline/stat into the fake
 # tree at its real pid, so classify() sees it and any --apply signals the
 # real process (gorged_reap_smoke.sh's pattern).
@@ -181,11 +199,32 @@ print(sum(1 for l in open(f'{sys.argv[1]}/scoreboard.jsonl') if l.strip()
 ORPHAN=$(spawn_detached 8093 /tmp/gorge-reap-seed-orphan "$TMP/orphan.pid")
 [ -n "$ORPHAN" ]
 check "a detached real orphan is running, adopted away from this script" $?
-DEMO=$(spawn_detached 8080 /tmp/gorge-demo-seed-smoke "$TMP/demo.pid")
-[ -n "$DEMO" ]
+spawn_supervised 8080 /tmp/gorge-demo-seed-smoke
+DEMO=$SUPERVISED_PID
+kill -0 "$DEMO" 2>/dev/null
 check "a real demo-port neighbour is running" $?
 [ -n "$ORPHAN" ] && carry_into_faketree "$ORPHAN"
 [ -n "$DEMO" ] && carry_into_faketree "$DEMO"
+
+# The recorded 2026-10-09 veto: a probe overlapping this test must not count
+# the demo-port neighbour as a standing instance. Assert that on the REAL
+# process table, before the listing below is scoped to the fake tree: the
+# supervised child is owned by the script-supervisor signal. This is the
+# assertion that fails if the neighbour is spawned detached (ppid 1, unowned),
+# which is exactly how the veto was recorded.
+standing_note=$(python3 - "$ROOT" <<'PY'
+import sys
+from pathlib import Path
+sys.path.insert(0, sys.argv[1] + "/scripts")
+import reward_collect as rc
+print(rc.collect_gorged_hygiene(Path("/proc"))[2])
+PY
+)
+if grep -q "pid=$DEMO " <<<"$standing_note"; then
+	check "the demo-port neighbour is not a standing instance on the real table" 1 "$standing_note"
+else
+	check "the demo-port neighbour is not a standing instance on the real table" 0
+fi
 
 export GORGE_PROC_DIR=$FAKEPROC
 RDIR1=$TMP/reward1

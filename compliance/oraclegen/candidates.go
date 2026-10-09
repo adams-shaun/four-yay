@@ -38,6 +38,15 @@ type Slot struct {
 	// explicit skip (XTargetSkip); a repeated, combat-expanded or "up to N"
 	// slot is never one.
 	ZeroOrOne bool
+	// Min and Max are the slot's literal TargetMin$/TargetMax$ bounds when
+	// this ability compiles to ONE XMage target object (0 for a repeated,
+	// combat-expanded or dynamic-bound shape). XMage keeps asking a 1..N
+	// object until it holds N targets or an explicit skip closes it, so a
+	// slot filled with fewer than Max picks needs a skip after its last pick;
+	// 0 Max means the bound cannot be read off the text and the plan is never
+	// derived for the slot.
+	Min int
+	Max int
 }
 
 // zeroOrOneTarget reports whether an ability's target is one independent
@@ -91,6 +100,22 @@ func paramTrue(params map[string]string, key string) bool {
 	return strings.EqualFold(strings.TrimSpace(params[key]), "True")
 }
 
+// declaredTargetBound parses one literal TargetMin$/TargetMax$ bound. An
+// absent bound is Forge's default of 1; a dynamic bound (X, OneEach, a Count$
+// SVar) returns 0, "no literal bound", which keeps the explicit-skip plan
+// away from objects whose XMage bounds cannot be read off the text.
+func declaredTargetBound(params map[string]string, key string) int {
+	raw := strings.TrimSpace(params[key])
+	if raw == "" {
+		return 1
+	}
+	n, err := strconv.Atoi(raw)
+	if err != nil {
+		return 0
+	}
+	return n
+}
+
 // repeatedSlots expands one ability's slot to the number of targets it
 // demands (requiredSlotCount, or the combat expansion when combat is set),
 // marking the mirror picks of a different-controllers slot.
@@ -105,8 +130,16 @@ func repeatedSlots(f *cards.Face, params map[string]string, v string, combat boo
 	parent := parentTargetSlot(params)
 	out := make([]Slot, 0, count)
 	single := count == 1 && zeroOrOneTarget(params)
+	// Only a one-object ability's literal bounds name an XMage object's own
+	// min/max; a repeated or combat-expanded shape maps to several slots (or
+	// one expanded object) the plan cannot index, so it keeps Min/Max 0.
+	min, max := 0, 0
+	if count == 1 {
+		min = declaredTargetBound(params, "TargetMin")
+		max = declaredTargetBound(params, "TargetMax")
+	}
 	for i := 0; i < count; i++ {
-		out = append(out, Slot{Filter: v, Optional: optionalTarget(params), Mirror: diff && i%2 == 1, ParentTarget: parent, ZeroOrOne: single})
+		out = append(out, Slot{Filter: v, Optional: optionalTarget(params), Mirror: diff && i%2 == 1, ParentTarget: parent, ZeroOrOne: single, Min: min, Max: max})
 	}
 	return out
 }

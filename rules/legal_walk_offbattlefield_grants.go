@@ -41,7 +41,7 @@ func offBattlefieldGrantedWalk(w *legalWalk) {
 		}
 		sv := strings.TrimSpace(carrier.ParamStr(cards.PKAddAbility))
 		ab := e.grantedSAFrom(carrier.Source, carrier.Source, sv)
-		if !grantedAnchorZoneOK(o, ab) || cards.IsManaAbilityAPI(ab.API) {
+		if !grantedAnchorZoneOK(o, ab) || cards.IsManaAbilitySA(ab) {
 			continue
 		}
 		if w.abilityRestricted(p, carrier.Source, ab) || e.castSuppressed(p, carrier.Source) {

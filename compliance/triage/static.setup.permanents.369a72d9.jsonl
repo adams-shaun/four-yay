@@ -1,0 +1,2 @@
+{"shape":{"template":"static","op":"setup","field":"permanents","diff":"Giant Spider gorge+[2/4] xmage+[3/5, counters=P1P1=1]"},"key":"static | setup | permanents | Giant Spider gorge+[2/4] xmage+[3/5, counters=P1P1=1]","cards":1}
+{"card":"Spider-Punk","template":"static#0.1","status":"diverge","api":"-","sets":["SPM"],"detail":"setup permanents: gorge \"c0 o0 Giant Spider [creature spider] {G} 2/4\", xmage \"c0 o0 Giant Spider [creature spider] {G} 3/5 counters=P1P1=1\""}

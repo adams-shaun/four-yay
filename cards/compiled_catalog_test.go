@@ -228,10 +228,15 @@ func textualSpellAbility(face *Face) *SA {
 	return nil
 }
 
+// textualManaAbilities mirrors the list membership the compiled span is built
+// from: the shared chain-aware classifier (manaAbilityListEntry), so a chain
+// reaching a DB$ Mana counts. The parity test then exercises the span
+// construction -- append order, the count pass and the pointer span -- rather
+// than a second copy of the predicate.
 func textualManaAbilities(face *Face) []*SA {
 	var out []*SA
 	for _, ability := range face.Abilities {
-		if ability.Kind == "AB" && ability.API == "Mana" {
+		if manaAbilityListEntry(ability) {
 			out = append(out, ability)
 		}
 	}
