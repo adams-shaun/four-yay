@@ -193,6 +193,14 @@ func baseTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards
 			st.Seat, st.Card = 1, "p1:"+shockProbe
 			out = append(out, triggerCause{opponentHand: []string{shockProbe}, steps: []oraclegen.Step{{Op: "pass", Seat: 0}, st}})
 		}
+	case "trigger.becomes-target-ability":
+		// Loki, God of Mischief: the targeting cause is p0's own targeted {T}
+		// ability (Prodigal Sorcerer) at p1, the same shape the
+		// trigger.ability-activated sub's cause serves; ValidSA$ is honored
+		// when the trigger carries one.
+		if c, ok := activatedCause(reg, name, "Prodigal Sorcerer", t); ok {
+			out = append(out, c)
+		}
 	case "trigger.life-gained":
 		for _, p := range lifegainProbes {
 			cast(p)
