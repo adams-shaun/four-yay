@@ -1,0 +1,4 @@
+{"shape":{"template":"static","op":"harness","field":"xmage","diff":"IllegalStateException: Error in unit tests: permanent ref pN:Pacifism is not on the battlefield"},"key":"static | harness | xmage | IllegalStateException: Error in unit tests: permanent ref pN:Pacifism is not on the battlefield","cards":3}
+{"card":"A Tale for the Ages","template":"static#0.0","status":"harness","api":"-","sets":["WOE"],"detail":"xmage: IllegalStateException: Error in unit tests: permanent ref p0:Pacifism is not on the battlefield"}
+{"card":"Archon of the Wild Rose","template":"static#0.0","status":"harness","api":"-","sets":["WOE"],"detail":"xmage: IllegalStateException: Error in unit tests: permanent ref p0:Pacifism is not on the battlefield"}
+{"card":"Zoetic Glyph","template":"static#0.0","status":"harness","api":"Attach","sets":["LCI"],"detail":"xmage: IllegalStateException: Error in unit tests: permanent ref p0:Pacifism is not on the battlefield"}
