@@ -21,8 +21,8 @@ import (
 // problem for every unmet requirement of a card that passed level A. A
 // requirement covered by the level-A scenario (a face-0 self-ETB trigger the
 // cast-resolve scenario settles) adds nothing.
-func checkB(reg *cards.Registry, root, set string) ([]Problem, error) {
-	aProbs, scan, okA, err := checkA(reg, root, set)
+func checkB(reg *cards.Registry, root, set string, sh *sharedTables) ([]Problem, error) {
+	aProbs, scan, okA, err := checkA(reg, root, set, sh)
 	if err != nil {
 		return nil, err
 	}
