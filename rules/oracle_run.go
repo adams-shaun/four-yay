@@ -775,6 +775,9 @@ func (r *oracleRun) submit(d *decision.Decision, choices []int, why string) erro
 			if option.Obj != 0 {
 				od.OptionRefs = append(od.OptionRefs, r.objRef(r.e.G.Obj(option.Obj)))
 			}
+			if option.Group != "" {
+				od.OptionGroups = append(od.OptionGroups, option.Group)
+			}
 		}
 		for _, c := range choices {
 			if c < 0 || c >= len(d.Options) {
