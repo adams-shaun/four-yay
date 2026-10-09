@@ -1911,7 +1911,10 @@ type trigSpan struct {
 // triggerOrderTextAnswers is the pre-name behaviour: the label's rule text
 // for every pick. XMage's rule wording matches gorge's TriggerDescription$
 // only by coincidence, so these are inert -- never consumed, never steering
-// the order -- but they are also unconsumable by the step's other dialogs.
+// the order -- and against most dialogs unconsumable; NOT against a firing
+// colour dialog, which pops the head and throws (measured: Ashling,
+// Rekindled/trigger#1.1). manaHoistSpan replaces the span with the colour
+// answer when the step later asks one.
 func triggerOrderTextAnswers(d rules.OracleDecision) []XAnswer {
 	out := make([]XAnswer, 0, len(d.Picks))
 	for _, label := range d.Picks {
@@ -1926,7 +1929,9 @@ func triggerOrderTextAnswers(d rules.OracleDecision) []XAnswer {
 // order dialog), so a leftover one derails them, while the text form is not
 // (measured: Baron Strucker/static#0.0, whose ETB order ask XMage poses at
 // another point than gorge recorded, replays agree only with the text form).
-// A step whose ONLY answers are trigger-order names keeps the name form: the
+// The text form is not inert against EVERY dialog: a firing colour dialog
+// pops and throws on it, which is the manaHoistSpan routing's job. A step
+// whose ONLY answers are trigger-order names keeps the name form: the
 // names are consumed by the order ask itself and steer it.
 func demoteTriggerOrderSpans(out [][]XAnswer, spans []*trigSpan) {
 	if len(spans) == 0 {
