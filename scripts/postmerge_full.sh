@@ -16,7 +16,7 @@ skip='^(TestHeads|TestInvariantsUnderSeedFuzz[0-9]*)$'
 # (db57ab8e6 made the oraclegen target audit opt-in); the full suite runs them.
 export GORGE_ORACLEGEN_FULL_TARGET_AUDIT=1
 go vet -p=8 ./...
-# Per-test budget (operator, 2026-10-05): every test fits 2 GB RSS, 2 vCPU,
+# Per-test budget (operator, 2026-10-05, doubled 2026-10-09): every test fits 4 GB RSS, 4 vCPU,
 # 1 min wall. Test binaries record their own peak RSS through internal/testbudget;
 # cmd/testbudget reads those persistent records and the per-test wall from the
 # -json stream (tee reprints the plain text the batch's failure parser reads).
