@@ -71,6 +71,17 @@ func classifyEventTrigger(t *cards.Trigger) (sub string, ok bool) {
 		if namesSelf(t.ParamStr(cards.PKValidTarget)) && !strings.EqualFold(t.ParamStr(cards.PKCombatDamage), "True") {
 			return "trigger.noncombat-damage", true
 		}
+	case cards.TriggerExcessDamageAll:
+		// "Whenever one or more creatures your opponents control are dealt
+		// excess noncombat damage": the cause is Shock (2 damage) at a
+		// 1-toughness creature p1 controls, one point of excess. A combat
+		// shape or a you-control filter stays a gap (the engine matcher
+		// would fire, but no probe cause is built for it).
+		vt := t.ParamStr(cards.PKValidTarget)
+		if !strings.EqualFold(t.ParamStr(cards.PKCombatDamage), "True") &&
+			!filterHasToken(vt, "YouCtrl") && !filterHasToken(vt, "Self") {
+			return "trigger.excess-damage", true
+		}
 	case cards.TriggerAbilityCast:
 		if strings.EqualFold(t.ParamStr(cards.PKValidActivatingPlayer), "You") &&
 			strings.EqualFold(t.ParamStr(cards.PKValidSA), "Activated.Loyalty") {

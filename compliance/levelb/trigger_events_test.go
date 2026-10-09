@@ -35,7 +35,7 @@ func TestEventTriggerSubFamilies(t *testing.T) {
 		{"self deals damage", "DamageDealtOnce", map[string]string{"ValidSource": "Card.Self", "TriggerZones": "Battlefield"}, DamageSub, false, false},
 		{"enchanted creature dealt damage", "DamageDoneOnce", map[string]string{"ValidTarget": "Creature.EnchantedBy", "TriggerZones": "Battlefield"}, DamageSub, false, false},
 		{"Ajani Unrelenting", "AbilityCast", map[string]string{"ValidActivatingPlayer": "You", "ValidSA": "Activated.Loyalty"}, "trigger.loyalty-activated", false, false},
-		{"Gideon the Oathless", "AbilityCast", map[string]string{"ValidSA": "Activated.Loyalty+OppCtrl"}, "trigger.gap:AbilityCast", true, false},
+		{"Gideon the Oathless", "AbilityCast", map[string]string{"ValidSA": "Activated.Loyalty+OppCtrl"}, "trigger.ability-activated-opponent", false, false},
 		{"Way of the Mind Sculptor", "AbilityCast", map[string]string{"ValidActivatingPlayer": "You", "ValidSA": "Activated.Loyalty+CountersRemovedToPayGE2"}, "trigger.gap:AbilityCast", true, false},
 		{"Inspired Tethermage", "CounterAddedOnce", map[string]string{"CounterType": "LOYALTY", "ValidCard": "Planeswalker", "ValidSource": "You"}, "trigger.loyalty-activated", false, false},
 		{"Stormchaser's Talent", "ClassLevelGained", map[string]string{"ClassLevel": "2", "ValidCard": "Card.Self", "TriggerZones": "Battlefield"}, "trigger.class-level-gained", false, false},
