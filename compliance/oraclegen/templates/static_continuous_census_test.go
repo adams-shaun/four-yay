@@ -37,6 +37,11 @@ import (
 // served. This table pins only BIG, EOE, FDN, FRA and DFT; the rows the same
 // ticket newly serves in the other sets (WOE, ECL, MSH, LCI, FIN, TLA, OTJ) are
 // pinned by TestStaticNotObservableShapes instead.
+// Re-pinned by cli-20261009T031407Z-dd0d6fbb, which observes a
+// RemoveAllAbilities$ static on a keyworded attach host, a SetMaxHandSize$
+// static through the runner's max_hand_size expectation, and a signed
+// "for each card in your hand" pump through a hand fixture (DFT, FDN and FRA
+// each lose one ability-removal skip; DFT and FDN lose their hand-size skip).
 // It fails in both directions.
 var wantStaticContinuousCensus = map[string]map[string]int{
 	"BIG": {
@@ -50,21 +55,18 @@ var wantStaticContinuousCensus = map[string]map[string]int{
 		"skip:static gated self grant is not offered in the gate-on fixture":           1,
 	},
 	"FDN": {
-		"served": 66,
+		"served": 68,
 		"skip:static effect not observable on a probe or the card":                                   3,
 		"skip:static grants an activated ability (needs the driver's activate on a granted ability)": 1,
 		"skip:static amount is a computed count the fixture does not make observable":                1,
-		"skip:static removes the abilities of a permanent the fixture gives none":                    1,
-		"skip:static hand size is not observable in the permanent snapshot":                          1,
 		"skip:static needs counters on the affected permanent":                                       1,
 	},
 	"FRA": {
-		"served": 29,
+		"served": 30,
 		"skip:static effect not observable on a probe or the card":                                        2,
 		"skip:static grants a loyalty ability that adds mana (its offered label names no text to assert)": 1,
 		"skip:static grants a loyalty ability the probe planeswalkers cannot pay for":                     2,
 		"skip:static grants a static ability (observed only through its own effect)":                      1,
-		"skip:static removes the abilities of a permanent the fixture gives none":                         1,
 		"skip:static counts cards exiled with the source":                                                 1,
 		"skip:static grants only keywords outside the compared evergreen set":                             1,
 		"skip:static needs a token (setup places none)":                                                   1,
@@ -72,13 +74,11 @@ var wantStaticContinuousCensus = map[string]map[string]int{
 	// DFT includes the Surveyor cycle's graveyard AddAbility$ grant, whose
 	// engine-gap skip remains pinned separately.
 	"DFT": {
-		"served": 43,
+		"served": 45,
 		"skip:static amount is a computed count the fixture does not make observable":            1,
 		"skip:static characteristic-defining P/T of a non-creature (the snapshot omits its P/T)": 1,
 		"skip:static effect not observable on a probe or the card":                               2,
 		"skip:static grants a triggered ability (needs a probe-sourced trigger cause)":           8,
-		"skip:static hand size is not observable in the permanent snapshot":                      1,
-		"skip:static removes the abilities of a permanent the fixture gives none":                1,
 		"skip:static gated self grant is not offered in the gate-on fixture":                     1,
 		"skip:static grants a static ability (observed only through its own effect)":             1,
 		"skip:static grants a replacement effect (needs an event the replacement can change)":    2,

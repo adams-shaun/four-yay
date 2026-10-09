@@ -230,6 +230,13 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 			return it, nil
 		}
 	}
+	// A removal of all abilities defined by the permanent the card enchants
+	// (Flood the Engine, Frozen in Ice, ...) is unobservable on the vanilla
+	// fixture; retry it on a host that prints an ability. After every existing
+	// path, so a served row keeps its bytes.
+	if it, ok := staticAbilityRemovalItem(reg, f, name, req, st); ok {
+		return it, nil
+	}
 	// A static that acts on cards outside the battlefield changes nothing a
 	// snapshot shows; it is observed as an offered option instead
 	// (static_offer.go). A look-at permission shows in neither engine's
@@ -253,6 +260,15 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 			return it, nil
 		}
 		return skip(staticLookAtReason)
+	}
+	// A player-rule static (SetMaxHandSize$) changes no snapshot field; it is
+	// observed as a runner expectation of the effective maximum
+	// (static_hand_size.go). A value the engine does not price keeps its
+	// named gap below.
+	if st.HasParam(cards.PKSetMaxHandSize) {
+		if it, ok := staticMaxHandSizeItem(reg, f, name, req, st); ok {
+			return it, nil
+		}
 	}
 	if it, ok := staticSpellLifelinkItem(reg, c, f, name, req, st); ok {
 		return it, nil

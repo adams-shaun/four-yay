@@ -70,7 +70,12 @@ func (r VerdictRow) HasExpectation() bool { return len(r.Frozen) > 0 || r.CanonS
 // VerdictDir is the committed verdict directory, relative to the repo root.
 const VerdictDir = "compliance/verdicts"
 
-func shard(card string) string {
+func shard(card string) string { return Shard(card) }
+
+// Shard is the shard file letter a card's rows live in: the first
+// alphanumeric character of the folded card name, or "0". The verdict and
+// adjudication ledger directories both shard this way.
+func Shard(card string) string {
 	for _, r := range strings.ToLower(card) {
 		if r >= 'a' && r <= 'z' {
 			return string(r)

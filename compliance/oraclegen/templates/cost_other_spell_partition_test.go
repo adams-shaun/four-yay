@@ -5,11 +5,15 @@ import (
 )
 
 // TestCostStaticOtherSpellAppendixPartition pins the exact disposition of the
-// brief's 45 "cost static probe not supported" rows: 38 produce a generated
-// scenario and the remaining seven are narrower named skips. Artist's Talent
+// brief's 45 "cost static probe not supported" rows: 41 produce a generated
+// scenario and the remaining four are narrower named skips. Artist's Talent
 // moved from the named-skip column to served when the shared Class level-up
 // prelude landed (its ReduceCost static is live from level 2 on), and Samut,
-// the Driving Force when the probe learned to set p0's speed. The sibling
+// the Driving Force when the probe learned to set p0's speed. Bilbo, Doc
+// Aurlock's static#0.0 and Beluna moved when the probe learned the
+// cast-provenance shapes (levelb-cost-cast-provenance): a Flashback cast from
+// the probe's own graveyard for the wasCast rows, and an Adventure card's
+// front face for `Permanent.AdventureCard`. The sibling
 // TestCostStaticOtherSpellAppendixRows asserts only the aggregate (>= 30); a
 // regression that turned a served row back into a skip, or changed a named
 // skip's reason to the bare form, would still satisfy that aggregate, so this
@@ -57,17 +61,17 @@ func TestCostStaticOtherSpellAppendixPartition(t *testing.T) {
 		"Raging Battle Mouse":            true,
 		"Artist's Talent":                true, // ClassBand$ 2 ReduceCost, served by the Class-level prelude
 		"Samut, the Driving Force":       true, // Amount$ Count$YourSpeed, served by a setup speed of 2
+		"Bilbo, Thief in the Night":      true, // Card.!wasCastFromYourHand, served by a Flashback cast from the graveyard
+		"Doc Aurlock, Grizzled Genius":   true, // static#0.0 only; the wasCast arm is served by the same cast
+		"Beluna Grandsquall":             true, // Permanent.AdventureCard, served by an Adventure card's front face
 	}
 	// skipped is keyed by "<name>/<key>" because two cards have a served face
 	// and a skipped face.
 	skipped := map[string]string{
 		"Inquisitive Glimmer/static#0.1":          "static-ability cost probe unsupported",
-		"Doc Aurlock, Grizzled Genius/static#0.0": "cast-provenance probe unsupported",
 		"Doc Aurlock, Grizzled Genius/static#0.1": "static-ability cost probe unsupported",
-		"Bilbo, Thief in the Night/static#0.0":    "cast-provenance probe unsupported",
 		"Geyser Drake/static#0.0":                 "NotPlayerTurn needs an opponent-turn probe",
 		"Mutagen Man, Living Ooze/static#0.0":     "token fixture unavailable",
-		"Beluna Grandsquall/static#0.0":           "cast-provenance probe unsupported",
 	}
 	if len(served)+len(skipped) != 45 {
 		t.Fatalf("precondition: %d served + %d skipped = %d, want 45", len(served), len(skipped), len(served)+len(skipped))
@@ -120,7 +124,7 @@ func TestCostStaticOtherSpellAppendixPartition(t *testing.T) {
 		}
 		scenarios++
 	}
-	if scenarios != 38 || named != 7 {
-		t.Errorf("partition = %d scenarios + %d named skips, want 38 + 7", scenarios, named)
+	if scenarios != 41 || named != 4 {
+		t.Errorf("partition = %d scenarios + %d named skips, want 41 + 4", scenarios, named)
 	}
 }

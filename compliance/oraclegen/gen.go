@@ -188,7 +188,11 @@ type Expect struct {
 	// over a face-down permanent is hidden information no snapshot field
 	// carries. The key names the seat, the value the object ref.
 	LookAt map[string]string `json:"look_at,omitempty"`
-	Want   *bool             `json:"want,omitempty"`
+	// MaxHandSize is the runner's per-seat effective CR 514.1 maximum hand
+	// size assertion (rules oracleExpect.MaxHandSize), a Continuous
+	// SetMaxHandSize$ grant no snapshot field carries.
+	MaxHandSize map[string]int `json:"max_hand_size,omitempty"`
+	Want        *bool          `json:"want,omitempty"`
 }
 
 // Answer is a queued answer for gorge's runner (kind = decision kind).

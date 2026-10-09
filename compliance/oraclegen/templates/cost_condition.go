@@ -116,6 +116,12 @@ func costAmountFixture(reg *cards.Registry, f *cards.Face, st cards.Static) (int
 	if amount == "" {
 		return 0, nil, "cost static has no amount"
 	}
+	if reduction, pres, gap, ok := costPowerAmountFixture(reg, f, amount); ok {
+		return reduction, pres, gap
+	}
+	if gap := costOptionalGenericPaidGap(f, amount); gap != "" {
+		return 0, nil, gap
+	}
 	reduction, compare := 1, "GE1"
 	if strings.HasPrefix(st.Params["KeywordLine"], "Affinity:") {
 		reduction, compare = costAffinityCount, fmt.Sprintf("GE%d", costAffinityCount)
@@ -224,6 +230,18 @@ func costCountPrelude(reg *cards.Registry, f *cards.Face, svar, compare string) 
 	body := strings.TrimSpace(f.SVars[svar])
 	if body == "" {
 		body = svar
+	}
+	// "for each creature that attacked this turn" is a PlayerCountPlayers$
+	// head the shared condition classifier does not name; p0 attacks with the
+	// counted creatures, then casts the probe in the second main.
+	if attackerCountBody(body) {
+		return attackerCountPrelude(reg, compare)
+	}
+	// A SacrificedThisTurn count filters the sacrificed objects by type: the
+	// shared sacrifice prelude's creature fixture covers a Creature spec only
+	// (cost_svar_amount.go), so an Artifact spec gets its own sacrifice.
+	if pre, ok := costSacrificePrelude(reg, body); ok {
+		return []conditionPrelude{pre}, ""
 	}
 	zone, filter := costValidBody(body)
 	if filter != "" {

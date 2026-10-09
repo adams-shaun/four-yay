@@ -203,9 +203,14 @@ type oracleExpect struct {
 	// no snapshot field carries. The value is the object ref, resolved like
 	// every other expect card.
 	LookAt map[string]string `json:"look_at,omitempty"`
-	Count  *oracleCount      `json:"count,omitempty"`
-	Eq     *int              `json:"eq,omitempty"`
-	Want   *bool             `json:"want,omitempty"`
+	// MaxHandSize asserts, per seat, that player's effective CR 514.1
+	// maximum hand size (a Continuous SetMaxHandSize$ static, the same read
+	// cleanupStep discards to): a player-rule number no snapshot field
+	// carries.
+	MaxHandSize map[string]int `json:"max_hand_size,omitempty"`
+	Count       *oracleCount   `json:"count,omitempty"`
+	Eq          *int           `json:"eq,omitempty"`
+	Want        *bool          `json:"want,omitempty"`
 }
 
 type oracleOffered struct {
@@ -1750,6 +1755,11 @@ func (r *oracleRun) check(x oracleExpect) []string {
 		}
 		if mayLookAtObject(e.active(), e.matchesSpecFrom, id) != r.wantBool(x) {
 			failf("%s: %s may look at it=%v, want %v", ref, seat, !r.wantBool(x), r.wantBool(x))
+		}
+	}
+	for k, want := range x.MaxHandSize {
+		if p, ok := seatOf(k); ok && e.maxHandSizeFor(p) != want {
+			failf("%s max hand size %d, want %d", k, e.maxHandSizeFor(p), want)
 		}
 	}
 	for k, want := range x.GraveyardSize {
