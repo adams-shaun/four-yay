@@ -23,14 +23,62 @@ type answerRouting struct {
 	// recipient set, never by step and seat alone.
 	splitTarget map[int]int
 	targetSplit map[int]int
+	// manaBool marks a CR 603.5 optional-trigger boolean whose ability
+	// resolves straight into the mana colour ask that follows it in the same
+	// step: XMage's counterpart trigger is mandatory (its mana effect poses
+	// only the colour dialog), so the boolean has no ask to answer and any
+	// scripted one would be popped -- and thrown on -- by the colour dialog
+	// (measured driver error: "Choice key [Yes] not found in [White, Blue,
+	// Black, Red, Green]").
+	manaBool map[int]bool
+	// manaHoist maps a same-source trigger-order span to the colour answer
+	// that replaces it and LEADS its step's stream, manaHoisted marks the
+	// colour decision whose answer was thus moved. XMage's mana trigger for
+	// the span's card fires while the span's inert rule texts sit at the
+	// queue head, and its colour dialog pops the first one and throws
+	// (measured driver error: "Choice key [Whenever this creature
+	// transforms into ...] not found in [White, Blue, Black, Red, Green]").
+	manaHoist   map[int]XAnswer
+	manaHoisted map[int]bool
 }
 
 func newAnswerRouting(ds []rules.OracleDecision) *answerRouting {
 	r := &answerRouting{ds: ds, soleCost: map[int]bool{}, opponent: map[int]int{},
-		splitTarget: map[int]int{}, targetSplit: map[int]int{}}
+		splitTarget: map[int]int{}, targetSplit: map[int]int{},
+		manaBool: map[int]bool{}, manaHoist: map[int]XAnswer{}, manaHoisted: map[int]bool{}}
 	for i := range ds {
 		if soleAltCost(ds[i]) && i+1 < len(ds) && sameAsker(ds[i], ds[i+1]) && len(ds[i+1].ObjectPicks) == 1 {
 			r.soleCost[i+1] = true
+		}
+	}
+	for i := 0; i+1 < len(ds); i++ {
+		a, b := ds[i], ds[i+1]
+		if a.Step < 0 || !sameAsker(a, b) {
+			continue
+		}
+		if a.Kind == "yesno" && a.GorgeKind == "trigger_optional" && a.Resume == "optional" &&
+			pickKind(a, 0) == "yes" && manaHoistAnswer(b) != "" {
+			r.manaBool[i] = true
+		}
+	}
+	for i := range ds {
+		d := ds[i]
+		if d.Step < 0 || d.Kind != "order" || d.GorgeKind != "trigger_order" || triggerOrderNamesDistinct(d) {
+			continue
+		}
+		for j := i + 1; j < len(ds); j++ {
+			n := ds[j]
+			if n.Step != d.Step || n.Seat != d.Seat {
+				continue
+			}
+			if n.Kind == "order" && n.GorgeKind == "trigger_order" {
+				break
+			}
+			if ans := manaHoistAnswer(n); ans != "" {
+				r.manaHoist[i] = XAnswer{d.Seat, "choice", ans}
+				r.manaHoisted[j] = true
+				break
+			}
 		}
 	}
 	// A clash is the controller's decision then its opponent's; XMage's
@@ -128,6 +176,34 @@ func soleAltCost(d rules.OracleDecision) bool {
 	return d.Kind == "choose_n" && len(d.Picks) == 1 && pickKind(d, 0) == "altaddcost" && d.AltPayable == 1
 }
 
+// manaHoistAnswer is the choice-queue colour answer a mana colour pick
+// scripts, or "" when the decision is not exactly one colour option (the
+// generic choose_n path maps an "Add W" label through manaColourLabel).
+func manaHoistAnswer(d rules.OracleDecision) string {
+	if d.Kind != "choose_n" || d.Resume != "mana_color" || len(d.Picks) != 1 {
+		return ""
+	}
+	label := d.Picks[0]
+	if label == "" && len(d.PickRefs) > 0 {
+		label = oraclediffRefName(d.PickRefs[0])
+	}
+	if c, ok := manaColourLabel(label); ok {
+		return c
+	}
+	return ""
+}
+
+// manaHoistSpan is the colour answer that LEADS a same-source trigger-order
+// span's step, replacing the span's inert rule texts entirely.
+func (r *answerRouting) manaHoistSpan(i int) (XAnswer, bool) {
+	a, ok := r.manaHoist[i]
+	return a, ok
+}
+
+// manaHoistedPick reports a mana colour decision whose answer was hoisted to
+// the span's queue position; its own decision scripts nothing.
+func (r *answerRouting) manaHoistedPick(i int) bool { return r.manaHoisted[i] }
+
 func sameAsker(a, b rules.OracleDecision) bool { return a.Step == b.Step && a.Seat == b.Seat }
 
 // digBottomName is the card name of a Dig "Put X on bottom" label, else "".
@@ -166,6 +242,11 @@ func (r *answerRouting) route(i int) (as []XAnswer, owned bool) {
 		as = append(as, XAnswer{asker, "choice", seatRef(seat)})
 	}
 	switch {
+	case r.manaBool[i]:
+		// The mandatory-in-XMage mana trigger's own resolution: XMage poses
+		// only the colour dialog that follows, so the boolean scripts
+		// nothing and the colour pick leads the queue.
+		return nil, true
 	case soleAltCost(d):
 		return as, true
 	case waterbendHelperDeclined(d):
