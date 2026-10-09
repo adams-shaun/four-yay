@@ -72,17 +72,21 @@ func Bucket(p gate.Problem) string {
 
 // SetStatus is one set's line on the dashboard.
 type SetStatus struct {
-	Set         string         `json:"set"`
-	Name        string         `json:"name"`
-	SetType     string         `json:"set_type"`
-	Released    string         `json:"released"`
-	Formats     []string       `json:"formats,omitempty"`
-	Level       string         `json:"level"`              // the level checked
-	Declared    string         `json:"declared,omitempty"` // compliance/declared.json
-	Printed     bool           `json:"printed"`            // has a compliance/printed list
-	Cards       int            `json:"cards"`              // cards the claim covers
-	Outstanding int            `json:"outstanding"`
-	Buckets     map[string]int `json:"buckets,omitempty"`
+	Set         string   `json:"set"`
+	Name        string   `json:"name"`
+	SetType     string   `json:"set_type"`
+	Released    string   `json:"released"`
+	Formats     []string `json:"formats,omitempty"`
+	Level       string   `json:"level"`              // the level checked
+	Declared    string   `json:"declared,omitempty"` // compliance/declared.json
+	Printed     bool     `json:"printed"`            // has a compliance/printed list
+	Cards       int      `json:"cards"`              // cards the claim covers
+	Outstanding int      `json:"outstanding"`
+	// ProblemCards counts the DISTINCT cards with at least one problem: a
+	// card failing two requirements is one failing card (Outstanding
+	// counts problems).
+	ProblemCards int            `json:"problem_cards,omitempty"`
+	Buckets      map[string]int `json:"buckets,omitempty"`
 	// NonTournament counts the outstanding problems on non-tournament cards
 	// (planes, schemes, ...), which no tournament target needs.
 	NonTournament int `json:"non_tournament,omitempty"`
@@ -194,6 +198,7 @@ func (cs *Census) Status(reg *cards.Registry, root, level string, only ...string
 			Cards: len(cs.setCards[code]), Outstanding: len(probs), Buckets: map[string]int{}}
 		_, perr := compliance.LoadPrinted(filepath.Join(root, "compliance", "printed"), code)
 		st.Printed = perr == nil
+		st.ProblemCards = DistinctProblemCards(probs)
 		for _, p := range probs {
 			st.Buckets[Bucket(p)]++
 			if c, ok := cs.byName[p.Card]; ok && c.NonTournament != "" {
@@ -203,6 +208,17 @@ func (cs *Census) Status(reg *cards.Registry, root, level string, only ...string
 		out = append(out, st)
 	}
 	return out, nil
+}
+
+// DistinctProblemCards counts the cards a set's problems name: a card
+// failing two requirements is one failing card, so the per-set fraction
+// n/m counts cards, not problems.
+func DistinctProblemCards(probs []gate.Problem) int {
+	seen := map[string]bool{}
+	for _, p := range probs {
+		seen[p.Card] = true
+	}
+	return len(seen)
 }
 
 // Rollup is one format's line: "Standard:A" once every set is declared.
