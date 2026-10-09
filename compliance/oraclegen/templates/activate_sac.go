@@ -3,6 +3,8 @@ package templates
 import (
 	"strconv"
 	"strings"
+
+	"github.com/adams-shaun/gorge/compliance/oraclegen"
 )
 
 // This file is the single home of the Sac<N/Filter> cost vocabulary the
@@ -123,11 +125,72 @@ func sacFilterClause(alt string) ([]string, bool) {
 	return card, ok
 }
 
+// sacAttachedFixture returns the card an "attached" Sac cost sacrifices: an
+// Equipment or Aura attached to the ability's source (Forge's
+// `Sac<1/Equipment.Attached>` on Ronin, Shadow Stalker and
+// `Sac<1/Aura.Attached>` on Faunsbane Troll). The card is placed on p0's
+// battlefield by addActivationCostFixtures and attached to the source by
+// sacAttachSteps. ok is false for any other count, base or qualifier.
+func sacAttachedFixture(tok string) (string, bool) {
+	if !strings.HasPrefix(tok, "Sac<") {
+		return "", false
+	}
+	payload, ok := bracketPayload(tok)
+	if !ok {
+		return "", false
+	}
+	parts := strings.Split(payload, "/")
+	if len(parts) < 2 {
+		return "", false
+	}
+	if n, err := strconv.Atoi(strings.TrimSpace(parts[0])); err != nil || n != 1 {
+		return "", false
+	}
+	for _, alt := range strings.Split(parts[1], ";") {
+		alt = strings.ToLower(strings.TrimSpace(alt))
+		if !strings.Contains(alt, ".attached") {
+			continue
+		}
+		base := alt
+		if i := strings.IndexByte(base, '.'); i >= 0 {
+			base = base[:i]
+		}
+		switch base {
+		case "equipment":
+			return "Bonesplitter", true
+		case "aura":
+			return "Unholy Strength", true
+		}
+	}
+	return "", false
+}
+
+// sacAttachSteps is the prelude that attaches each attached Sac cost's
+// fixture to the source, so the cost's `.Attached` filter matches at
+// activation. The fixture card itself is placed by addActivationCostFixtures;
+// a source not on the battlefield (a channel-style hand ability) has no
+// attached fixture and contributes no step.
+func sacAttachSteps(name, cost, zone string) []oraclegen.Step {
+	if zone != "battlefield" {
+		return nil
+	}
+	var out []oraclegen.Step
+	for _, tok := range costTokens(cost) {
+		if card, ok := sacAttachedFixture(tok); ok {
+			out = append(out, oraclegen.Step{Op: "attach", Seat: 0, Card: "p0:" + card, AttachedTo: "p0:" + name})
+		}
+	}
+	return out
+}
+
 // sacFixtureSupported reports whether a Sac token is cellable (self, a
-// fixture the table names, or a token a maker prelude produces). It is
-// activationCost's admission test.
+// fixture the table names, an attached Aura/Equipment, or a token a maker
+// prelude produces). It is activationCost's admission test.
 func sacFixtureSupported(tok string) bool {
 	if sacSelf(tok) || tokenCostSupported(tok) {
+		return true
+	}
+	if _, ok := sacAttachedFixture(tok); ok {
 		return true
 	}
 	_, ok := sacFilterFixtures(tok)

@@ -146,9 +146,11 @@ func activateWithFixture(reg *cards.Registry, f *cards.Face, name string, req le
 	// attacking creature you control") has that creature declared attacking
 	// before the activation, which then happens in combat.
 	fxPre, combat := fx.Prelude(), fx.CombatSteps()
-	prelude := make([]oraclegen.Step, 0, len(fxPre)+len(restrictSteps)+len(combat))
+	costAttach := sacAttachSteps(name, cost, zone)
+	prelude := make([]oraclegen.Step, 0, len(fxPre)+len(restrictSteps)+len(costAttach)+len(combat))
 	prelude = append(prelude, fxPre...)
 	prelude = append(prelude, restrictSteps...)
+	prelude = append(prelude, costAttach...)
 	prelude = append(prelude, combat...)
 	setupBackFace(&p0, name, req)
 	steps := make([]oraclegen.Step, 0, len(prelude)+1)
@@ -393,6 +395,8 @@ func addActivationCostAnswers(answers [][]oraclegen.XAnswer, step int, cost stri
 			if !observed {
 				if cards, ok := sacFilterFixtures(tok); ok {
 					picks = cards
+				} else if card, ok := sacAttachedFixture(tok); ok {
+					picks = []string{card}
 				} else if needs, ok := tokenCostNeeds(tok); ok {
 					picks = tokenCostAnswerNames(needs)
 				}
@@ -484,8 +488,12 @@ func addActivationCostFixtures(p0 *oraclegen.Seat, cost string) {
 			}
 		case "Sac":
 			// The fixture table is the single authority; a self-sacrifice
-			// places nothing (the source is already on the battlefield).
-			if cards, ok := sacFilterFixtures(tok); ok {
+			// places nothing (the source is already on the battlefield). An
+			// attached Aura/Equipment is placed here and attached by
+			// sacAttachSteps in the prelude.
+			if card, ok := sacAttachedFixture(tok); ok {
+				p0.Battlefield = appendFixtureUnique(p0.Battlefield, card)
+			} else if cards, ok := sacFilterFixtures(tok); ok {
 				for _, card := range cards {
 					p0.Battlefield = appendFixtureUnique(p0.Battlefield, card)
 				}
