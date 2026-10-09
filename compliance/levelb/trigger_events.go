@@ -100,6 +100,9 @@ func classifyEventTrigger(t *cards.Trigger) (sub string, ok bool) {
 			return ClassLevelGainedSub, true
 		}
 	}
+	if sub, ok := classifyDamageTrigger(t); ok {
+		return sub, true
+	}
 	return classifySacrificeTrigger(t)
 }
 
