@@ -10,7 +10,7 @@ import (
 
 func castFamilySub(sub string) bool {
 	switch sub {
-	case "trigger.spell-cast-opponent", "trigger.spell-cast-self-cast", "trigger.commit-crime", "trigger.ability-activated":
+	case "trigger.spell-cast-opponent", "trigger.spell-cast-opponent-turn", "trigger.spell-cast-self-cast", "trigger.commit-crime", "trigger.ability-activated":
 		return true
 	}
 	return false
@@ -40,6 +40,31 @@ func castFamilyRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards.
 			}
 			step.Seat, step.Card = 1, "p1:"+probe
 			add(triggerCause{opponentHand: []string{probe}, steps: []oraclegen.Step{{Op: "pass", Seat: 0}, step}}, true)
+		}
+	case "trigger.spell-cast-opponent-turn":
+		// ValidActivatingPlayer$ You with OpponentTurn$ True: the trigger
+		// watches p0's own casts, but only during p1's turn, which a plain
+		// turn-1 cast never satisfies. The cause passes to p1's main phase
+		// and casts an instant there; the mana pool is the same outside-
+		// effect seed every cast cause carries.
+		for _, probe := range opponentTurnCastProbes {
+			card, exists := reg.Lookup(probe.name)
+			if !exists || len(card.Faces) == 0 || !hasType(card.Faces[0], "Instant") {
+				continue
+			}
+			st, ok := castProbe(reg, probe.name)
+			if !ok {
+				continue
+			}
+			if probe.target != "" {
+				st.Targets = []string{probe.target}
+			}
+			add(triggerCause{
+				hand: []string{probe.name},
+				// p1 holds priority first in its own main phase; one pass
+				// hands it to p0, where the cast step needs it.
+				steps: []oraclegen.Step{{Op: "pass_to", Step: "main1", Active: "p1"}, {Op: "pass", Seat: 1}, st},
+			}, true)
 		}
 	case "trigger.spell-cast-self-cast":
 		step, yes := castProbe(reg, name)
@@ -78,6 +103,13 @@ func hasType(f *cards.Face, typ string) bool {
 		}
 	}
 	return false
+}
+
+// opponentTurnCastProbes are the instants p0 casts during p1's turn for an
+// OpponentTurn$ True spell-cast trigger; the burn probes need the opponent as
+// their target.
+var opponentTurnCastProbes = []struct{ name, target string }{
+	{"Shock", "p1"}, {"Lightning Bolt", "p1"}, {"Divination", ""}, {"Opt", ""},
 }
 
 // activatedCause activates the first probe ability matching ValidSA. The

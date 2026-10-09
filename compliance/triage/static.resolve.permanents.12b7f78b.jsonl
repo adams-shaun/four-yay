@@ -1,0 +1,2 @@
+{"shape":{"template":"static","op":"resolve","field":"permanents","diff":"gorge+Fractured Realm; xmage+$CARD"},"key":"static | resolve | permanents | gorge+Fractured Realm; xmage+$CARD","cards":1}
+{"card":"Mirror Room","template":"static#1.0","status":"diverge","api":"UnlockDoor:CopyPermanent","detail":"step 1 (resolve) permanents: gorge \"c0 o0 Fractured Realm [enchantment room] {U}\", xmage \"c0 o0 Mirror Room [enchantment room] {U}\""}

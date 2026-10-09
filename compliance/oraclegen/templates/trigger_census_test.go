@@ -24,6 +24,7 @@ var wantTriggerCensus = map[string]map[string]int{
 		"served:trigger.etb-other":                           1,
 		"served:trigger.ltb-self":                            1,
 		"served:trigger.sacrificed":                          1,
+		"served:trigger.damage":                              2,
 	},
 	"EOE": {
 		"served:trigger.attacks":                                      7,
@@ -49,6 +50,7 @@ var wantTriggerCensus = map[string]map[string]int{
 		"skip:trigger.phase: trigger did not fire":                    1,
 		"skip:trigger.spell-cast: trigger did not fire":               0,
 		"served:trigger.sacrificed":                                   2,
+		"served:trigger.damage":                                       6,
 	},
 	"FDN": {
 		"served:trigger.attacks":                                26,
@@ -58,6 +60,7 @@ var wantTriggerCensus = map[string]map[string]int{
 		"served:trigger.counter-added":                          2,
 		"served:trigger.dies":                                   14,
 		"served:trigger.dies-other":                             10,
+		"served:trigger.damage":                                 4,
 		"served:trigger.state-self-counters":                    1,
 		"served:trigger.drawn":                                  4,
 		"served:trigger.etb-land":                               20,
@@ -67,6 +70,7 @@ var wantTriggerCensus = map[string]map[string]int{
 		"served:trigger.phase":                                  27,
 		"served:trigger.spell-cast":                             19,
 		"served:trigger.spell-cast-opponent":                    4,
+		"served:trigger.spell-cast-opponent-turn":               1, // Dreams, an opponent's-turn cast cause now serves it.
 		"skip:trigger.attacks: trigger did not fire":            0,
 		"served:trigger.becomes-target":                         6,
 		"skip:trigger.dies: trigger did not fire":               0,
@@ -75,11 +79,11 @@ var wantTriggerCensus = map[string]map[string]int{
 		"skip:trigger.phase: trigger condition: board presence": 0,
 		"skip:trigger.phase: trigger condition: turn history (Count$LifeOppsLostThisTurn)":            0,
 		"skip:trigger.phase: trigger did not fire":                                                    0,
+		"skip:trigger.sacrificed: trigger no recipe: sacrificed self needs its own sacrifice ability": 1, // main's sacrifice land
 		"skip:trigger.spell-cast: trigger did not fire":                                               2,
-		"skip:trigger.spell-cast: trigger spell-cast opponent-turn condition":                         1,
+		"skip:trigger.spell-cast: trigger spell-cast opponent-turn condition":                         0, // now the served:trigger.spell-cast-opponent-turn cause
 		"skip:trigger.etb-other: trigger no recipe: etb filter OppCtrl (Creature.OppCtrl)":            1,
 		"skip:trigger.dies: trigger condition: counters":                                              0,
-		"skip:trigger.sacrificed: trigger no recipe: sacrificed self needs its own sacrifice ability": 1,
 	},
 	// Both of Ruric Thar, Biomagus's prowess instances are served.
 	"FRA": {
@@ -90,11 +94,11 @@ var wantTriggerCensus = map[string]map[string]int{
 		"served:trigger.dies":                                5,
 		"served:trigger.dies-other":                          5,
 		"served:trigger.discarded":                           2,
-		"served:trigger.etb-other":                           10,
+		"served:trigger.etb-other":                           11, // Roiling Canopy: the snow-twin presence serves the played Forest.
 		"served:trigger.life-gained":                         7,
 		"served:trigger.loyalty-activated":                   3,
 		"served:trigger.noncombat-damage":                    3,
-		"served:trigger.phase":                               13,
+		"served:trigger.phase":                               16, // Paradox Shaper, Stingerquill Voxmancer, Woodwork Prodigy: the consumed !IsPrepared gate is a cast-self cause now.
 		"served:trigger.scry":                                5,
 		"served:trigger.spell-cast":                          18, // Ruric Thar, Biomagus: both prowess instances are served.
 		"served:trigger.spell-cast-opponent":                 1,
@@ -104,7 +108,7 @@ var wantTriggerCensus = map[string]map[string]int{
 		"skip:trigger.etb-other: trigger covered by level A": 65,
 		"skip:trigger.etb-other: trigger did not fire":       0,
 		"skip:trigger.phase: trigger condition: SVar gate (Count$ValidSelf Card.!IsPrepared)":                                   0,
-		"skip:trigger.phase: trigger condition: turn history (Count$ValidSelf Card.!IsPrepared)":                                3,
+		"skip:trigger.phase: trigger condition: turn history (Count$ValidSelf Card.!IsPrepared)":                                0, // the three prepare creatures are served:
 		"skip:trigger.phase: trigger condition: engine predicate unread (!IsPrepared)":                                          0,
 		"skip:trigger.phase: trigger condition: turn history (Count$ThisTurnEntered_Graveyard_from_Battlefield_Creature)":       0,
 		"skip:trigger.phase: trigger condition: turn history (PlayerCountOpponents$HasPropertywasDealtNonCombatDamageLastTurn)": 1,
@@ -115,7 +119,7 @@ var wantTriggerCensus = map[string]map[string]int{
 		"skip:trigger.etb-other: trigger no recipe: etb filter OppCtrl (Creature.OppCtrl)":                                      1,
 		"skip:trigger.phase: trigger did not fire from the graveyard":                                                           0,
 		"skip:trigger.attacks: trigger condition: turn history (Count$ThisTurnActivated_Activated)":                             1,
-		"skip:trigger.etb-other: trigger condition: board presence":                                                             1,
+		"skip:trigger.etb-other: trigger condition: board presence":                                                             0, // Roiling Canopy is served,
 	},
 }
 

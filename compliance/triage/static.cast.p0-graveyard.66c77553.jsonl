@@ -1,0 +1,2 @@
+{"shape":{"template":"static","op":"cast","field":"p0.graveyard","diff":"gorge+[Ornithopter, Sol Ring] xmage+[]"},"key":"static | cast | p0.graveyard | gorge+[Ornithopter, Sol Ring] xmage+[]","cards":1}
+{"card":"Rottenmouth Viper","template":"static#0.0","status":"diverge","api":"PermanentCreature","sets":["BLB"],"detail":"step 0 (cast) p0.graveyard: gorge \"[Ornithopter, Sol Ring]\", xmage \"[]\""}

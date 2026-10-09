@@ -24,7 +24,9 @@
 // is needed and the fixture supplies the state the condition reads. A static
 // gated on Condition$ MaxSpeed is placed with p0 at speed 4. Counter- or
 // speed-gated AddAbility statics use the granted-ability offered observation
-// on the card itself; unserved grants fall through to their named gap.
+// on the card itself; an AddTrigger$ grant is observed by firing the granted
+// trigger (static_granted_trigger.go); unserved grants fall through to their
+// named gap.
 //
 // A candidate is served only when gorge shows an effect: a probe's P/T,
 // evergreen keywords, types or colours differ from its printed ones (Grizzly
@@ -268,6 +270,15 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 	if gap := staticOffBattlefieldGrantGap(st); gap != "" {
 		return skip(gap)
 	}
+	// A static whose AddTrigger$ grants a TRIGGERED ability is observed by
+	// firing the granted trigger (static_granted_trigger.go). Tried after
+	// every probe, fixture and offered path so an already-served row keeps
+	// its scenario bytes; an unserved grant falls through to its named gap.
+	if st.HasParam(cards.PKAddTrigger) {
+		if it, ok := staticGrantedTriggerItem(reg, f, name, req, st); ok {
+			return it, nil
+		}
+	}
 	if gated || speedGated {
 		if gatedGrantWhy != "" {
 			return skip(gatedGrantWhy)
@@ -302,6 +313,11 @@ func staticBase(reg *cards.Registry, c *cards.Card, f *cards.Face, name string, 
 	probes := append([]string{staticProbe}, plan.probes...)
 	var base oraclegen.Item
 	switch {
+	case req.Face > 0 && levelb.IsRoomCard(c):
+		// A Room's second door is cast, not placed: no engine unlocks a
+		// setup-placed door (CR 709.5). The face named by its own face name
+		// is the door the runner binds to room_alt.
+		return roomDoorCastBase(reg, c, f, name, req, probes)
 	case staticCounterGated(&st) && (!staticSelfETB(f) || stationGatedSelf(f, &st)):
 		// The card starts on the battlefield holding the counters its gate
 		// names, so the effect is already on at the first checkpoint. A card

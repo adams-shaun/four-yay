@@ -115,8 +115,8 @@ func TestStaticGrantedAbilityRowCountPinned(t *testing.T) {
 // is skipped for, so none falls back to the generic "effect not observable".
 func TestStaticGrantedAbilityNamedSkips(t *testing.T) {
 	for _, r := range []struct{ card, key, reason string }{
-		{"The Aetherspark", "static#0.1", "static grants a triggered ability (needs a probe-sourced trigger cause)"},
-		{"Barrensteppe Siege", "static#0.0", "static grants a triggered ability (needs a probe-sourced trigger cause)"},
+		// The Aetherspark static#0.1 and Barrensteppe Siege static#0.0 moved
+		// to the granted-trigger observation (static_granted_trigger_test.go).
 		{"Frostcliff Siege", "static#0.1", "static grants a static ability (observed only through its own effect)"},
 		{"Tomik, Orzhov Lawmage", "static#0.0", "static grants a static ability (observed only through its own effect)"},
 		{"Marvin, Murderous Mimic", "static#0.0", "static gains the activated abilities of other cards (needs a donor card)"},

@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"resolve","field":"p1.life","diff":"gorge-xmage=-2"},"key":"trigger | resolve | p1.life | gorge-xmage=-2","cards":1}
+{"card":"Pain for All","template":"trigger#0.1","status":"diverge","api":"Attach","sets":["EOE"],"detail":"step 3 (resolve) p1.life: gorge \"18\", xmage \"20\""}

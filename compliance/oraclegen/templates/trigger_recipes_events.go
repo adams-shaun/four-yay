@@ -154,6 +154,8 @@ func eventTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *card
 		return turnedFaceUpRecipe(reg, f, name, t, sub)
 	case levelb.SacrificeSub:
 		return sacrificeTriggerRecipe(reg, f, name, t)
+	case levelb.DamageSub:
+		return damageTriggerRecipe(reg, f, name, t)
 	default:
 		return nil, "", false
 	}
