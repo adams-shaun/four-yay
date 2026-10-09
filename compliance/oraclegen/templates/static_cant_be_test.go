@@ -8,17 +8,30 @@ import (
 	"github.com/adams-shaun/gorge/compliance/oraclegen"
 )
 
-// cantBeItem generates the item and checks its last step is a single
-// want=false Offered assertion of kind at seat, then returns it.
+// cantBeItem generates the item and checks the last step carrying an
+// assertion is a single want=false Offered assertion of kind at seat, then
+// returns it. The opponent-turn shapes end with a pass PAIR (p0 passes, p1
+// yields), and the offer is checked at the checkpoint after p0's pass, so
+// the assertion rides the first pass, not literally the last step.
 func cantBeItem(t *testing.T, name, key, sub, kind string, seat int) (it oraclegen.Item, card string) {
 	t.Helper()
 	reg := loadGenRegistry(t)
 	item := staticItemFor(t, reg, name, key, sub)
-	last := item.Steps[len(item.Steps)-1]
-	if len(last.Expect) != 1 || last.Expect[0].Offered == nil || last.Expect[0].Want == nil || *last.Expect[0].Want {
-		t.Fatalf("%s lacks a want=false offered assertion: %+v", name, last.Expect)
+	last := -1
+	for i := len(item.Steps) - 1; i >= 0; i-- {
+		if len(item.Steps[i].Expect) > 0 {
+			last = i
+			break
+		}
 	}
-	o := last.Expect[0].Offered
+	if last < 0 {
+		t.Fatalf("%s carries no offered assertion: %+v", name, item.Steps)
+	}
+	st := item.Steps[last]
+	if len(st.Expect) != 1 || st.Expect[0].Offered == nil || st.Expect[0].Want == nil || *st.Expect[0].Want {
+		t.Fatalf("%s lacks a want=false offered assertion: %+v", name, st.Expect)
+	}
+	o := st.Expect[0].Offered
 	if o.Kind != kind || o.Seat != seat {
 		t.Fatalf("%s asserts %+v, want %s at p%d", name, o, kind, seat)
 	}
@@ -26,10 +39,20 @@ func cantBeItem(t *testing.T, name, key, sub, kind string, seat int) (it oracleg
 	if !ok || len(res.Fails) != 0 {
 		t.Fatalf("%s: scenario does not hold in gorge: %v", name, res.Fails)
 	}
+	// The opponent-turn shape is the pass PAIR: a lone pass step is not a
+	// pass pattern the XMage driver supports (measured on the 2026-10-09
+	// census: "unsupported pass pattern at step 0"). Seat is the seat the
+	// offer is checked for; the pair is p0's pass then the other seat's.
+	if seat == 1 {
+		if len(item.Steps) != 2 || item.Steps[0].Op != "pass" || item.Steps[0].Seat != 0 ||
+			item.Steps[1].Op != "pass" || item.Steps[1].Seat != 1 {
+			t.Fatalf("%s: steps %+v, want the p0/p1 pass pair the driver expresses", name, item.Steps)
+		}
+	}
 	// The assertion binds: the same scenario claiming the option IS offered fails.
 	flipped := item.Scenario
 	flipped.Steps = append([]oraclegen.Step(nil), item.Steps...)
-	fl := &flipped.Steps[len(flipped.Steps)-1]
+	fl := &flipped.Steps[last]
 	fl.Expect = append([]oraclegen.Expect(nil), fl.Expect...)
 	fl.Expect[0].Want = boolPtr(true)
 	if res, ok := runStatic(reg, flipped); !ok || len(res.Fails) == 0 {

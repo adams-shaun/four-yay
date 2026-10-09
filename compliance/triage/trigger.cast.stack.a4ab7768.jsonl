@@ -1,2 +1,0 @@
-{"shape":{"template":"trigger","op":"cast","field":"stack","diff":"gorge=[spell:$CARD@p0] xmage=[spell:Promising Stairs@p0]"},"key":"trigger | cast | stack | gorge=[spell:$CARD@p0] xmage=[spell:Promising Stairs@p0]","cards":1}
-{"card":"Central Elevator","template":"trigger#1.0","status":"diverge","api":"UnlockDoor:ChangeZone","detail":"step 0 (cast) stack: gorge \"[spell:Central Elevator@p0]\", xmage \"[spell:Promising Stairs@p0]\""}

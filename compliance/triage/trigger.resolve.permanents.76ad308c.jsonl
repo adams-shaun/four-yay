@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"resolve","field":"permanents","diff":"gorge+Rickety Gazebo; xmage+$CARD"},"key":"trigger | resolve | permanents | gorge+Rickety Gazebo; xmage+$CARD","cards":1}
+{"card":"Greenhouse","template":"trigger#1.0","status":"diverge","api":"-","detail":"step 1 (resolve) permanents: gorge \"c0 o0 Rickety Gazebo [enchantment room] {G}\", xmage \"c0 o0 Greenhouse [enchantment room] {G}\""}

@@ -23,6 +23,7 @@ var wantTriggerCensus = map[string]map[string]int{
 		"skip:trigger.etb-other: trigger covered by level A": 12,
 		"served:trigger.etb-other":                           1,
 		"served:trigger.ltb-self":                            1,
+		"served:trigger.sacrificed":                          1,
 	},
 	"EOE": {
 		"served:trigger.attacks":                                      7,
@@ -47,6 +48,7 @@ var wantTriggerCensus = map[string]map[string]int{
 		"skip:trigger.etb-other: trigger covered by level A":          76,
 		"skip:trigger.phase: trigger did not fire":                    1,
 		"skip:trigger.spell-cast: trigger did not fire":               0,
+		"served:trigger.sacrificed":                                   2,
 	},
 	"FDN": {
 		"served:trigger.attacks":                                26,
@@ -72,12 +74,13 @@ var wantTriggerCensus = map[string]map[string]int{
 		"skip:trigger.etb-other: trigger covered by level A":    80,
 		"skip:trigger.etb-other: trigger did not fire":          1,
 		"skip:trigger.phase: trigger condition: board presence": 0,
-		"skip:trigger.phase: trigger condition: turn history (Count$LifeOppsLostThisTurn)": 0,
-		"skip:trigger.phase: trigger did not fire":                                         0,
-		"skip:trigger.spell-cast: trigger did not fire":                                    2,
-		"skip:trigger.spell-cast: trigger spell-cast opponent-turn condition":              0, // now the served:trigger.spell-cast-opponent-turn cause
-		"skip:trigger.etb-other: trigger no recipe: etb filter OppCtrl (Creature.OppCtrl)": 1,
-		"skip:trigger.dies: trigger condition: counters":                                   0,
+		"skip:trigger.phase: trigger condition: turn history (Count$LifeOppsLostThisTurn)":            0,
+		"skip:trigger.phase: trigger did not fire":                                                    0,
+		"skip:trigger.sacrificed: trigger no recipe: sacrificed self needs its own sacrifice ability": 1, // main's sacrifice land
+		"skip:trigger.spell-cast: trigger did not fire":                                               2,
+		"skip:trigger.spell-cast: trigger spell-cast opponent-turn condition":                         0, // now the served:trigger.spell-cast-opponent-turn cause
+		"skip:trigger.etb-other: trigger no recipe: etb filter OppCtrl (Creature.OppCtrl)":            1,
+		"skip:trigger.dies: trigger condition: counters":                                              0,
 	},
 	// Both of Ruric Thar, Biomagus's prowess instances are served.
 	"FRA": {

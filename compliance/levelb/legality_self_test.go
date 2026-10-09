@@ -24,13 +24,15 @@ func TestSelfLegalityStaticShapes(t *testing.T) {
 		{"CantBlockBy self", stat("CantBlockBy", map[string]string{"ValidAttacker": "Creature.Self"}), "static.cant-block-by-self"},
 		{"MinMaxBlocker Min 3", stat("MinMaxBlocker", map[string]string{"ValidCard": "Creature.Self", "Min": "3"}), "static.min-blockers"},
 		// Gaps: every one of these changes WHEN or FOR WHOM the restriction holds.
-		{"CantBlock conditional", stat("CantBlock", map[string]string{"ValidCard": "Card.Self", "Condition": "Threshold"}), ""},
-		{"CantBlock IsPresent", stat("CantBlock", map[string]string{"ValidCard": "Card.Self", "IsPresent": "Land.YouCtrl+untapped"}), ""},
+		// Gated shapes are served since cli-20261009T031407Z-6fac1771: the
+		// gate is a setup-able board fact the paired template resolves.
+		{"CantBlock conditional", stat("CantBlock", map[string]string{"ValidCard": "Card.Self", "Condition": "Threshold"}), "static.cant-block-gated"},
+		{"CantBlock IsPresent", stat("CantBlock", map[string]string{"ValidCard": "Card.Self", "IsPresent": "Land.YouCtrl+untapped"}), "static.cant-block-gated"},
 		{"CantBlock other creatures", stat("CantBlock", map[string]string{"ValidCard": "Creature.EnchantedBy"}), ""},
 		{"CantBlockBy blocker filter", stat("CantBlockBy", map[string]string{"ValidAttacker": "Creature.Self", "ValidBlocker": "Creature.powerLE2"}), "static.cant-block-by-blocker-filter"},
 		{"CantBlockBy controller-scoped blocker filter", stat("CantBlockBy", map[string]string{"ValidAttacker": "Creature.Self", "ValidBlocker": "Creature.YouCtrl"}), ""},
-		{"CantBlockBy CheckSVar", stat("CantBlockBy", map[string]string{"ValidAttacker": "Card.Self", "CheckSVar": "X"}), ""},
-		{"MinMaxBlocker Max", stat("MinMaxBlocker", map[string]string{"ValidCard": "Card.Self", "Max": "1"}), ""},
+		{"CantBlockBy CheckSVar", stat("CantBlockBy", map[string]string{"ValidAttacker": "Card.Self", "CheckSVar": "X"}), "static.cant-block-by-gated"},
+		{"MinMaxBlocker Max", stat("MinMaxBlocker", map[string]string{"ValidCard": "Card.Self", "Max": "1"}), "static.max-blockers"},
 		{"MinMaxBlocker All", stat("MinMaxBlocker", map[string]string{"ValidCard": "Card.Self", "Min": "All"}), ""},
 		{"MinMaxBlocker bound 1", stat("MinMaxBlocker", map[string]string{"ValidCard": "Card.Self", "Min": "1"}), ""},
 		{"MinMaxBlocker gated", stat("MinMaxBlocker", map[string]string{"ValidCard": "Card.Self", "Min": "3", "IsPresent": "Card.Other"}), ""},

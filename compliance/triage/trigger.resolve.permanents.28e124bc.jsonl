@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"resolve","field":"permanents","diff":"gorge+Widow's Walk; xmage+$CARD"},"key":"trigger | resolve | permanents | gorge+Widow's Walk; xmage+$CARD","cards":1}
+{"card":"Derelict Attic","template":"trigger#1.0","status":"diverge","api":"UnlockDoor:Draw","detail":"step 1 (resolve) permanents: gorge \"c0 o0 Widow's Walk [enchantment room] {B}\", xmage \"c0 o0 Derelict Attic [enchantment room] {B}\""}

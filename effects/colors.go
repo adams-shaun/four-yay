@@ -81,6 +81,15 @@ func ColorMaskOf(o *state.Object) ColorMask {
 				mask |= 1 << 3
 			case strings.EqualFold(word, "green"):
 				mask |= 1 << 4
+			case strings.EqualFold(word, "all"):
+				// Token scripts (the only corpus carrier: 8 tokenscripts,
+				// 0 cardsfolder files) spell an all-colour token `Colors:all`
+				// rather than listing the five names, so the word is the
+				// whole mask. The CDA spelling SetColor$ all is handled by
+				// cdaSetColours below; without this arm an all-colour token
+				// (The Wandering Minstrel's Elemental, Dragonbroods' Relic's
+				// Reliquary Dragon) reads colourless.
+				mask |= 1<<0 | 1<<1 | 1<<2 | 1<<3 | 1<<4
 			}
 			if rest == "" {
 				break

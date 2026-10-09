@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"resolve","field":"permanents","diff":"gorge+Drowned Diner; xmage+$CARD"},"key":"trigger | resolve | permanents | gorge+Drowned Diner; xmage+$CARD","cards":1}
+{"card":"Meat Locker","template":"trigger#1.0","status":"diverge","api":"UnlockDoor:Tap","detail":"step 1 (resolve) permanents: gorge \"c0 o0 Drowned Diner [enchantment room] {U}\", xmage \"c0 o0 Meat Locker [enchantment room] {U}\""}
