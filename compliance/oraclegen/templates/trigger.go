@@ -171,6 +171,7 @@ func triggerScenario(f *cards.Face, name string, c triggerCause, req levelb.Requ
 		p0.Battlefield = appendFixtureUnique(p0.Battlefield, name)
 	}
 	p0.Hand = append(p0.Hand, c.hand...)
+	p0.Exile = appendFixtureCounts(p0.Exile, c.exile)
 	if filler := etbDiscardFiller(f); filler != "" && !grave && !c.selfInHand && !c.castSelfX {
 		p0.Hand = append([]string{filler}, p0.Hand...)
 	}

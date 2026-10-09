@@ -11,6 +11,7 @@ import (
 // turn 1 with ops the XMage driver already has (cast, attack, pass_to).
 type triggerCause struct {
 	hand        []string                  // probe cards added to p0's hand
+	exile       []string                  // probe cards added to p0's exile (a cast-from-exile cause)
 	battlefield []string                  // extra p0 permanents (an attacker for a non-creature card)
 	tapped      []string                  // extra p0 permanents that start tapped
 	graveyard   []string                  // extra p0 graveyard cards
@@ -130,7 +131,7 @@ func baseTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards
 		}
 		out = append(out, c)
 	case "trigger.spell-cast":
-		out = spellCastProbeCauses(reg, name, t)
+		out = spellCastProbeCauses(reg, f, name, t)
 		present := strings.ToLower(t.ParamStr(cards.PKIsPresent) + t.ParamStr(cards.PKIsPresent2))
 		// A "Solved —" cast trigger fires only once the source Case is
 		// solved: the cast cause runs after the solve sequence, whose
