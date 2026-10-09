@@ -122,7 +122,6 @@ func TestStaticGrantedAbilityNamedSkips(t *testing.T) {
 		{"Marvin, Murderous Mimic", "static#0.0", "static gains the activated abilities of other cards (needs a donor card)"},
 		{"Koh, the Face Stealer", "static#0.0", "static gains the activated abilities of other cards (needs a donor card)"},
 		{"Etrata, Deadly Fugitive", "static#0.0", "static grants an activated ability (needs the driver's activate on a granted ability)"},
-		{"Food Fight", "static#0.0", "static grants an activated ability (needs the driver's activate on a granted ability)"},
 		{"Avatar of Burgeoning Echoes", "static#0.0", "static grants a loyalty ability the probe planeswalkers cannot pay for"},
 		{"Way of the Pyromancer", "static#0.0", "static grants a loyalty ability that adds mana (its offered label names no text to assert)"},
 		{"Petrified Hamlet", "static#0.1", "static grants a mana ability to a recipient the fixture cannot give it (a token or a chosen-name recipient)"},
