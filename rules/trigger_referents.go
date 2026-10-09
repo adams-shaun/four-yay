@@ -214,6 +214,14 @@ func (e *Engine) triggerReferents(t cards.Trigger, source state.ObjID, ev events
 		// same ev.Player ValidActivatingPlayer$ is matched against
 		// (Tangleroot: "that player adds {G}").
 		c.TriggerActivator = player(ev.Player)
+		// TriggeredPlayer is that same player: for a spell-cast trigger the
+		// triggering player is the caster, which is what Forge's scripts
+		// mean by "that player" (Adrenaline Jockey's "if it's not their turn,
+		// this creature deals 4 damage to them"; Roiling Vortex, Curse of
+		// Shaken Faith, Mana Vortex read the same referent). Without this
+		// binding Defined$ TriggeredPlayer resolved to the empty
+		// Remembered fallback and the damage/sacrifice did nothing.
+		c.TriggerPlayer = player(ev.Player)
 		// The activation arm (abcopy1): an AbilityPush event's Obj is the
 		// SOURCE PERMANENT -- the ability's stack wrapper is minted inside
 		// events.Apply and never travels on the event, so Remembered names the

@@ -28,7 +28,7 @@ func TestTriggerReferentsUseEventRoles(t *testing.T) {
 		{"DamageDone", events.Event{Kind: events.Damage, Obj: source}, effects.TriggerContext{TriggerTarget: state.Target{Obj: source}, TriggerSource: other}},
 		{"DamageDone", events.Event{Kind: events.Damage, Player: 0}, effects.TriggerContext{TriggerTarget: state.Target{IsPlayer: true, Player: 0}, TriggerSource: other}},
 		{"ChangesZone", events.Event{Kind: events.MoveZone, Obj: other}, effects.TriggerContext{TriggerCard: other}},
-		{"SpellCast", events.Event{Kind: events.PutOnStack, Obj: other, Player: 1}, effects.TriggerContext{TriggerCard: other, TriggerSource: other, TriggerActivator: state.Target{IsPlayer: true, Player: 1}}},
+		{"SpellCast", events.Event{Kind: events.PutOnStack, Obj: other, Player: 1}, effects.TriggerContext{TriggerCard: other, TriggerSource: other, TriggerPlayer: state.Target{IsPlayer: true, Player: 1}, TriggerActivator: state.Target{IsPlayer: true, Player: 1}}},
 		{"Phase", events.Event{Kind: events.StepChange, Step: state.StepUpkeep}, effects.TriggerContext{TriggerPlayer: state.Target{IsPlayer: true, Player: 0}}},
 		{"Attacks", events.Event{Kind: events.DeclareAttackers, IDs: []state.ObjID{source}, Player: 1}, effects.TriggerContext{TriggerCard: source, TriggerSource: source, DefendingPlayer: state.Target{IsPlayer: true, Player: 1}, AttackingPlayer: state.Target{IsPlayer: true, Player: 0}, AttackedTarget: state.Target{IsPlayer: true, Player: 1}}},
 		{"AttackersDeclaredOneTarget", events.Event{Kind: events.DeclareAttackers, IDs: []state.ObjID{other}, Player: 1}, effects.TriggerContext{DefendingPlayer: state.Target{IsPlayer: true, Player: 1}, AttackingPlayer: state.Target{IsPlayer: true, Player: 1}, AttackedTarget: state.Target{IsPlayer: true, Player: 1}}},
