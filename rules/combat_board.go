@@ -94,15 +94,21 @@ type combatStaticsBuf struct {
 	buf  []combat.Static
 }
 
-// Statics is activeStatics(mode) as combat.Static values. Every view
-// activeStatics returns is a printed battlefield static carrying exactly
-// Source, Controller, Params, PS and SVars (scanActiveStatics and the fused
-// walk-cache scan build no other field), so the conversion is lossless and
-// staticViewOf rebuilds the identical staticView for the gate and spec reads.
+// Statics is every live S:Mode$ <mode> static on a battlefield permanent --
+// printed statics via activeStatics, then the AddStaticAbility$-granted ones
+// (rules/statics_granted.go) -- as combat.Static values. A granted static is
+// a static the host has (CR 604.2; the granting permanent's Affected$ names
+// the host), so a combat restriction or requirement a card grants its host
+// reads through the same board walk as a printed one. Every view carries
+// exactly Source, Controller, Params, PS and SVars (scanActiveStatics, the
+// fused walk-cache scan and grantedStatics build no other field), so the
+// conversion is lossless and staticViewOf rebuilds the identical staticView
+// for the gate and spec reads.
 func (b *combatBoard) Statics(mode string) []combat.Static {
 	e := (*Engine)(b)
 	svs := e.activeStatics(mode)
-	if len(svs) == 0 {
+	granted := e.grantedStatics(mode)
+	if len(svs) == 0 && len(granted) == 0 {
 		return nil
 	}
 	var slot *combatStaticsBuf
@@ -119,6 +125,11 @@ func (b *combatBoard) Statics(mode string) []combat.Static {
 	out := slot.buf[:0]
 	for i := range svs {
 		sv := &svs[i]
+		out = append(out, combat.Static{Source: sv.Source, Controller: sv.Controller,
+			Params: sv.Params, PS: sv.PS, SVars: sv.SVars})
+	}
+	for i := range granted {
+		sv := &granted[i]
 		out = append(out, combat.Static{Source: sv.Source, Controller: sv.Controller,
 			Params: sv.Params, PS: sv.PS, SVars: sv.SVars})
 	}

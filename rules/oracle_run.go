@@ -1888,7 +1888,14 @@ func (r *oracleRun) check(x oracleExpect) []string {
 		if err != nil {
 			return []string{err.Error()}
 		}
-		bad = append(bad, canAttackFails(e.Pending(), id, x.CanAttack.Attacker, r.wantBool(x))...)
+		var battle state.ObjID
+		if x.CanAttack.Battle != "" {
+			battle, err = r.resolve(x.CanAttack.Battle)
+			if err != nil {
+				return []string{err.Error()}
+			}
+		}
+		bad = append(bad, canAttackFails(e.Pending(), id, x.CanAttack.Attacker, r.wantBool(x), battle, x.CanAttack.MaxAttackers)...)
 	}
 	if x.Count != nil {
 		z, ok := oracleZones[x.Count.Zone]
