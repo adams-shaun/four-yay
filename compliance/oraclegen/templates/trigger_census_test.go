@@ -24,6 +24,7 @@ var wantTriggerCensus = map[string]map[string]int{
 		"served:trigger.etb-other":                           1,
 		"served:trigger.ltb-self":                            1,
 		"served:trigger.sacrificed":                          1,
+		"served:trigger.damage":                              2,
 	},
 	"EOE": {
 		"served:trigger.attacks":                                      7,
@@ -49,6 +50,7 @@ var wantTriggerCensus = map[string]map[string]int{
 		"skip:trigger.phase: trigger did not fire":                    1,
 		"skip:trigger.spell-cast: trigger did not fire":               0,
 		"served:trigger.sacrificed":                                   2,
+		"served:trigger.damage":                                       6,
 	},
 	"FDN": {
 		"served:trigger.attacks":                                26,
@@ -58,6 +60,7 @@ var wantTriggerCensus = map[string]map[string]int{
 		"served:trigger.counter-added":                          2,
 		"served:trigger.dies":                                   14,
 		"served:trigger.dies-other":                             10,
+		"served:trigger.damage":                                 4,
 		"served:trigger.state-self-counters":                    1,
 		"served:trigger.drawn":                                  4,
 		"served:trigger.etb-land":                               20,
