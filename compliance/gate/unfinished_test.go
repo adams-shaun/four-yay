@@ -64,6 +64,7 @@ func TestGateHonoursXMageUnfinished(t *testing.T) {
 // "XMage does not implement it". Every one of the 13 fold carriers is
 // XMage-implemented, so none may carry that reason.
 func TestGateFoldsPrintedNames(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	root := filepath.Join("..", "..")
 	carriers := map[string][]string{
