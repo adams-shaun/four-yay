@@ -24,6 +24,7 @@ worktrees_dir = ".worktrees"
 # so they can be switched on from the dash without a restart.
 [[tiers]]
 name = "glm"
+harness = "opencode"
 provider = "bm-llms-glm"
 model = "GLM-5.3-Flash"
 thinking = "high"
@@ -42,6 +43,7 @@ tasks = ["implement", "review", "triage"]
 
 [[tiers]]
 name = "deepseek"
+harness = "opencode"
 provider = "deepinfra"
 model = "deepseek-ai/DeepSeek-V4.1-Flash"
 thinking = "high"
@@ -53,6 +55,7 @@ tasks = ["implement", "merge-fix", "wide-sweep"]
 
 [[tiers]]
 name = "deepseek-max"
+harness = "opencode"
 provider = "deepinfra"
 model = "deepseek-ai/DeepSeek-V4.1-Flash"
 thinking = "max"
@@ -333,7 +336,7 @@ env = { GORGE_REWARD_DIR = "/home/sadams/projects/gorge/.ds4/reward" }
 
 [[gates]]
 name = "go build"
-cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "-p", "CPUQuota=400%", "go", "build", "./..."]
+cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=8G", "-p", "CPUQuota=800%", "go", "build", "./..."]
 timeout = 900
 env = { GOMEMLIMIT = "1GiB", GOMAXPROCS = "4", GOFLAGS = "-p=2 -trimpath" }
 
@@ -346,7 +349,7 @@ env = { GOMEMLIMIT = "1GiB", GOMAXPROCS = "4", GOFLAGS = "-p=2 -trimpath" }
 # their own processes, ./view, ./internal/codeshape and every package the
 # branch touched. Run from the BASE copy so a branch cannot edit its own gate.
 name = "go test (affected)"
-cmd = ["bash", "-c", "set -o pipefail; if [ -n \"${GORGE_HEAVY_LOCK:-}\" ]; then lock=\"$GORGE_HEAVY_LOCK\"; else common=\"$(git rev-parse --path-format=absolute --git-common-dir)\"; lock=\"$(dirname \"$common\")/.ds4/heavy.lock\"; fi; mkdir -p \"$(dirname \"$lock\")\"; started=\"$(mktemp)\"; flock -o -E 75 -w 1500 \"$lock\" bash -c 'rm -f -- \"$1\"; shift; exec \"$@\"' _ \"$started\" systemd-run --user --scope -q -p MemoryMax=8G -p CPUQuota=800% bash -c 'set -o pipefail; git show {base}:scripts/gate_affected.sh | bash -s {base}'; rc=$?; if [ -e \"$started\" ] && [ \"$rc\" = 75 ]; then echo 'gate: heavy lock still held after 1500s; affected gate not run' >&2; fi; rm -f -- \"$started\"; exit \"$rc\""]
+cmd = ["bash", "-c", "set -o pipefail; if [ -n \"${GORGE_HEAVY_LOCK:-}\" ]; then lock=\"$GORGE_HEAVY_LOCK\"; else common=\"$(git rev-parse --path-format=absolute --git-common-dir)\"; lock=\"$(dirname \"$common\")/.ds4/heavy.lock\"; fi; mkdir -p \"$(dirname \"$lock\")\"; started=\"$(mktemp)\"; flock -o -E 75 -w 1500 \"$lock\" bash -c 'rm -f -- \"$1\"; shift; exec \"$@\"' _ \"$started\" systemd-run --user --scope -q -p MemoryMax=16G -p CPUQuota=1600% bash -c 'set -o pipefail; git show {base}:scripts/gate_affected.sh | bash -s {base}'; rc=$?; if [ -e \"$started\" ] && [ \"$rc\" = 75 ]; then echo 'gate: heavy lock still held after 1500s; affected gate not run' >&2; fi; rm -f -- \"$started\"; exit \"$rc\""]
 # 2026-10-05 (operator): this gate is HEAVY-class work, so it takes the one
 # repo heavy lock like postmerge_batch.sh and heavy.sh. The lock acquisition is
 # INLINED here: the path is derived inline from the shared git common dir
@@ -378,7 +381,7 @@ env = { GOMEMLIMIT = "1536MiB", GOMAXPROCS = "2", GOGC = "200", GOFLAGS = "-p=2 
 
 [[gates]]
 name = "CR conformance"
-cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "-p", "CPUQuota=400%", "go", "test", "-p=1", "./rules", "-run", "TestCR", "-v"]
+cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=8G", "-p", "CPUQuota=800%", "go", "test", "-p=1", "./rules", "-run", "TestCR", "-v"]
 timeout = 300
 # GOGC=200: same setting as the module gate above, for the same reason -- this
 # runs the same rules test binary, whose GC cost GOGC=200 cuts ~20%.
@@ -387,7 +390,7 @@ accept = "orchestrator.hooks:cr_no_fail_lines"
 
 [[gates]]
 name = "TestHeads"
-cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "-p", "CPUQuota=400%", "go", "test", "./rules", "-run", "TestHeads", "-v"]
+cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=8G", "-p", "CPUQuota=800%", "go", "test", "./rules", "-run", "TestHeads", "-v"]
 timeout = 120
 # GOGC=200: as for the module and CR gates -- same rules test binary.
 env = { GOMEMLIMIT = "1GiB", GOGC = "200", GOFLAGS = "-p=2 -trimpath" }
@@ -395,7 +398,7 @@ blocking = false          # the TestHeads policy (hooks.testheads_policy) decide
 
 [[gates]]
 name = "make sim"
-cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "-p", "CPUQuota=400%", "make", "sim"]
+cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=8G", "-p", "CPUQuota=800%", "make", "sim"]
 timeout = 600
 env = { GOMEMLIMIT = "1GiB", GOFLAGS = "-p=2 -trimpath" }
 accept = "orchestrator.hooks:sim_all_replayed"
@@ -498,6 +501,6 @@ post_gates = "orchestrator.hooks:testheads_policy"
 # at 2 a seat's cold rules compile took ~1 min. Test runs keep the 2-CPU
 # budget through their own capped scope (AGENTS.md test command).
 [seats.scope]
-memory_max = "4G"
-cpu_quota = "400%"
+memory_max = "8G"
+cpu_quota = "800%"
 env = { GOMAXPROCS = "4", GOMEMLIMIT = "1536MiB", GOFLAGS = "-p=2 -trimpath" }
