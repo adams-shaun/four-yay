@@ -208,7 +208,7 @@ func TestOracleScenarioFilesWellFormed(t *testing.T) {
 		if _, ok := parseSeatRef(ref); ok {
 			return
 		}
-		if _, _, _, _, err := splitRef(ref); err != nil {
+		if _, _, _, _, _, err := splitRef(ref); err != nil {
 			t.Errorf("%s: %v", where, err)
 		}
 	}

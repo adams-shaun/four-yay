@@ -74,6 +74,13 @@ func XMageAbility(f *cards.Face) (map[int]string, string) {
 			full[k] = loyalty + ": " + strings.TrimSpace(full[k][colon+2:])
 			base[k] = loyalty
 		}
+		// A card class that sets an ability word the Oracle line does not
+		// print (Bloom Tender's Vivid) must carry it on BOTH the full line
+		// and the base prefix, or the HasPrefix check below rejects the face.
+		if hdr := xmageAbilityWordHeader(f.Name, full[k]); hdr != "" {
+			full[k] = hdr + full[k]
+			base[k] = hdr + base[k]
+		}
 	}
 	// Ordinal matching excludes line-less intrinsics, but startsWith selection
 	// must include them. Assemble EVERY selectable line before extending any
@@ -459,9 +466,11 @@ func commaSegments(lines []string) []string {
 // ability. A mana cost reads "Cycling {2}" in both; a non-mana cost is printed
 // "Equip—Sacrifice a creature." by EquipAbility and CyclingAbility
 // ("&mdash;"), and "Eternalize {2}{W}{W}, Discard a card" by EternalizeAbility.
-// Other keywords' dash-led shapes have no rendering this mapping knows, and a
-// mixed mana-and-other Equip/Cycling cost ("Equip—{2}, Pay 2 life.") is
-// rendered in an order the printed line does not give, so those fail closed.
+// A compound mana-and-other Equip cost is printed mana-first
+// ("Equip—{2}, Pay 2 life.") but rendered non-mana-first
+// ("Equip&mdash;Pay 2 life.{2}"), so its arm reorders the printed parts; a
+// mana-first Cycling dash line has no rendering (CyclingAbility holds one
+// cost), and other keywords' dash-led shapes fail closed.
 func xmageKeywordText(head string, sa *cards.SA, line string) (string, bool) {
 	candidate := keywordCandidate(line)
 	if !keywordLineStartsWith(candidate, head) {
@@ -479,14 +488,68 @@ func xmageKeywordText(head string, sa *cards.SA, line string) (string, bool) {
 	cost := strings.TrimLeft(rest, "—-")
 	switch head {
 	case "Equip", "Cycling":
-		if leadingCostSymbol(sa.ParamStr(cards.PKCost)) != "" {
+		symbol := leadingCostSymbol(sa.ParamStr(cards.PKCost))
+		if symbol == "" {
+			return header + name + "&mdash;" + cost, true
+		}
+		if !strings.Contains(cost, symbol) {
+			// A dash-led line that does not spell the ability's leading mana
+			// symbol belongs to another ability; printedEquip supplies the
+			// plain "Equip {N}" text.
 			return "", false
 		}
-		return header + name + "&mdash;" + cost, true
+		if !strings.HasPrefix(cost, symbol) {
+			// Word-led alternate-cost form ("Equip—Pay {3} or discard a
+			// card.", Bloodthorn Flail's OrCost): the printed order is
+			// XMage's order.
+			return header + name + "&mdash;" + cost, true
+		}
+		if head != "Equip" {
+			// CyclingAbility holds one cost field, so a mana-first Cycling
+			// dash line has no XMage rendering.
+			return "", false
+		}
+		// A compound mana-plus-non-mana cost is rendered by XMage's
+		// EquipAbility with the non-mana part first, so spell that order from
+		// the printed line.
+		reordered, ok := reorderCompoundEquipCost(cost, symbol)
+		if !ok {
+			return "", false
+		}
+		return header + name + "&mdash;" + reordered, true
 	case "Eternalize":
 		return header + name + " " + strings.TrimSuffix(cost, "."), true
 	}
 	return "", false
+}
+
+// reorderCompoundEquipCost spells a printed mana-first compound Equip cost
+// ("{2}, Pay 2 life.") in XMage's EquipAbility order, non-mana text first and
+// the mana run last ("Pay 2 life.{2}"), spelled from the printed cost. The
+// printed mana run must begin with the ability's leading Forge symbol and be
+// nothing but printed mana symbols; anything else fails closed.
+func reorderCompoundEquipCost(cost, symbol string) (string, bool) {
+	mana, rest, ok := strings.Cut(cost, ", ")
+	if !ok || rest == "" || !strings.HasPrefix(mana, symbol) || !manaSymbolRun(mana) {
+		return "", false
+	}
+	return strings.TrimSuffix(rest, ".") + "." + mana, true
+}
+
+// manaSymbolRun reports whether s is one or more printed mana symbols
+// ("{2}", "{1}{U}").
+func manaSymbolRun(s string) bool {
+	for s != "" {
+		if !strings.HasPrefix(s, "{") {
+			return false
+		}
+		end := strings.Index(s, "}")
+		if end < 0 || !isManaCostSymbol(s[1:end]) {
+			return false
+		}
+		s = s[end+1:]
+	}
+	return true
 }
 
 // flavorHeader spells a printed "Job — " header as AbilityImpl.addRulePrefix

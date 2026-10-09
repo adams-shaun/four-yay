@@ -1,10 +1,8 @@
 package templates
 
 import (
-	"strings"
 	"testing"
 
-	"github.com/adams-shaun/gorge/compliance/levelb"
 	"github.com/adams-shaun/gorge/compliance/oraclegen"
 )
 
@@ -128,30 +126,6 @@ func TestCantBeCastFirstTurns(t *testing.T) {
 			t.Fatalf("%s: steps %+v, want mana then the turn-1 offer", name, it.Steps)
 		}
 		_ = reg
-	}
-}
-
-func TestStaticCantBeNamedSkips(t *testing.T) {
-	reg := loadGenRegistry(t)
-	for name, want := range map[string]string{
-		// Sorcerous Spyglass's castable shape is served
-		// (static.cant-be-activated-named); the land that names as it
-		// enters keeps the gap.
-		"Petrified Hamlet": "chosen-name needs an as-enters name choice",
-	} {
-		c, ok := reg.Lookup(name)
-		if !ok {
-			t.Fatalf("%s not in the corpus", name)
-		}
-		found := false
-		for _, r := range levelb.Requirements(c) {
-			if r.Family == "static" && strings.Contains(r.Gap, want) {
-				found = true
-			}
-		}
-		if !found {
-			t.Fatalf("%s carries no static requirement with gap %q", name, want)
-		}
 	}
 }
 

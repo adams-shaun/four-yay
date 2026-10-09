@@ -1227,7 +1227,7 @@ func TestServeFlagAutoManaDefaultsOnAndFalseRestoresLegacyTables(t *testing.T) {
 }
 
 // TestServeFlagBotPolicyReachesStartupAndOnDemandTables pins -bot-policy:
-// the production bot by default, the named policy on every startup table,
+// lethal-pressure by default, the named policy on every startup table,
 // and the on-demand default when a POST /api/games names none -- while an
 // explicit request still wins. The on-demand half goes through the real
 // httpapi handler with the lobby's own body (no bot_policy): the handler
@@ -1238,8 +1238,8 @@ func TestServeFlagBotPolicyReachesStartupAndOnDemandTables(t *testing.T) {
 	if err := fs.Parse(nil); err != nil {
 		t.Fatal(err)
 	}
-	if c.botPolicy != host.BotPolicy || c.vsbotSpectator != "public" {
-		t.Fatalf("defaults: -bot-policy %q -vsbot-spectator %q, want bot/public", c.botPolicy, c.vsbotSpectator)
+	if c.botPolicy != host.LethalPressurePolicy || c.vsbotSpectator != "public" {
+		t.Fatalf("defaults: -bot-policy %q -vsbot-spectator %q, want lethal-pressure/public", c.botPolicy, c.vsbotSpectator)
 	}
 	if err := fs.Parse([]string{"-bot-policy", host.LethalPressurePolicy}); err != nil {
 		t.Fatal(err)

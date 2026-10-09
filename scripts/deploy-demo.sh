@@ -17,21 +17,18 @@ set -euo pipefail
 
 BIN=${BIN:-bin/gorged}
 DECKS=${DECKS:-internal/testutil/decks}
-# 2026-09-29 (later): 1, down from 4. az-redeal's 100-sim MCTS search runs on
-# EVERY table concurrently, and all of them restart fresh trees the instant
-# their match ends -- with 4 tables on :8080 plus 4 duplicated on :8081
-# (MB_PORT), that is 8 concurrent search trees that occasionally piled up
-# right at match-end and froze the box the operator was observing on
-# (load average 10.6 -> 6.9 just from dropping :8081; cutting :8080 to 1
-# table is the rest of that fix). Override with TABLES=4 to get the old
-# density back once az-redeal's per-decision cost is tuned down.
-TABLES=${TABLES:-1}
-# 2026-09-29: 2, tied to BOT_POLICY below. Both az-redeal and sb-search-lite-
-# atk have Info.MaxSeats 2 (bots/azredeal, bots/sbsearch) -- measured and
-# safe at 2 seats only. Override both together (SEATS=4
-# BOT_POLICY=lethal-pressure) to get the old 4-seat shape back with a
-# commander/4-seat-capable policy.
-SEATS=${SEATS:-2}
+# 2026-10-07: 16 tables, 8 constructed + 8 commander. The demo now serves
+# commander games, so the policy must support both formats and 4 seats: the
+# old sb-search-lite-atk default is constructed-only/2-seat and
+# gorged's validateBotPolicyFlags REJECTS it for lacking commander, which
+# would stop the server from listening at all. lethal-pressure is
+# constructed+commander and seats 4. TABLES=16 with the FORMATS below
+# cycling constructed,commander gives exactly 8 of each (table i takes
+# formats[(i-1) mod 2]).
+TABLES=${TABLES:-16}
+# 2026-10-07: 4, lethal-pressure's supported seat count (it plays commander,
+# which is a 4-player format).
+SEATS=${SEATS:-4}
 # Wall-clock delay gorged inserts per decision. This has walked 1.5s -> 250ms
 # -> 500ms -> 250ms; the user asked for 250ms back on 2026-09-07, so 250ms is
 # the ruling and the earlier "tighter than a person can follow" judgement was
@@ -49,36 +46,33 @@ VSBOT_SPECTATOR=${VSBOT_SPECTATOR:-public}
 # Hosted bot policy (host/bot_policy.go's closed vocabulary) for every
 # startup table and for a play-vs-bot game that names none.
 #
-# 2026-09-29 (later): sb-search-lite-atk (bots/sbsearch), down from az-redeal.
-# az-redeal's honest MCTS froze the box when several tables' searches piled
-# up at once right at match-end -- its own Cost note says why: "contention
-# raises it, the host never cuts the search" (bots/azredeal/azredeal.go).
-# There is no bail-out yet for EITHER search-based policy (tracked:
-# cli-20260929T214831Z-6b1aaa71, a wall-clock deadline for the search loop);
-# until that lands, sb-search-lite-atk is not meaningfully safer on cost --
-# 219ms mean/searched decision vs az-redeal's 247ms, same ballpark
-# (docs/superpowers/specs/2026-09-28-spellbench-agent-design.md §12.6) -- it
-# is the operator's pick on strength/architecture, not a load fix by itself.
-# It beats sb-tactical 328-184 (64.1%) at that cost; sb-tactical alone
-# (~1ms/decision, no search) is the only registered policy that is actually
-# cheap, if the bail-out ticket doesn't land before the next incident.
+# 2026-10-07: lethal-pressure. The demo serves 8 constructed and 8 commander
+# tables (see TABLES above), and lethal-pressure is constructed+commander and
+# seats 4, so it is the only default that satisfies gorged's
+# validateBotPolicyFlags for that table mix. It also removes the sb-search
+# cost blowup the previous default carried: sb-search-lite-atk spends 219ms
+# mean per searched decision (p99 1.1s) on EVERY priority/attackers decision
+# of every table, and with several tables searching at once that load froze
+# the box (see the retired az-redeal note below); lethal-pressure is the
+# cheap manual policy. The search policies remain registered and offered for
+# on-demand play-vs-bot games a caller names explicitly.
 #
-# 2026-09-29 (earlier): az-redeal (bots/azredeal), +20.5pp vs the production
-# bot (§12.5), 100-simulation honest-redeal MCTS. Smoke-tested standalone
-# (2 seats, constructed, port 8095): three matches, no panics or stalls --
-# the freeze took several concurrent tables, not one.
-#
-# Both are Experimental tier and constructed-only/2-seat-only (bots.Info.
-# Formats/MaxSeats); those fields are metadata, not enforced by the host, so
-# FORMATS/SEATS below must stay inside that envelope by convention, not by a
-# runtime check. Before that (2026-09-28): lethal-pressure (AR7).
-BOT_POLICY=${BOT_POLICY:-sb-search-lite-atk}
-# 2026-09-29: all four constructed, tied to BOT_POLICY above (commander and
-# 4+ seats are outside az-redeal's measured envelope). This drops the
-# commander half of the old "two commander, two constructed" split; restore
-# it with FORMATS=commander,commander,constructed,constructed alongside a
-# SEATS=4 BOT_POLICY=lethal-pressure override.
-FORMATS=${FORMATS:-constructed}
+# 2026-09-29 (retired): sb-search-lite-atk (bots/sbsearch), down from
+# az-redeal. az-redeal's honest MCTS froze the box when several tables'
+# searches piled up at once right at match-end. There is no bail-out yet for
+# EITHER search-based policy (tracked: cli-20260929T214831Z-6b1aaa71, a
+# wall-clock deadline for the search loop); sb-search-lite-atk is not
+# meaningfully safer on cost -- 219ms mean/searched decision vs az-redeal's
+# 247ms, same ballpark (docs/superpowers/specs/2026-09-28-spellbench-agent-
+# design.md §12.6). Both are Experimental and constructed-only/2-seat-only
+# (bots.Info.Formats/MaxSeats), so neither could serve the commander half of
+# the demo at all. Before that (2026-09-28): lethal-pressure (AR7), which is
+# again today's default.
+BOT_POLICY=${BOT_POLICY:-lethal-pressure}
+# 2026-10-07: constructed,commander -- cycled across 16 TABLES this deals 8
+# tables of each format (table i takes formats[(i-1) mod 2]). Matches the
+# 4-format, 4-seat lethal-pressure shape.
+FORMATS=${FORMATS:-constructed,commander}
 # Deterministic across deploys: the same seed deals the same opening tables,
 # so a UI change is the only thing that differs between two screenshots.
 SEED=${SEED:-1}

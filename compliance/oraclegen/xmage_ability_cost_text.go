@@ -7,6 +7,11 @@
 //
 //   - "Sacrifice this artifact" -> "Sacrifice {this}": SacrificeSourceCost
 //     text is "sacrifice {this}"; ExileSourceCost likewise "exile {this}".
+//   - "Remove two +1/+1 counters from this creature" -> "Remove two +1/+1
+//     counters from {this}": RemoveCountersSourceCost (both the count and
+//     the Counter overload) text is "remove ... from {this}", and Forge's
+//     Oracle spells the source as "this creature" / "this artifact" where
+//     XMage uses the placeholder.
 //   - "Exile {this} from your graveyard" -> "Exile this card from your
 //     graveyard" (ExileSourceFromGraveCost), "Exile this card from your hand"
 //     -> "Exile {this} from your hand" (ExileSourceFromHandCost) and
@@ -41,6 +46,7 @@ var (
 	exileSelfGraveRE  = regexp.MustCompile(`^Exile (\{this\}|this card) from your graveyard$`)
 	exileSelfHandRE   = regexp.MustCompile(`^Exile (\{this\}|this card) from your hand$`)
 	discardSelfRE     = regexp.MustCompile(`^Discard (\{this\}|this card)$`)
+	removeCountersRE  = regexp.MustCompile(`^(Remove .+) from this [A-Za-z]+$`)
 	dashHeaderWordsRE = regexp.MustCompile(`^[^{},:]+$`)
 )
 
@@ -77,6 +83,9 @@ func xmageCostPart(part string) string {
 	}
 	if m := exileThisRE.FindStringSubmatch(part); m != nil && m[1] != "card" {
 		return "Exile {this}"
+	}
+	if m := removeCountersRE.FindStringSubmatch(part); m != nil {
+		return m[1] + " from {this}"
 	}
 	return part
 }

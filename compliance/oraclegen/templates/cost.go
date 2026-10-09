@@ -65,6 +65,13 @@ type costProbe struct {
 	// divergence, not as a skipped row.
 	full     string
 	opponent bool
+	// instantOnly restricts a spell probe to instants: the probe casts on an
+	// opponent's turn (Condition$ NotPlayerTurn), where only an instant is
+	// legal (CR 117.1a).
+	instantOnly bool
+	// setupAnswers answer an as-enters choice the setup placement itself
+	// poses (Gathering Stone's chosen type), before the first gameplay step.
+	setupAnswers []oraclegen.Answer
 }
 
 func costStatic(reg *cards.Registry, f *cards.Face, name string, req levelb.Requirement) (oraclegen.Item, *oraclegen.Skip) {

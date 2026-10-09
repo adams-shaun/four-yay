@@ -103,6 +103,11 @@ type manaColorActivation struct {
 	// nested is set when a colour choice was posed by effects.Ask from a
 	// SubAbility$ Mana effect inside an off-stack mana resolution.
 	nested *cards.SA
+	// nestedColor marks nested as a ChooseColor head (the "AB$ ChooseColor |
+	// SubAbility$ DBMana" chain) rather than a Mana effect: its answer records
+	// the source's ChosenColor and re-enters the chain at the head's
+	// SubAbility$ instead of binding Ctx.Mana.
+	nestedColor bool
 }
 
 // offStackManaFrame is the transient (never stored across a Submit, so never
@@ -169,15 +174,24 @@ func (e *Engine) withOffStackMana(act manaColorActivation, run func()) bool {
 
 // askOffStackMana routes every resumable ask from an off-stack mana chain
 // through its own continuation. The synthetic resume point is anchored to the
-// mana source as a direct resolution, not the current stack top.
+// mana source as a direct resolution, not the current stack top. Two ask
+// kinds route here: a Produced$ colour choice ("mana_color", the Mana
+// effect's own ask) and a mid-chain ChooseColor head's ask ("choosecolor",
+// the ChooseColor -> DB$ Mana chain), each with its own re-entry in
+// answerManaColor.
 func (e *Engine) askOffStackMana(d *decision.Decision) bool {
 	f := e.offStackMana
-	if f == nil || d.ResumeKind != "mana_color" || d.ResumeSA == nil {
+	if f == nil || d.ResumeSA == nil {
+		return false
+	}
+	chooseColor := d.ResumeKind == "choosecolor"
+	if !chooseColor && d.ResumeKind != "mana_color" {
 		return false
 	}
 	act := f.act
 	act.nested = d.ResumeSA
-	act.allocation = d.Max > 1
+	act.nestedColor = chooseColor
+	act.allocation = !chooseColor && d.Max > 1
 	act.triggers = append([]pendingTrigger(nil), f.act.triggers...)
 	e.manaColorActivation = &act
 	f.asked = true
@@ -262,6 +276,52 @@ func (e *Engine) answerNestedManaColor(ma *manaColorActivation, chosen []decisio
 	template := *ma
 	template.nested = nil
 	asked := e.withOffStackMana(template, func() { effects.Resolve(e, &ctx, ma.nested) })
+	e.manaFromTap, e.manaProducer = savedTap, savedProducer
+	if asked {
+		return
+	}
+	e.resolveTriggeredManaAbilities(ma.triggers, ma.cast, ma.cumulative)
+	e.continueManaPaymentWindow(ma.cumulative)
+}
+
+// answerNestedChooseColor completes a routed mid-chain ChooseColor ask (the
+// "AB$ ChooseColor | SubAbility$ DBMana" head an off-stack mana activation
+// is resolving). The answer is recorded as the source's ChosenColor through
+// the same Choose "color" event the tape-served path emits, and the chain
+// re-enters at the head's SubAbility$ -- the DB$ Mana production, whose
+// Produced$ Chosen substitutes the recorded colour, and its riders -- under
+// a fresh off-stack mana frame, then runs the activation's own tail exactly
+// as finishManaEffect would have.
+func (e *Engine) answerNestedChooseColor(ma *manaColorActivation, chosen []decision.Option) {
+	letter := "W"
+	if len(chosen) > 0 {
+		if l := etbColourLetter(chosen[0].Label); l != "" {
+			letter = l
+		}
+	}
+	e.emit(events.Event{Kind: events.Choose, Obj: ma.source, Counter: "color", Text: letter})
+	var ctx effects.Ctx
+	if ma.trigger != nil {
+		ctx = ma.trigger.Ctx
+	} else {
+		ctx = effects.NewCtx(ma.source, ma.player, effects.CtxInit{})
+		ctx.ResolvedThisTurn = e.resolvedAbilityTallyFor(ma.source, ma.nested)
+		ctx.ActivationsThisTurn = e.activationsThisTurnFor(ma.source, ma.nested)
+		if o := e.G.Obj(ma.source); o != nil && o.Face() != nil {
+			effects.SetSVars(&ctx, ma.gained.SVars(o.Face().SVars))
+		}
+	}
+	savedTap, savedProducer := e.manaFromTap, e.manaProducer
+	if ma.trigger == nil && ma.ability != nil {
+		e.manaFromTap = e.costRef(ma.ability.ParamStr(cards.PKCost)).Tap
+		e.manaProducer = ma.source
+	}
+	template := *ma
+	template.nested, template.nestedColor = nil, false
+	asked := false
+	if ma.nested != nil && ma.nested.Sub != nil {
+		asked = e.withOffStackMana(template, func() { effects.Resolve(e, &ctx, ma.nested.Sub) })
+	}
 	e.manaFromTap, e.manaProducer = savedTap, savedProducer
 	if asked {
 		return
@@ -692,7 +752,7 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 			}
 			continue
 		}
-		if ma.API == "Mana" && !e.isLoyaltyAbility(ma) && abilityZoneOK(ma, o.Zone) && e.activatorAllows(p, id, ma) && !abilityRestricted(ma) && e.manaAbilityPayable(p, id, ma) &&
+		if cards.IsManaAbilitySA(ma) && !e.isLoyaltyAbility(ma) && abilityZoneOK(ma, o.Zone) && e.activatorAllows(p, id, ma) && !abilityRestricted(ma) && e.manaAbilityPayable(p, id, ma) &&
 			pay.ManaActivationGateHolds(asPayer(e), p, id, ma) && pay.ManaSVarGateOK(asPayer(e), o, p, id, ma) {
 			out = append(out, ma)
 		}
@@ -727,7 +787,7 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 			}
 			continue
 		}
-		if ga.SA.API != "Mana" || e.isLoyaltyAbility(ga.SA) {
+		if !cards.IsManaAbilitySA(ga.SA) || e.isLoyaltyAbility(ga.SA) {
 			continue
 		}
 		if !abilityZoneOK(ga.SA, o.Zone) || !e.activatorAllows(p, id, ga.SA) || abilityRestricted(ga.SA) || !e.manaAbilityPayable(p, id, ga.SA) ||
@@ -1800,6 +1860,13 @@ func (e *Engine) answerManaColor(chosen []decision.Option) bool {
 	e.choosing = chooseNone
 	if ma == nil {
 		return false
+	}
+	if ma.nestedColor {
+		// A routed mid-chain ChooseColor ask: the options are colour names
+		// (Kind "color", no ManaSymbol), so the Produced$ symbol binding
+		// below does not apply; answerNestedChooseColor owns the re-entry.
+		e.answerNestedChooseColor(ma, chosen)
+		return ma.cast
 	}
 	if len(chosen) == 0 || (!ma.allocation && len(chosen) != 1) {
 		return false

@@ -1,0 +1,3 @@
+{"shape":{"template":"trigger","op":"harness","field":"xmage","diff":"AssertionError: Player PlayerA must have N actions but found N"},"key":"trigger | harness | xmage | AssertionError: Player PlayerA must have N actions but found N","cards":2}
+{"card":"Ares, God of War","template":"trigger#0.0","status":"harness","api":"ChangesZone:ChangeZone","sets":["MSH"],"detail":"xmage: AssertionError: Player PlayerA must have 0 actions but found 1"}
+{"card":"Marina Vendrell's Grimoire","template":"trigger#0.2","status":"harness","api":"ChangesZone:Draw+LifeGained:Draw+LifeLost:Discard","sets":["DSK"],"detail":"xmage: AssertionError: Player PlayerA must have 0 actions but found 2"}

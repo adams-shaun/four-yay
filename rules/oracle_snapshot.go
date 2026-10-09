@@ -107,6 +107,14 @@ type OracleDecision struct {
 	// OptionRefs records game-object identities among the offered options. It
 	// lets downstream answer adapters disambiguate same-named object picks.
 	OptionRefs []string `json:"option_refs,omitempty"`
+	// OptionGroups records the non-empty decision.Option.Group of each offered
+	// option, in option order. Only the engine's target asks set a Group
+	// (rules' askTarget/cast.go and effects' poseTargetsAsk, all
+	// "target-controller-<seat>"), so a recorded group tells a downstream
+	// adapter that a KChoose is really a target ask -- a mid-resolution
+	// TargetsForEachPlayer$ ask (Kaya, Spirits' Justice's exile-each) poses one
+	// XMage target per opponent even though the engine records it as a choose.
+	OptionGroups []string `json:"option_groups,omitempty"`
 	// ObjectPicks records only selected game-object identities, in submission
 	// order. Unlike a snapshot delta, these are the objects the player chose.
 	ObjectPicks []string `json:"object_picks,omitempty"`
@@ -339,10 +347,38 @@ func stackSourceRef(ref string, o *state.Object) string {
 //   - a token is "p<controller>:token:<name>[#k]", k its rank among that
 //     seat's battlefield tokens whose name contains <name> (resolve's token
 //     rule). Tokens are positional, as in scenarios; the comparator matches
-//     them by characteristics (spec section 7).
+//     them by characteristics (spec section 7);
+//   - a PENDING ability object on the stack is
+//     "p<controller>:ability:<source name>[#k]", k its rank in ObjID order
+//     among that controller's pending ability objects with the same source
+//     name (resolve's ability rule). Only a pending ability is offered as a
+//     target (CR 115.5), so once the ability leaves the stack the ref names
+//     nothing -- the same lifetime a spell ref's stack entry has.
 func (r *oracleRun) objRef(o *state.Object) string {
 	if o == nil {
 		return ""
+	}
+	if o.Ability != nil {
+		name := r.objName(r.e.G.Obj(o.Source))
+		seat := o.Controller
+		norm := cards.NormalizeName(name)
+		k := 0
+		for i := range r.e.G.Objs {
+			c := &r.e.G.Objs[i]
+			if c.Zone != state.ZStack || c.Ability == nil || c.Controller != seat ||
+				cards.NormalizeName(r.objName(r.e.G.Obj(c.Source))) != norm {
+				continue
+			}
+			k++
+			if c.ID == o.ID {
+				break
+			}
+		}
+		base := fmt.Sprintf("p%d:ability:%s", seat, name)
+		if k > 1 {
+			return fmt.Sprintf("%s#%d", base, k)
+		}
+		return base
 	}
 	bound := ""
 	for ref, id := range r.refs {

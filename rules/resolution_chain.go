@@ -203,7 +203,15 @@ func (e *Engine) moveResolvedOffStack(o *state.Object) {
 	// nothing. (No corpus card grants Rebound to a permanent, so the
 	// permanent branch above's lack of a registration site stays
 	// corpus-unreachable.)
-	rebound := o.CastFlags&state.FlagRebound != 0
+	rebound := o.CastFlags&state.FlagRebound != 0 || e.spellReboundGranted(o)
+	if rebound {
+		// CR 702.95a: a rebounding spell is exiled as it resolves instead of
+		// entering its owner's graveyard -- cast flag or granted keyword
+		// alike. The granted path (Ojer Pakpatiq's "it gains rebound" pump)
+		// sets no provenance bit, so spellRestZone alone still names the
+		// graveyard for it.
+		rest = state.ZExile
+	}
 	controller := o.Controller
 	e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: state.ZStack, To: rest})
 	if rebound && rest == state.ZExile {
@@ -228,6 +236,51 @@ func (e *Engine) moveResolvedOffStack(o *state.Object) {
 func (e *Engine) registerRebound(id state.ObjID, controller state.PlayerID) {
 	e.emit(events.Event{Kind: events.DelayedRegister, Obj: id, Player: controller,
 		Step: state.StepUpkeep, Counter: "__kwReboundCast", Text: "Upkeep|VP=You"})
+}
+
+// spellReboundGranted is the granted-keyword half of the CR 702.95a check:
+// the resolving stack spell carries a Rebound keyword a resolution-time
+// ability granted it (Ojer Pakpatiq, Deepest Epoch's "Whenever you cast an
+// instant spell from your hand, it gains rebound" pumps KW$ Rebound onto the
+// stack spell with PumpZone$ Stack), and it was cast from its controller's
+// hand. The cast-provenance bit above is stamped only for a face that
+// natively carries the keyword at pay time, which is too early for a
+// mid-stack grant, so the granted path reads the object's derived keywords
+// and the log's cast origin instead -- but only for a GRANTED keyword: a
+// face that natively carries Rebound is this bit's own population, and
+// reading it here too would rebound a native carrier whose provenance bit
+// was never stamped because nothing cast it (the CR 608 resolution harness
+// puts such a spell on the stack directly with a hand-origin push). A copy
+// was put on the stack, never cast (CR 707.10), so it rebounds neither way;
+// the recast from exile carries no grant (the UntilEOT pump is long gone)
+// and reads not-cast-from-hand, so CR 702.95e's "doesn't rebound again"
+// holds.
+func (e *Engine) spellReboundGranted(o *state.Object) bool {
+	if o == nil || o.IsCopy || faceCarriesRebound(o) {
+		return false
+	}
+	for _, k := range e.Keywords(o.ID) {
+		if strings.EqualFold(strings.TrimSpace(k), "Rebound") {
+			return e.WasCastFromHand(o.ID)
+		}
+	}
+	return false
+}
+
+// faceCarriesRebound reports whether the object's printed face natively
+// carries the Rebound keyword: that population is stamped FlagRebound at pay
+// time, so a spell still carrying the keyword there was granted nothing.
+func faceCarriesRebound(o *state.Object) bool {
+	f := o.Face()
+	if f == nil {
+		return false
+	}
+	for _, k := range f.Keywords {
+		if strings.EqualFold(strings.TrimSpace(k), "Rebound") {
+			return true
+		}
+	}
+	return false
 }
 
 // payUnlessDamageCost lands the damage an accepting opponent chose to take

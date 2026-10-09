@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/compliance/levelb"
 	"github.com/adams-shaun/gorge/compliance/oraclegen"
 )
 
@@ -32,7 +33,10 @@ type triggerCause struct {
 	// target, an opponent-comparison gate) the cause needs on the other side
 	// of the table.
 	opponentBattlefield []string
-	activateCost        string // Forge cost of the activate step in steps (Crew/Saddle tap choice); "" when none
+	// opponentCounters puts counters on p1's battlefield cards at setup
+	// (card name -> kind -> count), the p1 side of counters.
+	opponentCounters map[string]map[string]int
+	activateCost     string // Forge cost of the activate step in steps (Crew/Saddle tap choice); "" when none
 	// preludeActivationCost is the Forge cost of a prelude activate step
 	// whose cost carries a choice (scriptPreludeActivationCost exports its
 	// picks); "" when no prelude activates with such a cost.
@@ -52,6 +56,10 @@ var (
 	// Divination ({2}{U}, draw two) is the plain draw; Concentrate and
 	// Inspiration are the fallbacks.
 	drawProbes = []string{"Divination", "Concentrate", "Inspiration"}
+	// Sign in Blood ({B}{B}) makes a TARGET player draw two and lose 2 life,
+	// so it is the only probe that can make an opponent draw (the "their
+	// second card each turn" triggers).
+	drawOtherProbe = "Sign in Blood"
 	// Shock (instant, {R}, 2 damage to any target) is the instant/sorcery
 	// cast cause; Grizzly Bears ({1}{G}) the creature one; and Giant Growth
 	// ({G}) the self-controlled becomes-target cause. All three are level-A fixtures.
@@ -102,7 +110,10 @@ func baseTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards
 		return ltbSelfRecipe(reg, f, name, t)
 	case "trigger.dies":
 		if !creature {
-			return nil, "dies needs a creature"
+			// A non-creature permanent dies to the removal spell its type
+			// admits; an Aura is cast on a bearer first (setup cannot place
+			// an unattached Aura) and destroyed on it.
+			return selfDiesNonCreatureCauses(reg, f, name)
 		}
 		for _, p := range destroyProbes {
 			cast(p, "p0:"+name)
@@ -165,7 +176,9 @@ func baseTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards
 		return out, ""
 	case "trigger.becomes-target":
 		if !creature {
-			return nil, "becomes-target needs a creature"
+			// A non-creature permanent is targeted by the opponent's removal
+			// spell its type admits (the ward ask is declined as ever).
+			return becomesTargetNonCreatureCauses(reg, f, name)
 		}
 		// Keep both controller shapes: YouCtrl target triggers need p0's own
 		// spell, while ward and OppCtrl triggers need p1's spell.
@@ -178,12 +191,40 @@ func baseTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards
 		for _, p := range lifegainProbes {
 			cast(p)
 		}
+	case "trigger.life-lost":
+		// Shock at the losing player: the source's controller for You/Player
+		// ("whenever you lose life" / "whenever a player loses life"), an
+		// opponent for Opponent ("whenever an opponent loses life during your
+		// turn", Kefka). Damage to a player is a loss of life, so the engine's
+		// LifeLost matcher sees it; PlayerTurn$ True is satisfied because turn
+		// 1 is p0's turn.
+		target := "p0"
+		if strings.EqualFold(t.ParamStr(cards.PKValidPlayer), "Opponent") {
+			target = "p1"
+		}
+		if c, ok := castCause(reg, name, shockProbe, target); ok {
+			out = append(out, c)
+		}
 	case "trigger.drawn":
 		for _, p := range drawProbes {
 			if c, ok := castCause(reg, name, p); ok {
 				out = append(out, withDrawCheckpoint(c))
 			}
 		}
+	case "trigger.drawn-other":
+		// Sign in Blood makes the target player draw two, so the "second card
+		// drawn" trigger fires. The drawer is p1 when the trigger names an
+		// opponent (ValidPlayer Opponent, or a ValidCard Card.OppOwn filter),
+		// else p0 (ValidPlayer Player / a bare each-player draw).
+		target := "p0"
+		if strings.EqualFold(t.ParamStr(cards.PKValidPlayer), "Opponent") || filterHasTokenFold(t.ParamStr(cards.PKValidCard), "oppown") {
+			target = "p1"
+		}
+		if c, ok := castCause(reg, name, drawOtherProbe, target); ok {
+			out = append(out, withDrawCheckpoint(c))
+		}
+	case levelb.ManaExpendSub:
+		return manaExpendCauses(reg, name, t)
 	case "trigger.phase":
 		step, ok := phaseStep(t.ParamStr(cards.PKPhase))
 		if !ok {
@@ -265,6 +306,9 @@ func baseTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards
 			return causes, why
 		}
 		if causes, why, ok := stateTriggerRecipe(reg, f, name, t, sub); ok {
+			return causes, why
+		}
+		if causes, why, ok := remainderTriggerRecipe(reg, f, name, t, sub); ok {
 			return causes, why
 		}
 		return nil, "no recipe for " + sub

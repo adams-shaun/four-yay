@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"resolve","field":"p0.library","diff":"placement"},"key":"activate | resolve | p0.library | placement","cards":1}
+{"card":"Sparring Dummy","template":"activate#0.0","status":"diverge","api":"-","sets":["TLA"],"detail":"step 1 (resolve) p0.hand: gorge \"[]\", xmage \"[Wastes]\""}

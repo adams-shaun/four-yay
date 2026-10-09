@@ -341,12 +341,12 @@ func activatedMatchesValidSA(ab *cards.SA, validSA string) bool {
 		}
 		switch {
 		case constraint == "!ManaAbility":
-			if !cards.IsManaAbilityAPI(ab.API) {
+			if !cards.IsManaAbilitySA(ab) {
 				return true
 			}
 			// else: mana abilities are expressly spared; try the next alt
 		case constraint == "ManaAbility" || strings.HasPrefix(constraint, "ManaAbility<"):
-			if !cards.IsManaAbilityAPI(ab.API) {
+			if !cards.IsManaAbilitySA(ab) {
 				break // not a mana ability; try the next alt
 			}
 			// Bare ManaAbility matches every mana ability. A

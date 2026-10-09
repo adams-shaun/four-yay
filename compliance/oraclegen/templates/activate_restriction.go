@@ -603,6 +603,8 @@ func mergeConditionPreludes(parts []conditionPrelude) conditionPrelude {
 	for _, p := range parts {
 		out.hand = append(out.hand, p.hand...)
 		out.battlefield = append(out.battlefield, p.battlefield...)
+		out.opponentHand = append(out.opponentHand, p.opponentHand...)
+		out.opponentBattlefield = append(out.opponentBattlefield, p.opponentBattlefield...)
 		out.tapped = append(out.tapped, p.tapped...)
 		out.graveyard = append(out.graveyard, p.graveyard...)
 		out.steps = append(out.steps, p.steps...)

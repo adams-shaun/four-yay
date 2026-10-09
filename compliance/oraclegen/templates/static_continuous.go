@@ -104,19 +104,23 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 	// counterShift is the +n/+n the probe-counters fixture put on the base
 	// probe: the compared probe spec's P/T is raised by it, so the counters
 	// alone are the baseline and only a change the static itself makes is
-	// observable.
-	served := func(base oraclegen.Item, res rules.OracleResult, plan staticProbePlan, withHost bool, counterShift int32) (oraclegen.Item, bool) {
+	// observable. It rides staticBaseline, which also carries a state
+	// fixture's other own-contribution shifts (an attached Equipment's
+	// constant P/T grant on the probe or the card) and the token specs the
+	// token fixture created, so the observation reads only changes the
+	// static itself makes.
+	served := func(base oraclegen.Item, res rules.OracleResult, plan staticProbePlan, withHost bool, bl staticBaseline) (oraclegen.Item, bool) {
 		specs := staticProbeSpecs(reg, append([]string{staticProbe}, plan.probes...))
-		if counterShift != 0 {
+		if bl.probePT != [2]int32{} {
 			if spec, ok := specs[staticProbe]; ok {
-				specs[staticProbe] = shiftProbePT(spec, counterShift)
+				specs[staticProbe] = shiftProbePT2(spec, bl.probePT)
 			}
 		}
 		snap := res.Snapshots[len(res.Snapshots)-1]
 		if withHost {
 			specs = staticWithAttachHost(reg, snap, f.Name, specs)
 		}
-		observed, namedOnly := staticObservedNamed(snap, f, name, st, specs)
+		observed, namedOnly := staticObservedNamed(snap, f, name, st, specs, bl)
 		if !observed {
 			return oraclegen.Item{}, false
 		}
@@ -138,11 +142,15 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 	}
 	// Candidates that replayed and showed nothing on the plain probes are
 	// kept so the attach-host fallback can retry observation on their own
-	// snapshot without rebuilding or replaying the scenario.
+	// snapshot without rebuilding or replaying the scenario. Each carries
+	// its fixture's baseline, so the fallback reads only changes the static
+	// itself makes (an attached Equipment's own +2/+0, a token's printed
+	// spec).
 	type staticCandidate struct {
 		base oraclegen.Item
 		res  rules.OracleResult
 		plan staticProbePlan
+		bl   staticBaseline
 	}
 	var candidates []staticCandidate
 	for i, plan := range plans {
@@ -160,10 +168,10 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 			}
 			break
 		}
-		if it, ok := served(base, res, plan, false, 0); ok {
+		if it, ok := served(base, res, plan, false, staticBaseline{}); ok {
 			return it, nil
 		}
-		candidates = append(candidates, staticCandidate{base, res, plan})
+		candidates = append(candidates, staticCandidate{base, res, plan, staticBaseline{}})
 	}
 	// A condition or count the bare scenario leaves false or zero: retry each
 	// candidate fixture with each probe plan. This runs only after every bare
@@ -178,10 +186,11 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 			if err != nil || len(res.Fails) != 0 || len(res.Snapshots) == 0 {
 				continue
 			}
-			if it, ok := served(base, res, plan, false, 0); ok {
+			bl := cond.baseline()
+			if it, ok := served(base, res, plan, false, bl); ok {
 				return it, nil
 			}
-			candidates = append(candidates, staticCandidate{base, res, plan})
+			candidates = append(candidates, staticCandidate{base, res, plan, bl})
 		}
 	}
 	// A static whose affected permanent carries a counter gate the bare
@@ -205,7 +214,7 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 			// Only P1P1 counters move the probe's P/T; a gate on another kind
 			// leaves the compared spec alone.
 			shift := int32(fx.probeCounters["P1P1"])
-			if it, ok := served(base, res, plan, false, shift); ok {
+			if it, ok := served(base, res, plan, false, staticBaseline{probePT: [2]int32{shift, shift}}); ok {
 				return it, nil
 			}
 		}
@@ -228,7 +237,7 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 	// runs only after every existing candidate failed, so it can never win an
 	// earlier candidate and change an already-served row's scenario bytes.
 	for _, cand := range candidates {
-		if it, ok := served(cand.base, cand.res, cand.plan, true, 0); ok {
+		if it, ok := served(cand.base, cand.res, cand.plan, true, cand.bl); ok {
 			return it, nil
 		}
 	}
@@ -302,6 +311,15 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 	// through to its named gap.
 	if st.HasParam(cards.PKAddStaticAbility) {
 		if it, ok := staticGrantedStaticItem(reg, f, name, req, st); ok {
+			return it, nil
+		}
+	}
+	// A chosen-name mana grant (Petrified Hamlet's "Lands with the chosen
+	// name have '{T}: Add {C}.') is observed on the named probe land the
+	// source's ETB trigger names (static_named_enters.go); the grant gap's
+	// fixture cannot give a recipient its chosen name.
+	if namedCardManaGrant(f, &st) {
+		if it, skip := staticGrantedNamedCardItem(reg, f, name, req, &st); skip == nil {
 			return it, nil
 		}
 	}
@@ -384,6 +402,11 @@ func staticBase(reg *cards.Registry, c *cards.Card, f *cards.Face, name string, 
 		if why != "" {
 			return base, why
 		}
+		if cond != nil && cond.manaExtra > 0 {
+			// A count of the unspent mana pool: the cast is paid with more
+			// mana than it needs and the pool keeps the rest.
+			mana += strings.Repeat("C", cond.manaExtra)
+		}
 		var setup func(*oraclegen.Fixture)
 		if cond != nil {
 			setup = cond.apply
@@ -398,6 +421,18 @@ func staticBase(reg *cards.Registry, c *cards.Card, f *cards.Face, name string, 
 			})
 		}
 		base = it
+	}
+	if cond != nil && cond.equip != "" {
+		// The fixture's Equipment attaches now: the card is on the
+		// battlefield whichever path built it (cast, played, placed), and so
+		// is the probe the attach targets.
+		target := "p0:" + staticProbe
+		if cond.attach == "self" {
+			target = "p0:" + name
+		}
+		base.Steps = append(base.Steps, oraclegen.Step{
+			Op: "attach", Seat: 0, Card: "p0:" + cond.equip, AttachedTo: target,
+		})
 	}
 	if band := classStaticBand(&st); band >= 2 {
 		// A ClassBand$ static is live only from its level on. The card is on
@@ -418,7 +453,16 @@ func staticBase(reg *cards.Registry, c *cards.Card, f *cards.Face, name string, 
 	}
 	if plan.attack {
 		attackers := staticAttackers(reg, name, probes, plan.self)
+		if cond != nil {
+			attackers = append(attackers, cond.tokenAttackers...)
+		}
 		base.Steps = append(base.Steps, oraclegen.Step{Op: "attack", Seat: 0, Defender: "p1", Attackers: attackers})
+	}
+	if cond != nil && len(cond.afterSteps) > 0 {
+		// The card is on the battlefield by now (cast, played or placed), so
+		// a battlefield trigger of its own (the solved-Case "To solve"
+		// sequence) can run and resolve before the final checkpoint.
+		base.Steps = append(base.Steps, cond.afterSteps...)
 	}
 	return base, ""
 }
@@ -434,25 +478,57 @@ func staticSlotOf(f *cards.Face, req levelb.Requirement) (cards.Static, string) 
 	return st, st.ParamStr(cards.PKAffected)
 }
 
-// shiftProbePT returns spec with its creature P/T raised by n/n: the probe
-// holds P1P1 counters the fixture placed, so the compared baseline is the P/T
-// the counters alone give it and only a change the static itself makes is
-// observable.
-func shiftProbePT(spec staticProbeSpec, n int32) staticProbeSpec {
-	if !spec.creature || spec.pt == "" || n <= 0 {
+// staticBaseline is the state a fixture itself contributes to the observed
+// permanents, so the observation reads only what the static adds on top: the
+// constant P/T grant a fixture's Equipment makes on the probe or on the card,
+// and the printed specs of the tokens a fixture created.
+type staticBaseline struct {
+	probePT [2]int32
+	cardPT  [2]int32
+	tokens  map[string]staticProbeSpec
+}
+
+// baseline folds a fixture's own contribution into an observation baseline:
+// an Equipment attached to the probe shifts the compared probe P/T, one
+// attached to the card shifts the card's, and the token fixture's token spec
+// is what its tokens are compared against.
+func (s staticFixture) baseline() staticBaseline {
+	var bl staticBaseline
+	switch s.attach {
+	case staticProbe:
+		bl.probePT = s.attachPT
+	case "self":
+		bl.cardPT = s.attachPT
+	}
+	if s.tokenName != "" {
+		bl.tokens = map[string]staticProbeSpec{s.tokenName: s.tokenSpec}
+	}
+	return bl
+}
+
+// shiftProbePT2 returns spec with its creature P/T raised by (p, t): the
+// probe holds counters the fixture placed or wears the fixture's Equipment,
+// so the compared baseline is the state the fixture alone gives it and only a
+// change the static itself makes is observable.
+func shiftProbePT2(spec staticProbeSpec, d [2]int32) staticProbeSpec {
+	if !spec.creature || spec.pt == "" || (d[0] == 0 && d[1] == 0) {
 		return spec
 	}
-	slash := strings.IndexByte(spec.pt, '/')
+	return staticProbeSpec{pt: shiftPT(spec.pt, d[0], d[1]), keywords: spec.keywords, namedKeywords: spec.namedKeywords, creature: spec.creature, chars: spec.chars}
+}
+
+// shiftPT raises a "p/t" string by (dp, dt), "" when it does not parse.
+func shiftPT(pt string, dp, dt int32) string {
+	slash := strings.IndexByte(pt, '/')
 	if slash < 0 {
-		return spec
+		return ""
 	}
-	p, err1 := strconv.Atoi(spec.pt[:slash])
-	t, err2 := strconv.Atoi(spec.pt[slash+1:])
+	p, err1 := strconv.Atoi(pt[:slash])
+	t, err2 := strconv.Atoi(pt[slash+1:])
 	if err1 != nil || err2 != nil {
-		return spec
+		return ""
 	}
-	spec.pt = fmt.Sprintf("%d/%d", int32(p)+n, int32(t)+n)
-	return spec
+	return fmt.Sprintf("%d/%d", int32(p)+dp, int32(t)+dt)
 }
 
 // staticCounterGated reports whether st applies only while its own source
@@ -514,7 +590,7 @@ func staticBackFaceScenario(f *cards.Face, name string, req levelb.Requirement, 
 // Spacecraft's station, a Vehicle's crew condition) shows up in its types, the
 // same staticCharsMoved comparison every other card uses.
 func staticObserved(s rules.OracleSnapshot, f *cards.Face, name string, st cards.Static, probes map[string]staticProbeSpec) bool {
-	return staticObservedWith(s, f, name, st, probes, false)
+	return staticObservedWith(s, f, name, st, probes, false, staticBaseline{})
 }
 
 // staticObservedNamed reports whether the snapshot shows a continuous effect
@@ -523,34 +599,55 @@ func staticObserved(s rules.OracleSnapshot, f *cards.Face, name string, st cards
 // already observes keeps CompareKeywords; a grant of a named ability
 // (Ward, Prowess, Wither, Persist, Firebending) is observed only under the
 // named fold and makes the item opt in to CompareKeywordsNamed.
-func staticObservedNamed(s rules.OracleSnapshot, f *cards.Face, name string, st cards.Static, probes map[string]staticProbeSpec) (observed, namedOnly bool) {
-	if staticObservedWith(s, f, name, st, probes, false) {
+func staticObservedNamed(s rules.OracleSnapshot, f *cards.Face, name string, st cards.Static, probes map[string]staticProbeSpec, base staticBaseline) (observed, namedOnly bool) {
+	if staticObservedWith(s, f, name, st, probes, false, base) {
 		return true, false
 	}
-	if staticObservedWith(s, f, name, st, probes, true) {
+	if staticObservedWith(s, f, name, st, probes, true, base) {
 		return true, true
 	}
 	return false, false
 }
 
 // staticObservedWith is staticObserved under a chosen keyword vocabulary.
-// named selects the wider fold (ComparedKeywords(..., true)).
-func staticObservedWith(s rules.OracleSnapshot, f *cards.Face, name string, st cards.Static, probes map[string]staticProbeSpec, named bool) bool {
+// named selects the wider fold (ComparedKeywords(..., true)). base carries
+// the fixture's own contribution (an attached Equipment's P/T grant, the
+// created tokens' printed specs), which is never read as the static's effect.
+func staticObservedWith(s rules.OracleSnapshot, f *cards.Face, name string, st cards.Static, probes map[string]staticProbeSpec, named bool, base staticBaseline) bool {
 	printedKW := oraclediff.ComparedKeywords(f.Keywords, named)
 	printedChars := printedStaticChars(f)
 	cardName := f.Name
 	if cardName == "" {
 		cardName = name
 	}
+	expectedCardPT := f.PT
+	if base.cardPT != [2]int32{} {
+		if shifted := shiftPT(f.PT, base.cardPT[0], base.cardPT[1]); shifted != "" {
+			expectedCardPT = shifted
+		}
+	}
 	for _, p := range s.Permanents {
 		spec, isProbe := probes[p.Name]
 		switch {
+		case p.Token && base.tokens != nil:
+			// A token a fixture created: the static's grant lands on it, and
+			// the printed spec is the token script's, not a card's. A token
+			// whose spec is unknown is not read (a spec-less token can never
+			// be mistaken for a changed one).
+			if ts, ok := base.tokens[p.Name]; ok {
+				if (p.PT != "" || ts.pt != "") && p.PT != ts.pt {
+					return true
+				}
+				if oraclediff.ComparedKeywords(p.Keywords, named) != ts.keywordsFor(named) {
+					return true
+				}
+			}
 		case isProbe:
 			if p.PT != spec.pt || oraclediff.ComparedKeywords(p.Keywords, named) != spec.keywordsFor(named) || staticCharsMoved(p, spec.chars) {
 				return true
 			}
 		case p.Controller == 0 && p.Name == cardName:
-			if p.PT != "" && f.PT != "" && !strings.Contains(f.PT, "*") && p.PT != f.PT {
+			if p.PT != "" && f.PT != "" && !strings.Contains(f.PT, "*") && p.PT != expectedCardPT {
 				return true
 			}
 			if p.PT != "" && strings.Contains(f.PT, "*") && staticSelfCDA(st) {

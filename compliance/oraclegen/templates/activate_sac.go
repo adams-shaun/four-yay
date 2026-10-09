@@ -3,6 +3,9 @@ package templates
 import (
 	"strconv"
 	"strings"
+
+	"github.com/adams-shaun/gorge/compliance/oraclegen"
+	"github.com/adams-shaun/gorge/rules"
 )
 
 // This file is the single home of the Sac<N/Filter> cost vocabulary the
@@ -103,6 +106,54 @@ func sacFilterFixture(tok string) (string, bool) {
 // that names a token, an attachment or a status has no plain fixture; a '+'
 // modifier (the cmcEQX value gate) does not change which card pays the cost,
 // so it is dropped rather than rejecting an otherwise cellable filter.
+// sacCostNamesRoom reports whether a Sac token's filter names the Room card
+// type in any of its ';'-separated alternatives. The base word is extracted
+// exactly as sacFilterClause extracts it, so the two agree on what "Room" a
+// cost can mean.
+func sacCostNamesRoom(tok string) bool {
+	payload, ok := bracketPayload(tok)
+	if !ok {
+		return false
+	}
+	parts := strings.Split(payload, "/")
+	if len(parts) < 2 {
+		return false
+	}
+	for _, alt := range strings.Split(parts[1], ";") {
+		alt = strings.ToLower(strings.TrimSpace(alt))
+		if i := strings.IndexByte(alt, '+'); i >= 0 {
+			alt = alt[:i]
+		}
+		base := alt
+		if i := strings.IndexByte(base, '.'); i >= 0 {
+			base = base[:i]
+		}
+		if base == "room" {
+			return true
+		}
+	}
+	return false
+}
+
+// observedSacPick is the XMage answer for one observed Sac cost pick. A Room
+// is the one paying permanent XMage names by its whole split name ("Bottomless
+// Pool // Locker Room") while gorge's scenario ref spells the front face, so
+// the plain-name pick can never match (XMage's haveSameNames is an exact
+// equals) and the scenario dies on "Found wrong choice command". The
+// exact-ref alias routes the pick by object identity instead: the driver binds
+// the front-half ref of every split object at setup. Keyed on the COST naming
+// Room, never on a card name -- a Sac<...Room...> filter only permits Rooms,
+// so its observed pick is a Room, and every non-Room Sac pick keeps the
+// plain-name form the other cards agree on.
+func observedSacPick(tok string, d rules.OracleDecision, i int) string {
+	if sacCostNamesRoom(tok) && i < len(d.PickRefs) && i < len(d.PickRefsInexact) &&
+		!d.PickRefsInexact[i] && !strings.Contains(d.PickRefs[i], ":token:") &&
+		oraclegen.IsScenarioRefShaped(d.PickRefs[i]) {
+		return "@" + d.PickRefs[i]
+	}
+	return observedCostPick(d, i)
+}
+
 func sacFilterClause(alt string) ([]string, bool) {
 	alt = strings.ToLower(strings.TrimSpace(alt))
 	if i := strings.IndexByte(alt, '+'); i >= 0 {

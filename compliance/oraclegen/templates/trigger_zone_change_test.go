@@ -1,7 +1,6 @@
 package templates
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -90,7 +89,6 @@ func TestZoneChangeResiduesHaveNamedSkips(t *testing.T) {
 	reg := loadGenRegistry(t)
 	for _, tc := range []struct{ name, key, want string }{
 		{"Zenos yae Galvus", "trigger#0.1", "trigger no recipe: zone-change filter ChosenCardStrict"},
-		{"Hedge Shredder", "trigger#0.1", "trigger no recipe: library to graveyard"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			c, ok := reg.Lookup(tc.name)
@@ -113,6 +111,36 @@ func TestZoneChangeResiduesHaveNamedSkips(t *testing.T) {
 			t.Fatalf("precondition: %s carries no requirement %s", tc.name, tc.key)
 		})
 	}
+
+	// Hedge Shredder used to hold the "library to graveyard" named skip: its
+	// body's ChangeType$ Card.TriggeredCards was an unknown predicate, so the
+	// cause builder refused rather than generate a scenario whose body moves
+	// nothing. The predicate is registered now (ticket
+	// agent-20261009T090319Z-4d835724, commit 8e9f1097c), so the residue
+	// builds its mill cause and the named skip is gone.
+	t.Run("Hedge Shredder", func(t *testing.T) {
+		c, ok := reg.Lookup("Hedge Shredder")
+		if !ok {
+			t.Fatal("Hedge Shredder not in the corpus")
+		}
+		for _, r := range levelb.Requirements(c) {
+			if r.Key != "trigger#0.1" {
+				continue
+			}
+			if r.Sub != "trigger.zone-change-residue" {
+				t.Fatalf("precondition: Hedge Shredder trigger#0.1 classified %s", r.Sub)
+			}
+			it, skip := GenerateB(reg, "Hedge Shredder", r)
+			if skip != nil {
+				t.Fatalf("Hedge Shredder trigger#0.1 keeps a named skip after Card.TriggeredCards registered: %q", skip.Reason)
+			}
+			if len(it.Steps) < 2 || it.Steps[0].Op != "cast" || it.Steps[0].Card != "p0:Tome Scour" {
+				t.Fatalf("Hedge Shredder trigger#0.1 generated without the mill cause: %+v", it.Steps)
+			}
+			return
+		}
+		t.Fatal("precondition: Hedge Shredder carries no requirement trigger#0.1")
+	})
 	for _, tc := range []struct {
 		filter, origin, destination, want string
 	}{
@@ -170,16 +198,22 @@ func TestTokenFilterIsServedOnlyForCreatureTokens(t *testing.T) {
 	}
 }
 
-// TestTokenChangesZoneUnservableKeepsItsNamedSkip: a ChangesZoneAll filter no
-// creature token meets still reports the named "etb filter token" reason.
-func TestTokenChangesZoneUnservableKeepsItsNamedSkip(t *testing.T) {
+// TestTokenChangesZoneFilterGetsItsTokenMaker: a ChangesZoneAll token filter
+// is handled by tokenEnterCauses' one-token maker for every positive-token
+// base (ticket g17): the maker is the candidate cause and the trigger's own
+// matcher decides at replay what the token satisfies. The corpus sweep
+// behind the cause table found every positive-token ChangesZone filter on a
+// Creature/Card/Permanent base (e.g. Belladonna Took, Junk Winder), so the
+// Artifact base here pins only the maker-as-candidate behaviour, not a
+// served row.
+func TestTokenChangesZoneFilterGetsItsTokenMaker(t *testing.T) {
 	reg := loadGenRegistry(t)
 	tr := &cards.Trigger{Mode: "ChangesZoneAll", Params: map[string]string{"Destination": "Battlefield", "ValidCards": "Artifact.token+YouCtrl"}}
 	causes, why := etbProbeCauses(reg, "Some Card", tr)
-	if causes != nil || !strings.HasPrefix(why, "etb filter token") {
-		t.Fatalf("causes=%d why=%q, want the named token skip", len(causes), why)
+	if why != "" || len(causes) != 1 || causes[0].steps[0].Card != "p0:Sprout" {
+		t.Fatalf("causes=%d why=%q, want the one Sprout token maker", len(causes), why)
 	}
-	// The creature filter is served by exactly the one-token maker.
+	// The creature filter is served by exactly the one-token maker too.
 	tr.Params["ValidCards"] = "Card.token+YouCtrl"
 	causes, why = etbProbeCauses(reg, "Some Card", tr)
 	if why != "" || len(causes) != 1 || causes[0].steps[0].Card != "p0:Sprout" {

@@ -33,6 +33,11 @@ func classifyCastTrigger(f *cards.Face, t *cards.Trigger) (sub string, ok bool) 
 			}
 			return "trigger.spell-cast", true
 		case "opponent", "player.opponent", "player.nonactive", "opponent.nonactive":
+			// Player.Opponent+Active ("an opponent casts a spell during
+			// their turn", Unstable Glyphbridge's back face) is NOT here:
+			// the engine's player-spec grammar fails a bare qualifier after
+			// `+` closed, so the matcher cannot fire it; it stays a gap
+			// until that grammar reads it (see the ticket report).
 			return "trigger.spell-cast-opponent", true
 		}
 	case cards.TriggerCommitCrime:
@@ -45,6 +50,13 @@ func classifyCastTrigger(f *cards.Face, t *cards.Trigger) (sub string, ok bool) 
 		if strings.EqualFold(t.ParamStr(cards.PKValidActivatingPlayer), "You") && activatedFilter &&
 			!strings.Contains(validSA, "loyalty") {
 			return "trigger.ability-activated", true
+		}
+		// "Whenever an opponent activates a loyalty ability" (Gideon the
+		// Oathless): the cause activates a probe planeswalker's plus ability
+		// for p1 during p1's main phase, where the AbilityPush's player is
+		// the opponent the ValidSA$ +OppCtrl half reads.
+		if activatedFilter && strings.Contains(validSA, "loyalty") && strings.Contains(validSA, "oppctrl") {
+			return "trigger.ability-activated-opponent", true
 		}
 	}
 	return "", false

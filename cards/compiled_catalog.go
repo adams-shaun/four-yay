@@ -307,7 +307,7 @@ func (b *catalogBuilder) compileFace(face *Face, bindings *[]abilityBinding) (Fa
 		if row.SpellAbility == 0 && sa != nil && sa.Kind == "SP" {
 			row.SpellAbility = id
 		}
-		if sa != nil && sa.Kind == "AB" && sa.API == "Mana" {
+		if manaAbilityListEntry(sa) {
 			b.catalog.ManaAbilityIDs = append(b.catalog.ManaAbilityIDs, id)
 		}
 	}
@@ -316,7 +316,7 @@ func (b *catalogBuilder) compileFace(face *Face, bindings *[]abilityBinding) (Fa
 	}
 	manaCount := 0
 	for _, sa := range face.Abilities {
-		if sa != nil && sa.Kind == "AB" && sa.API == "Mana" {
+		if manaAbilityListEntry(sa) {
 			manaCount++
 		}
 	}

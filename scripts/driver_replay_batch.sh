@@ -120,10 +120,10 @@ say() { echo "$(date '+%F %T') $*" | tee -a "$LOG"; }
 exec 9>"$(dirname "$LOG")/driver-replay-batch.lock" || exit 1
 flock -n 9 || { echo "driver_replay_batch: already running" >&2; exit 1; }
 
-# capped <cmd...>: the seat test budget (2 GB / 2 vCPU), run in the cwd.
+# capped <cmd...>: the seat test budget (4 GB / 4 vCPU), run in the cwd.
 capped() {
-  systemd-run --user --scope -q -p MemoryMax=2G -p CPUQuota=200% \
-    env GOMAXPROCS=2 GOMEMLIMIT=1536MiB GOFLAGS="-p=2 -trimpath" "$@"
+  systemd-run --user --scope -q -p MemoryMax=4G -p CPUQuota=400% \
+    env GOMAXPROCS=4 GOMEMLIMIT=3GiB GOFLAGS="-p=2 -trimpath" "$@"
 }
 
 # checks <pre|post> <logfile>, run in the integration worktree. pre is the

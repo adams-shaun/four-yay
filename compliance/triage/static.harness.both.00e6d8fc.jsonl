@@ -1,0 +1,2 @@
+{"shape":{"template":"static","op":"harness","field":"both","diff":"checkpoint \"step N (pass_to)\" vs \"step N (pass_to)\""},"key":"static | harness | both | checkpoint \"step N (pass_to)\" vs \"step N (pass_to)\"","cards":1}
+{"card":"Archangel of Tithes","template":"static#0.0","status":"harness","api":"-","sets":["OTJ"],"detail":"both: checkpoint \"step 0 (pass_to)\" vs \"step 1 (pass_to)\""}

@@ -113,7 +113,7 @@ func effChooseColor(h Host, c *Ctx, sa *cards.SA) {
 		d := &decision.Decision{Player: chooser, Kind: decision.KChoose, Min: 1, Max: 1,
 			ResumeKind: "choosecolor", ResumeSA: sa, Prompt: "Choose a color", Source: c.Source}
 		d.Options = opts
-		if ans, ok := AskTape(h, d); ok {
+		if ans, ok, taken := AskTapeOrSuspend(h, d); ok {
 			// Answered in place: the chosen colour's letter (an off-list
 			// answer falls back to the first offered colour).
 			letter := colourLetter(ans[0].Label)
@@ -121,6 +121,12 @@ func effChooseColor(h Host, c *Ctx, sa *cards.SA) {
 				letter = colourLetter(opts[0].Label)
 			}
 			h.Emit(events.Event{Kind: events.Choose, Obj: c.Source, Counter: "color", Text: string(letter)})
+			return
+		} else if taken {
+			// The host's own continuation owns the ask (rules routes an
+			// off-stack mana chain's ChooseColor into answerNestedChooseColor):
+			// it records the Choose event and resolves the SubAbility$ chain
+			// once the answer lands, so no deterministic stand-in may run here.
 			return
 		}
 	}
