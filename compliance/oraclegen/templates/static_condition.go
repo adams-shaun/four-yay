@@ -46,6 +46,12 @@ type staticFixture struct {
 	// a "you haven't cast a spell this turn" gate that the card's own cast
 	// would falsify.
 	place bool
+	// opponentTurn advances the placed scenario to p1's first main phase, so a
+	// static gated on Condition$ NotPlayerTurn (Midnight Mangler's "during
+	// turns other than yours, this Vehicle is an artifact creature") is live
+	// at the final checkpoint. The card is placed, not cast, so the extra turn
+	// does not affect how it arrives.
+	opponentTurn bool
 	// equip is an Equipment card placed in setup and attached by staticBase
 	// to what attach names (staticProbe or "self"), for a static whose
 	// affected filter selects equipped permanents. attachPT is the
@@ -420,6 +426,22 @@ func staticBodyFixture(reg *cards.Registry, body string, n int) (staticFixture, 
 		// hand", Stingerback Terror): the fixture holds that many spare cards
 		// so the count is nonzero.
 		return staticFixture{conditionPrelude: conditionPrelude{hand: oraclegen.Repeat("Wastes", staticCountFrom(body))}}, true
+	case strings.HasPrefix(lower, "count$differentcounterkinds_"):
+		// A static gated on the number of DISTINCT counter kinds among
+		// creatures you control (Hundred-Battle Veteran's
+		// Count$DifferentCounterKinds_Creature.YouCtrl with SVarCompare$ GE3):
+		// place one inert creature holding n distinct counter kinds, so the
+		// count reaches the gate. The counter-bearing creature is not the
+		// compared probe, so it shifts no baseline.
+		kinds := []string{"P1P1", "REV", "FINALITY", "CHARGE", "FLYING"}
+		if n > len(kinds) {
+			return staticFixture{}, false
+		}
+		fx := staticFixture{conditionPrelude: conditionPrelude{battlefield: []string{"Llanowar Elves"}}}
+		for i := 0; i < n; i++ {
+			fx.addCounter("Llanowar Elves", kinds[i], 1)
+		}
+		return fx, true
 	case strings.HasPrefix(lower, "count$cardcounters."):
 		// An amount counted from the SOURCE's own counters (Excalibur II's
 		// "equipped creature gets +1/+1 for each charge counter on CARDNAME"):
@@ -519,6 +541,12 @@ func staticFixtures(reg *cards.Registry, f *cards.Face, st cards.Static) []stati
 		// CR 702.175a: three artifacts, legendaries and/or Sagas, one of them
 		// Storied. The card is the Storied legend; two artifacts make three.
 		add(staticFixture{conditionPrelude: conditionPrelude{battlefield: []string{"Sol Ring", "Arcane Signet"}}}, true)
+	case "notplayerturn":
+		// The gate is false on p0's own turn (Midnight Mangler's "during turns
+		// other than yours"), so the placed card is observed on p1's turn: the
+		// scenario advances to p1's first main phase (staticBase), where the
+		// static's controller is not the active player.
+		add(staticFixture{place: true, opponentTurn: true}, true)
 	}
 	if present := st.ParamStr(cards.PKIsPresent); present != "" {
 		zone := st.ParamStr(cards.PKPresentZone)

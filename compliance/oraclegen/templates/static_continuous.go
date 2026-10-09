@@ -495,6 +495,16 @@ func staticBase(reg *cards.Registry, c *cards.Card, f *cards.Face, name string, 
 		// sequence) can run and resolve before the final checkpoint.
 		base.Steps = append(base.Steps, cond.afterSteps...)
 	}
+	if cond != nil && cond.opponentTurn {
+		// A Condition$ NotPlayerTurn static (Midnight Mangler) is false on
+		// p0's own turn; advance to p1's first main phase so its controller
+		// is not the active player at the final checkpoint. The shape is the
+		// opponent-turn cost probe's (cost_other_spell.go): pass_to reaches
+		// p1's turn, p1's pass leaves p0 with priority.
+		base.Steps = append(base.Steps,
+			oraclegen.Step{Op: "pass_to", Step: "main1", Active: "p1"},
+			oraclegen.Step{Op: "pass", Seat: 1})
+	}
 	return base, ""
 }
 
