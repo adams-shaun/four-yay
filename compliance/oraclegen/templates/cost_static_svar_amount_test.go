@@ -23,14 +23,16 @@ import (
 //     flying creatures (Amount$ X over Count$Valid
 //     Creature.YouCtrl+withFlying$CardPower); the prelude places Serra
 //     Angel, whose 4 printed power is the reduction.
+//   - Bite Down on Crime's amount is the cast's own CR 601.2b election
+//     (Amount$ Z over SVar Z = Count$OptionalGenericCostPaid.2.0): the probe
+//     casts through the optional-cost variant (cast_mode "optionalcost")
+//     with the evidence prelude (Colossal Dreadmaw, mana value 6, the exact
+//     evidence) in the graveyard, at the EXACT reduced price the paid
+//     branch gives.
 //
 // Each row's probe must pay the EXACT reduced price (the pool the cast step
 // adds is empty after payment) and fail once the card's own statics are
-// removed, so a probe paying the printed cost cannot pass. Bite Down on
-// Crime's Count$OptionalGenericCostPaid amount stays a NAMED skip: gorge
-// prices the optional-cost cast variant at the unreduced price, so no probe
-// can pay the exact reduced price and a full-price probe would not be
-// sensitive.
+// removed, so a probe paying the printed cost cannot pass.
 func TestCostStaticSVarAmountProbes(t *testing.T) {
 	reg := loadGenRegistry(t)
 	for _, tc := range []struct {
@@ -39,23 +41,30 @@ func TestCostStaticSVarAmountProbes(t *testing.T) {
 		// board is what the fixture's amount/gate setup places on p0's
 		// battlefield; prelude is a spell the setup casts before the probe
 		// ("Village Rites" for the artifact sacrifice), "" when the cast
-		// itself carries the setup (the announced Sac<X>).
-		board   []string
-		prelude string
+		// itself carries the setup (the announced Sac<X>); graveyard is the
+		// evidence prelude the election probe carries (Bite Down on Crime).
+		board     []string
+		prelude   string
+		graveyard []string
+		// castMode elects a cast option for the probe step (the
+		// optional-cost variant); "" is the ordinary cast.
+		castMode string
 		// answers scripts the probe cast's mid-cast asks (the X
 		// announcement and the sacrifice); nil lets the runner's
 		// deterministic fallback answer.
 		answers []oraclegen.Answer
 	}{
 		{"Rottenmouth Viper", "static#0.0", "CCCB", "CCCCCB", 2,
-			[]string{"Ornithopter", "Sol Ring"}, "", []oraclegen.Answer{
+			[]string{"Ornithopter", "Sol Ring"}, "", nil, "", []oraclegen.Answer{
 				{Kind: "choose", Pick: []string{"X = 2"}},
 				{Kind: "choose", Pick: []string{"p0:Ornithopter", "p0:Sol Ring"}},
 			}},
 		{"Suspicious Detonation", "static#0.0", "CR", "CCCCR", 3,
-			[]string{"Ornithopter"}, "Village Rites", nil},
+			[]string{"Ornithopter"}, "Village Rites", nil, "", nil},
 		{"The Lord of the Eagles", "static#0.0", "CCCUU", "CCCCCCCUU", 4,
-			[]string{"Serra Angel"}, "", nil},
+			[]string{"Serra Angel"}, "", nil, "", nil},
+		{"Bite Down on Crime", "static#0.1", "CG", "CCCG", 2,
+			nil, "", []string{"Colossal Dreadmaw"}, "optionalcost", nil},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			it, skip := GenerateB(reg, tc.name, costRequirement(t, reg, tc.name, tc.key))
@@ -65,6 +74,9 @@ func TestCostStaticSVarAmountProbes(t *testing.T) {
 			probe := probeStep(t, it)
 			if probe.Op != "cast" || probe.Card != "p0:"+tc.name || probe.Mana != tc.mana {
 				t.Fatalf("probe = %s %s paying %q, want cast %s paying %q", probe.Op, probe.Card, probe.Mana, tc.name, tc.mana)
+			}
+			if probe.CastMode != tc.castMode {
+				t.Fatalf("probe cast_mode = %q, want %q", probe.CastMode, tc.castMode)
 			}
 			c, ok := reg.Lookup(tc.name)
 			if !ok {
@@ -92,6 +104,15 @@ func TestCostStaticSVarAmountProbes(t *testing.T) {
 				}
 				if !found {
 					t.Fatalf("precondition: fixture %q absent from p0's battlefield %v", want, bf)
+				}
+			}
+			for _, want := range tc.graveyard {
+				found := false
+				for _, card := range it.Scenario.Setup["p0"].Graveyard {
+					found = found || card == want
+				}
+				if !found {
+					t.Fatalf("precondition: fixture %q absent from p0's graveyard %v", want, it.Scenario.Setup["p0"].Graveyard)
 				}
 			}
 			probeIdx := -1
@@ -127,18 +148,6 @@ func TestCostStaticSVarAmountProbes(t *testing.T) {
 			}
 		})
 	}
-	// The optional-cost amount keeps a named skip: the why is the offer
-	// gate's unreduced pricing, not the bare "no fixture".
-	t.Run("Bite Down on Crime keeps a named skip", func(t *testing.T) {
-		_, skip := GenerateB(reg, "Bite Down on Crime", costRequirement(t, reg, "Bite Down on Crime", "static#0.1"))
-		if skip == nil {
-			t.Fatalf("GenerateB served static#0.1; want the named optional-cost skip")
-		}
-		want := "cost static probe not supported: cost static condition: SVar (Count$OptionalGenericCostPaid.2.0): the optional-cost cast is offered only at the unreduced price"
-		if skip.Reason != want {
-			t.Fatalf("skip = %q, want %q", skip.Reason, want)
-		}
-	})
 }
 
 // hasPreludeCast reports whether a cast of prelude precedes the probe cast
