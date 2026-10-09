@@ -20,7 +20,7 @@ import (
 // it is compared here.
 
 const (
-	continuousEffectFieldCount = 111
+	continuousEffectFieldCount = 112
 	attackOfferFieldCount      = 4
 	blockChargeFieldCount      = 7
 	objectTypesFieldCount      = 3
@@ -93,6 +93,7 @@ func continuousEffectEqual(a, b *ContinuousEffect) bool {
 		a.AddAllCreatureTypes == b.AddAllCreatureTypes &&
 		a.CDAAllCreatureTypes == b.CDAAllCreatureTypes &&
 		a.RemoveCardTypes == b.RemoveCardTypes &&
+		a.RemoveLandTypes == b.RemoveLandTypes &&
 		a.RemoveLegendary == b.RemoveLegendary &&
 		sliceEq(a.AddAbilities, b.AddAbilities) &&
 		gainedFacesEqual(a.GainedFaces, b.GainedFaces) &&

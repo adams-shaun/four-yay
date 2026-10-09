@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/compliance/levelb"
 	"github.com/adams-shaun/gorge/compliance/oraclegen"
 )
 
@@ -192,6 +193,8 @@ func baseTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards
 				out = append(out, withDrawCheckpoint(c))
 			}
 		}
+	case levelb.ManaExpendSub:
+		return manaExpendCauses(reg, name, t)
 	case "trigger.phase":
 		step, ok := phaseStep(t.ParamStr(cards.PKPhase))
 		if !ok {

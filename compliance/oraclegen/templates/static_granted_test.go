@@ -26,6 +26,9 @@ var servedStaticGrantRows = []struct {
 	{"Resonating Lute", "static#0.0", "activate", "Add two mana of any one color"},
 	{"Night of the Sweets' Revenge", "static#0.0", "activate", "Add G"},
 	{"Mm'menon, the Right Hand", "static#0.2", "activate", "Add U"},
+	// Petrified Hamlet: "{T}: Add {C}." granted to the LAND the source's ETB
+	// trigger names (static_named_enters.go); the probe is the named land.
+	{"Petrified Hamlet", "static#0.1", "activate", "Add"},
 	// "Planeswalkers you control have '[-N]: ...'".
 	{"Way of the Cryomancer", "static#0.0", "activate", "copy it"},
 	{"Way of the Deathbringer", "static#0.0", "activate", "sacrifice a creature"},
@@ -121,7 +124,6 @@ func TestStaticGrantedAbilityNamedSkips(t *testing.T) {
 		{"Tomik, Orzhov Lawmage", "static#0.0", "static grants a static ability (observed only through its own effect)"},
 		{"Koh, the Face Stealer", "static#0.0", "static gains the activated abilities of other cards (needs a donor card)"},
 		{"Etrata, Deadly Fugitive", "static#0.0", "static grants an activated ability (needs the driver's activate on a granted ability)"},
-		{"Petrified Hamlet", "static#0.1", "static grants a mana ability to a recipient the fixture cannot give it (a token or a chosen-name recipient)"},
 	} {
 		t.Run(r.card+"/"+r.key, func(t *testing.T) {
 			it, skip := zoneItem(t, r.card, r.key)
