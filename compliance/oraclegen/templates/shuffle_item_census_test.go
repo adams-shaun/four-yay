@@ -14,11 +14,20 @@ import (
 
 // Count emitted items, not shuffle-capable cards: one face can serve several
 // requirements, and a template gap emits no item at all.
+//
+// Re-measured for cli-20261009T031408Z-5823e7de (Level B activate fixtures):
+// DSK 3 -> 4, MKM 0 -> 1, TLA 2 -> 3. The branch's auraSourceAttach prelude
+// brings a battlefield Aura's source on attached, so its own activated ability
+// (offered only while attached) is generated for three level-B activate rows
+// whose cards shuffle a library: DSK Stay Hidden, Stay Silent/activate#0.0/v1,
+// MKM Dramatic Accusation/activate#0.0/v1 and TLA Watery Grasp/activate#0.0/v1.
+// Each item tracks its new scenario one-for-one and disappears if that attach
+// serving is reverted.
 var wantShuffleItemCensus = map[string]int{
-	"BIG": 0, "BLB": 0, "DFT": 0, "DSK": 3, "ECL": 0,
+	"BIG": 0, "BLB": 0, "DFT": 0, "DSK": 4, "ECL": 0,
 	"EOE": 1, "FDN": 3, "FIN": 1, "FRA": 2, "HOB": 2,
-	"LCI": 0, "MKM": 0, "MSH": 0, "OTJ": 0, "SOS": 0,
-	"SPM": 0, "TDM": 0, "TLA": 2, "TMT": 0, "WOE": 0,
+	"LCI": 0, "MKM": 1, "MSH": 0, "OTJ": 0, "SOS": 0,
+	"SPM": 0, "TDM": 0, "TLA": 3, "TMT": 0, "WOE": 0,
 }
 
 func TestShuffleEmittedItemCensus(t *testing.T) {

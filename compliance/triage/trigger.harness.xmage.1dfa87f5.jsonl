@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"harness","field":"xmage","diff":"IllegalStateException: Error in unit tests: pass pair needs a stack object: the stack is empty"},"key":"trigger | harness | xmage | IllegalStateException: Error in unit tests: pass pair needs a stack object: the stack is empty","cards":1}
+{"card":"Ultimecia, Time Sorceress","template":"trigger#1.0","status":"harness","api":"ChangesZone:Surveil+Attacks:Surveil+Phase:SetState","sets":["FIN"],"detail":"xmage: IllegalStateException: Error in unit tests: pass pair needs a stack object: the stack is empty"}

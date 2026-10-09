@@ -91,7 +91,7 @@ func crewActivationCause(reg *cards.Registry, probe string) (triggerCause, bool)
 	}
 	sa := pf.Abilities[abilityIndex]
 	cost := sa.ParamStr(cards.PKCost)
-	mana, gap := activationCostIn(cost, "battlefield")
+	mana, gap := activationCostIn(cost, "battlefield", probe)
 	if gap != "" {
 		return triggerCause{}, false
 	}
