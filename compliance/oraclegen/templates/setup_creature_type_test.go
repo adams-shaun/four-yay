@@ -92,12 +92,24 @@ func TestSetupCreatureTypeChoiceLeadsSiblingRows(t *testing.T) {
 // wantSetupTypeCensus pins, per declared set, the number of generated
 // scenarios whose setup places a permanent with an as-enters type ask and how
 // many have the answer queued before setup placement (want all). The level-A
-// sets come from activateCensusSets; BLB, ECL and DFT are the level-B sets
-// that carry this brief's measured rows (Patchwork Banner, Eclipsed Realms,
-// Gathering Stone, Lifecraft Engine), so the census counts the class the fix
-// actually targets rather than only the level-A universe. Measured 2026-10-06
-// with this ticket's generator; a template, predicate or generator change
-// that moves a count shows up as a diff, and so does a stale pin.
+// sets come from activateCensusSets; BLB, ECL, DFT and LCI are the level-B
+// sets that carry this brief's measured rows (Patchwork Banner, Eclipsed
+// Realms, Gathering Stone, Lifecraft Engine), so the census counts the class
+// the fix actually targets rather than only the level-A universe. Measured
+// 2026-10-06 with this ticket's generator; a template, predicate or
+// generator change that moves a count shows up as a diff, and so does a
+// stale pin. ECL moved 6 -> 8 on 2026-10-09 (ticket g17, cli-
+// 20261009T031408Z-3dd5d7df): the trigger#0.0 rows of Dawn-Blessed Pennant
+// and Rimefire Torque, previously the "etb filter ChosenType" skips, now
+// generate scenarios, and those scenarios place the as-enters type
+// permanent (the etb special-filter cause, with the generic probe walk as
+// fallback); measured at 8/8 both with and without chosenTypeETBCauses.
+//
+// This branch (agent-20261009T053432Z-677239bd) adds one more: its Gathering
+// Stone cost-static probe's static#0.0 row now generates, placing Gathering
+// Stone, whose as-enters type ask the setup placement still poses, so the
+// scenario joins the class. The two movements are disjoint rows, so the
+// merged generator measures ECL at 9/9.
 var wantSetupTypeCensus = map[string][2]int{
 	"BIG": {0, 0},
 	"EOE": {0, 0},
@@ -105,11 +117,7 @@ var wantSetupTypeCensus = map[string][2]int{
 	"FRA": {0, 0},
 	// level-B sets carrying the measured rows.
 	"BLB": {3, 3},
-	// ECL is 7 since the Gathering Stone cost-static probe
-	// (agent-20261009T053432Z-677239bd) started generating: its static#0.0
-	// probe places Gathering Stone, whose as-enters type ask the setup
-	// placement still poses, so the scenario joins the class.
-	"ECL": {7, 7},
+	"ECL": {9, 9},
 	"DFT": {1, 1},
 	"LCI": {3, 3},
 }
