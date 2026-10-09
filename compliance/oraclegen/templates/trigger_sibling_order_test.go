@@ -90,7 +90,7 @@ func TestTriggerSiblingOrderProbe(t *testing.T) {
 	if order != 1 {
 		t.Fatalf("trigger-order decisions = %d, want one for both siblings: %+v", order, res.Decisions)
 	}
-	if !abilityOnStack(res.Snapshots, name, name, stackSlot) {
+	if !abilityOnStack(res.Snapshots, stackSourceWants(reg, name, wantsFace(t, reg, name)), stackSlot) {
 		t.Fatalf("checkpoint must expose requested slot %s after sibling order ask, got snapshots=%+v decisions=%+v", slot, res.Snapshots, res.Decisions)
 	}
 }

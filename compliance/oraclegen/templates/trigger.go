@@ -30,12 +30,14 @@ func triggerSubs(sub string) bool {
 		"trigger.spell-cast", "trigger.spell-cast-self", "trigger.becomes-target", "trigger.life-gained", "trigger.drawn", "trigger.drawn-other", "trigger.life-lost", "trigger.phase", levelb.PhaseOtherSub,
 		"trigger.dies-other", "trigger.zone-change-residue", "trigger.scry", "trigger.surveil", "trigger.noncombat-damage", "trigger.combat-damage-all",
 		"trigger.loyalty-activated", "trigger.discarded", "trigger.attacks-one-target", classLevelGainedSub,
+		"trigger.transformed", "trigger.cycled", "trigger.land-played",
 		"trigger.spell-cast-opponent", "trigger.spell-cast-self-cast", "trigger.spell-cast-opponent-turn", "trigger.commit-crime", "trigger.ability-activated",
 		"trigger.attacks-opponent", "trigger.attached", "trigger.untap-all", "trigger.blocks-vehicle", "trigger.excess-damage",
 		"trigger.ability-activated-opponent", "trigger.ability-triggered", "trigger.case-solved",
 		levelb.UnlockDoorSub, levelb.FullyUnlockSub, stateSelfCountersSub, levelb.CounterAddedSub,
 		levelb.TurnedFaceUpSub, levelb.TurnedFaceUpOtherSub, levelb.SacrificeSub, levelb.DamageSub,
-		levelb.ManaExpendSub, levelb.TapsForManaSub:
+		levelb.ManaExpendSub, levelb.TapsForManaSub,
+		levelb.CrewedSub, levelb.SaddledSub, levelb.AttacksCrewedVehicleSub:
 		return true
 	case "trigger.forage", "trigger.give-gift", "trigger.explores", "trigger.collect-evidence",
 		"trigger.manifest-dread", "trigger.discover", "trigger.elemental-bend",
@@ -194,7 +196,15 @@ func triggerScenario(f *cards.Face, name string, c triggerCause, req levelb.Requ
 		p0.Battlefield = removeString(p0.Battlefield, name)
 		p0.Graveyard = removeString(p0.Graveyard, name)
 	} else if !grave {
-		setupBackFace(&p0, name, req)
+		if !c.selfFrontUp {
+			setupBackFace(&p0, name, req)
+		}
+		if c.selfBackUp {
+			// A back-face setup permanent enters ON its back face, so a
+			// transform-INTO-the-front-face trigger (the front face's own
+			// Transformed row) is fired by the back face's own enabler later.
+			p0.BackFace = appendFixtureUnique(p0.BackFace, name)
+		}
 	}
 	p0.Battlefield = appendFixtureCounts(p0.Battlefield, c.battlefield)
 	p0.Graveyard = appendFixtureCounts(p0.Graveyard, c.graveyard)
@@ -289,7 +299,7 @@ func triggerWithLong(reg *cards.Registry, f *cards.Face, name string, req levelb
 	for i := range fxs {
 		for _, steps := range [][]oraclegen.Step{settled, checkpoint} {
 			_, res, ok := oraclegen.Settle(reg, triggerScenario(f, name, c, req, steps, &fxs[i]))
-			if ok && abilityOnStack(res.Snapshots, name, f.Name, stackSlot(req)) {
+			if ok && abilityOnStack(res.Snapshots, stackSourceWants(reg, name, f), stackSlot(req)) {
 				served, ok := triggerServe(reg, f, name, req, c, &fxs[i])
 				if ok {
 					return served, true, true
@@ -322,7 +332,7 @@ func triggerWithFixture(reg *cards.Registry, f *cards.Face, name string, req lev
 	deep := append(append([]oraclegen.Step(nil), probe...), passes...)
 	deep = append(deep, passes...)
 	for _, steps := range [][]oraclegen.Step{probe, settled, checkpoint, ordered, deep} {
-		if _, res, ok := oraclegen.Settle(reg, triggerScenario(f, name, c, req, steps, fx)); ok && abilityOnStack(res.Snapshots, name, f.Name, stackSlot(req)) {
+		if _, res, ok := oraclegen.Settle(reg, triggerScenario(f, name, c, req, steps, fx)); ok && abilityOnStack(res.Snapshots, stackSourceWants(reg, name, f), stackSlot(req)) {
 			fired = true
 			break
 		}
@@ -347,7 +357,7 @@ func triggerServe(reg *cards.Registry, f *cards.Face, name string, req levelb.Re
 	}
 	// Only a target hidden behind a sibling's trigger_order ask needs the extra
 	// checkpoint; an item whose trigger is already on the stack keeps its steps.
-	if req.Sub == "trigger.phase" && !abilityOnStack(res.Snapshots, name, f.Name, stackSlot(req)) {
+	if req.Sub == "trigger.phase" && !abilityOnStack(res.Snapshots, stackSourceWants(reg, name, f), stackSlot(req)) {
 		for _, d := range res.Decisions {
 			if d.GorgeKind == "trigger_order" {
 				sc.Steps = append(sc.Steps, oraclegen.Step{Op: "pass_to", Decision: "priority"})
@@ -423,7 +433,28 @@ func triggerServe(reg *cards.Registry, f *cards.Face, name string, req levelb.Re
 			copy(it.XAbility[offset:], c.xability)
 		}
 	}
+	// Every step the XMage driver reads a rule text for must carry it at its
+	// own index, and no other step may carry any: the driver throws on an
+	// activate step with an empty xmage_ability (ScenarioReplay's "activate")
+	// and on a plot cast without one (its "plot" special action), while a
+	// misaligned parallel slice would hand a neighbour's text to the wrong
+	// step. A refusal here names a recipe bug, never a fixture miss.
+	for i, st := range sc.Steps {
+		text := i < len(it.XAbility) && it.XAbility[i] != ""
+		if stepNeedsXAbility(st) != text {
+			return it, false
+		}
+	}
 	return it, true
+}
+
+// stepNeedsXAbility reports whether the XMage replay driver reads a rule text
+// for this step: every activate step, and a cast step whose cast_mode is the
+// plot special action (ScenarioReplay's "plot" case activates PlotAbility by
+// the "Plot {cost}" text). No other step reads one, so any text on another
+// step is a misaligned parallel slice.
+func stepNeedsXAbility(st oraclegen.Step) bool {
+	return st.Op == "activate" || (st.Op == "cast" && strings.EqualFold(st.CastMode, plotCastMode))
 }
 
 // stackSlot is the Trigger index gorge stamps on the stack entry that the
@@ -453,9 +484,11 @@ func triggerFromGraveyard(f *cards.Face, req levelb.Requirement) bool {
 // abilityOnStack reports whether any snapshot shows an ability stack entry
 // whose source is the named card and that the card's trigger at slot put
 // there: a card with several triggers (Kolodin's Mount and Vehicle ETBs) is
-// not served by a probe that fires only a different one.
-func abilityOnStack(snaps []rules.OracleSnapshot, name, faceName, slot string) bool {
-	wants := []string{strings.ToLower(name), strings.ToLower(faceName)}
+// not served by a probe that fires only a different one. wants holds the
+// source-name prefixes the card's stack entries may report (the manifest name
+// and the requirement face's name -- a stack entry's source is reported under
+// the face its object stands on, rules/oracle_snapshot.go stackSourceRef).
+func abilityOnStack(snaps []rules.OracleSnapshot, wants []string, slot string) bool {
 	for _, s := range snaps {
 		for _, e := range s.Stack {
 			if e.Kind != "ability" || e.Trigger != slot {
@@ -470,6 +503,15 @@ func abilityOnStack(snaps []rules.OracleSnapshot, name, faceName, slot string) b
 		}
 	}
 	return false
+}
+
+// stackSourceWants collects abilityOnStack's source-name prefixes for one
+// requirement: the manifest card name and the requirement face's name. A
+// stack entry's source is reported under the face its object stands on
+// (rules/oracle_snapshot.go stackSourceRef), which is the requirement face's
+// own name exactly when the requirement's trigger is live.
+func stackSourceWants(reg *cards.Registry, name string, f *cards.Face) []string {
+	return []string{strings.ToLower(name), strings.ToLower(f.Name)}
 }
 
 // scriptCauseActivationCost carries the activate step's cost choices (the

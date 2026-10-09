@@ -95,6 +95,15 @@ func eventTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *card
 			steps:    []oraclegen.Step{activate},
 			xability: []string{prefix},
 		}}, "", true
+	case "trigger.transformed":
+		causes, why = transformTriggerRecipe(reg, f, name, t)
+		return causes, why, true
+	case "trigger.cycled":
+		causes, why = cycledTriggerRecipe(f, name)
+		return causes, why, true
+	case "trigger.land-played":
+		causes, why = landPlayedTriggerRecipe()
+		return causes, why, true
 	case "trigger.dies-other":
 		var why string
 		if causes, why = diesOtherRecipe(reg, f, name, t); why != "" {
