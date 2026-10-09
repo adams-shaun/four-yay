@@ -147,11 +147,30 @@ func sameNameBucketRank(bucket string) int {
 // granted-trigger side alone reproduces 3/2 with exactly these five items, so
 // the move is the granted-trigger serving, not the merge.
 //
+// Re-measured for the declined-object-pick routing (c5ccc3049, this branch's
+// ticket agent-20261009T041343Z-30c2d145 round 2): BLB unproven 4 -> 5.
+// That change routes Fireglass Mentor/trigger#0.0's declined two-option exile
+// look ask onto XMage's mandatory TargetCardInExile 1..1 pose: the serving
+// trigger template forces the rerun so gorge picks the first exiled card too,
+// and the step's answer becomes the name "Wastes" (RetargetForcedLookPicks)
+// where it was the skip token "[choice_skip]" before. A skip token is not a
+// name selection, so the census never counted the item; the named answer
+// does. The pick is one of TWO same-name Wastes in the exile look
+// (p0:Wastes#27 / p0:Wastes#39), and an exile-look ref is rank-derived, so
+// ClassifySameName marks it Unanswerable: Unproven, not Unresolved -- no
+// exact answer exists, which is why the mandatory-target script names the
+// card rather than an alias. One-for-one: reverting c5ccc3049 and re-running
+// the BLB scan lists exactly the old four items (Cache Grab, Calamitous
+// Tide, Feed the Cycle, Ral Crackling Wit -- untouched by that commit, whose
+// answers are name picks over rank-derived library/hidden Wastes from before
+// it); restoring it adds Fireglass Mentor/trigger#0.0 and nothing else
+// (.ds4/scratch/probe1.log / probe2.log). Unresolved stayed 0.
+//
 // Unresolved stayed 0 in every set through all moves; that is the
 // defect measure.
 var wantSameNameCensus = map[string]string{
 	"BIG": `{"alias":0,"copy":0,"unresolved":0,"unproven":1,"items":null}`,
-	"BLB": `{"alias":3,"copy":0,"unresolved":0,"unproven":4,"items":null}`,
+	"BLB": `{"alias":3,"copy":0,"unresolved":0,"unproven":5,"items":null}`,
 	"DFT": `{"alias":0,"copy":0,"unresolved":0,"unproven":3,"items":null}`,
 	"DSK": `{"alias":2,"copy":0,"unresolved":0,"unproven":33,"items":null}`,
 	"ECL": `{"alias":0,"copy":0,"unresolved":0,"unproven":5,"items":null}`,
