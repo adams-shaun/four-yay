@@ -90,7 +90,7 @@ func staticGatedGrantedAbilityItem(reg *cards.Registry, c *cards.Card, f *cards.
 		sc, steps = base.Scenario, base.Steps
 	}
 	p0 := sc.Setup["p0"]
-	addActivationCostFixtures(&p0, sa.ParamStr(cards.PKCost))
+	addActivationCostFixtures(&p0, name, sa.ParamStr(cards.PKCost), activationX(sa.ParamStr(cards.PKCost)))
 	sc.Setup["p0"] = p0
 	sc.Steps = append(append([]oraclegen.Step(nil), steps...), oraclegen.Step{Op: "pass_to", Seat: 0, Step: "main1", Decision: "priority"})
 	if pool != "" {

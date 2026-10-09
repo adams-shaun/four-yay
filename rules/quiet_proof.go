@@ -177,7 +177,7 @@ func (e *Engine) quietBlocker(p state.PlayerID) quietBlockerID {
 	if b := e.quietHandBlocker(p, ceiling, unbounded, sorceryOpen); b != qbNone {
 		return b
 	}
-	if b := e.quietGraveBlocker(p); b != qbNone {
+	if b := e.quietGraveBlocker(p, ceiling, unbounded, sorceryOpen); b != qbNone {
 		return b
 	}
 	if b := e.quietCommandBlocker(p); b != qbNone {
@@ -240,7 +240,7 @@ func (e *Engine) quietBoardBlocker(p state.PlayerID) quietBlockerID {
 		}
 	}
 	for _, h := range e.activeKWHeads {
-		if quietActiveKWGrantBlocker(h) {
+		if quietActiveKWGrantBlocker(h) || quietGraveRecastGrantHead(h) {
 			return qbBoardKeyword
 		}
 	}
@@ -364,6 +364,23 @@ func quietActiveKWGrantBlocker(head string) bool {
 			continue
 		}
 		if strings.EqualFold(head, h) {
+			return true
+		}
+	}
+	return false
+}
+
+// quietGraveRecastGrantHead reports an active AddKeyword$ head that opens a
+// graveyard recast the per-face price cannot bound: a granted Flashback,
+// Escape, Retrace, Jump-start or Mayhem reaches a graveyard card through the
+// walk's DERIVED reads (hasKeywordH / mayHaveDerivedKeywordH), so a window
+// with one active must block. It mirrors graveyardDerivedHeads, the same set
+// the walk's own graveyardCandidates unfilters the whole zone on, and it is
+// what keeps Q3a sound when a printed recast face also carries a granted
+// instance of the same head (a different, possibly cheaper, cost).
+func quietGraveRecastGrantHead(head string) bool {
+	for _, hd := range graveyardDerivedHeads {
+		if strings.EqualFold(head, hd.S) {
 			return true
 		}
 	}
@@ -620,9 +637,12 @@ func (e *Engine) quietCommandBlocker(p state.PlayerID) quietBlockerID {
 	return qbNone
 }
 
-// quietGraveBlocker covers graveyardCastsWalk: a graveyard card with any
-// recast route.
-func (e *Engine) quietGraveBlocker(p state.PlayerID) quietBlockerID {
+// quietGraveBlocker covers graveyardCastsWalk: a graveyard card whose printed
+// recast route the seat can afford (Q3a: a per-face mana floor and an "open"
+// bit replace the coarse recastKW blocker), or whose route is reachable
+// through a source the per-face price cannot bound (a granted, intrinsic or
+// counter recast head).
+func (e *Engine) quietGraveBlocker(p state.PlayerID, ceiling int32, unbounded, sorceryOpen bool) quietBlockerID {
 	for _, id := range e.G.Zone(state.ZGraveyard, p) {
 		o := e.G.Obj(id)
 		if o == nil || o.Card == nil {
@@ -634,21 +654,64 @@ func (e *Engine) quietGraveBlocker(p state.PlayerID) quietBlockerID {
 		if aftermathAlternateFace(o) != nil {
 			return qbGraveRoute
 		}
-		if e.quietFaceGraveRoute(o.Face()) || e.quietObjectDerivedRoute(id, quietGraveDerivedHeads...) {
+		f := o.Face()
+		if e.quietFaceGraveRoute(f) {
+			qf := e.walkFaceFactsOf(f).quiet
+			if quietGraveRecastBlocked(qf, ceiling, unbounded, sorceryOpen) {
+				return qbGraveRoute
+			}
+			// The printed route is priced quiet. A recast head reachable
+			// through the object's intrinsic keywords or keyword counters
+			// (a different route the printed price does not cover) still
+			// blocks; the board grant blocker covers a granted one.
+			if e.quietObjectExtraRecastRoute(id, f) {
+				return qbGraveRoute
+			}
+		} else if e.quietObjectDerivedRoute(id, quietGraveDerivedHeads...) {
 			return qbGraveRoute
 		}
 	}
 	return qbNone
 }
 
-// quietFaceGraveRoute reports whether a face can open a cast from the
-// graveyard. A face with no facts fails closed.
+// quietGraveRecastBlocked applies the Q3a recast test: the blocker fires when
+// the recast's timing is open and the route is either unpriced (recastOpen) or
+// affordable at the seat's mana ceiling. A route with no priced floor cannot
+// reach here (quietFaceGraveRoute refuses it).
+func quietGraveRecastBlocked(qf quietFaceFacts, ceiling int32, unbounded, sorceryOpen bool) bool {
+	if !qf.instantSpeed && !sorceryOpen {
+		return false
+	}
+	return qf.recastOpen || quietAffordable(qf.recastFloor, ceiling, unbounded)
+}
+
+// quietObjectExtraRecastRoute reports a graveyard recast head the object can
+// reach through a source other than the printed face: an intrinsic keyword or
+// a keyword counter, for a head the printed face does not carry (a printed
+// head is priced by recastFloor/recastOpen). A granted route is included too
+// through mayHaveDerivedKeywordH, so a granted head on an object whose printed
+// face lacks it still blocks even before the board grant blocker runs.
+func (e *Engine) quietObjectExtraRecastRoute(id state.ObjID, f *cards.Face) bool {
+	for _, h := range graveyardDerivedHeads {
+		if h.S == "" || (f != nil && f.KeywordLinesHaveHead(h.S, h.ID)) {
+			continue
+		}
+		if e.mayHaveDerivedKeywordH(id, h) {
+			return true
+		}
+	}
+	return false
+}
+
+// quietFaceGraveRoute reports whether a face has a graveyard cast route the
+// walk prices (recastFloor >= 0) or one whose cost it cannot bound
+// (recastOpen). A face with no facts fails closed.
 func (e *Engine) quietFaceGraveRoute(f *cards.Face) bool {
 	ff := e.walkFaceFactsOf(f)
 	if ff == nil {
 		return true
 	}
-	return ff.quiet.recastKW
+	return ff.quiet.recastOpen || ff.quiet.recastFloor >= 0
 }
 
 // quietObjectDerivedRoute reports whether id could carry any of heads on its
