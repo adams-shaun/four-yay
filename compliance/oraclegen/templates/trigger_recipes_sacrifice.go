@@ -179,7 +179,7 @@ func selfSacrificeCause(f *cards.Face, name string) (triggerCause, bool) {
 		if !sa.IsActivated() || !costSacrificesSelf(cost) {
 			continue
 		}
-		pool, gap := activationCostIn(cost, "battlefield")
+		pool, gap := activationCostIn(cost, "battlefield", "")
 		prefix, ok := prefixes[i]
 		if gap != "" || !ok {
 			continue

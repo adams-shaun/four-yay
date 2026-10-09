@@ -417,7 +417,7 @@ func scriptPreludeActivationCost(xa [][]oraclegen.XAnswer, prelude []oraclegen.S
 		if len(xa) == 0 {
 			xa = make([][]oraclegen.XAnswer, steps)
 		}
-		addActivationCostAnswers(xa, i, cost, decisions)
+		addActivationCostAnswers(xa, i, cost, "", decisions)
 	}
 	return xa
 }

@@ -38,7 +38,7 @@ func stateTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *card
 			continue
 		}
 		cost := sa.ParamStr(cards.PKCost)
-		mana, gap := activationCostIn(cost, "battlefield")
+		mana, gap := activationCostIn(cost, "battlefield", "")
 		if gap != "" {
 			continue
 		}
@@ -51,7 +51,7 @@ func stateTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *card
 		}
 		i := idx
 		setup := oraclegen.Seat{}
-		addActivationCostFixtures(&setup, cost)
+		addActivationCostFixtures(&setup, name, cost, activationX(cost))
 		c := triggerCause{
 			battlefield:  append([]string(nil), setup.Battlefield...),
 			hand:         append([]string(nil), setup.Hand...),

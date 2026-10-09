@@ -36,7 +36,7 @@ func TestActivateKeywordCostTokenShapes(t *testing.T) {
 		{"XMin1 ExileCtrlOrGrave<X/Planeswalker.Other>", "", "ExileCtrlOrGrave<...>"},
 	}
 	for _, tc := range cases {
-		pool, gap := activationCostIn(tc.cost, "battlefield")
+		pool, gap := activationCostIn(tc.cost, "battlefield", "")
 		if pool != tc.wantPool || gap != tc.wantGap {
 			t.Errorf("activationCost(%q) = (%q, %q), want (%q, %q)", tc.cost, pool, gap, tc.wantPool, tc.wantGap)
 		}
