@@ -93,9 +93,11 @@ type Step struct {
 	Card    string   `json:"card,omitempty"`
 	Mana    string   `json:"mana,omitempty"`
 	Targets []string `json:"targets,omitempty"`
-	// CastMode selects a non-default cast option of the cast step (the
-	// runner's cast_mode, e.g. "optionalcost" pays a self-spell OptionalCost
-	// static). Empty on every level-A step, so level-A items are byte-identical.
+	// CastMode selects a non-default cast option of the cast step by its
+	// decision.Option.Mode (the runner's cast_mode): "optionalcost" pays a
+	// self-spell OptionalCost static, "bargained" elects a Bargain, a Kicker's
+	// "kicked", etc. Empty selects the ordinary cast, and it is empty on every
+	// level-A step, so level-A items are byte-identical.
 	CastMode string `json:"cast_mode,omitempty"`
 	// Attackers/Defender drive the attack op; Blocks the block op. They
 	// carry a creature into combat so a "target attacking or blocking

@@ -22,9 +22,9 @@ var plainCastAskCards = map[string][]string{
 }
 
 // TestPlainCastAsksScenarioShape pins what the driver's answer rule reads: a
-// plain cast step (no kicked/cast_mode field, which the driver rejects), the
-// Leyline in the casting seat's opening hand, and Deadly Precision's recorded
-// cost pick on the cast step.
+// plain cast step (no kicked field, and no cast_mode other than the one mode
+// the driver elects, "bargained"), the Leyline in the casting seat's opening
+// hand, and Deadly Precision's recorded cost pick on the cast step.
 func TestPlainCastAsksScenarioShape(t *testing.T) {
 	reg := loadGenRegistry(t)
 	seen := 0
@@ -64,7 +64,7 @@ func TestPlainCastAsksScenarioShape(t *testing.T) {
 				t.Errorf("%s: cast step carries kicked; the driver rejects it", name)
 			}
 			if _, ok := st["cast_mode"]; ok {
-				t.Errorf("%s: cast step carries cast_mode; the driver rejects it", name)
+				t.Errorf("%s: cast step carries cast_mode; a plain cast must carry none (the driver elects only cast_mode \"bargained\")", name)
 			}
 			if class == "leyline" {
 				inHand := false
@@ -122,7 +122,9 @@ func TestPlainCastAsksScenarioShape(t *testing.T) {
 // reverting the chooseUse override (or any of its three ask keys) must fail
 // here even though the generator output is unchanged. STRUCTURAL: XMage
 // cannot run in a seat, so the behaviour is proved by the host forced replay
-// of the sixteen scenarios in plainCastAskCards.
+// of the sixteen scenarios in plainCastAskCards. The list must also keep the
+// driver's Bargain election helper (the optional-additional-cost ask it pays
+// when a cast step elects cast_mode "bargained").
 func TestPlainCastAsksDriverPins(t *testing.T) {
 	source, err := os.ReadFile("../../../tools/xmageoracle/src/org/mage/test/oracle/ScenarioReplay.java")
 	if err != nil {
@@ -137,6 +139,8 @@ func TestPlainCastAsksDriverPins(t *testing.T) {
 		"owner.recordedCostIsFirst(trueText, falseText)",
 		"castCostPicks.addAll(names(a, \"pick\"))",
 		"this.owner = player.owner;",
+		"optionalAdditionalCostAnswer(owner.bargainedCast, getChoices())",
+		"static boolean castModeSupported(String mode)",
 	} {
 		if !strings.Contains(java, required) {
 			t.Errorf("ScenarioReplay.java no longer implements the plain-cast ask rule %q", required)

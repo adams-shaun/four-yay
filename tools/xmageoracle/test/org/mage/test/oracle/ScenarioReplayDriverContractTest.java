@@ -332,11 +332,96 @@ public final class ScenarioReplayDriverContractTest {
         System.out.println("PASS Spree detection (SpreeAbility on the card, not a name list)");
     }
 
+    private static String castModeSupported(String mode) throws Exception {
+        Class<?> replay = ScenarioReplay.class;
+        java.lang.reflect.Method m = replay.getDeclaredMethod("castModeSupported", String.class);
+        m.setAccessible(true);
+        return String.valueOf(m.invoke(null, mode));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static boolean isSacrificeChoice(mage.target.Target target) throws Exception {
+        Class<?> adapter = Class.forName("org.mage.test.oracle.ScenarioReplay$ScriptedChoicePlayer");
+        Method method = adapter.getDeclaredMethod("isSacrificeChoice", mage.target.Target.class);
+        method.setAccessible(true);
+        return (Boolean) method.invoke(null, target);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Object optionalAdditionalCostAnswer(boolean bargained, List<String> choices) throws Exception {
+        Class<?> adapter = Class.forName("org.mage.test.oracle.ScenarioReplay$ScriptedChoicePlayer");
+        Method method = adapter.getDeclaredMethod("optionalAdditionalCostAnswer", boolean.class, List.class);
+        method.setAccessible(true);
+        return method.invoke(null, bargained, choices);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static UUID costPickChoice(List<String> picks, List<UUID> candidates,
+            BiPredicate<UUID, String> matches) throws Exception {
+        Class<?> adapter = Class.forName("org.mage.test.oracle.ScenarioReplay$ScriptedChoicePlayer");
+        Method method = adapter.getDeclaredMethod("costPickChoice", List.class, List.class, BiPredicate.class);
+        method.setAccessible(true);
+        return (UUID) method.invoke(null, picks, candidates, matches);
+    }
+
+    private static void bargain() throws Exception {
+        // cast_mode acceptance: Bargain is the only elected mode, an absent
+        // mode is the ordinary cast, and anything else is rejected loudly
+        // (previously EVERY cast_mode was rejected, before its cost was paid).
+        check(castModeSupported("").equals("true"), "an absent cast_mode must be the ordinary cast");
+        check(castModeSupported("bargained").equals("true"), "bargained cast_mode was not accepted");
+        check(castModeSupported("kicked").equals("false"), "kicked cast_mode must stay unsupported");
+        check(castModeSupported("adventure_alt").equals("false"),
+                "an unwired cast_mode must be rejected, not cast at face value");
+
+        // The sacrifice ask is recognized structurally by its "to sacrifice"
+        // hint (what TargetSacrifice carries), not by a card name.
+        mage.target.TargetPermanent sacrifice = new mage.target.common.TargetSacrifice(
+                new mage.filter.common.FilterControlledPermanent("an artifact, enchantment, or token"));
+        mage.target.TargetPermanent ordinary = new mage.target.TargetPermanent();
+        mage.target.TargetPermanent attach = new mage.target.TargetPermanent();
+        attach.withChooseHint("to attach to a creature you control");
+        check(isSacrificeChoice(sacrifice), "a TargetSacrifice ask was not recognized");
+        check(!isSacrificeChoice(ordinary), "an ordinary permanent ask was classified as a sacrifice");
+        check(!isSacrificeChoice(attach), "an attach ask was classified as a sacrifice");
+        check(!isSacrificeChoice(null), "a null ask was classified as a sacrifice");
+
+        // The optional-additional-cost yes/no: a bargained cast pays (the ask
+        // is exactly what kicker/offspring/waterbend pose), a scripted "No" is
+        // consumed so strict mode sees it used, anything else declines.
+        Object pay = optionalAdditionalCostAnswer(true, new ArrayList<>());
+        Object consume = optionalAdditionalCostAnswer(false, new ArrayList<>(Arrays.asList("No")));
+        Object decline = optionalAdditionalCostAnswer(false, new ArrayList<>());
+        check(pay.toString().equals("PAY"), "a bargained cast did not PAY the optional additional cost");
+        check(consume.toString().equals("CONSUME"), "a scripted No was not consumed");
+        check(decline.toString().equals("DECLINE"), "an unscripted ask was not declined");
+        // Preconditions: the three outcomes really differ, and the elected
+        // mode wins over a stale scripted No.
+        check(!pay.toString().equals(consume.toString()) && !consume.toString().equals(decline.toString()),
+                "the three optional-cost outcomes must differ");
+        check(optionalAdditionalCostAnswer(true, new ArrayList<>(Arrays.asList("No"))).toString().equals("PAY"),
+                "the elected mode must win over a scripted No");
+
+        // The sacrifice object comes from the cast's recorded choose picks.
+        UUID opter = id(11), relic = id(12);
+        BiPredicate<UUID, String> byId = (candidate, answer) -> answer.equals(candidate.toString());
+        List<UUID> both = Arrays.asList(opter, relic);
+        List<String> picks = new ArrayList<>(Arrays.asList(relic.toString()));
+        check(relic.equals(costPickChoice(picks, both, byId)), "the recorded sacrifice pick was not honored");
+        check(costPickChoice(new ArrayList<>(), both, byId) == null,
+                "a missing pick must not be guessed at");
+        List<String> unmatched = new ArrayList<>(Arrays.asList("@nope"));
+        check(costPickChoice(unmatched, both, byId) == null, "an unmatched pick was accepted");
+        System.out.println("PASS Bargain election (cast_mode acceptance, sacrifice recognition, "
+                + "pay/consume/decline, recorded sacrifice pick)");
+    }
+
     public static void main(String[] args) throws Exception {
         attachments();
         zones();
         passes();
         spree();
         mustAttack();
+        bargain();
     }
 }
