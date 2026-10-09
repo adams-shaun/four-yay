@@ -1,6 +1,0 @@
-{
-  "card": "Trail of Mystery",
-  "rows": {
-    "face-down-creature-enters-and-searches-a-basic": "Whenever a face-down creature you control enters, 'you may search your library for a basic land card, put it into your hand, then shuffle' (CR 603.2). Zoetic Cavern cast face down (a face-down 2/2 creature) resolves and NO ask of any kind is posed -- the search never happens, so the hand stays empty. Expected: a may-ask offering the search with Mountain pickable from the library (the scenario pins library_top). The trigger either never matches Creature.FaceDown or the DB$ Search effect is a silent no-op; both directions are this row."
-  }
-}
