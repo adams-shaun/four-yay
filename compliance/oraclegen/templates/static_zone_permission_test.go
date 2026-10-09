@@ -2,6 +2,7 @@ package templates_test
 
 import (
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/adams-shaun/gorge/compliance/levelb"
@@ -143,21 +144,54 @@ func TestStaticZonePermissionLifelinkOnSpells(t *testing.T) {
 	}
 }
 
-// TestStaticZonePermissionNamedSkips keeps the rows this level cannot
-// observe apart from the generic "not observable" bucket: the Surveyor
-// cycle's graveyard AddAbility$ grant, which the engine offers no activation
-// for. (A look-at permission on your own library top is now observed through
-// the runner's look_at_library_top expectation; Glarb's look-at is served.)
-func TestStaticZonePermissionNamedSkips(t *testing.T) {
-	for _, tc := range []struct{ card, key, reason string }{
-		{"Glitch Ghost Surveyor", "static#0.0", "static granted ability in Graveyard is not offered by the engine"},
-		{"Goblin Surveyor", "static#0.0", "static granted ability in Graveyard is not offered by the engine"},
-		{"Loxodon Surveyor", "static#0.0", "static granted ability in Graveyard is not offered by the engine"},
-		{"Mutant Surveyor", "static#0.0", "static granted ability in Graveyard is not offered by the engine"},
+// TestStaticZonePermissionGraveyardGrantServed observes the Surveyor cycle's
+// graveyard AddAbility$ grant, which the engine offers as a "granted" option
+// on the card in its own zone (rules' offBattlefieldGrantedWalk, landed
+// cli-3b80d13b1): all four DFT Surveyors serve static#0.0. Each row's
+// precondition is asserted (the card IS in p0's graveyard, p0 IS at max
+// speed), and the gate-off control runs the same checkpoint at speed 0, where
+// the offer must disappear.
+func TestStaticZonePermissionGraveyardGrantServed(t *testing.T) {
+	for _, card := range []string{
+		"Glitch Ghost Surveyor", "Goblin Surveyor", "Loxodon Surveyor", "Mutant Surveyor",
 	} {
-		_, skip := zoneItem(t, tc.card, tc.key)
-		if skip == nil || skip.Reason != tc.reason {
-			t.Errorf("%s %s skip = %v, want %q", tc.card, tc.key, skip, tc.reason)
-		}
+		t.Run(card, func(t *testing.T) {
+			it, skip := zoneItem(t, card, "static#0.0")
+			if skip != nil {
+				t.Fatalf("GenerateB: %s", skip.Reason)
+			}
+			if it.ID != card+"/static#0.0/v1" || it.Template != "static#0.0" {
+				t.Fatalf("identity = %q / %q, want the level-B static#0.0 row", it.ID, it.Template)
+			}
+			seat := it.Setup["p0"]
+			if !slices.Contains(seat.Graveyard, card) {
+				t.Fatalf("precondition: %s absent from p0 graveyard: %v", card, seat.Graveyard)
+			}
+			if seat.Speed != 4 {
+				t.Fatalf("precondition: p0 speed %d, want max speed 4", seat.Speed)
+			}
+			last := it.Steps[len(it.Steps)-1]
+			if len(last.Expect) != 1 || last.Expect[0].Offered == nil || last.Expect[0].Want == nil || !*last.Expect[0].Want {
+				t.Fatalf("scenario lacks a positive offered assertion: %+v", last.Expect)
+			}
+			got := last.Expect[0].Offered
+			if got.Card != "p0:"+card || got.Kind != "granted" || !strings.HasPrefix(got.Label, card+":") {
+				t.Fatalf("offered assertion = %+v", got)
+			}
+			if res := runZone(t, it); len(res.Fails) != 0 {
+				t.Fatalf("at max speed: %v", res.Fails)
+			}
+			// The control must really differ from the item, or it proves nothing.
+			ctl := it
+			p0 := ctl.Setup["p0"]
+			p0.Speed = 0
+			ctl.Setup["p0"] = p0
+			if ctl.Setup["p0"].Speed != 0 {
+				t.Fatal("precondition: control kept the max speed")
+			}
+			if res := runZone(t, ctl); len(res.Fails) == 0 {
+				t.Fatalf("at speed 0 the grant is still offered: the assertion is not the static's")
+			}
+		})
 	}
 }

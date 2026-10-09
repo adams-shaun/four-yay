@@ -278,7 +278,17 @@ func classifyTrigger(f *cards.Face, t *cards.Trigger) (sub, gap string, covered 
 		return gapMode()
 
 	case cards.TriggerDrawn:
-		if strings.EqualFold(t.ParamStr(cards.PKValidPlayer), "You") || namesYouCtrl(t.ParamStr(cards.PKValidCard)) {
+		vp := strings.ToLower(strings.TrimSpace(t.ParamStr(cards.PKValidPlayer)))
+		vc := t.ParamStr(cards.PKValidCard)
+		if strings.EqualFold(vp, "you") || namesYouCtrl(vc) {
+			return "trigger.drawn", "", false
+		}
+		// An opponent-draws filter (ValidCard$ Card.OppOwn) or an
+		// opponent/player ValidPlayer is served by the other-player cause.
+		if vp == "opponent" || vp == "player" || filterHasToken(vc, "OppOwn") || filterHasToken(vc, "OppCtrl") {
+			return "trigger.drawn-other", "", false
+		}
+		if vp == "" && strings.TrimSpace(vc) == "" {
 			return "trigger.drawn", "", false
 		}
 		return gapMode()
@@ -330,6 +340,9 @@ func classifyStatic(f *cards.Face, st *cards.Static) (sub, gap string) {
 			}
 			return "static.cost", ""
 		}
+		if vc := st.ParamStr(cards.PKValidCard); strings.Contains(vc, "NamedCard") || strings.Contains(vc, "ChosenType") {
+			return "static.cost", "opponent-cast cost static: chosen-name/chosen-type recipient unsupported"
+		}
 		return "static.cost", "opponent-cast cost static"
 	}
 	for _, s := range servableStaticModes {
@@ -351,6 +364,9 @@ func classifyStatic(f *cards.Face, st *cards.Static) (sub, gap string) {
 	}
 	if sub, ok := supportedLegalityStatic(f, st); ok {
 		return sub, ""
+	}
+	if sub, gap := serveStaticMode(f, st); sub != "" || gap != "" {
+		return sub, gap
 	}
 	if sub, ok := gatedLegalityStatic(f, st); ok {
 		return sub, ""

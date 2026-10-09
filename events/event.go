@@ -1840,6 +1840,13 @@ var flagNames = [...]struct {
 	// bare Condition$ Bargain gate and the Spell.Bargain cost constraint.
 	// Appended at the end per the table's own ordering rule.
 	{"bargained", state.FlagBargained},
+	// The CR 722.3c prepared-copy cast: the spell is the prepared
+	// designation's exile copy reaching the stack. Read by the Card.prepared
+	// filter predicate (Codie, Ravenous Codex's "Whenever you cast a
+	// prepared spell"); the spelling matches the cast mode word
+	// ("prepared_copy") the offer carries, as teamwork_paid matches its
+	// mode. Appended at the end per the table's own ordering rule.
+	{"prepared_copy", state.FlagPreparedCopy},
 }
 
 // FlagsFrom parses a comma-separated flag list (CastInfo.Counter's shape)

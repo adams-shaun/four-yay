@@ -134,8 +134,13 @@ func TestStaticContinuousClassLevelDispositions(t *testing.T) {
 		reason string
 	}{
 		{name: "Ninja Teen", served: true},
-		{name: "Blacksmith's Talent", reason: "static needs an equipped permanent"},
-		{name: "Caretaker's Talent", reason: "static needs a token (setup places none)"},
+		// Served since the state-fixture ticket (cli-20261009T031407Z-8f4b4f49):
+		// Blacksmith's Talent's level-3 static selects equipped creatures, which
+		// the equip fixture supplies (Bonesplitter attached to the Bear);
+		// Caretaker's Talent's level-3 static pumps creature tokens, which the
+		// token fixture casts into being (Dragon Fodder).
+		{name: "Blacksmith's Talent", served: true},
+		{name: "Caretaker's Talent", served: true},
 		// Innkeeper's Talent served since the setup-counters fixture ticket
 		// (cli-20261009T031409Z-a76de35a): the level-2 ward static's
 		// Permanent.YouCtrl+HasCounters gate is now probed with a countered

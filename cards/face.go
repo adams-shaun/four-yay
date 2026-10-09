@@ -232,7 +232,7 @@ func (f *Face) ManaAbilities() []*SA {
 func (f *Face) textualManaAbilities() []*SA {
 	var out []*SA
 	for _, a := range f.Abilities {
-		if a.Kind == "AB" && a.API == "Mana" {
+		if manaAbilityListEntry(a) {
 			out = append(out, a)
 		}
 	}
@@ -664,6 +664,14 @@ func manaColours(s string) uint8 {
 	}
 	return m
 }
+
+// ManaCostColours is the colour bitmask of one printed mana-cost string: the
+// unexported scanner's answer for callers outside this package. It counts
+// hybrid ({2/U}) and Phyrexian ({U/P}) symbols as their colour letters --
+// Forge's ManaCostPartial* semantics and CR 107.4e/f's "each of its
+// component colours" alike -- and nothing else, so effects' filter
+// vocabulary can test a printed cost without a second implementation.
+func ManaCostColours(s string) uint8 { return manaColours(s) }
 
 // parsePT splits a printed P/T ("2/2") into power and toughness. A face with
 // no P/T yields 0,0 and flag false; a face whose P/T carries a

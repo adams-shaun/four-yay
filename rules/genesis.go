@@ -281,7 +281,7 @@ func newEngineShell(cfg Config, random *rng) *Engine {
 		rng:               random,
 		loop:              newLivelockWatcherInto(cfg.LoopGuard, spare.loopSigs, spare.loopRecent, spare.loopPrev, spare.loopHeads, spare.loopHash),
 		compiledText:      newCompiledText(cfg),
-		landTypeWords:     chars.CorpusLandTypeWords(cfg.NameUniverse),
+		landTypeWords:     chars.CorpusLandTypeWords(nameUniverseOrCorpus(cfg)),
 		mulligans:         cfg.Mulligans,
 		windowDiagnostics: cfg.WindowDiagnostics,
 		startingLife:      life,
@@ -640,4 +640,21 @@ func (e *Engine) resolveToss(toss int, alive []state.PlayerID, seats int) (state
 		}
 		candidate = state.PlayerID(e.rng.IntN(seats))
 	}
+}
+
+// nameUniverseOrCorpus is the compiled corpus the derived-characteristic
+// vocabularies (rules/chars' land-type words) build from: the NameUniverse
+// when the game has one, else NamedCorpus. Both are compiled from the same
+// registry, so the derived list is identical either way; reading NamedCorpus
+// matters because the oracle-compliance harness deliberately supplies it
+// WITHOUT setting NameUniverse (Config's comment: the harness must not gain
+// NameCard asks its recorded verdicts predate) -- the pre-fallback read gave
+// that harness a nil universe and an empty vocabulary, so RemoveLandTypes$
+// statics (Zhao, the Moon Slayer; Ultima's BlightStatic) stripped no land
+// type in every generated scenario.
+func nameUniverseOrCorpus(cfg Config) *cards.Universe {
+	if cfg.NameUniverse != nil {
+		return cfg.NameUniverse
+	}
+	return cfg.NamedCorpus
 }

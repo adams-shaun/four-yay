@@ -65,12 +65,6 @@ func TestTriggerSpellCastProbe(t *testing.T) {
 				t.Fatalf("precondition: %s trigger requirement missing or classified %q", tc.name, req.Sub)
 			}
 			item, skip := GenerateB(reg, tc.name, req)
-			if tc.name == "Spinerock Tyrant" {
-				if skip == nil || skip.Reason != "trigger spell-cast singleTarget condition (engine matcher unsupported)" {
-					t.Fatalf("expected the named singleTarget engine limitation, got item=%+v skip=%+v", item, skip)
-				}
-				return
-			}
 			if skip != nil {
 				t.Fatalf("GenerateB did not serve the firing trigger: %s", skip.Reason)
 			}

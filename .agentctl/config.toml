@@ -381,12 +381,13 @@ cmd = ["bash", "-c", "set -o pipefail; if [ -n \"${GORGE_HEAVY_LOCK:-}\" ]; then
 # lane for its whole length and is never paused — with 2 lanes the other lane
 # stays free for a lease meanwhile.
 #
-# gate_affected bounds the test phase to four concurrent test binaries
-# (each invocation uses -p=1); its vet phase is sequential and uses -p=2.
-# Four binaries x 1536MiB stays below the 8G scope with headroom. The
-# measured >2GiB test exceptions are pinned (shrink-only) in
-# internal/testutil/testdata/rss_exceptions.txt; the operator must remeasure
-# both full scopes before enabling these proposed limits.
+# gate_affected bounds the test phase to -p=1 invocations (cli-20261009
+# gate-shard4: ./rules now runs four concurrent shards at GOMAXPROCS=4 each,
+# alongside the two Kr8 runs, searchprobe, the host overshoot check and the
+# $others run at -p=6: at most ~14 test binaries resident at the peak). Each
+# binary is held near its 1536MiB GOMEMLIMIT soft limit; no test's peak RSS is
+# above ~2 GiB (internal/testutil/testdata/rss_exceptions.txt is EMPTY as of
+# 2026-10-09), so the peak stays under the 16G scope with headroom.
 timeout = 2100
 env = { GOMEMLIMIT = "1536MiB", GOMAXPROCS = "2", GOGC = "200", GOFLAGS = "-p=2 -trimpath" }
 

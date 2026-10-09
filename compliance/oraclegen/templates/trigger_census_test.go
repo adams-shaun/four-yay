@@ -63,6 +63,8 @@ var wantTriggerCensus = map[string]map[string]int{
 		"served:trigger.damage":                                 4,
 		"served:trigger.state-self-counters":                    1,
 		"served:trigger.drawn":                                  4,
+		"served:trigger.drawn-other":                            1, // Scrawling Crawler: cli-20261009T031408Z-a01003ef
+		"served:trigger.life-lost":                              1, // Bloodthirsty Conqueror: cli-20261009T031408Z-a01003ef
 		"served:trigger.etb-land":                               20,
 		"served:trigger.etb-other":                              24,
 		"served:trigger.life-gained":                            8,
@@ -100,7 +102,7 @@ var wantTriggerCensus = map[string]map[string]int{
 		"served:trigger.noncombat-damage":                    3,
 		"served:trigger.phase":                               16, // Paradox Shaper, Stingerquill Voxmancer, Woodwork Prodigy: the consumed !IsPrepared gate is a cast-self cause now.
 		"served:trigger.scry":                                5,
-		"served:trigger.spell-cast":                          18, // Ruric Thar, Biomagus: both prowess instances are served.
+		"served:trigger.spell-cast":                          19, // Ruric Thar, Biomagus: both prowess instances are served; Codie, Ravenous Codex: the prepared-copy cast cause now serves it.
 		"served:trigger.spell-cast-opponent":                 1,
 		"served:trigger.surveil":                             5,
 		"skip:trigger.attacks: trigger did not fire":         0,
@@ -115,7 +117,7 @@ var wantTriggerCensus = map[string]map[string]int{
 		"skip:trigger.phase: trigger did not fire":                                                                              0,
 		"skip:trigger.spell-cast-self: trigger covered by level A":                                                              1,
 		"skip:trigger.spell-cast: trigger did not fire":                                                                         1,
-		"skip:trigger.spell-cast: trigger spell-cast filter predicate gorge does not implement (prepared)":                      1,
+		"skip:trigger.spell-cast: trigger spell-cast filter predicate gorge does not implement (prepared)":                      0, // now the served:trigger.spell-cast prepared-copy cast cause
 		"skip:trigger.etb-other: trigger no recipe: etb filter OppCtrl (Creature.OppCtrl)":                                      0,
 		"skip:trigger.phase: trigger did not fire from the graveyard":                                                           0,
 		"skip:trigger.attacks: trigger condition: turn history (Count$ThisTurnActivated_Activated)":                             1,
