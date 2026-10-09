@@ -1,4 +1,0 @@
-{"shape":{"template":"activate","op":"setup","field":"p0.library","diff":"placement"},"key":"activate | setup | p0.library | placement","cards":3}
-{"card":"Broodheart Engine","template":"activate#0.0","status":"diverge","api":"Phase:Surveil","sets":["DFT"],"detail":"setup p0.graveyard: gorge \"[Grizzly Bears]\", xmage \"[Grizzly Bears, Wastes]\""}
-{"card":"Essence Anchor","template":"activate#0.0","status":"diverge","api":"Phase:Surveil","sets":["TDM"],"detail":"setup p0.graveyard: gorge \"[Nessian Asp]\", xmage \"[Nessian Asp, Wastes]\""}
-{"card":"Morcant's Eyes","template":"activate#0.0","status":"diverge","api":"Phase:Surveil","sets":["ECL"],"detail":"setup p0.graveyard: gorge \"[]\", xmage \"[Wastes]\""}
