@@ -60,12 +60,20 @@ var (
 		{"dinosaur", []string{"Orazca Frillback"}},
 		{"hero", []string{"Brave Brawler", "Pet Avengers", "Guerrilla Gorilla"}},
 	}
-	// attackerTypeProbes are the types a ValidAttackers filter names.
-	attackerTypeProbes = map[string]string{"spider": "Giant Spider"}
+	// attackerTypeProbes are the types an attack trigger's ValidCard$ or
+	// ValidAttackers$ filter names, each with the plain creature probe of
+	// that type, in order.
+	attackerTypeProbes = []struct{ word, probe string }{
+		{"spider", "Giant Spider"},
+		{"wolf", "Young Wolf"},
+	}
 	// powerProbe is a 4-power creature, and menaceProbe a creature with menace.
 	powerProbe, menaceProbe = "Nessian Asp", "Boggart Brute"
 	// equipProbe is the Equipment attached to the attacker.
 	equipProbe = "Bonesplitter"
+	// suspectProbe is the creature whose own enter trigger suspects it, cast
+	// by a "suspected creature attacks" cause.
+	suspectProbe = "Frantic Scapegoat"
 	// attackFillers are the plain attackers added to reach an attacker count.
 	attackFillers = []string{"Grizzly Bears", "Llanowar Elves", "Elvish Mystic", "Nessian Asp"}
 )
@@ -79,6 +87,17 @@ func existingCards(reg *cards.Registry, names []string) []string {
 		}
 	}
 	return out
+}
+
+// attackerTypeProbe is the plain creature of the named type the attack filters
+// probe, "" when the table has none.
+func attackerTypeProbe(word string) string {
+	for _, tp := range attackerTypeProbes {
+		if tp.word == word {
+			return tp.probe
+		}
+	}
+	return ""
 }
 
 // etbDiscardFiller is the card to put first in p0's hand when the card under
@@ -299,9 +318,29 @@ func attackShape(reg *cards.Registry, f *cards.Face, name string, t *cards.Trigg
 	if strings.Contains(text, "attacking+other") {
 		add(attackFillers[0])
 	}
+	// A typed attacker: the trigger's filter names a creature type the table
+	// probes (Tolsimir, Midnight's Light's "a Wolf you control attacks").
+	filterLower := strings.ToLower(filter)
+	for _, tp := range attackerTypeProbes {
+		if strings.Contains(filterLower, tp.word) {
+			add(tp.probe)
+		}
+	}
+	// A suspected attacker: the suspect comes from Frantic Scapegoat's own
+	// enter trigger, cast here rather than placed, because setup placement
+	// drops enter triggers and a placed copy is never suspected. The
+	// scapegoat then joins the attack step.
+	if strings.Contains(filterLower, "issuspected") {
+		if st, ok := castProbe(reg, suspectProbe); ok {
+			c.hand = appendFixtureUnique(c.hand, suspectProbe)
+			c.prelude = append(c.prelude, st, oraclegen.Step{Op: "resolve"})
+			atk = appendFixtureUnique(atk, "p0:"+suspectProbe)
+			changed = true
+		}
+	}
 	if m := attackersAmountRE.FindStringSubmatch(text); m != nil {
 		n, _ := strconv.Atoi(m[1])
-		typed := attackerTypeProbes[strings.ToLower(t.ParamStr(cards.PKValidAttackers))]
+		typed := attackerTypeProbe(strings.ToLower(t.ParamStr(cards.PKValidAttackers)))
 		pool := attackFillers
 		if typed != "" {
 			pool = []string{typed}
