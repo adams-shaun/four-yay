@@ -24,8 +24,10 @@ var forageFixtures = []string{"Grizzly Bears", "Wastes", "Sol Ring"}
 
 // activationX is the X every X-bearing activation cost is announced with: the
 // XMin<N> floor when the cost has one, else 1 for the costs whose X also
-// prices a life or waterbend payment (PayLife<X>, Waterbend<X>). It is 0 for a
-// plain X cost, which keeps PoolFor's legacy X.
+// prices a life or waterbend payment (PayLife<X>, Waterbend<X>) or removes
+// counters (an announced SubCounter<X/Kind> / RemoveAnyCounter<X/Kind>, whose
+// X the fixture funds with one counter). It is 0 for a plain X cost, which
+// keeps PoolFor's legacy X.
 func activationX(cost string) int {
 	toks := costTokens(cost)
 	for _, tok := range toks {
@@ -34,7 +36,7 @@ func activationX(cost string) int {
 		}
 	}
 	for _, tok := range toks {
-		if tok == "PayLife<X>" || tok == "Waterbend<X>" {
+		if tok == "PayLife<X>" || tok == "Waterbend<X>" || announcedSourceCounterX(tok) {
 			return 1
 		}
 	}
@@ -129,12 +131,13 @@ func keywordCostFixtures(p0 *oraclegen.Seat, cost string) {
 }
 
 // announcesX reports whether the engine asks the activator to announce X for
-// this cost: a bare X mana symbol, PayLife<X> or Waterbend<X>. An XMin<N> floor
-// whose X only counts exiled cards (Craft's ExileCtrlOrGrave<X/...>) is read
-// from the cost, never asked.
+// this cost: a bare X mana symbol, PayLife<X>, Waterbend<X>, or an announced
+// counter-removal part (SubCounter<X/Kind>, RemoveAnyCounter<X/Kind>). An
+// XMin<N> floor whose X only counts exiled cards (Craft's ExileCtrlOrGrave
+// <X/...>) is read from the cost, never asked.
 func announcesX(cost string) bool {
 	for _, tok := range costTokens(cost) {
-		if tok == "X" || tok == "PayLife<X>" || tok == "Waterbend<X>" {
+		if tok == "X" || tok == "PayLife<X>" || tok == "Waterbend<X>" || announcedSourceCounterX(tok) {
 			return true
 		}
 	}
