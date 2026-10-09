@@ -119,6 +119,10 @@ type offerTry struct {
 	// on an EnchantedBy recipient is observed on the probe, so the Aura must
 	// end up attached to it.
 	attachProbe bool
+	// probeLoyalty puts this many LOYALTY counters on the probe at setup, so
+	// a granted loyalty ability whose cost exceeds the probe's printed
+	// starting loyalty (Avatar of Burgeoning Echoes' [-10]) is still payable.
+	probeLoyalty int32
 }
 
 // staticOfferItem serves a play-permission or granted-Flashback static as an
@@ -385,6 +389,9 @@ func offerScenario(f *cards.Face, name string, t offerTry, want bool, base *orac
 	}
 	for _, n := range t.extraGY {
 		p0.Graveyard = appendFixtureUnique(append([]string(nil), p0.Graveyard...), n)
+	}
+	if t.probeLoyalty > 0 {
+		p0 = oraclegen.WithCounters(p0, t.probe, "LOYALTY", t.probeLoyalty)
 	}
 	setup["p0"] = p0
 	sc.Setup = setup
