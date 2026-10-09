@@ -8,16 +8,18 @@ import (
 )
 
 // TestAttackingPlayerRider is the effects leaf for Forge's
-// Card.attacking <PlayerSpec> rider: the candidate is attacking the seat the
+// Card.attacking <PlayerSpec> rider: the candidate is attacking the player the
 // player spec names, You = the evaluating controller, resolved through the
 // player grammar's ONE home. The semantics this pins is the trap the plus
 // spelling hides: Oviya, Automech Artisan's "each creature that's attacking
-// one of your opponents has trample" reads the DEFENDER's seat
-// (state.Object.Attacking, CR 508.1) and INCLUDES your own attacking
-// creature, while `attacking+Opponent` ("attacking" AND "opponent-
-// controlled") does not. Asserting the preconditions (who attacks whom,
-// which seat each creature is controlled by) keeps the test from passing
-// vacuously if the rider matched nothing.
+// one of your opponents has trample" reads the DEFENDER (state.Object.Attacking,
+// CR 508.1) and INCLUDES your own attacking creature, while
+// `attacking+Opponent` ("attacking" AND "opponent-controlled") does not. It
+// also pins the entity-not-seat rule: a creature attacking an opponent's
+// PLANESWALKER names that opponent's seat in Attacking but its defender is a
+// permanent, not a player, so it must not match. Asserting the preconditions
+// (who attacks whom, which seat each creature is controlled by) keeps the test
+// from passing vacuously if the rider matched nothing.
 func TestAttackingPlayerRider(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	g := state.NewGame([]string{"you", "them", "third"})
@@ -62,6 +64,24 @@ func TestAttackingPlayerRider(t *testing.T) {
 	}
 	if MatchesObjectCtx(g, "Creature.attacking Player", idle, sc) {
 		t.Error("Creature.attacking Player must not match a non-attacking creature")
+	}
+	// A creature attacking an opponent's PLANESWALKER: AttackingBattle carries
+	// the planeswalker and Attacking names its controller's seat (CR 508.1),
+	// so a seat-only rider would match `attacking Opponent` -- but Forge
+	// compares the defender ENTITY, and a planeswalker is not a player, so it
+	// must NOT match either spelling.
+	jace := corpusObject(t, reg, g, "Jace Beleren")
+	jace.Controller = 1
+	pwAtk := g.Obj(corpusObject(t, reg, g, "Grizzly Bears").ID)
+	pwAtk.Controller, pwAtk.IsAttacking, pwAtk.Attacking, pwAtk.AttackingBattle = 1, true, 1, jace.ID
+	if pwAtk.AttackingBattle == 0 || jace.ID == 0 {
+		t.Fatal("precondition failed: planeswalker attack carries no AttackingBattle")
+	}
+	if MatchesObjectCtx(g, "Creature.attacking Opponent", pwAtk, sc) {
+		t.Error("Creature.attacking Opponent must not match a creature attacking a planeswalker (the defender is not a player)")
+	}
+	if MatchesObjectCtx(g, "Creature.attacking Player", pwAtk, sc) {
+		t.Error("Creature.attacking Player must not match a creature attacking a planeswalker")
 	}
 	// Negated: a non-attacking creature is not attacking an opponent.
 	if got, ok := matchPredicate(g, "!attacking Opponent", idle, sc); !ok || !got {

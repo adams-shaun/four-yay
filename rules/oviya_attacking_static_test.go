@@ -33,32 +33,37 @@ func oviyaStaticAffected(t *testing.T, reg *cards.Registry, name, want string) {
 
 // TestOviyaAttackingOpponentTrample drives the real Oviya, Automech Artisan
 // script ("Each creature that's attacking one of your opponents has
-// trample") through the static walk. The rider reads the DEFENDER's seat
-// (state.Object.Attacking, CR 508.1) with You = Oviya's controller, so your
-// OWN creature attacking an opponent gains trample -- the reading the
-// `attacking+Opponent` plus-spelling (opponent-CONTROLLED attacker) would
-// miss -- and a creature attacking Oviya's controller gains nothing. The
-// static walk re-runs per emitted event, so a creature that is not attacking
-// never has the grant.
+// trample") through the static walk. The rider reads the DEFENDER entity
+// (state.Object.Attacking/AttackingBattle, CR 508.1) with You = Oviya's
+// controller, so your OWN creature attacking an opponent gains trample -- the
+// reading the `attacking+Opponent` plus-spelling (opponent-CONTROLLED
+// attacker) would miss -- and a creature attacking Oviya's controller gains
+// nothing. A creature attacking an opponent's PLANESWALKER names that
+// opponent's seat but its defender is a permanent, not a player, so it gains
+// nothing either. The static walk re-runs per emitted event, so a creature
+// that is not attacking never has the grant.
 func TestOviyaAttackingOpponentTrample(t *testing.T) {
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	oviya := lookup(t, reg, "Oviya, Automech Artisan")
 	bear := lookup(t, reg, "Grizzly Bears")
+	jace := lookup(t, reg, "Jace Beleren")
 	oviyaStaticAffected(t, reg, "Oviya, Automech Artisan", "Creature.attacking Opponent")
 
-	e, cfg := corpusEngineCfg(t, reg, []*cards.Card{oviya, bear}, []*cards.Card{bear})
+	e, cfg := corpusEngineCfg(t, reg, []*cards.Card{oviya, bear, bear}, []*cards.Card{bear, jace})
 	oviyaID := moveCorpusCard(t, e, "Oviya, Automech Artisan", 0, state.ZBattlefield)
 	bear0 := moveCorpusCard(t, e, "Grizzly Bears", 0, state.ZBattlefield)
+	bear2 := moveCorpusCard(t, e, "Grizzly Bears", 0, state.ZBattlefield)
 	bear1 := moveCorpusCard(t, e, "Grizzly Bears", 1, state.ZBattlefield)
-	for _, id := range []state.ObjID{oviyaID, bear0, bear1} {
+	jaceID := moveCorpusCard(t, e, "Jace Beleren", 1, state.ZBattlefield)
+	for _, id := range []state.ObjID{oviyaID, bear0, bear2, bear1, jaceID} {
 		o := e.G.Obj(id)
 		if o == nil || o.Zone != state.ZBattlefield || o.Face() == nil {
 			t.Fatalf("precondition failed: fixture creature %d is not a faced battlefield permanent (%+v)", id, o)
 		}
 	}
 	// Precondition: nobody has the grant before anyone attacks.
-	for _, id := range []state.ObjID{oviyaID, bear0, bear1} {
+	for _, id := range []state.ObjID{oviyaID, bear0, bear2, bear1} {
 		if e.HasKeyword(id, "Trample") {
 			t.Fatalf("precondition failed: object %d already has Trample before any attack", id)
 		}
@@ -82,6 +87,18 @@ func TestOviyaAttackingOpponentTrample(t *testing.T) {
 	e.emit(events.Event{Kind: events.DeclareAttackers, Player: 0, IDs: []state.ObjID{bear1}})
 	if e.HasKeyword(bear1, "Trample") {
 		t.Error("a creature attacking Oviya's controller must not gain Trample")
+	}
+
+	// Seat 0's third bear attacks seat 1's PLANESWALKER: AttackingBattle
+	// carries the planeswalker and Attacking names its controller's seat, so a
+	// seat-only rider would grant Trample. Forge compares the defender entity,
+	// and a planeswalker is not a player, so no grant.
+	e.emit(events.Event{Kind: events.DeclareAttackers, Player: 1, Obj: jaceID, IDs: []state.ObjID{bear2}})
+	if e.G.Obj(bear2).AttackingBattle != jaceID {
+		t.Fatal("precondition failed: the attack did not record the planeswalker defender")
+	}
+	if e.HasKeyword(bear2, "Trample") {
+		t.Error("a creature attacking a planeswalker must not gain Trample (the rider compares the defender entity, not the seat)")
 	}
 	replayCheck(t, e, cfg)
 }

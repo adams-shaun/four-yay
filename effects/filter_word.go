@@ -283,14 +283,16 @@ const (
 	wordDealtDamageToAny
 	wordDealtCombatDamageToAny
 	// wordAttackingPlayer is Forge's Card.attacking <PlayerSpec> rider: the
-	// candidate is attacking the seat <PlayerSpec> names, You = the
+	// candidate is attacking the PLAYER <PlayerSpec> names, You = the
 	// evaluating controller (sc.You), the arg resolved through the player
 	// grammar's ONE home (MatchesPlayerSpecCtx). This reads the DEFENDER's
 	// seat (state.Object.Attacking, CR 508.1), so Oviya, Automech Artisan's
 	// "each creature that's attacking one of your opponents has trample"
 	// includes your OWN attacking creature -- it is NOT the
 	// `attacking+Opponent` plus-spelling, which is "attacking creature
-	// CONTROLLED by an opponent". key is the player-spec base word,
+	// CONTROLLED by an opponent". Forge compares the defender ENTITY: a
+	// planeswalker or battle defender (AttackingBattle != 0) is not a player
+	// and matches nothing. key is the player-spec base word,
 	// validated against playerSpecBaseCodes by wordPredicateNewWords; a
 	// non-base argument (Seifer's `attacking Valid Planeswalker.OppCtrl`,
 	// the referent spellings) stays wordUnknown and loud.

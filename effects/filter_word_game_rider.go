@@ -43,18 +43,26 @@ func wordPredicateNewWords(p string) (kind wordKind, key string, ok bool) {
 }
 
 // attackingPlayerMatches evaluates wordAttackingPlayer: the candidate is
-// attacking the seat the player-spec base <key> names, You = the evaluating
+// attacking the PLAYER the player-spec base <key> names, You = the evaluating
 // controller (sc.You), resolved through MatchesPlayerSpecCtx -- the ONE home
 // of the player grammar. Oviya, Automech Artisan's "each creature that's
 // attacking one of your opponents has trample" INCLUDES your own attacking
-// creature: the rider reads the DEFENDER's seat (state.Object.Attacking, CR
-// 508.1), not the attacker's controller, so it is NOT the
-// `attacking+Opponent` plus-spelling, which is "attacking creature
-// CONTROLLED by an opponent". A candidate that is not attacking matches
-// nothing, and an out-of-range seat (never a well-formed fold, but a
-// hand-built state) fails closed rather than answering an invented player
-// spec.
+// creature: the rider reads the DEFENDER, not the attacker's controller, so
+// it is NOT the `attacking+Opponent` plus-spelling, which is "attacking
+// creature CONTROLLED by an opponent".
+//
+// Forge compares the defender ENTITY, not the seat: CardProperty's
+// `attacking [DefinedGameEntity]` does
+// `defined.contains(combat.getDefenderByAttacker(card))`, and the argument
+// resolves to PLAYER objects. A planeswalker or battle defender is the
+// permanent, not a player, so it is not contained and Forge returns false --
+// the same discriminator the sibling `attackingYouOrYourPWLKI` reads.
+// AttackingBattle != 0 marks a non-player permanent attack (state/object.go),
+// so requiring it zero keeps a creature attacking an opponent's planeswalker
+// out. A candidate that is not attacking matches nothing, and an out-of-range
+// seat (never a well-formed fold, but a hand-built state) fails closed rather
+// than answering an invented player spec.
 func attackingPlayerMatches(g *state.Game, key string, o *state.Object, sc SpecContext) bool {
-	return o.IsAttacking && int(o.Attacking) < len(g.Players) &&
+	return o.IsAttacking && o.AttackingBattle == 0 && int(o.Attacking) < len(g.Players) &&
 		MatchesPlayerSpecCtx(g, key, o.Attacking, sc.You, PlayerSpecCtx{})
 }
