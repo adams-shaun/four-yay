@@ -57,11 +57,18 @@ type staticFixture struct {
 	tokenName      string
 	tokenSpec      staticProbeSpec
 	tokenAttackers []string
+	// afterSteps are steps staticBase appends after the card is on the
+	// battlefield (the solved-Case fixtures' end-step solve sequence: the
+	// Case's own "To solve" trigger is a battlefield trigger, so it fires
+	// only at the end step of the turn the Case is cast, CR 719.3a).
+	afterSteps []oraclegen.Step
 }
 
 // setupOnly reports whether the fixture needs no steps, so it also fits the
 // land and back-face scenarios, which carry no cast to hang a prelude on.
-func (s staticFixture) setupOnly() bool { return len(s.steps) == 0 && !s.place }
+func (s staticFixture) setupOnly() bool {
+	return len(s.steps) == 0 && len(s.afterSteps) == 0 && !s.place
+}
 
 // seats adds the fixture's cards to the two seats. Battlefield cards are
 // appended as is, not de-duplicated: "seven or more lands" needs seven. The
@@ -113,6 +120,9 @@ func (s staticFixture) merge(o staticFixture) staticFixture {
 	}
 	if s.tokenName == "" {
 		s.tokenName, s.tokenSpec, s.tokenAttackers = o.tokenName, o.tokenSpec, o.tokenAttackers
+	}
+	if len(s.afterSteps) == 0 {
+		s.afterSteps = append(s.afterSteps, o.afterSteps...)
 	}
 	for kind, n := range o.probeCounters {
 		if s.probeCounters == nil {
@@ -454,6 +464,12 @@ func staticFixtures(reg *cards.Registry, f *cards.Face, st cards.Static) []stati
 		}
 		out = append(out, staticFixture{conditionPrelude: c})
 	}
+	// The solved-Case fixtures (a static gated on its own source Case being
+	// solved) run the solve condition's own events as prelude steps and the
+	// end-step solve sequence after the cast; they come after the
+	// condition-derived ones, so a row an existing candidate already serves
+	// keeps its scenario bytes.
+	out = append(out, staticSolvedCaseFixtures(reg, f, st)...)
 	// The state fixtures (a token prelude, an attached Equipment, unspent
 	// pool mana, a raid-count attack) run after every existing candidate, so
 	// a row an existing candidate already serves keeps its scenario bytes.

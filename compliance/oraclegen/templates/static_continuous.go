@@ -439,6 +439,12 @@ func staticBase(reg *cards.Registry, c *cards.Card, f *cards.Face, name string, 
 		}
 		base.Steps = append(base.Steps, oraclegen.Step{Op: "attack", Seat: 0, Defender: "p1", Attackers: attackers})
 	}
+	if cond != nil && len(cond.afterSteps) > 0 {
+		// The card is on the battlefield by now (cast, played or placed), so
+		// a battlefield trigger of its own (the solved-Case "To solve"
+		// sequence) can run and resolve before the final checkpoint.
+		base.Steps = append(base.Steps, cond.afterSteps...)
+	}
 	return base, ""
 }
 
