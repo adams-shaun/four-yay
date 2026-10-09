@@ -80,6 +80,7 @@ func xanswersForScenario(res rules.OracleResult, sc Scenario, modes map[string]i
 			d.Max = len(names)
 		}
 	}
+	collapseRoomLock(ds)
 	return xanswers(ds, len(sc.Steps), modes, castSteps)
 }
 

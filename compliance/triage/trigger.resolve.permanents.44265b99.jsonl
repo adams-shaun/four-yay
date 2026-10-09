@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"resolve","field":"permanents","diff":"Temple of Cyclical Time gorge+[counters=TIME=3] xmage+[]"},"key":"trigger | resolve | permanents | Temple of Cyclical Time gorge+[counters=TIME=3] xmage+[]","cards":1}
+{"card":"Ojer Pakpatiq, Deepest Epoch","template":"trigger#0.1","status":"diverge","api":"SpellCast:Pump+ChangesZone:ChangeZone","sets":["LCI"],"detail":"step 1 (resolve) permanents: gorge \"c0 o0 Temple of Cyclical Time [land] {} tapped counters=TIME=3\", xmage \"c0 o0 Temple of Cyclical Time [land] {} tapped\""}
