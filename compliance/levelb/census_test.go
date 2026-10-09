@@ -50,6 +50,9 @@ var wantCensus = map[string]map[string]int{
 		"trigger.spell-cast":                     2,
 	},
 	"EOE": {
+		// main (f6fd28f37) classified the combat-only CantPreventDamage static
+		// out of its gap; this branch (agent-20261009T160853Z-c3e35453) serves
+		// The Endstone's plain hand land drop as trigger.land-played.
 		"activate.battlefield":              39,
 		"activate.mana":                     23,
 		"combat.attack":                     49,
@@ -76,7 +79,7 @@ var wantCensus = map[string]map[string]int{
 		"trigger.ltb-other":                 1,
 		"trigger.ltb-self":                  4,
 		"trigger.damage":                    6,
-		"trigger.gap:LandPlayed":            1,
+		"trigger.land-played":               1, // The Endstone: agent-20261009T160853Z-c3e35453
 		"trigger.phase":                     20,
 		"trigger.blocks":                    1,
 		"trigger.sacrificed":                2,

@@ -313,11 +313,19 @@ func announcedSourceCounterXKind(tok string) string {
 }
 
 // addActivationCounterFixtures gives p0's source card the counters its cost
-// removes, so the activation is payable.
-func addActivationCounterFixtures(p0 *oraclegen.Seat, name, cost string) {
+// removes, so the activation is payable. A kind the face's own etbCounter
+// keyword already enters with is seeded only for the shortfall: the setup
+// placement is a real battlefield entry that applies the entry counters, so
+// seeding the full count on top double-counts them and kills the source (a
+// Flitterwing Nuisance seeded a second -1/-1 counter dies before the probe).
+func addActivationCounterFixtures(p0 *oraclegen.Seat, f *cards.Face, name, cost string) {
 	for _, tok := range costTokens(cost) {
 		if n, kind, ok := sourceCounterCost(tok); ok {
-			*p0 = withSetupCounters(*p0, name, kind, n)
+			covered := int32(etbCounterCount(f, kind))
+			if covered >= n {
+				continue
+			}
+			*p0 = withSetupCounters(*p0, name, kind, n-covered)
 			continue
 		}
 		if n, kind, fixture, ok := otherCounterCost(tok); ok {
@@ -329,4 +337,26 @@ func addActivationCounterFixtures(p0 *oraclegen.Seat, name, cost string) {
 			*p0 = withSetupCounters(*p0, name, announcedSourceCounterXKind(tok), 1)
 		}
 	}
+}
+
+// etbCounterCount is how many counters of kind the face's etbCounter keyword
+// enters with ("K:etbCounter:M1M1:2"), 0 when it enters with none.
+func etbCounterCount(f *cards.Face, kind string) int {
+	if f == nil {
+		return 0
+	}
+	for _, k := range f.Keywords {
+		head, rest, ok := strings.Cut(k, ":")
+		if !ok || !strings.EqualFold(head, "etbCounter") {
+			continue
+		}
+		fkind, count, _ := strings.Cut(rest, ":")
+		if !strings.EqualFold(strings.TrimSpace(fkind), kind) {
+			continue
+		}
+		if n, err := strconv.Atoi(strings.TrimSpace(count)); err == nil {
+			return n
+		}
+	}
+	return 0
 }

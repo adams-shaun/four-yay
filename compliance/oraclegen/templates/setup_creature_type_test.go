@@ -98,18 +98,28 @@ func TestSetupCreatureTypeChoiceLeadsSiblingRows(t *testing.T) {
 // the fix actually targets rather than only the level-A universe. Measured
 // 2026-10-06 with this ticket's generator; a template, predicate or
 // generator change that moves a count shows up as a diff, and so does a
-// stale pin. ECL moved 6 -> 8 on 2026-10-09 (ticket g17, cli-
-// 20261009T031408Z-3dd5d7df): the trigger#0.0 rows of Dawn-Blessed Pennant
-// and Rimefire Torque, previously the "etb filter ChosenType" skips, now
-// generate scenarios, and those scenarios place the as-enters type
-// permanent (the etb special-filter cause, with the generic probe walk as
-// fallback); measured at 8/8 both with and without chosenTypeETBCauses.
+// stale pin.
 //
-// This branch (agent-20261009T053432Z-677239bd) adds one more: its Gathering
-// Stone cost-static probe's static#0.0 row now generates, placing Gathering
-// Stone, whose as-enters type ask the setup placement still poses, so the
-// scenario joins the class. The two movements are disjoint rows, so the
-// merged generator measures ECL at 9/9.
+// Re-measured for cli-20261009T031408Z-5823e7de (Level B activate fixtures):
+// LCI 3 -> 4. Serving Cavernous Maw's activate#0.1 (a level-B activate row)
+// generates the new scenario LCI Cavernous Maw/activate#0.1/v1, whose setup
+// places a permanent carrying an as-enters creature-type ask (the type count
+// over two named zones the row's restriction reads). The item tracks the new
+// scenario one-for-one and disappears if that activate serving is reverted.
+//
+// ECL moved 6 -> 8 on 2026-10-09 (ticket g17, cli-20261009T031408Z-3dd5d7df,
+// from main): the trigger#0.0 rows of Dawn-Blessed Pennant and Rimefire
+// Torque, previously the "etb filter ChosenType" skips, now generate
+// scenarios, and those scenarios place the as-enters type permanent (the etb
+// special-filter cause, with the generic probe walk as fallback); measured at
+// 8/8 both with and without chosenTypeETBCauses.
+//
+// Gathering Stone's cost-static probe adds one more (ticket
+// agent-20261009T053432Z-677239bd, from main): its static#0.0 row now
+// generates, placing Gathering Stone, whose as-enters type ask the setup
+// placement still poses, so the scenario joins the class. All three movements
+// are disjoint rows, so the merged generator measures ECL at 9/9 with LCI
+// still at 4.
 var wantSetupTypeCensus = map[string][2]int{
 	"BIG": {0, 0},
 	"EOE": {0, 0},
@@ -119,7 +129,7 @@ var wantSetupTypeCensus = map[string][2]int{
 	"BLB": {3, 3},
 	"ECL": {9, 9},
 	"DFT": {1, 1},
-	"LCI": {3, 3},
+	"LCI": {4, 4},
 }
 
 // setupTypeCensusSets is the level-A census list plus the level-B sets whose

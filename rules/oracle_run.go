@@ -1500,7 +1500,25 @@ func oracleAnswerManaStage(r *oracleRun, st oracleStep, seat state.PlayerID, id 
 			}
 			return harnessf("mana ability %q not offered: %s", st.Ability, optionDump(choice))
 		}
-		return r.submit(choice, []int{idx}, "mana ability")
+		// A combination ask ("Add two mana in any combination of colors",
+		// Flamebraider) wants Min picks from the wheel: fill the remaining
+		// slots with the wanted ability's next options in order. The single
+		// Min==1 case keeps today's one-pick submit unchanged.
+		picks := []int{idx}
+		if choice.Min > 1 {
+			used := map[int]bool{idx: true}
+			for _, o := range choice.Options {
+				if len(picks) >= choice.Min {
+					break
+				}
+				if used[o.Index] || o.Obj != id || wantIdx >= 0 && o.Ability != wantIdx {
+					continue
+				}
+				used[o.Index] = true
+				picks = append(picks, o.Index)
+			}
+		}
+		return r.submit(choice, picks, "mana ability")
 	}
 	// No second stage: exactly one available ability was resolved with no ask.
 	// It must have been the one the step named.

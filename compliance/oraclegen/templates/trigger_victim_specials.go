@@ -112,7 +112,7 @@ func selfSacrificeDiesCause(reg *cards.Registry, f *cards.Face, name string) (tr
 			continue
 		}
 		cost := sa.ParamStr(cards.PKCost)
-		mana, gap := activationCostIn(cost, "battlefield")
+		mana, gap := activationCostIn(cost, "battlefield", "")
 		if gap != "" {
 			continue
 		}
@@ -122,7 +122,7 @@ func selfSacrificeDiesCause(reg *cards.Registry, f *cards.Face, name string) (tr
 		}
 		i := idx
 		setup := oraclegen.Seat{}
-		addActivationCostFixtures(&setup, cost)
+		addActivationCostFixtures(&setup, "", cost)
 		return triggerCause{
 			battlefield:  append([]string(nil), setup.Battlefield...),
 			hand:         append([]string(nil), setup.Hand...),

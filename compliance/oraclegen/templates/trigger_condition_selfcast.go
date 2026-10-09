@@ -101,7 +101,7 @@ func selfActivatedAttributePreludes(reg *cards.Registry, f *cards.Face, group st
 			continue
 		}
 		cost := sa.ParamStr(cards.PKCost)
-		mana, gap := activationCostIn(cost, "battlefield")
+		mana, gap := activationCostIn(cost, "battlefield", "")
 		if gap != "" {
 			continue
 		}
@@ -110,7 +110,7 @@ func selfActivatedAttributePreludes(reg *cards.Registry, f *cards.Face, group st
 			continue
 		}
 		setup := oraclegen.Seat{}
-		addActivationCostFixtures(&setup, cost)
+		addActivationCostFixtures(&setup, f.Name, cost)
 		// A cost fixture must land in a zone the prelude setup carries: the
 		// seat fields addActivationCostFixtures writes (hand, battlefield,
 		// graveyard) are exactly the prelude's own. Anything else keeps the

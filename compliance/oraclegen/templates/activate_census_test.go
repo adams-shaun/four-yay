@@ -115,30 +115,47 @@ var activateCensusSets = []string{"BIG", "EOE", "FDN", "FRA"}
 // empty.
 var wantActivateCensus = map[string]map[string]int{
 	"BIG": {
-		"served:activate.battlefield":        11,
+		// +1 served: Worldwalker Helm's "target artifact token you control"
+		// gets the Thraben Inspector token prelude (cli-20261009T031408Z-5823e7de).
+		"served:activate.battlefield":        12,
 		"served:activate.hand":               2,
 		"served:activate.mana":               4,
 		"skip:activate cost gap: Sac<token>": 1,
-		"skip:activate no fixture":           1,
 	},
 	"EOE": {
-		"served:activate.battlefield":         38,
-		"served:activate.mana":                23,
-		"skip:activate cost gap: tapXType<X>": 1,
+		// +1 served at the merge of the tapXType ticket and the setup-counter
+		// ticket: Secluded Starforge's announced tapXType<X/Artifact> count
+		// (served with one tapped catalogue artifact, the X the tap election's
+		// own selection) and Sunstar Chaplain's counter-removal cost (its
+		// fixture bearer seeded with the counters) both generate; each side
+		// alone skipped the other's row.
+		"served:activate.battlefield": 39,
+		"served:activate.mana":        23,
 	},
 	"FDN": {
-		"served:activate.battlefield":                             89,
-		"served:activate.graveyard":                               2,
-		"served:activate.mana":                                    53,
-		"skip:activate cost gap: tapXType<count-above-catalogue>": 1,
-		"skip:activate no fixture":                                1,
+		// +2 served (r5): Lathril's tapXType<10/Elf> after the Elf catalogue
+		// grew to ten corpus Elves (the count-above-catalogue skip empties),
+		// and Zul Ashur's Creature.Zombie+YouOwn@Graveyard target after the
+		// zone candidates learned subtype-qualified card filters (the
+		// no-fixture skip empties).
+		"served:activate.battlefield": 91,
+		"served:activate.graveyard":   2,
+		"served:activate.mana":        53,
 	},
 	"FRA": {
-		"served:activate.battlefield": 72,
+		// +1 served at the merge of the ThisTurnEntered ticket and the
+		// setup-counter ticket: Gallia, the Merrymaker's "target creature that
+		// entered the battlefield this turn" (the mid-turn entry candidate) and
+		// Chandra, Chill of Compliance's announced SubCounter cost both
+		// generate; each side alone skipped the other's row. Re-measured at the
+		// 2026-10-09 main merge: the graveyard candidate main serves lifts
+		// graveyard 8 -> 9, and both prior skip buckets empty (the merged
+		// generator serves the YouScryThisTurn SVar row and the no-fixture row
+		// that each side alone still skipped).
+		"served:activate.battlefield": 73,
 		"served:activate.graveyard":   9,
 		"served:activate.hand":        9,
 		"served:activate.mana":        27,
-		"skip:activate no fixture":    1,
 		"skip:activate target gap: attackedThisTurn needs a combat prelude (Creature.attackedThisTurn)": 1,
 	},
 }

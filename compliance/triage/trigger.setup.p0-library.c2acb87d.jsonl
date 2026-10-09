@@ -1,7 +1,0 @@
-{"shape":{"template":"trigger","op":"setup","field":"p0.library","diff":"placement"},"key":"trigger | setup | p0.library | placement","cards":6}
-{"card":"Broodheart Engine","template":"trigger#0.0","status":"diverge","api":"Phase:Surveil","sets":["DFT"],"detail":"setup p0.graveyard: gorge \"[Wastes]\", xmage \"[]\""}
-{"card":"Essence Anchor","template":"trigger#0.0","status":"diverge","api":"Phase:Surveil","sets":["TDM"],"detail":"setup p0.graveyard: gorge \"[Wastes]\", xmage \"[]\""}
-{"card":"Eye of Jace","template":"trigger#0.0","status":"diverge","api":"Phase:Surveil","sets":["FRA"],"detail":"setup p0.graveyard: gorge \"[Wastes]\", xmage \"[]\""}
-{"card":"Grave Researcher","template":"trigger#0.0","status":"diverge","api":"Phase:Surveil","sets":["SOS"],"detail":"setup p0.graveyard: gorge \"[Wastes]\", xmage \"[]\""}
-{"card":"Mindwhisker","template":"trigger#0.0","status":"diverge","api":"Phase:Surveil","sets":["BLB"],"detail":"setup p0.graveyard: gorge \"[Wastes]\", xmage \"[]\""}
-{"card":"Morcant's Eyes","template":"trigger#0.0","status":"diverge","api":"Phase:Surveil","sets":["ECL"],"detail":"setup p0.graveyard: gorge \"[Wastes]\", xmage \"[]\""}
