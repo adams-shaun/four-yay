@@ -161,6 +161,17 @@ func costProbeItem(reg *cards.Registry, f *cards.Face, name string, req levelb.R
 		if len(it.XAnswers) == 0 {
 			it.XAnswers = make([][]oraclegen.XAnswer, len(it.Steps))
 		}
+		// A token ability's self-sacrifice cost poses no ask to observe (the
+		// source is the sole candidate), so XAnswersForScenario carries no
+		// pick for it; the token probe scripts XMage's own picker answer.
+		// appendTokenAnswers is a no-op when the step already holds it.
+		if len(p.tokenAnswers) > 0 {
+			for i, s := range it.Steps {
+				if s.Op == "activate" {
+					it.XAnswers[i] = appendTokenAnswers(it.XAnswers[i], 0, p.tokenAnswers...)
+				}
+			}
+		}
 	}
 	if p.activate != nil || len(p.preXAbility) > 0 {
 		it.XAbility = growXAbility(it.XAbility, len(it.Steps))

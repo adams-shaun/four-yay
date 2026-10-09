@@ -42,6 +42,7 @@ package templates
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -58,6 +59,23 @@ var StaticApplies = Template{ID: "static", Version: 1}
 
 // staticProbe is the permanent on both seats a continuous static lands on.
 const staticProbe = "Grizzly Bears"
+
+// staticProbeAura is the inert Aura the enchanted-probe prelude attaches to
+// the probe. Pacifism changes no compared field (P/T, keywords, types,
+// colours), so only the static under test moves the probe.
+const staticProbeAura = "Pacifism"
+
+// addEnchantedProbeAura places the inert Aura on p0's battlefield and attaches
+// it to the probe, so a static on "enchanted creatures you control" (A Tale
+// for the Ages, Archon of the Wild Rose) finds an enchanted probe.
+func addEnchantedProbeAura(base *oraclegen.Item, probe string) {
+	p0 := base.Scenario.Setup["p0"]
+	p0.Battlefield = appendFixtureUnique(p0.Battlefield, staticProbeAura)
+	base.Scenario.Setup["p0"] = p0
+	base.Steps = append(base.Steps, oraclegen.Step{
+		Op: "attach", Seat: 0, Card: "p0:" + staticProbeAura, AttachedTo: "p0:" + probe,
+	})
+}
 
 // staticContinuous builds the scenario serving one static.continuous
 // requirement. It tries Grizzly Bears alone first, so a row the Bear already
@@ -401,6 +419,7 @@ func exileCostPickObserved(ds []rules.OracleDecision, step int) bool {
 func staticBase(reg *cards.Registry, c *cards.Card, f *cards.Face, name string, req levelb.Requirement, plan staticProbePlan, cond *staticFixture) (oraclegen.Item, string) {
 	st, _ := staticSlotOf(f, req)
 	probes := append([]string{staticProbe}, plan.probes...)
+	selfKind, selfNeed, selfGated := staticSelfCounterGate(f, &st)
 	var base oraclegen.Item
 	switch {
 	case req.Face > 0 && levelb.IsRoomCard(c):
@@ -430,6 +449,13 @@ func staticBase(reg *cards.Registry, c *cards.Card, f *cards.Face, name string, 
 			return base, sk.Reason
 		}
 		base = it
+	case selfGated && !staticSelfETB(f):
+		// A static gated on its own counters through CheckSVar$ X with
+		// SVar:X:Count$CardCounters.<KIND> (Warden of the Inner Sky): the
+		// card starts on the battlefield holding the counters its gate
+		// names, so the effect is live at the first checkpoint. A card with
+		// its own ETB trigger stays on the cast path (staticSelfETB).
+		base = counterGatedBase(f, name, selfKind, selfNeed, plan.probes)
 	case staticCounterGated(&st) && (!staticSelfETB(f) || stationGatedSelf(f, &st)):
 		// The card starts on the battlefield holding the counters its gate
 		// names, so the effect is already on at the first checkpoint. A card
@@ -490,6 +516,21 @@ func staticBase(reg *cards.Registry, c *cards.Card, f *cards.Face, name string, 
 		}
 		base = it
 	}
+	if cond != nil && len(cond.sourceCounters) > 0 && sourceOnBattlefield(base, name) {
+		// A static whose amount is Count$CardCounters.<KIND> on the source
+		// (Excalibur II): the card is placed holding the counters the fixture
+		// names, so the amount is nonzero. An Equipment is attached to the
+		// probe here (the cast path's attach ran only on the cast branch).
+		applySourceCounters(&base, name, cond.sourceCounters)
+		if oraclegen.HasType(f, "Equipment") && !hasAttachStep(base.Steps) {
+			base.Steps = append(base.Steps, oraclegen.Step{
+				Op: "attach", Seat: 0, Card: "p0:" + name, AttachedTo: "p0:" + staticProbe,
+			})
+		}
+	}
+	if plan.aura {
+		addEnchantedProbeAura(&base, staticProbe)
+	}
 	if cond != nil && cond.equip != "" {
 		// The fixture's Equipment attaches now: the card is on the
 		// battlefield whichever path built it (cast, played, placed), and so
@@ -537,6 +578,16 @@ func staticBase(reg *cards.Registry, c *cards.Card, f *cards.Face, name string, 
 			base.XAbility = growXAbility(base.XAbility, len(base.Steps))
 			copy(base.XAbility[len(base.Steps)-len(cond.afterXab):], cond.afterXab)
 		}
+	}
+	if cond != nil && cond.opponentTurn {
+		// A Condition$ NotPlayerTurn static (Midnight Mangler) is false on
+		// p0's own turn; advance to p1's first main phase so its controller
+		// is not the active player at the final checkpoint. The shape is the
+		// opponent-turn cost probe's (cost_other_spell.go): pass_to reaches
+		// p1's turn, p1's pass leaves p0 with priority.
+		base.Steps = append(base.Steps,
+			oraclegen.Step{Op: "pass_to", Step: "main1", Active: "p1"},
+			oraclegen.Step{Op: "pass", Seat: 1})
 	}
 	return base, ""
 }
@@ -763,6 +814,41 @@ func counterGatedBase(f *cards.Face, name, kind string, need int32, probes []str
 	}
 	oraclegen.Baseline(sc.Setup, f)
 	return oraclegen.Item{Scenario: sc}
+}
+
+// sourceOnBattlefield reports whether the card under test is on p0's setup
+// battlefield (the placed path), where setup counters can be seeded.
+func sourceOnBattlefield(base oraclegen.Item, name string) bool {
+	for _, n := range base.Scenario.Setup["p0"].Battlefield {
+		if n == name {
+			return true
+		}
+	}
+	return false
+}
+
+// applySourceCounters seeds the fixture's counters on the card under test.
+func applySourceCounters(base *oraclegen.Item, name string, counters map[string]int) {
+	p0 := base.Scenario.Setup["p0"]
+	kinds := make([]string, 0, len(counters))
+	for kind := range counters {
+		kinds = append(kinds, kind)
+	}
+	sort.Strings(kinds)
+	for _, kind := range kinds {
+		p0 = withSetupCounters(p0, name, kind, int32(counters[kind]))
+	}
+	base.Scenario.Setup["p0"] = p0
+}
+
+// hasAttachStep reports whether steps already carry an attach op.
+func hasAttachStep(steps []oraclegen.Step) bool {
+	for _, st := range steps {
+		if st.Op == "attach" {
+			return true
+		}
+	}
+	return false
 }
 
 func hasString(xs []string, want string) bool {

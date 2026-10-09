@@ -133,6 +133,25 @@ func evalRefProperty(h Host, c *Ctx, expr string, depth int) (int32, bool) {
 					n += refPower(h, o, lki)
 				}
 			}
+		case prop == "GreatestCardPower":
+			// Greatest-of, never summed (task greatestcardpower): the extreme
+			// aggregate the ref-scoped carriers size X with -- Aloy, Savior of
+			// Meridian's discover and Shriekwood Devourer's "untap up to X
+			// lands" over TriggerObjectsAttackers, Shadowgrange Archfiend's
+			// life gain over RememberedLKI. The per-object value is the same
+			// derived, layer-aware read the CardPower case above falls back
+			// to: live layer output through h.Power on the battlefield, the
+			// printed face plus P/T counters for a remembered object that
+			// already left (Shadowgrange's sacrificed creatures are in the
+			// graveyard at the read). Property-scoped, not ref-scoped: every
+			// ref that reaches this switch was already resolved to its
+			// referent set by refTargets, so one case serves all three
+			// carriers. An empty referent set keeps n = 0 and still resolves.
+			if f != nil {
+				if p := refPower(h, o, lki); p > n {
+					n = p
+				}
+			}
 		case prop == "CardToughness":
 			if f != nil {
 				if lki && c.Snap.PTValid {

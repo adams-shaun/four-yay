@@ -64,6 +64,10 @@ import (
 // card in its zone since cli-3b80d13b1), so DFT loses its four
 // "granted ability in Graveyard is not offered by the engine" skips and its
 // served count rises by four.
+// Re-pinned again by agent-20261009T055718Z-17e92d7b: a Condition$ NotPlayerTurn
+// static (DFT Midnight Mangler) is served by placing the card and advancing the
+// scenario to p1's first main phase, so DFT loses its generic observability
+// skip.
 // Re-pinned again by agent-20261009T055718Z-661990d1: a signed "-X where X is
 // your life total" static on a crewed Vehicle is observed through the crew
 // prelude at a starting life just below the printed power (The Last Ride:
@@ -98,11 +102,13 @@ var wantStaticContinuousCensus = map[string]map[string]int{
 	// 20261009T060626Z-a6d0cf40); its four former engine-gap skips are gone.
 	// The Last Ride's crewed -X/-X life static (agent-
 	// 20261009T055718Z-661990d1) is the computed-count row the crew prelude
-	// serves.
+	// serves, and Midnight Mangler's Condition$ NotPlayerTurn static (agent-
+	// 20261009T055718Z-17e92d7b) is the generic-observability row the
+	// advanced-scenario path serves.
 	"DFT": {
-		"served": 58,
+		"served": 59,
 		"skip:static characteristic-defining P/T of a non-creature (the snapshot omits its P/T)": 1,
-		"skip:static effect not observable on a probe or the card":                               2,
+		"skip:static effect not observable on a probe or the card":                               1,
 		"skip:static gated self grant is not offered in the gate-on fixture":                     1,
 		"skip:static grants a static ability (observed only through its own effect)":             1,
 		"skip:static grants a replacement effect (needs an event the replacement can change)":    2,

@@ -37,10 +37,21 @@ type staticFixture struct {
 	// by the same amount, so only a change the static itself makes is
 	// observable.
 	probeCounters map[string]int
+	// sourceCounters puts counters on the CARD UNDER TEST in setup, for a
+	// static whose amount is Count$CardCounters.<KIND> on the source (Excalibur
+	// II's "equipped creature gets +1/+1 for each charge counter on CARDNAME").
+	// The card is placed, not cast, so setup can seed the counters.
+	sourceCounters map[string]int
 	// place puts the card on the battlefield in setup instead of casting it:
 	// a "you haven't cast a spell this turn" gate that the card's own cast
 	// would falsify.
 	place bool
+	// opponentTurn advances the placed scenario to p1's first main phase, so a
+	// static gated on Condition$ NotPlayerTurn (Midnight Mangler's "during
+	// turns other than yours, this Vehicle is an artifact creature") is live
+	// at the final checkpoint. The card is placed, not cast, so the extra turn
+	// does not affect how it arrives.
+	opponentTurn bool
 	// equip is an Equipment card placed in setup and attached by staticBase
 	// to what attach names (staticProbe or "self"), for a static whose
 	// affected filter selects equipped permanents. attachPT is the
@@ -119,6 +130,37 @@ func (s staticFixture) seats(p0, p1 *oraclegen.Seat) {
 		*p0 = oraclegen.WithCounters(*p0, staticProbe, kind, int32(s.probeCounters[kind]))
 		*p1 = oraclegen.WithCounters(*p1, staticProbe, kind, int32(s.probeCounters[kind]))
 	}
+	// Fixture counters (a "creature you control with a counter on it" gate)
+	// ride the embedded conditionPrelude's counters map: card name -> kind ->
+	// count, applied to p0's battlefield copy. Sorted so the emitted setup is
+	// deterministic. A "__SOURCE__" key never reaches here -- staticFixtures
+	// drops the counter-bearing conditionPreludes that use it.
+	cards := make([]string, 0, len(s.counters))
+	for card := range s.counters {
+		cards = append(cards, card)
+	}
+	sort.Strings(cards)
+	for _, card := range cards {
+		fk := make([]string, 0, len(s.counters[card]))
+		for kind := range s.counters[card] {
+			fk = append(fk, kind)
+		}
+		sort.Strings(fk)
+		for _, kind := range fk {
+			*p0 = oraclegen.WithCounters(*p0, card, kind, int32(s.counters[card][kind]))
+		}
+	}
+}
+
+// addCounter records n counters of kind on the fixture's battlefield card.
+func (s *staticFixture) addCounter(card, kind string, n int) {
+	if s.counters == nil {
+		s.counters = map[string]map[string]int{}
+	}
+	if s.counters[card] == nil {
+		s.counters[card] = map[string]int{}
+	}
+	s.counters[card][kind] += n
 }
 
 // apply adds the fixture to a cast fixture: cards in the seats, turn-history
@@ -169,6 +211,23 @@ func (s staticFixture) merge(o staticFixture) staticFixture {
 			s.probeCounters = map[string]int{}
 		}
 		s.probeCounters[kind] += n
+	}
+	for card, kinds := range o.counters {
+		if s.counters == nil {
+			s.counters = map[string]map[string]int{}
+		}
+		if s.counters[card] == nil {
+			s.counters[card] = map[string]int{}
+		}
+		for kind, n := range kinds {
+			s.counters[card][kind] += n
+		}
+	}
+	for kind, n := range o.sourceCounters {
+		if s.sourceCounters == nil {
+			s.sourceCounters = map[string]int{}
+		}
+		s.sourceCounters[kind] += n
 	}
 	return s
 }
@@ -243,10 +302,19 @@ var staticFixtureTable = []struct {
 // stand-in, taken i-th. "" when no stand-in is known or the filter names a
 // state setup cannot give (a token, a counter, a solved Case).
 func staticFixtureFor(group string, i int) string {
+	// A "named<Card Name>" filter (Phoenix Fleet Airship's "eight or more
+	// permanents named Phoenix Fleet Airship") names a specific card with
+	// spaces in it; return the name whole rather than splitting it on its
+	// spaces into dead words.
+	if idx := strings.Index(group, "named"); idx >= 0 {
+		if name := strings.TrimSpace(group[idx+len("named"):]); name != "" {
+			return name
+		}
+	}
 	words := affectedWords(group)
 	for _, w := range words {
 		switch {
-		case w == "token", w == "HasCounters", w == "IsSolved", w == "Attached", strings.HasPrefix(w, "named"), strings.HasPrefix(w, "counters_"):
+		case w == "token", w == "IsSolved", w == "Attached", strings.HasPrefix(w, "named"), strings.HasPrefix(w, "counters_"):
 			return ""
 		}
 	}
@@ -329,6 +397,13 @@ func staticPresence(filter, zone string, n int) (staticFixture, bool) {
 			out.p1Battlefield = append(out.p1Battlefield, card)
 		default:
 			out.battlefield = append(out.battlefield, card)
+			// A "creature you control with a counter on it" gate (Formation
+			// Breaker) needs the fixture creature to actually hold a counter:
+			// the card is placed on p0's battlefield and the counter rides
+			// setup (the engine's HasCounters predicate reads it).
+			if hasWord(affectedWords(g), "HasCounters") {
+				out.addCounter(card, "P1P1", 1)
+			}
 		}
 	}
 	return out, true
@@ -391,6 +466,38 @@ func staticBodyFixture(reg *cards.Registry, body string, n int) (staticFixture, 
 		// hand", Stingerback Terror): the fixture holds that many spare cards
 		// so the count is nonzero.
 		return staticFixture{conditionPrelude: conditionPrelude{hand: oraclegen.Repeat("Wastes", staticCountFrom(body))}}, true
+	case strings.HasPrefix(lower, "count$differentcounterkinds_"):
+		// A static gated on the number of DISTINCT counter kinds among
+		// creatures you control (Hundred-Battle Veteran's
+		// Count$DifferentCounterKinds_Creature.YouCtrl with SVarCompare$ GE3):
+		// place one inert creature holding n distinct counter kinds, so the
+		// count reaches the gate. The counter-bearing creature is not the
+		// compared probe, so it shifts no baseline.
+		kinds := []string{"P1P1", "REV", "FINALITY", "CHARGE", "FLYING"}
+		if n > len(kinds) {
+			return staticFixture{}, false
+		}
+		fx := staticFixture{conditionPrelude: conditionPrelude{battlefield: []string{"Llanowar Elves"}}}
+		for i := 0; i < n; i++ {
+			fx.addCounter("Llanowar Elves", kinds[i], 1)
+		}
+		return fx, true
+	case strings.HasPrefix(lower, "count$cardcounters."):
+		// An amount counted from the SOURCE's own counters (Excalibur II's
+		// "equipped creature gets +1/+1 for each charge counter on CARDNAME"):
+		// the card is placed on the battlefield holding n counters of the kind,
+		// so the amount is nonzero and the effect lands on the probe.
+		kind := strings.ToUpper(strings.TrimSpace(body[len("Count$CardCounters."):]))
+		if i := strings.IndexByte(kind, '/'); i >= 0 {
+			kind = kind[:i]
+		}
+		if kind == "" {
+			return staticFixture{}, false
+		}
+		if kind == "ALL" {
+			kind = "P1P1"
+		}
+		return staticFixture{sourceCounters: map[string]int{kind: n}, place: true}, true
 	case strings.HasPrefix(lower, "count$valid "):
 		flt := filter("Count$Valid ")
 		if fx, ok := staticAttachedCountFixture(reg, flt); ok {
@@ -478,6 +585,12 @@ func staticFixtures(reg *cards.Registry, c *cards.Card, f *cards.Face, name stri
 		// CR 702.175a: three artifacts, legendaries and/or Sagas, one of them
 		// Storied. The card is the Storied legend; two artifacts make three.
 		add(staticFixture{conditionPrelude: conditionPrelude{battlefield: []string{"Sol Ring", "Arcane Signet"}}}, true)
+	case "notplayerturn":
+		// The gate is false on p0's own turn (Midnight Mangler's "during turns
+		// other than yours"), so the placed card is observed on p1's turn: the
+		// scenario advances to p1's first main phase (staticBase), where the
+		// static's controller is not the active player.
+		add(staticFixture{place: true, opponentTurn: true}, true)
 	}
 	if present := st.ParamStr(cards.PKIsPresent); present != "" {
 		zone := st.ParamStr(cards.PKPresentZone)
@@ -518,6 +631,30 @@ func staticFixtures(reg *cards.Registry, c *cards.Card, f *cards.Face, name stri
 	// pool mana, a raid-count attack) run after every existing candidate, so
 	// a row an existing candidate already serves keeps its scenario bytes.
 	out = append(out, staticStateFixtures(reg, f, st)...)
+	// A fixture that puts a copy of the card under test on the battlefield
+	// (a named-permanents count such as Phoenix Fleet Airship's eight copies)
+	// cannot also CAST it: the two share a name, so the cast step's "pN:Name"
+	// ref binds the setup copy and the cast fails. Place the card instead, so
+	// the source is on the battlefield from setup like the fixture copies.
+	for i := range out {
+		if hasString(out[i].battlefield, f.Name) {
+			out[i].place = true
+		}
+	}
+	// A source-counter fixture places the card, which fires its own ETB in
+	// gorge but not in XMage's addCard (Chainsaw's enters-and-deals-3). Drop
+	// it so such a card stays on the cast path and keeps its skip rather than
+	// emitting a scenario the two engines replay differently.
+	if staticSelfETB(f) {
+		kept := out[:0]
+		for _, fx := range out {
+			if len(fx.sourceCounters) > 0 {
+				continue
+			}
+			kept = append(kept, fx)
+		}
+		out = kept
+	}
 	// The activate preludes (a crew that makes a Vehicle's P/T print, a
 	// Craft that populates the exile set a back-face CDA counts) run last,
 	// after every existing candidate: they are the only fixtures whose
