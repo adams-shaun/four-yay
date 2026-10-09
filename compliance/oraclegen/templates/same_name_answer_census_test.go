@@ -114,7 +114,17 @@ func sameNameBucketRank(bucket string) int {
 // The item tracks the new scenario one-for-one and disappears if the gated
 // static hook in levelb.classifyStatic is reverted.
 //
-// Unresolved stayed 0 in every set through all five moves; that is the
+// Re-measured once more for cli-20261009T031407Z-cb26eec8 (Level B: observe
+// statics that grant an activated ability): two Aura grants add one Alias item
+// each. Ringing Strike Mastery (TDM) and Friendly Neighborhood (SPM) are cast
+// by the fixture onto an OPPOSING permanent (p1:Grizzly Bears / p1:Forest)
+// while p0's own same-named probe (Grizzly Bears / Forest) is the grant
+// recipient, so the emitted cast-target answer is an exact ref that resolves
+// the same-name pick -- Alias 1 -> 2 in each set, Unresolved stayed 0. The
+// item tracks each new scenario one-for-one and disappears if the
+// granted-activated-ability observation is reverted.
+//
+// Unresolved stayed 0 in every set through all six moves; that is the
 // defect measure.
 var wantSameNameCensus = map[string]string{
 	"BIG": `{"alias":0,"copy":0,"unresolved":0,"unproven":1,"items":null}`,
@@ -132,8 +142,8 @@ var wantSameNameCensus = map[string]string{
 	"MSH": `{"alias":1,"copy":0,"unresolved":0,"unproven":3,"items":null}`,
 	"OTJ": `{"alias":2,"copy":1,"unresolved":0,"unproven":1,"items":null}`,
 	"SOS": `{"alias":0,"copy":0,"unresolved":0,"unproven":5,"items":null}`,
-	"SPM": `{"alias":1,"copy":0,"unresolved":0,"unproven":2,"items":null}`,
-	"TDM": `{"alias":1,"copy":0,"unresolved":0,"unproven":6,"items":null}`,
+	"SPM": `{"alias":2,"copy":0,"unresolved":0,"unproven":2,"items":null}`,
+	"TDM": `{"alias":2,"copy":0,"unresolved":0,"unproven":6,"items":null}`,
 	"TLA": `{"alias":2,"copy":1,"unresolved":0,"unproven":2,"items":null}`,
 	"TMT": `{"alias":3,"copy":0,"unresolved":0,"unproven":2,"items":null}`,
 	"WOE": `{"alias":0,"copy":0,"unresolved":0,"unproven":3,"items":null}`,

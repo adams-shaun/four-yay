@@ -114,6 +114,11 @@ type offerTry struct {
 	// firstPlay is a land p0 plays before the assertion (the extra land drop
 	// is observed on the SECOND land); it is also in extraHand.
 	firstPlay string
+	// attachProbe re-attaches an Aura source to the probe after its cast
+	// (the fixture's cast target is an opposing permanent): a granted ability
+	// on an EnchantedBy recipient is observed on the probe, so the Aura must
+	// end up attached to it.
+	attachProbe bool
 }
 
 // staticOfferItem serves a play-permission or granted-Flashback static as an
@@ -335,7 +340,11 @@ func offerScenario(f *cards.Face, name string, t offerTry, want bool, base *orac
 	switch {
 	case base != nil && !control:
 		sc = base.Scenario
-		sc.Steps = append(append([]oraclegen.Step(nil), base.Steps...), tail...)
+		steps := append([]oraclegen.Step(nil), base.Steps...)
+		if t.attachProbe {
+			steps = append(steps, oraclegen.Step{Op: "attach", Seat: 0, Card: "p0:" + name, AttachedTo: "p0:" + t.probe})
+		}
+		sc.Steps = append(steps, tail...)
 	case base != nil:
 		sc = base.Scenario
 		sc.Steps = append([]oraclegen.Step{toMain}, tail...)
