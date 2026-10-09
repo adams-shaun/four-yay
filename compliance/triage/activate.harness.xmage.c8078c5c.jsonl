@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: {N}{U}, Remove a counter from this creature"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: {N}{U}, Remove a counter from this creature","cards":1}
-{"card":"Loch Mare","template":"activate#0.0","status":"harness","api":"-","sets":["ECL"],"detail":"xmage: AssertionError: Can't find ability to activate command: {1}{U}, Remove a counter from this creature"}

@@ -1,5 +1,7 @@
-{"shape":{"template":"trigger","op":"resolve","field":"p0.library","diff":"placement"},"key":"trigger | resolve | p0.library | placement","cards":12}
+{"shape":{"template":"trigger","op":"resolve","field":"p0.library","diff":"placement"},"key":"trigger | resolve | p0.library | placement","cards":15}
 {"card":"Broodheart Engine","template":"trigger#0.0","status":"diverge","api":"Phase:Surveil","sets":["DFT"],"detail":"step 1 (resolve) p0.graveyard: gorge \"[]\", xmage \"[Wastes]\""}
+{"card":"Byway Barterer","template":"trigger#0.0","status":"diverge","api":"ManaExpend:Draw","sets":["BLB"],"detail":"step 1 (resolve) p0.hand: gorge \"[Wastes, Wastes]\", xmage \"[Wastes, Wastes, Wastes, Wastes]\""}
+{"card":"Cosmic Cube","template":"trigger#0.0","status":"diverge","api":"AttackersDeclared:PeekAndReveal+BecomesTarget:Ward","sets":["MSH"],"detail":"step 1 (resolve) p0.library_count: gorge \"38\", xmage \"37\""}
 {"card":"Coveted Falcon","template":"trigger#0.1","status":"diverge","api":"Attacks:GainControl+TurnFaceUp:Pump","sets":["MKM"],"detail":"step 3 (resolve) p0.hand: gorge \"[]\", xmage \"[Wastes]\""}
 {"card":"Essence Anchor","template":"trigger#0.0","status":"diverge","api":"Phase:Surveil","sets":["TDM"],"detail":"step 1 (resolve) p0.graveyard: gorge \"[]\", xmage \"[Wastes]\""}
 {"card":"Expedited Inheritance","template":"trigger#0.0","status":"diverge","api":"DamageDoneOnce:Dig","sets":["MKM"],"detail":"step 1 (resolve) p0.exile: gorge \"[Wastes]\", xmage \"[Wastes, Wastes]\""}
@@ -11,3 +13,4 @@
 {"card":"Morcant's Eyes","template":"trigger#0.0","status":"diverge","api":"Phase:Surveil","sets":["ECL"],"detail":"step 1 (resolve) p0.graveyard: gorge \"[]\", xmage \"[Wastes]\""}
 {"card":"Projektor Inspector","template":"trigger#0.1","status":"diverge","api":"ChangesZone:Discard+TurnFaceUp:Discard","sets":["MKM"],"detail":"step 1 (resolve) p0.graveyard: gorge \"[Wastes]\", xmage \"[]\""}
 {"card":"Unidentified Hovership","template":"trigger#0.1","status":"diverge","api":"ChangesZone:ChangeZone+ChangesZone:ManifestDread","sets":["DSK"],"detail":"step 1 (resolve) p0.graveyard: gorge \"[Unidentified Hovership, Shatter, Wastes]\", xmage \"[Unidentified Hovership, Shatter]\""}
+{"card":"Whiskervale Forerunner","template":"trigger#0.0","status":"diverge","api":"BecomesTarget:PeekAndReveal","sets":["BLB"],"detail":"step 1 (resolve) p0.library_count: gorge \"38\", xmage \"37\""}
