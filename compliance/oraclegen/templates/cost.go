@@ -48,6 +48,10 @@ type costProbe struct {
 	precast *precast
 	// castMode elects a cast option by its Mode ("bargained" for Bargain);
 	// answers scripts the mid-cast asks that election poses (the sacrifice).
+	// castFrom names the zone the probe casts its spell from ("graveyard",
+	// the cast-provenance probe's Flashback cast): the spell is seeded there
+	// and NOT in the hand, and castMode elects that cast's option.
+	castFrom   string
 	castMode   string
 	answers    []oraclegen.Answer
 	mustReplay bool
@@ -216,6 +220,14 @@ func parameterCostProbes(reg *cards.Registry, f *cards.Face, name string, idx in
 	p.answers = append(p.answers, xAnswers(f)...)
 	// The amount, the count it tallies and every gate come from the static's
 	// own parameters (costConditionProbes); unknown grammars are named gaps.
+	// An amount the cast itself announces (Count$xPaid over a Sac<X> part)
+	// is served by the cast before the board-count paths see it.
+	if probes, gap, handled := announcedSacXProbes(reg, f, st, name, p, base); handled {
+		if len(probes) == 0 {
+			return nil, gap, true
+		}
+		return probes, "", true
+	}
 	probes, reduction, gap := costConditionProbes(reg, f, st, name, p)
 	if gap != "" {
 		return nil, gap, true
