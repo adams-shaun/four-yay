@@ -104,20 +104,17 @@ func baseTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards
 		}
 	case "trigger.attacks", "trigger.attacks-one-target", "trigger.combat-damage", "trigger.combat-damage-all":
 		combatDamage := sub == "trigger.combat-damage" || sub == "trigger.combat-damage-all"
-		var attacker string
+		var attackers []string
 		var extra []string
 		if combatDamage {
 			if !creature {
 				return nil, "combat-damage needs a creature"
 			}
-			attacker = "p0:" + name
+			attackers = []string{"p0:" + name}
 		} else {
-			attacker, extra = triggerAttacker(reg, f, name, t)
-			if attacker == "" {
-				attacker, extra = "p0:"+bearsProbe, []string{bearsProbe}
-			}
+			attackers, extra = triggerAttacker(reg, f, name, t)
 		}
-		attack := oraclegen.Step{Op: "attack", Seat: 0, Defender: "p1", Attackers: []string{attacker}}
+		attack := oraclegen.Step{Op: "attack", Seat: 0, Defender: "p1", Attackers: attackers}
 		c := triggerCause{battlefield: extra, steps: []oraclegen.Step{attack}}
 		if !combatDamage {
 			if prepared, ok := attackActivationCause(reg, f, name, t); ok {
