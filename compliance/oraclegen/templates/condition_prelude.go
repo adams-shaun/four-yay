@@ -322,14 +322,21 @@ func triggerConditionSkip(t *cards.Trigger, svars map[string]string) string {
 // Bears are distinct from the trigger source, and the explicit choice prevents
 // the deterministic fallback from sacrificing the source instead.
 func sacrificeConditionPrelude(reg *cards.Registry) (conditionPrelude, bool) {
+	return sacrificeConditionPreludeOf(reg, "Grizzly Bears")
+}
+
+// sacrificeConditionPreludeOf is sacrificeConditionPrelude with the sacrificed
+// fixture named: a count that filters its sacrifices by type needs a fixture
+// whose printed types cover the spec (cost_svar_amount.go's artifact read).
+func sacrificeConditionPreludeOf(reg *cards.Registry, sacrificee string) (conditionPrelude, bool) {
 	cast, ok := castProbe(reg, "Village Rites")
 	if !ok {
 		return conditionPrelude{}, false
 	}
-	cast.Answers = []oraclegen.Answer{{Kind: "choose", Pick: []string{"Grizzly Bears"}}}
+	cast.Answers = []oraclegen.Answer{{Kind: "choose", Pick: []string{sacrificee}}}
 	return conditionPrelude{
 		hand:        []string{"Village Rites"},
-		battlefield: []string{"Grizzly Bears"},
+		battlefield: []string{sacrificee},
 		steps:       []oraclegen.Step{cast, {Op: "resolve"}},
 	}, true
 }
