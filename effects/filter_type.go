@@ -74,6 +74,27 @@ func hasTypePrinted(o *state.Object, t string, id cards.TypeWordID) (typeDecisio
 	if f == nil {
 		return typeNo, nil
 	}
+	// CR 708.8/708.2: while a battlefield permanent is face down its printed
+	// type line does not exist -- the object's type words are exactly its
+	// folded face-down set (state.Object.FaceDownTypeWords: {Creature}, or
+	// the FaceDownSetType$ replacement, Yedora's Forest). This is the one
+	// gate every printed-face type fallback shares: without it, a trigger or
+	// offer filter over a disguised/manifested permanent read the HIDDEN
+	// face and matched the card's printed subtypes (Case of the Pilfered
+	// Proof's "Whenever a Detective you control enters" counted a face-down
+	// Basilica Stalker entering). The bestow/reconfigure switches below read
+	// the printed face and cannot fire for a word that no longer exists, so
+	// the gate runs before them; the Changeling tail in hasTypeID is skipped
+	// by the same token (a decided No) -- a face-down permanent has no
+	// abilities (CR 708.2) and its printed Changeling cannot grant one.
+	if o.FaceDown && o.Zone == state.ZBattlefield {
+		for _, w := range o.FaceDownTypeWords() {
+			if strings.EqualFold(w, t) {
+				return typeYes, f
+			}
+		}
+		return typeNo, f
+	}
 	// CR 702.114e: a bestowed card attached to a creature is an Aura, not a
 	// creature, in every filter read (Count$Valid, target offer, cost
 	// candidates, statics' Affected$). Derived live state
