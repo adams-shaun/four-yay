@@ -36,7 +36,8 @@ func triggerSubs(sub string) bool {
 		"trigger.ability-activated-opponent", "trigger.ability-triggered", "trigger.case-solved",
 		levelb.UnlockDoorSub, levelb.FullyUnlockSub, stateSelfCountersSub, levelb.CounterAddedSub,
 		levelb.TurnedFaceUpSub, levelb.TurnedFaceUpOtherSub, levelb.SacrificeSub, levelb.DamageSub,
-		levelb.ManaExpendSub, levelb.TapsForManaSub:
+		levelb.ManaExpendSub, levelb.TapsForManaSub,
+		levelb.CrewedSub, levelb.SaddledSub, levelb.AttacksCrewedVehicleSub:
 		return true
 	case "trigger.forage", "trigger.give-gift", "trigger.explores", "trigger.collect-evidence",
 		"trigger.manifest-dread", "trigger.discover", "trigger.elemental-bend",
