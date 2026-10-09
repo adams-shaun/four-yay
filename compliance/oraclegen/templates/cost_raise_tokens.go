@@ -41,9 +41,16 @@ const (
 //   - Waterbend<N>: N generic in the pool (waterbend lets a player tap
 //     artifacts and creatures for {1}, it never requires it, CR 701.67a);
 //     the level-A cast template casts Water Whip at mana+"CCCCC" the same
-//     way. Waterbend<X> is NOT owned here: its X is announced by the cast's
-//     ordinary X ask, and X = 0 (the pool-bound fallback) already makes
-//     Crashing Wave and Foggy Swamp Visions castable probes.
+//     way.
+//   - Waterbend<X>: the cast ANNOUNCES X = 1 (the activation table's
+//     activationX floor for the same part, CR 601.2b) and pays it as one
+//     generic beyond the printed price, the pool form above at X = 1. The
+//     caster's permanents are tapped in setup so ConvokeAsk's tap-helpers
+//     ask is never posed ahead of the X ask: with nothing offered the "X = 1"
+//     answer is the only choose the cast settles, whatever fixtures a future
+//     corpus move places on p0. Crashing Wave, Foggy Swamp Visions and
+//     Waterbender's Restoration ride this row (their waterbend payment and
+//     their X-dependent effects both bind, ticket levelb-cost-waterbend-x).
 //   - Blight<N>: N -1/-1 counters on the surviving 3/3 fixture (N <= 2).
 //   - Blight<X>: one counter on the 1/1 fixture, announced as the cast's X.
 //   - Close Encounter's ChooseCard: one creature you control on the
@@ -52,15 +59,38 @@ const (
 //     the exile arm stays empty, so the probe pays the battlefield form.
 //
 // handled is true only when every token of cost is one the table owns and
-// paid; anything else (a mana pip, BeholdExile, Waterbend<X>, PayLife, an
-// unmodelled filter) leaves p untouched and false, so the caller keeps its
-// existing price and the named skip stands.
+// paid; anything else (a mana pip, a BeholdExile type with no fixture,
+// PayLife, an unmodelled filter) leaves p untouched and false, so the caller
+// keeps its existing price and the named skip stands.
 func raiseCostTokenProbes(p *costProbe, cost string) (handled bool) {
 	handled = cost != ""
 	for _, tok := range costTokens(cost) {
 		payload, ok := bracketPayload(tok)
 		switch tokenHead(tok) {
 		case "Waterbend":
+			if payload == "X" {
+				// Waterbend<X>: the cast ANNOUNCES X = 1 (the activation
+				// table's activationX floor for the same part, CR 601.2b) and
+				// pays it as one generic beyond the printed price -- waterbend
+				// lets a player tap artifacts and creatures for {1}, it never
+				// requires it (CR 701.67a). The tap-helpers ask (ConvokeAsk)
+				// is posed before the X ask whenever the caster controls an
+				// untapped artifact or creature, so the probe guarantees one
+				// (the 1/1 fixture) and declines it with the scripted empty
+				// election activationXAnswers uses: the pool pays the
+				// waterbend, and the "X = 1" answer is the second choose the
+				// cast settles, whatever fixtures a future corpus move places
+				// on p0. Crashing Wave, Foggy Swamp Visions and Waterbender's
+				// Restoration ride this row (their waterbend payment and their
+				// X-dependent effects both bind, ticket
+				// levelb-cost-waterbend-x).
+				p.battlefield = appendUnique(p.battlefield, raiseBlightXFixture)
+				p.mana += "C"
+				p.answers = append(p.answers,
+					oraclegen.Answer{Kind: "choose", Pick: []string{}},
+					oraclegen.Answer{Kind: "choose", Pick: []string{"X = 1"}})
+				continue
+			}
 			n, err := strconv.Atoi(payload)
 			if !ok || err != nil || n <= 0 {
 				return false

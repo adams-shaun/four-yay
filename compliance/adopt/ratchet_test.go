@@ -98,7 +98,13 @@ func TestCertificationRatchet(t *testing.T) {
 			scope = append(scope, s)
 		}
 	}
-	measured, err := cs.StatusChunked(scope, 2, runStatusChild)
+	// 4 concurrent children (the cap StatusChunked allows): the 20-set
+	// Standard scope is 3 batches of ChildMaxCards, and at 2 they ran in two
+	// rounds, each child re-paying the corpus load. Measured 2026-10-09
+	// (4 vCPU budget): 16.4s -> 9.1s; four children peak ~2.4 GiB RSS
+	// (~0.6 GiB each, status.go) plus this process, inside the doubled
+	// 2026-10-09 per-test budget.
+	measured, err := cs.StatusChunked(scope, 4, runStatusChild)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -205,9 +205,8 @@ func parameterCostProbes(reg *cards.Registry, f *cards.Face, name string, idx in
 				p.hand = appendUnique(p.hand, elfBeholdFixture(reg)...)
 			}
 		}
-		// An additional cost the token table cannot pay (Waterbend<X>, a
-		// BeholdExile type with no fixture) must not become a probe whose
-		// precondition is false.
+		// An additional cost the token table cannot pay (a BeholdExile type
+		// with no fixture) must not become a probe whose precondition is false.
 		p.mustReplay = true
 		return []costProbe{p}, "", true
 	}

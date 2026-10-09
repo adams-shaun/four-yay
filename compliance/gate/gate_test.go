@@ -40,13 +40,13 @@ func TestDeclaredSetsCompliant(t *testing.T) {
 	if err != nil {
 		t.Fatalf("declared sets need the corpus (make fetch-cards compile-cards): %v", err)
 	}
-	for set, level := range declared {
-		probs, err := Check(reg, root, set, level)
-		if err != nil {
-			t.Fatalf("%s: %v", set, err)
-		}
-		for _, p := range probs {
-			t.Errorf("%s:%s %s: %s", set, level, p.Card, p.Reason)
+	probs, err := CheckDeclared(reg, root, declared)
+	if err != nil {
+		t.Fatalf("%v: %v", declared, err)
+	}
+	for _, sp := range probs {
+		for _, p := range sp.Problems {
+			t.Errorf("%s:%s %s: %s", sp.Set, sp.Level, p.Card, p.Reason)
 		}
 	}
 }
