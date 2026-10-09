@@ -84,7 +84,14 @@ func TestLevelBRatchet(t *testing.T) {
 	if len(scope) == 0 {
 		t.Fatal("no set carries an outstanding_b floor; record one with `oraclediff status -all -level B -sets BIG,EOE,FDN,FRA -write-ratchet`")
 	}
-	measured, err := cs.StatusChunked(scope, 2, runStatusBChild)
+	// 4 concurrent children (the cap StatusChunked allows). Today the B
+	// scope (4 sets, 1098 cards) is one batch, so the cap is inert and the
+	// measured wall is unchanged (12.1s -> 13.5s, run-to-run noise); the cap
+	// only matters once the B claim grows past ChildMaxCards, where it keeps
+	// the batches in one round instead of serialising them. Four children
+	// peak ~2.4 GiB RSS (~0.6 GiB each, status.go) plus this process,
+	// inside the doubled 2026-10-09 per-test budget.
+	measured, err := cs.StatusChunked(scope, 4, runStatusBChild)
 	if err != nil {
 		t.Fatal(err)
 	}
