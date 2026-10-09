@@ -103,8 +103,17 @@ func sameNameBucketRank(bucket string) int {
 // Unproven, not Unresolved. The item tracks the new scenario one-for-one and
 // disappears if the phase-other recipe hook is reverted.
 //
-// Unresolved stayed 0 in every set through all four moves; that is the
-// defect measure.
+// Re-measured on the level-B trigger-condition/activation land: MKM unproven
+// 0 -> 1. Serving Case of the Burning Masks' solved activation (IsPresent$
+// Card.Self+IsSolved, activate_restriction.go solvedCasePreludes) generates
+// one new scenario, Case of the Burning Masks/activate#0.0, whose
+// Dig-then-ChooseCard pick is a rank-derived library ref with two or more
+// same-name candidates, so no exact answer exists -- Unproven, not Unresolved.
+// The item tracks the new scenario one-for-one and disappears if the
+// solved-Case prelude is reverted.
+//
+// Unresolved stayed 0 in every set through every move; that is the defect
+// measure.
 var wantSameNameCensus = map[string]string{
 	"BIG": `{"alias":0,"copy":0,"unresolved":0,"unproven":1,"items":null}`,
 	"BLB": `{"alias":3,"copy":0,"unresolved":0,"unproven":4,"items":null}`,
@@ -117,7 +126,7 @@ var wantSameNameCensus = map[string]string{
 	"FRA": `{"alias":0,"copy":0,"unresolved":0,"unproven":2,"items":null}`,
 	"HOB": `{"alias":0,"copy":0,"unresolved":0,"unproven":2,"items":null}`,
 	"LCI": `{"alias":0,"copy":0,"unresolved":0,"unproven":5,"items":null}`,
-	"MKM": `{"alias":3,"copy":0,"unresolved":0,"unproven":0,"items":null}`,
+	"MKM": `{"alias":3,"copy":0,"unresolved":0,"unproven":1,"items":null}`,
 	"MSH": `{"alias":1,"copy":0,"unresolved":0,"unproven":3,"items":null}`,
 	"OTJ": `{"alias":2,"copy":1,"unresolved":0,"unproven":1,"items":null}`,
 	"SOS": `{"alias":0,"copy":0,"unresolved":0,"unproven":5,"items":null}`,
