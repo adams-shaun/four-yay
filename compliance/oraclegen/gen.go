@@ -184,6 +184,11 @@ type Expect struct {
 	// LookAtLibraryTop is the runner's per-seat "may look at the top card of
 	// their library" assertion (rules oracleExpect.LookAtLibraryTop).
 	LookAtLibraryTop map[string]bool `json:"look_at_library_top,omitempty"`
+	// LookAt is the same read over a battlefield object (rules
+	// oracleExpect.LookAt, mayLookAtObject): a Continuous MayLookAt$ grant
+	// over a face-down permanent is hidden information no snapshot field
+	// carries. The key names the seat, the value the object ref.
+	LookAt map[string]string `json:"look_at,omitempty"`
 	// MaxHandSize is the runner's per-seat effective CR 514.1 maximum hand
 	// size assertion (rules oracleExpect.MaxHandSize), a Continuous
 	// SetMaxHandSize$ grant no snapshot field carries.
