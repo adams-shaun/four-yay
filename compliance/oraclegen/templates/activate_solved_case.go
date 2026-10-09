@@ -64,7 +64,7 @@ func solvedCaseSteps(cond []oraclegen.Step) []oraclegen.Step {
 // "To solve" trigger at the end step; the leading bare candidate covers a
 // solve condition that already holds. ok is false when the card carries no
 // "To solve" trigger, so the caller names the gap as before.
-func solvedCasePreludes(reg *cards.Registry, f *cards.Face, name string) ([]conditionPrelude, bool) {
+func solvedCasePreludes(reg *cards.Registry, f *cards.Face) ([]conditionPrelude, bool) {
 	st := caseSolveTrigger(f)
 	if st == nil {
 		return nil, false

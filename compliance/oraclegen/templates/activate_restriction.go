@@ -54,7 +54,7 @@ func activateRestriction(reg *cards.Registry, f *cards.Face, name string, sa *ca
 		} else if solvedSelfSpec(spec) {
 			// IsPresent$ Card.Self+IsSolved: the ability is offered only once
 			// the source Case has solved itself at its end step.
-			if pres, ok := solvedCasePreludes(reg, f, name); ok {
+			if pres, ok := solvedCasePreludes(reg, f); ok {
 				sources = append(sources, pres)
 			} else {
 				gaps = append(gaps, "activation restriction: self state ("+spec+")")
@@ -88,7 +88,7 @@ func activateRestriction(reg *cards.Registry, f *cards.Face, name string, sa *ca
 		if strings.EqualFold(act, "Solved") {
 			// Activation$ Solved: the ability is offered only once the source
 			// Case has solved itself at its end step.
-			if pres, ok := solvedCasePreludes(reg, f, name); ok {
+			if pres, ok := solvedCasePreludes(reg, f); ok {
 				sources = append(sources, pres)
 			} else {
 				gaps = append(gaps, "activation restriction: activation Solved")
