@@ -120,19 +120,16 @@ func etbTokenServed(filter string) bool {
 // named reason no probe can serve its filter.
 func etbProbeCauses(reg *cards.Registry, name string, t *cards.Trigger) ([]triggerCause, string) {
 	filter := levelb.ZoneChangeFilter(t)
-	if t.ModeKind() == cards.TriggerChangesZoneAll {
-		if why := zoneETBHistorySkip(t, filter); why != "" {
-			return nil, why
+	mode := t.ModeKind()
+	if mode == cards.TriggerChangesZoneAll {
+		if causes, why, ok := etbHistoryProvenanceCauses(reg, name, t, filter); ok {
+			return causes, why
 		}
 	}
-	tokenServed := t.ModeKind() == cards.TriggerChangesZoneAll && etbTokenServed(filter)
-	if bad := etbUnservableFilter(filter); bad != "" {
-		if !tokenServed {
-			return nil, "etb filter " + bad + " (" + filter + ")"
-		}
-		// Only a token satisfies the filter: the token maker is the one cause.
-		return tokenCauses(reg, name)
+	if causes, ok := etbSpecialFilterCauses(reg, name, mode, filter); ok {
+		return causes, ""
 	}
+	tokenServed := mode == cards.TriggerChangesZoneAll && etbTokenServed(filter)
 	// Try the specific land and spell probes before the generic fallback. The
 	// old vanilla Bear remains last so it can still serve broad creature filters.
 	var out []triggerCause
