@@ -98,12 +98,14 @@ func TestStaticContinuousUnobservedStaysSkipped(t *testing.T) {
 }
 
 // TestStaticContinuousNamedGaps: the shapes the widened observation still
-// cannot reach carry their own reason rather than the generic one.
+// cannot reach carry their own reason rather than the generic one. Sunbird
+// Standard's Effigy face left this table with
+// levelb-static-count-attachments (agent-20261009T055718Z-661990d1): its
+// ExiledWith$Colors CDA is served by the Craft prelude.
 func TestStaticContinuousNamedGaps(t *testing.T) {
 	for _, row := range []struct{ card, key, want string }{
 		{"Lumbering Worldwagon", "static#0.0", "characteristic-defining P/T of a non-creature"},
 		{"Midnight Oil", "static#0.0", "static hand size is not observable"},
-		{"Sunbird Standard", "static#1.0", "static amount is a computed count"},
 	} {
 		if got := staticSkipReason(t, row.card, row.key); !strings.Contains(got, row.want) {
 			t.Errorf("%s %s skip = %q, want it to contain %q", row.card, row.key, got, row.want)
