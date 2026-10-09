@@ -749,6 +749,24 @@ func (r *oracleRun) build(sc oracleScenario) error {
 	return harnessf("setup never reached turn %d main1", turn)
 }
 
+// manaAskColours reads a mana ask's offered colour set, in option order: the
+// options are laid out unit-major, so the first unit's ManaSymbols are the
+// set exactly as XMage's AddManaInAnyCombinationEffect lists its messages.
+func manaAskColours(d *decision.Decision) []string {
+	if d.Max <= 0 {
+		return nil
+	}
+	set := len(d.Options) / d.Max
+	if set <= 0 || set > len(d.Options) {
+		return nil
+	}
+	out := make([]string, 0, set)
+	for k := 0; k < set; k++ {
+		out = append(out, d.Options[k].ManaSymbol)
+	}
+	return out
+}
+
 func pickPass(d *decision.Decision) int {
 	for _, o := range d.Options {
 		if o.Kind == "pass" {
@@ -786,6 +804,17 @@ func (r *oracleRun) submit(d *decision.Decision, choices []int, why string) erro
 		}
 		if d.Kind == decision.KTarget && d.ResumeSA != nil {
 			od.Divided = effects.DividedTotal(d.ResumeSA)
+		}
+		if d.Kind == decision.KChoose && d.ResumeKind == "mana_color" && d.ResumeSA != nil {
+			// A Produced$ "Combo <colours>" ask is XMage's
+			// AddManaInAnyCombinationEffect at every unit count: one
+			// multi-amount message per offered colour, in the set's order.
+			// A produced-Any ask is DynamicManaEffect's colour dialog at one
+			// unit and a WUBRG multi-amount above it, so it stays unmarked
+			// and the generator's existing routing answers it unchanged.
+			if _, ok := effects.ComboColours(d.ResumeSA.ParamStr(cards.PKProduced)); ok {
+				od.ManaColours = manaAskColours(d)
+			}
 		}
 		if len(d.Options) > 0 {
 			od.First = d.Options[0].Label

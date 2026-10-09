@@ -1121,6 +1121,18 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSt
 				as = damageSplitAnswers(d)
 				break
 			}
+			if d.Resume == "mana_color" && len(d.ManaColours) > 0 {
+				// A Produced$ "Combo <colours>" ask is XMage's
+				// AddManaInAnyCombinationEffect at every unit count: one
+				// multi-amount message per offered colour, in the set's own
+				// order, zeroes included (Muerra, Trash Tactician's Add R /
+				// Add G pair). The set rides the decision (ManaColours); a
+				// produced-Any ask stays on the routing below, which is what
+				// its colour dialog and WUBRG multi-amount already agree
+				// with.
+				as = manaColourAllocation(d)
+				break
+			}
 			if d.Resume == "mana_color" && d.Min == d.Max && d.Max > 1 {
 				// A multi-amount allocation (Combo Any, Desolation of Smaug):
 				// one unit per picked option, options laid out unit*5+colour
