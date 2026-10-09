@@ -458,6 +458,43 @@ func TestQuietProofFixtures(t *testing.T) {
 			},
 			blocker: qbNone,
 		},
+		{
+			// The granted-AddKeyword$-Affinity shape: a live grant that MINTS
+			// a bound ReduceCost static (affinityGrantCostStatics) prices hand
+			// cards the per-face castOpen classifier never reads -- a granted
+			// static has no printed face, and its ValidCard$ Card.Self names
+			// the BOUND HOST, so the selfOnly bit the printed-static scan
+			// trusts says nothing about it. Mycosynth Golem's grant (Affected$
+			// Artifact.Creature+wasCastByYou | AddKeyword$ Affinity:Artifact)
+			// plus a second artifact on the battlefield takes {1} off the
+			// Arcbound Worker in hand: free at an empty pool. The land drop is
+			// closed and the base Plains is returned to the library, because
+			// an open land drop (qbHandLand) or one generic unit in the pool
+			// (the printed floor {1}) would mask the hole with an earlier
+			// blocker -- the exact shape that hid this class from the corpus
+			// sweep, which never seats lands.
+			name: "granted affinity cost static blocks (Mycosynth Golem)",
+			build: func(t *testing.T) (*Engine, state.PlayerID) {
+				golem := lookup(t, reg, "Mycosynth Golem")
+				walker := lookup(t, reg, "Phyrexian Walker")
+				worker := lookup(t, reg, "Arcbound Worker")
+				e := quietBaseWith(t, reg, []*cards.Card{golem, walker, worker})
+				for _, id := range append([]state.ObjID{}, e.G.Zone(state.ZBattlefield, 0)...) {
+					if o := e.G.Obj(id); o != nil && o.Face() != nil && o.Face().Name == "Plains" {
+						e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: state.ZBattlefield, To: state.ZLibrary})
+					}
+				}
+				addZone(t, e, 0, golem, state.ZBattlefield)
+				addZone(t, e, 0, walker, state.ZBattlefield)
+				addHand(t, e, 0, worker)
+				e.G.Players[0].LandsPlayed = 1
+				if e.G.Players[0].Pool.Total() != 0 {
+					t.Fatal("affinity-grant precondition: the pool is not empty")
+				}
+				return e, 0
+			},
+			blocker: qbBoardCostGrant,
+		},
 	}
 	for _, row := range rows {
 		t.Run(row.name, func(t *testing.T) {
@@ -480,6 +517,57 @@ func TestQuietProofFixtures(t *testing.T) {
 				t.Fatalf("fixture is meant to block with %s but the proof was quiet", quietBlockerNames[row.blocker])
 			}
 		})
+	}
+}
+
+// TestQuietVerifyGrantAffinityBoard runs the granted-affinity hole with the
+// verify arm live. The rules test binary runs derivedMemoVerify
+// (derivedmemo_verify_test.go's init), so every priorityOptions call
+// cross-checks the proof against the walk and panics when a proof that says
+// quiet coexists with a non-mana offer. The board is the live grant
+// (Mycosynth Golem) plus a second artifact, the discounted spell in hand and
+// the land drop closed: the walk offers the cast for free, so a proof that
+// called this window quiet panicked here -- and did, before the
+// qbBoardCostGrant blocker existed.
+func TestQuietVerifyGrantAffinityBoard(t *testing.T) {
+	reg := testutil.CorpusRegistry(t)
+	golem := lookup(t, reg, "Mycosynth Golem")
+	walker := lookup(t, reg, "Phyrexian Walker")
+	worker := lookup(t, reg, "Arcbound Worker")
+	e := quietBaseWith(t, reg, []*cards.Card{golem, walker, worker})
+	for _, id := range append([]state.ObjID{}, e.G.Zone(state.ZBattlefield, 0)...) {
+		if o := e.G.Obj(id); o != nil && o.Face() != nil && o.Face().Name == "Plains" {
+			e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: state.ZBattlefield, To: state.ZLibrary})
+		}
+	}
+	addZone(t, e, 0, golem, state.ZBattlefield)
+	addZone(t, e, 0, walker, state.ZBattlefield)
+	gear := addHand(t, e, 0, worker)
+	e.G.Players[0].LandsPlayed = 1
+	if o := e.G.Obj(gear); o == nil || o.Zone != state.ZHand {
+		t.Fatal("precondition: the worker is not in hand")
+	}
+	for _, name := range []string{"Mycosynth Golem", "Phyrexian Walker"} {
+		found := false
+		for _, id := range e.G.Zone(state.ZBattlefield, 0) {
+			if o := e.G.Obj(id); o != nil && o.Face() != nil && o.Face().Name == name {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatalf("precondition: %s is not on the battlefield", name)
+		}
+	}
+	if got := e.quietBlocker(0); got != qbBoardCostGrant {
+		t.Fatalf("precondition: quietBlocker = %s, want %s (the live affinity grant must block)",
+			quietBlockerNames[got], quietBlockerNames[qbBoardCostGrant])
+	}
+	e.priorityRound()
+	// The discount is real: the walk offers the {1} spell for free. This is
+	// the assertion that keeps the fixture row honest -- if the grant minted
+	// nothing, both this test and the row would pass vacuously.
+	if opt := castOptionFor(t, e, gear); opt.Kind != "cast" {
+		t.Fatalf("the walk did not offer the granted-affinity cast: %+v", opt)
 	}
 }
 

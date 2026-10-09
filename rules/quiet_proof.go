@@ -33,6 +33,7 @@ const (
 	qbBoardFlash                        // an active CastWithFlash static
 	qbBoardMayPlay                      // an active may-play / mayhem-play / plot-zone grant
 	qbBoardCostStatic                   // an active ReduceCost or SetCost static
+	qbBoardCostGrant                    // an active granted/Effect-delivered cost static (bound hosts)
 	qbBoardKeyword                      // an active AddKeyword head that grants an offer or Flash
 	qbRestrictedMana                    // the seat holds restricted mana
 	qbHandLand                          // a hand land play (or a keyword action) is open
@@ -57,6 +58,7 @@ var quietBlockerNames = [qbCount]string{
 	qbBoardFlash:         "CastWithFlash static",
 	qbBoardMayPlay:       "may-play / plot-zone grant",
 	qbBoardCostStatic:    "ReduceCost/SetCost static",
+	qbBoardCostGrant:     "granted cost static",
 	qbBoardKeyword:       "AddKeyword grant",
 	qbRestrictedMana:     "restricted mana",
 	qbHandLand:           "hand land/keyword action",
@@ -242,6 +244,19 @@ func (e *Engine) quietBoardBlocker(p state.PlayerID) quietBlockerID {
 	// A self-carried may-play static on a card still in hand is reported by
 	// the per-card castOpen classifier, but a board static that grants the
 	// hand casts is caught here (above).
+	// An active cost-minting ContinuousEffect (appendEffectCostStatics'
+	// Effect-delivered, granted and AddKeyword$-Affinity-minted arms) blocks
+	// on its own, before the printed-static scan: a granted or bound view's
+	// Source is the BOUND HOST, so its ValidCard$ Card.Self does not scope it
+	// to a printed face the per-card castOpen classifier reads, and the
+	// selfOnly bit quietCostStaticBoardBlocker trusts is about printed faces
+	// -- it says nothing about a grant that prices a hand card the classifier
+	// never sees (Mycosynth Golem's affinity grant).
+	for i := range ces {
+		if continuousMintsCostStatic(&ces[i]) {
+			return qbBoardCostGrant
+		}
+	}
 	cs := e.collectCostStatics()
 	if quietCostStaticBoardBlocker(&cs) {
 		return qbBoardCostStatic
@@ -262,6 +277,44 @@ func quietCostStaticBoardBlocker(cs *costStaticViews) bool {
 			if !list[i].selfOnly {
 				return true
 			}
+		}
+	}
+	return false
+}
+
+// continuousMintsCostStatic reports whether one active ContinuousEffect
+// produces a cost-modifier static view through appendEffectCostStatics: an
+// Effect-delivered or granted CostStaticMode (a CostStaticGranted grant
+// included), or an AddKeyword$ Affinity grant whose Affected$ names hosts
+// other than the grantor (affinityGrantCostStatics' mint shape, mirrored
+// allocation-free). It is the coarse over-approximation the proof needs: any
+// such effect can price a card the per-face classifier never reads, so the
+// window cannot be proved quiet while it is live. It reads no map and
+// allocates nothing.
+func continuousMintsCostStatic(ce *ContinuousEffect) bool {
+	if ce.CostStaticMode != "" {
+		switch cards.StaticModeOf(ce.CostStaticMode) {
+		case cards.StaticRaiseCost, cards.StaticReduceCost, cards.StaticSetCost:
+			return true
+		}
+		return false
+	}
+	if len(ce.AddKeywords) == 0 {
+		return false
+	}
+	// affinityGrantCostStatics' mint gate: an Affected$ that is absent or
+	// Card.Self names the grantor itself and mints nothing; a non-blank
+	// Affinity entry spec mints one bound static.
+	if a := strings.TrimSpace(ce.Affects); a == "" || a == "Card.Self" {
+		return false
+	}
+	for _, k := range ce.AddKeywords {
+		head, param, _ := strings.Cut(k, ":")
+		if !strings.EqualFold(head, "Affinity") {
+			continue
+		}
+		if spec, _, _ := strings.Cut(param, ":"); strings.TrimSpace(spec) != "" {
+			return true
 		}
 	}
 	return false
