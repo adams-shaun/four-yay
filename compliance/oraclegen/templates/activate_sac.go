@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/adams-shaun/gorge/compliance/oraclegen"
 	"github.com/adams-shaun/gorge/rules"
 )
 
@@ -146,7 +147,8 @@ func sacCostNamesRoom(tok string) bool {
 // plain-name form the other cards agree on.
 func observedSacPick(tok string, d rules.OracleDecision, i int) string {
 	if sacCostNamesRoom(tok) && i < len(d.PickRefs) && i < len(d.PickRefsInexact) &&
-		!d.PickRefsInexact[i] && !strings.Contains(d.PickRefs[i], ":token:") {
+		!d.PickRefsInexact[i] && !strings.Contains(d.PickRefs[i], ":token:") &&
+		oraclegen.IsScenarioRefShaped(d.PickRefs[i]) {
 		return "@" + d.PickRefs[i]
 	}
 	return observedCostPick(d, i)

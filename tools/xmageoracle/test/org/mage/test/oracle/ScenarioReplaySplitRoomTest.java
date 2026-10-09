@@ -256,7 +256,7 @@ public final class ScenarioReplaySplitRoomTest {
         java.util.List<String> bound = new java.util.ArrayList<>();
         UUID id = UUID.randomUUID();
         ScenarioReplay.registerObjectAliases(0, "Bottomless Pool // Locker Room",
-                "Bottomless Pool // Locker Room", "p0:Bottomless Pool // Locker Room",
+                "p0:Bottomless Pool // Locker Room",
                 "p0:Bottomless Pool // Locker Room", 1, id, refAlias,
                 (ref, objId) -> bound.add(ref));
         // Precondition of the production wiring: the helper receives the
@@ -275,7 +275,7 @@ public final class ScenarioReplaySplitRoomTest {
         }
         // A non-split object binds nothing front-half.
         java.util.Map<String, String> plain = new LinkedHashMap<>();
-        ScenarioReplay.registerObjectAliases(0, "Grizzly Bears", "Grizzly Bears", "p0:Grizzly Bears",
+        ScenarioReplay.registerObjectAliases(0, "Grizzly Bears", "p0:Grizzly Bears",
                 "p0:Grizzly Bears", 0, UUID.randomUUID(), plain, (ref, objId) -> {
                 });
         for (String ref : plain.keySet()) {
@@ -296,12 +296,29 @@ public final class ScenarioReplaySplitRoomTest {
         taken.put("p0:Bottomless Pool", "@p0:Bottomless Pool");
         java.util.List<String> rebound = new java.util.ArrayList<>();
         ScenarioReplay.registerObjectAliases(0, "Bottomless Pool // Locker Room",
-                "Bottomless Pool // Locker Room", "p0:Bottomless Pool // Locker Room",
+                "p0:Bottomless Pool // Locker Room",
                 "p0:Bottomless Pool // Locker Room", 1, UUID.randomUUID(), taken,
                 (ref, objId) -> rebound.add(ref));
         if (rebound.contains("p0:Bottomless Pool")
                 || !taken.get("p0:Bottomless Pool").equals("@p0:Bottomless Pool")) {
             throw new AssertionError("front-half ref rebound to a second object: " + rebound + " " + taken);
         }
+        // The front-half occurrence count is keyed per seat inside the
+        // helper: registerAliases shares ONE counter across both seats, so
+        // p0 and p1 each holding the same split card must both spell
+        // "p<N>:<Front>" with no #k suffix. A seat-agnostic key would spell
+        // p1's copy "p1:Bottomless Pool#2" and leave the queued
+        // "p1:Bottomless Pool" alias unbound.
+        java.util.Map<String, Integer> shared = new java.util.HashMap<>();
+        equal(1, ScenarioReplay.registerFrontOccurrence(shared, 0, "Bottomless Pool // Locker Room"));
+        equal(1, ScenarioReplay.registerFrontOccurrence(shared, 1, "Bottomless Pool // Locker Room"));
+        equal("p0:Bottomless Pool", ScenarioReplay.frontHalfScenarioRef(0, "Bottomless Pool // Locker Room",
+                1));
+        equal("p1:Bottomless Pool", ScenarioReplay.frontHalfScenarioRef(1, "Bottomless Pool // Locker Room",
+                1));
+        // Within one seat the counting still applies: p0's second copy is #2.
+        equal(2, ScenarioReplay.registerFrontOccurrence(shared, 0, "Bottomless Pool // Locker Room"));
+        equal("p0:Bottomless Pool#2", ScenarioReplay.frontHalfScenarioRef(0, "Bottomless Pool // Locker Room", 2));
+        equal(0, ScenarioReplay.registerFrontOccurrence(shared, 1, "Grizzly Bears"));
     }
 }

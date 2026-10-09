@@ -1256,9 +1256,8 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 // A split/Room object also gets its front-half ref bound (see
                 // frontHalfScenarioRef); the occurrence counts follow the same
                 // rule the whole name uses.
-                int frontOccurrence = xmageCardName.contains(" // ")
-                        ? frontCounts.merge(frontHalf(xmageCardName), 1, Integer::sum) : 0;
-                registerObjectAliases(i, xmageCardName, scenarioCardName, xmageRef, scenarioRef,
+                int frontOccurrence = registerFrontOccurrence(frontCounts, i, xmageCardName);
+                registerObjectAliases(i, xmageCardName, xmageRef, scenarioRef,
                         frontOccurrence, o.getId(), refAlias, (ref, objId) -> {
                             for (int j = 0; j < 2; j++) {
                                 try {
@@ -1738,9 +1737,9 @@ public class ScenarioReplay extends CardTestPlayerBase {
     // ("p0:Grizzly Bears", "p0:Grizzly Bears#2") in the same order XMage
     // adds the cards, so registerAliases can bind each to its object.
     private final java.util.Map<String, Integer> buildCounts = new java.util.HashMap<>();
-    // Per-seat occurrence counter registerAliases uses to spell a split/Room
-    // object's front-half ref ("p0:Bottomless Pool"), the same counting rule
-    // buildCounts applies to the whole name.
+    // Shared occurrence counter for split/Room front-half refs; register
+    // FrontOccurrence keys it "seat|frontHalf" so each seat counts from 1,
+    // the same rule buildCounts applies per seat to the whole name.
     private final java.util.Map<String, Integer> frontCounts = new java.util.HashMap<>();
     // Seeded setup permanents keyed "controllerId|xmageName" -> count (build()).
     private final java.util.Map<String, Integer> setupBattlefield = new java.util.HashMap<>();
@@ -1796,6 +1795,21 @@ public class ScenarioReplay extends CardTestPlayerBase {
         void bind(String ref, UUID id);
     }
 
+    /** Counts one split/Room object's front-half occurrence into the shared
+     * setup counter, keyed by seat (0 when the name is not a split name).
+     * The seat is part of the KEY, not the caller's loop state: p0's and
+     * p1's first copy of the same split/Room card each spell
+     * "p<N>:<Front>" with no #k suffix, the same rule the whole name
+     * follows, and a caller cannot reintroduce a seat-agnostic count by
+     * sharing its counter. Extracted so the driver contract test can
+     * exercise the per-seat counting rule without a game. */
+    static int registerFrontOccurrence(java.util.Map<String, Integer> frontCounts, int seat, String xmageCardName) {
+        if (!xmageCardName.contains(" // ")) {
+            return 0;
+        }
+        return frontCounts.merge(seat + "|" + frontHalf(xmageCardName), 1, Integer::sum);
+    }
+
     /** Binds one object's scenario-ref aliases during registerAliases: the
      * whole-name scenario ref (as before), its XMage-spelled ref, and --
      * new -- the front-half ref of a split/Room card
@@ -1803,7 +1817,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
      * count, 0 when the object is not a split name. Extracted so the driver
      * contract test can exercise the front-half binding without a game
      * (registerAliases walks live zones, which need the card database). */
-    static void registerObjectAliases(int seat, String xmageCardName, String scenarioCardName, String xmageRef,
+    static void registerObjectAliases(int seat, String xmageCardName, String xmageRef,
             String scenarioRef, int frontOccurrence, UUID id, java.util.Map<String, String> refAlias,
             AliasBinder bind) {
         refAlias.put(scenarioRef, "@" + scenarioRef);
