@@ -33,13 +33,28 @@ func spellCastProvenanceCauses(reg *cards.Registry, f *cards.Face, name string, 
 			out = append(out, c)
 		}
 	}
-	if strings.Contains(filter, "adventure") {
+	if strings.Contains(filter, "adventure") && filterNamesAdventure(filter) {
 		if c, ok := spellCastAdventureCause(reg, name); ok {
 			c.prelude = prelude
 			out = append(out, c)
 		}
 	}
 	return out
+}
+
+// filterNamesAdventure reports whether the filter carries the `Adventure`
+// provenance predicate as its own dot/plus/comma-separated token. It keeps
+// the distinct `AdventureCard` predicate (the card IS an Adventure card, a
+// characteristic, not a cast provenance) from being mistaken for it.
+func filterNamesAdventure(filter string) bool {
+	for _, seg := range strings.FieldsFunc(filter, func(r rune) bool {
+		return r == '.' || r == '+' || r == ','
+	}) {
+		if seg == "adventure" {
+			return true
+		}
+	}
+	return false
 }
 
 // setupResolvePrelude returns the two passes that clear a trigger queued at
