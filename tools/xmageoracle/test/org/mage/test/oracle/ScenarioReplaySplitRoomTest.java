@@ -240,5 +240,68 @@ public final class ScenarioReplaySplitRoomTest {
         System.out.println("PASS target-adjuster detection and closing an unfilled adjusted target slot");
         System.out.println("PASS adjusted spell targets are queued without changing divided, ordinary, or targetless casts");
         System.out.println("PASS ordinary alias and unchanged spelling");
+        checkFrontHalfAliasBinding();
+        System.out.println("PASS front-half alias binding of a split/Room fixture");
+    }
+
+    /** registerObjectAliases (registerAliases' per-object body, extracted so
+     * this no-H2 harness can run it: the live loop walks zones only a real
+     * game has) binds a split/Room object by its whole name AND its front
+     * half. Gorge spells every card object by its front face, so a scenario
+     * that targets or sacrifices a Room fixture queues "p0:Bottomless Pool"
+     * and its "@p0:Bottomless Pool" alias must resolve to the same object id
+     * the whole-name alias does. */
+    private static void checkFrontHalfAliasBinding() throws Exception {
+        java.util.Map<String, String> refAlias = new LinkedHashMap<>();
+        java.util.List<String> bound = new java.util.ArrayList<>();
+        UUID id = UUID.randomUUID();
+        ScenarioReplay.registerObjectAliases(0, "Bottomless Pool // Locker Room",
+                "Bottomless Pool // Locker Room", "p0:Bottomless Pool // Locker Room",
+                "p0:Bottomless Pool // Locker Room", 1, id, refAlias,
+                (ref, objId) -> bound.add(ref));
+        // Precondition of the production wiring: the helper receives the
+        // whole-name refs registerAliases computed.
+        if (!refAlias.containsKey("p0:Bottomless Pool // Locker Room")
+                || !refAlias.get("p0:Bottomless Pool // Locker Room").equals("@p0:Bottomless Pool // Locker Room")) {
+            throw new AssertionError("whole-name scenario ref not bound: " + refAlias);
+        }
+        // The front half is bound too, to the same object.
+        if (!refAlias.containsKey("p0:Bottomless Pool")
+                || !refAlias.get("p0:Bottomless Pool").equals("@p0:Bottomless Pool")) {
+            throw new AssertionError("front-half scenario ref not bound: " + refAlias);
+        }
+        if (!bound.contains("p0:Bottomless Pool")) {
+            throw new AssertionError("front-half ref was not learned by the seats: " + bound);
+        }
+        // A non-split object binds nothing front-half.
+        java.util.Map<String, String> plain = new LinkedHashMap<>();
+        ScenarioReplay.registerObjectAliases(0, "Grizzly Bears", "Grizzly Bears", "p0:Grizzly Bears",
+                "p0:Grizzly Bears", 0, UUID.randomUUID(), plain, (ref, objId) -> {
+                });
+        for (String ref : plain.keySet()) {
+            if (ref.contains(" // ")) {
+                throw new AssertionError("non-split object carries a split ref: " + ref);
+            }
+        }
+        // A second front-half occurrence spells the #k suffix, the same
+        // counting rule gorge's setup refs use.
+        equal("p1:Bottomless Pool#2", ScenarioReplay.frontHalfScenarioRef(1, "Bottomless Pool // Locker Room", 2));
+        equal("p0:Bottomless Pool", ScenarioReplay.frontHalfScenarioRef(0, "Bottomless Pool // Locker Room", 1));
+        if (ScenarioReplay.frontHalfScenarioRef(0, "Grizzly Bears", 1) != null) {
+            throw new AssertionError("non-split name produced a front-half ref");
+        }
+        // A front-half ref already bound (the under-test card whose gorge
+        // spelling IS its front half) is not rebound to a second object.
+        java.util.Map<String, String> taken = new LinkedHashMap<>();
+        taken.put("p0:Bottomless Pool", "@p0:Bottomless Pool");
+        java.util.List<String> rebound = new java.util.ArrayList<>();
+        ScenarioReplay.registerObjectAliases(0, "Bottomless Pool // Locker Room",
+                "Bottomless Pool // Locker Room", "p0:Bottomless Pool // Locker Room",
+                "p0:Bottomless Pool // Locker Room", 1, UUID.randomUUID(), taken,
+                (ref, objId) -> rebound.add(ref));
+        if (rebound.contains("p0:Bottomless Pool")
+                || !taken.get("p0:Bottomless Pool").equals("@p0:Bottomless Pool")) {
+            throw new AssertionError("front-half ref rebound to a second object: " + rebound + " " + taken);
+        }
     }
 }

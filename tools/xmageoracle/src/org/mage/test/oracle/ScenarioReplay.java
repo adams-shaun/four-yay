@@ -1041,6 +1041,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
 
     private void build(JsonObject sc) {
         buildCounts.clear();
+        frontCounts.clear();
         setupBattlefield.clear();
         setupNames.clear();
         backFaceNames.clear();
@@ -1252,24 +1253,21 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 int scenarioOccurrence = scenarioCounts.merge(scenarioCardName, 1, Integer::sum);
                 String scenarioRef = "p" + i + ":" + scenarioCardName
                         + (scenarioOccurrence > 1 ? "#" + scenarioOccurrence : "");
-                refAlias.put(scenarioRef, "@" + scenarioRef);
-                refAlias.putIfAbsent(xmageRef, "@" + scenarioRef);
-                // Both players must know every alias: the choosing player
-                // resolves the target string, and it may be either seat.
-                for (int j = 0; j < 2; j++) {
-                    try {
-                        seat(j).addAlias(scenarioRef, o.getId());
-                    } catch (IllegalArgumentException ignored) {
-                        // already bound on this player
-                    }
-                    if (!xmageRef.equals(scenarioRef)) {
-                        try {
-                            seat(j).addAlias(xmageRef, o.getId());
-                        } catch (IllegalArgumentException ignored) {
-                            // already bound on this player
-                        }
-                    }
-                }
+                // A split/Room object also gets its front-half ref bound (see
+                // frontHalfScenarioRef); the occurrence counts follow the same
+                // rule the whole name uses.
+                int frontOccurrence = xmageCardName.contains(" // ")
+                        ? frontCounts.merge(frontHalf(xmageCardName), 1, Integer::sum) : 0;
+                registerObjectAliases(i, xmageCardName, scenarioCardName, xmageRef, scenarioRef,
+                        frontOccurrence, o.getId(), refAlias, (ref, objId) -> {
+                            for (int j = 0; j < 2; j++) {
+                                try {
+                                    seat(j).addAlias(ref, objId);
+                                } catch (IllegalArgumentException ignored) {
+                                    // already bound on this player
+                                }
+                            }
+                        });
             }
         }
     }
@@ -1740,6 +1738,10 @@ public class ScenarioReplay extends CardTestPlayerBase {
     // ("p0:Grizzly Bears", "p0:Grizzly Bears#2") in the same order XMage
     // adds the cards, so registerAliases can bind each to its object.
     private final java.util.Map<String, Integer> buildCounts = new java.util.HashMap<>();
+    // Per-seat occurrence counter registerAliases uses to spell a split/Room
+    // object's front-half ref ("p0:Bottomless Pool"), the same counting rule
+    // buildCounts applies to the whole name.
+    private final java.util.Map<String, Integer> frontCounts = new java.util.HashMap<>();
     // Seeded setup permanents keyed "controllerId|xmageName" -> count (build()).
     private final java.util.Map<String, Integer> setupBattlefield = new java.util.HashMap<>();
     private final Map<UUID, String> setupNames = new HashMap<>();
@@ -1770,6 +1772,53 @@ public class ScenarioReplay extends CardTestPlayerBase {
     static String backHalf(String n) {
         int i = n.indexOf(" // ");
         return i < 0 ? n : n.substring(i + 4);
+    }
+
+    /** The scenario ref spelling a split/Room object by its front half
+     * ("p0:Bottomless Pool"), or null when the XMage name is not a split
+     * name. occurrence is the 1-based count of the front-half name among the
+     * seat's objects, the same counting rule the whole-name refs use. Gorge
+     * spells every card object by its front face (gorgeSpellingRule), so a
+     * scenario that targets or sacrifices a Room fixture queues the ref
+     * spelled by its front half, and the whole-name alias alone would leave
+     * that queued ref unbound (XMage's "Targets list was setup by addTarget
+     * ..., but not used" / "Found wrong choice command"). */
+    static String frontHalfScenarioRef(int seat, String xmageCardName, int occurrence) {
+        if (!xmageCardName.contains(" // ")) {
+            return null;
+        }
+        return "p" + seat + ":" + frontHalf(xmageCardName) + (occurrence > 1 ? "#" + occurrence : "");
+    }
+
+    /** One alias binding shared by both seats, duplicates swallowed: the
+     * choosing player resolves the target string, and it may be either seat. */
+    interface AliasBinder {
+        void bind(String ref, UUID id);
+    }
+
+    /** Binds one object's scenario-ref aliases during registerAliases: the
+     * whole-name scenario ref (as before), its XMage-spelled ref, and --
+     * new -- the front-half ref of a split/Room card
+     * (frontHalfScenarioRef). frontOccurrence is the front-half occurrence
+     * count, 0 when the object is not a split name. Extracted so the driver
+     * contract test can exercise the front-half binding without a game
+     * (registerAliases walks live zones, which need the card database). */
+    static void registerObjectAliases(int seat, String xmageCardName, String scenarioCardName, String xmageRef,
+            String scenarioRef, int frontOccurrence, UUID id, java.util.Map<String, String> refAlias,
+            AliasBinder bind) {
+        refAlias.put(scenarioRef, "@" + scenarioRef);
+        refAlias.putIfAbsent(xmageRef, "@" + scenarioRef);
+        bind.bind(scenarioRef, id);
+        if (!xmageRef.equals(scenarioRef)) {
+            bind.bind(xmageRef, id);
+        }
+        if (frontOccurrence > 0) {
+            String frontRef = frontHalfScenarioRef(seat, xmageCardName, frontOccurrence);
+            if (frontRef != null && !frontRef.equals(scenarioRef) && !refAlias.containsKey(frontRef)) {
+                refAlias.put(frontRef, "@" + frontRef);
+                bind.bind(frontRef, id);
+            }
+        }
     }
 
     /** The spelling XMage's cast command matches: the name of the card's
