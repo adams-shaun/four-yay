@@ -1,2 +1,0 @@
-{"shape":{"template":"combat","op":"block","field":"permanents","diff":"$CARD gorge+[blocking] xmage+[]"},"key":"combat | block | permanents | $CARD gorge+[blocking] xmage+[]","cards":1}
-{"card":"Hazoret, Godseeker","template":"combat#0.block","status":"diverge","api":"-","sets":["DFT"],"detail":"step 1 (block) permanents: gorge \"c0 o0 Hazoret, Godseeker [creature god legendary] {R} 5/3 blocking\", xmage \"c0 o0 Hazoret, Godseeker [creature god legendary] {R} 5/3\""}
