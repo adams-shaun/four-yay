@@ -120,12 +120,12 @@ func TestRunCheckExitCodes(t *testing.T) {
 		t.Fatalf("seeded, over budget: code %d\n%s%s", code, out.String(), errb.String())
 	}
 	// An RSS-only offender fails too.
-	if err := os.WriteFile(filepath.Join(rssDir, url.PathEscape("view")), []byte("3000000\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(rssDir, url.PathEscape("view")), []byte("5000000\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	out.Reset()
 	args2, rss2 := setup(t, strings.ReplaceAll(events, "75", "5"), "")
-	if err := os.WriteFile(filepath.Join(rss2, "view"), []byte("3000000\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(rss2, "view"), []byte("5000000\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if code := runCheck(args2, &out, &errb); code != 1 || !strings.Contains(out.String(), "OVER-BUDGET rss    view") {

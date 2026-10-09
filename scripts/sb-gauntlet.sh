@@ -89,7 +89,7 @@ mkdir -p "$GDIR"
 
 # heavy wraps one botbench invocation in the fleet's resource gate.
 heavy() {
-	flock -o "$LOCK" systemd-run --user --scope -q -p MemoryMax=4G \
+	gorge_heavy_run systemd-run --user --scope -q -p MemoryMax=4G \
 		env GOMEMLIMIT=2GiB GOMAXPROCS=8 "$@"
 }
 

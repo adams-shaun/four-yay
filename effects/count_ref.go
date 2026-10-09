@@ -569,6 +569,30 @@ func refTargets(h Host, c *Ctx, ref string) ([]state.Target, bool) {
 			return []state.Target{t}, true
 		}
 		return nil, true
+	case refTargetsTriggerObjectsAttackers:
+		// The attackers that passed THIS trigger line's own ValidAttackers$
+		// filter when a Mode$ AttackersDeclared(OneTarget) trigger fired
+		// (task tek1): the fire-time capture the queue point bound on the
+		// TriggerContext (TriggerAttackers), carried to resolution through
+		// the per-stack triggerContexts map like every other fire-time role.
+		// "Up to that many" in The Earth King's payout means the count of
+		// attackers the line's powerGE4 filter admitted, not the whole
+		// declared batch, so the ref is deliberately claimed here and never
+		// allowed to fall through to the defined-targets fallback below:
+		// Remembered for a batch AttackersDeclared trigger is every declared
+		// attacker plus the defending player (rules' triggerRemembered batch
+		// shape), and aliasing it would over-search. A context with no
+		// capture (a hand-built one, a read outside an AttackersDeclared
+		// resolution) resolves to the EMPTY set -- a legitimate zero, exactly
+		// the fail-closed reading the ref had before the capture existed --
+		// never a Remembered fallback. The properties the 18 corpus carriers
+		// write read through evalRefProperty's own switch (Amount, CardPower,
+		// Valid <spec>); /Op suffixes ride the generic applyCountOp tail.
+		var out []state.Target
+		for _, id := range c.TriggerContext.TriggerAttackers {
+			out = append(out, state.Target{Obj: id})
+		}
+		return out, true
 	default:
 		// A ref this build's explicit cases do not name is delegated to the
 		// SAME defined-targets resolver a body's own Defined$ spelling uses
@@ -707,6 +731,7 @@ const (
 	refTargetsEquipped
 	refTargetsTargetedObjects
 	refTargetsSpellTargeted
+	refTargetsTriggerObjectsAttackers
 )
 
 var refTargetsCodes = state.NewStrCodes(
@@ -744,6 +769,7 @@ var refTargetsCodes = state.NewStrCodes(
 	state.StrEntry[refTargetsCode]{Key: "TargetedObjects", Val: refTargetsTargetedObjects},
 	state.StrEntry[refTargetsCode]{Key: "TargetedObjectsDistinct", Val: refTargetsTargetedObjects},
 	state.StrEntry[refTargetsCode]{Key: "SpellTargeted", Val: refTargetsSpellTargeted},
+	state.StrEntry[refTargetsCode]{Key: "TriggerObjectsAttackers", Val: refTargetsTriggerObjectsAttackers},
 )
 
 type countRefTagCode uint16

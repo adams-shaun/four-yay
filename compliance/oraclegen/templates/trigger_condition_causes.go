@@ -202,6 +202,9 @@ func applyPrelude(base triggerCause, p conditionPrelude) triggerCause {
 	c.counters = mergeCounters(base.counters, p.counters)
 	c.prelude = append(append([]oraclegen.Step(nil), base.prelude...), p.steps...)
 	c.preludeXAbility = append(append([]string(nil), base.preludeXAbility...), p.xability...)
+	if p.activationCost != "" {
+		c.preludeActivationCost = p.activationCost
+	}
 	return c
 }
 

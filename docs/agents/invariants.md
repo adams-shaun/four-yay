@@ -240,7 +240,7 @@ This is an operator rule for code on the per-intent or per-simulation path:
 by millions.
 
 **Enforced by:** convention, plus `make gc-gate` (by hand). The per-test
-resource budget (2 GB RSS, 2 vCPU, 1 min wall) is enforced by `cmd/testbudget`
+resource budget (4 GB RSS, 4 vCPU, 1 min wall; doubled 2026-10-09) is enforced by `cmd/testbudget`
 in `scripts/postmerge_full.sh`: any test over budget that
 `internal/testutil/testdata/wall_exceptions.txt` / `rss_exceptions.txt` (both
 shrink-only) do not list fails the post-merge batch.
@@ -265,9 +265,10 @@ shrink-only) do not list fails the post-merge batch.
    - `make sim`: 20/20 `replay OK`.
    - If you touched `web/` or changed when a decision is posed, also run the
      `./view` package and the web gates.
-4. **Every test fits the budget: 2 GB RSS, 2 vCPU, 1 minute wall** (operator,
-   2026-10-05). Run tests focused and capped, one package per invocation:
-   `systemd-run --user --scope -q -p MemoryMax=2G -p CPUQuota=200% env GOMAXPROCS=2 GOMEMLIMIT=1536MiB go test -timeout 2m -run X ./pkg`. Never `-count=1` (it defeats the
+4. **Every test fits the budget: 4 GB RSS, 4 vCPU, 1 minute wall** (operator,
+   2026-10-05; doubled 2026-10-09 when the box went to 120 GiB). Run tests
+   focused and capped, one package per invocation:
+   `systemd-run --user --scope -q -p MemoryMax=4G -p CPUQuota=400% env GOMAXPROCS=4 GOMEMLIMIT=3GiB go test -timeout 2m -run X ./pkg`. Never `-count=1` (it defeats the
    test cache). A test outside the budget is a defect: split it into chunk
    tests that share fixtures, never cut coverage, and never run it whole "for
    a baseline". Tests load the corpus only via

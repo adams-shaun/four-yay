@@ -54,6 +54,15 @@ func combatRequirement(reg *cards.Registry, f *cards.Face, name string, req leve
 	}
 	n, res, ok := oraclegen.Settle(reg, sc)
 	if !ok || len(res.Fails) != 0 {
+		// A fixture that loses the card itself (setup would kill it, its own
+		// upkeep taps it, it enters stunned) gets the fixture-shape serve
+		// before the restriction observations: the fix is verified by its own
+		// settle, so a shape that cannot help is not returned.
+		if fixed, n2, res2, ok2 := combatSetupFix(reg, f, name, req, sc, res); ok2 {
+			sc, n, res, ok = fixed, n2, res2, ok2
+		}
+	}
+	if !ok || len(res.Fails) != 0 {
 		if it, sk, served := combatNotOffered(reg, f, name, req); served {
 			return it, sk
 		}
