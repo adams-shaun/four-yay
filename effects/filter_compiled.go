@@ -675,6 +675,7 @@ var specialPositiveTokenSet = state.NewNameSet(
 	"CanBeTargetedByTriggeredSpellAbility",
 	"TriggeredNewCard",
 	"TriggeredCard",
+	"TriggeredCards",
 	"blockingTriggeredAttacker",
 	"EffectSource",
 	"IsGoaded",
