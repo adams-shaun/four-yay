@@ -182,6 +182,10 @@ func activationPresentPrelude(reg *cards.Registry, f *cards.Face, name, spec, zo
 				out = append(out, pre)
 				continue
 			}
+			if n, kind, ok := selfCounterFloor(group); ok {
+				out = append(out, conditionPrelude{counters: map[string]map[string]int{"__SOURCE__": {kind: n}}})
+				continue
+			}
 			if staticFixtureFor(group, 0) == "" {
 				selfState = true
 				continue
@@ -379,6 +383,32 @@ func creatureForPowerFloor(group string) string {
 		return "Gigantosaurus"
 	}
 	return "Nessian Asp"
+}
+
+// selfCounterFloor reads a Self counter gate the setup can raise directly
+// (Cryptex's IsPresent$ Card.Self+counters_GE5_UNLOCK): a counters_GE<N>_<KIND>
+// word is satisfied by N counters of KIND on the source at setup. ok is false
+// when the group names no such floor.
+func selfCounterFloor(group string) (n int, kind string, ok bool) {
+	lower := strings.ToLower(group)
+	i := strings.Index(lower, "counters_ge")
+	if i < 0 {
+		return 0, "", false
+	}
+	rest := lower[i+len("counters_ge"):]
+	j := strings.IndexByte(rest, '_')
+	if j <= 0 {
+		return 0, "", false
+	}
+	n, err := strconv.Atoi(rest[:j])
+	if err != nil || n < 1 {
+		return 0, "", false
+	}
+	k := strings.ToUpper(strings.TrimSpace(rest[j+1:]))
+	if k == "" {
+		return 0, "", false
+	}
+	return n, k, true
 }
 
 // selfPowerFloorPrelude raises a Self power/toughness floor the printed card

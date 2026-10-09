@@ -104,7 +104,7 @@ func activatedCause(reg *cards.Registry, name, probe string, t *cards.Trigger) (
 			continue
 		}
 		cost := sa.ParamStr(cards.PKCost)
-		mana, gap := activationCostIn(cost, "battlefield")
+		mana, gap := activationCostIn(cost, "battlefield", "")
 		if gap != "" {
 			continue
 		}
@@ -118,7 +118,7 @@ func activatedCause(reg *cards.Registry, name, probe string, t *cards.Trigger) (
 			step.Targets = []string{"p1"}
 		}
 		setup := oraclegen.Seat{}
-		addActivationCostFixtures(&setup, cost)
+		addActivationCostFixtures(&setup, name, cost, activationX(cost))
 		return triggerCause{battlefield: append([]string{probe}, setup.Battlefield...), steps: []oraclegen.Step{step}, xability: []string{prefix}, activateCost: cost}, true
 	}
 	return triggerCause{}, false

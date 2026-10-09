@@ -121,7 +121,7 @@ func activationTokenNeeds(cost string) []tokenNeed {
 // needs no token.
 func tokenCostHasFixture(tok string) bool {
 	if strings.HasPrefix(tok, "Sac<") {
-		_, ok := sacFilterFixtures(tok)
+		_, ok := sacFilterFixtures(tok, 0)
 		return ok
 	}
 	_, gap := tapXTypeResolve(tok)

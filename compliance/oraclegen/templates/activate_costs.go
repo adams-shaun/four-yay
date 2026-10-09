@@ -13,7 +13,7 @@ import (
 // whitelist. pool is the mana part's pool letters (PoolFor), or "" for a
 // cost with no mana. gap names the offending token with its payload folded.
 func activationCost(cost string) (pool, gap string) {
-	return activationCostIn(cost, "battlefield")
+	return activationCostIn(cost, "battlefield", "")
 }
 
 // activationCostIn is activationCost for a source activated from zone
@@ -22,9 +22,9 @@ func activationCost(cost string) (pool, gap string) {
 // payable only from the hand, ExileFromGrave<1/CARDNAME> (or one other
 // Creature.Other card) only from the graveyard. Anywhere else they stay a
 // named cost gap.
-func activationCostIn(cost, zone string) (pool, gap string) {
+func activationCostIn(cost, zone, name string, xMin ...int) (pool, gap string) {
 	var mana []string
-	x := activationX(cost)
+	x := activationX(cost, xMin...)
 	for _, tok := range costTokens(cost) {
 		if m, ok := keywordCostMana(tok, x); ok {
 			if m != "" {
@@ -44,7 +44,7 @@ func activationCostIn(cost, zone string) (pool, gap string) {
 				continue
 			}
 		case "Sac":
-			if sacFixtureSupported(tok) {
+			if sacFixtureSupported(tok, x) {
 				continue
 			}
 			return "", sacGapClass(tok)
@@ -61,7 +61,9 @@ func activationCostIn(cost, zone string) (pool, gap string) {
 				if zone == "graveyard" {
 					continue
 				}
-			} else if graveyardCreatureCost(tok) || graveyardCostFixtures(tok) != nil {
+			} else if graveyardCreatureCost(tok) || len(filterCostFixturesX(tok, x)) > 0 {
+				continue
+			} else if n, selfNamed := namedSelfCount(tok, name, x); selfNamed && n > 0 {
 				continue
 			}
 		case "ExileCtrlOrGrave":
@@ -211,6 +213,38 @@ func graveyardCostFixtures(tok string) []string {
 	return filterCostFixtures(tok)
 }
 
+// namedSelfCount reports n when an ExileFromGrave token's filter names the
+// source card itself ("...+namedCARDNAME", Say Its Name's second exile
+// count): the payment's fixtures are copies of the source in the graveyard,
+// which no catalogue stand-in can serve. n is the token count or the
+// announced X.
+func namedSelfCount(tok, name string, x int) (int, bool) {
+	if name == "" {
+		return 0, false
+	}
+	payload, ok := bracketPayload(tok)
+	if !ok {
+		return 0, false
+	}
+	parts := strings.Split(payload, "/")
+	if len(parts) < 2 {
+		return 0, false
+	}
+	n := 0
+	if parts[0] == "X" {
+		n = x
+	} else {
+		n, _ = strconv.Atoi(parts[0])
+	}
+	if n < 1 {
+		return 0, false
+	}
+	if !strings.Contains(strings.ToLower(parts[1]), "named"+strings.ToLower(name)) {
+		return 0, false
+	}
+	return n, true
+}
+
 func exileCreatureCostFixtures(tok string) []string {
 	payload, ok := bracketPayload(tok)
 	if !ok {
@@ -241,7 +275,9 @@ func activationCostFixturesX(tok string, x int) []string {
 		if graveyardCreatureCost(tok) {
 			return []string{"Grizzly Bears"}
 		}
-		return graveyardCostFixtures(tok)
+		// The `<X/filter>` grave-exile count (Winter, Cursed Rider's
+		// ExileFromGrave<X/Artifact>) reads the announced X: x grave fixtures.
+		return filterCostFixturesX(tok, x)
 	case "CollectEvidence":
 		return evidenceCostFixtures(tok)
 	case "Exile":

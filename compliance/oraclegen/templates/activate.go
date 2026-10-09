@@ -68,7 +68,7 @@ func activateAbility(reg *cards.Registry, f *cards.Face, name string, req levelb
 		return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: "activate xmage text ambiguous"}
 	}
 	zone := activationZone(req.Sub)
-	pool, gap := activationCostIn(sa.ParamStr(cards.PKCost), zone)
+	pool, gap := activationCostIn(sa.ParamStr(cards.PKCost), zone, name, saXMin(sa))
 	if gap != "" {
 		return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: "activate cost gap: " + gap}
 	}
@@ -137,7 +137,8 @@ func activateWithFixture(reg *cards.Registry, f *cards.Face, name string, req le
 	default:
 		p0.Battlefield = appendFixtureUnique(p0.Battlefield, name)
 	}
-	addActivationCostFixtures(&p0, cost)
+	x := activationX(cost, saXMin(f.Abilities[abilityIndex]))
+	addActivationCostFixtures(&p0, name, cost, x)
 	addActivationCounterFixtures(&p0, f, name, cost)
 	if need := loyaltySetupCounters(f, f.Abilities[idx], zone); need > 0 {
 		p0 = oraclegen.WithCounters(p0, name, "LOYALTY", int32(need))
@@ -178,7 +179,7 @@ func activateWithFixture(reg *cards.Registry, f *cards.Face, name string, req le
 	steps = append(steps, oraclegen.Step{
 		Op: "activate", Seat: 0, Card: "p0:" + name,
 		Mana: mana, Targets: fx.Targets(), AbilityIndex: &abilityIndex,
-		Answers: activationXAnswers(cost),
+		Answers: activationXAnswers(cost, x),
 	})
 	sc := oraclegen.Scenario{
 		Setup:        map[string]oraclegen.Seat{"p0": p0, "p1": *fx.P1()},
@@ -226,7 +227,7 @@ func activateWithFixture(reg *cards.Registry, f *cards.Face, name string, req le
 	// activation, before any choices made by the resolving ability (such as
 	// the colour of mana it produces).
 	costAnswerStart := len(it.XAnswers[activateStep])
-	addActivationCostAnswers(it.XAnswers, activateStep, cost, res.Decisions)
+	addActivationCostAnswers(it.XAnswers, activateStep, cost, name, res.Decisions, x)
 	costAnswers := append([]oraclegen.XAnswer(nil), it.XAnswers[activateStep][costAnswerStart:]...)
 	it.XAnswers[activateStep] = append(costAnswers, it.XAnswers[activateStep][:costAnswerStart]...)
 	// The hoist above puts the cost picks first; a setup permanent's as-enters
@@ -434,7 +435,8 @@ func bracketPayload(tok string) (string, bool) {
 
 // addActivationCostAnswers scripts XMage's cost selector with the same
 // deterministic fixture objects used by the engine-side payment path.
-func addActivationCostAnswers(answers [][]oraclegen.XAnswer, step int, cost string, decisions []rules.OracleDecision) {
+func addActivationCostAnswers(answers [][]oraclegen.XAnswer, step int, cost, name string, decisions []rules.OracleDecision, x ...int) {
+	xv := activationX(cost, x...)
 	if step < 0 || step >= len(answers) {
 		return
 	}
@@ -452,7 +454,14 @@ func addActivationCostAnswers(answers [][]oraclegen.XAnswer, step int, cost stri
 			}
 			picks = discardCostPlacement(tok)
 		case "ExileFromGrave", "ExileCtrlOrGrave", "CollectEvidence", "Exile":
-			picks = activationCostFixturesX(tok, activationX(cost))
+			picks = activationCostFixturesX(tok, xv)
+			if len(picks) == 0 {
+				if n, ok := namedSelfCount(tok, name, xv); ok {
+					for i := 0; i < n; i++ {
+						picks = append(picks, name)
+					}
+				}
+			}
 		case "Sac":
 			// The engine's observed pick is authoritative. A broad filter can
 			// include the ability's source, so a catalogue fixture is not
@@ -475,7 +484,7 @@ func addActivationCostAnswers(answers [][]oraclegen.XAnswer, step int, cost stri
 			// A self-sacrifice is usually a singleton with no ask. For cases
 			// with no observed sacrifice decision, use the deterministic fixture.
 			if !observed {
-				if cards, ok := sacFilterFixtures(tok); ok {
+				if cards, ok := sacFilterFixtures(tok, xv); ok {
 					picks = cards
 				} else if card, ok := sacAttachedFixture(tok); ok {
 					picks = []string{card}
@@ -546,7 +555,8 @@ func isColourName(v string) bool {
 // non-mana cost tokens. These are not choices: the shared runner makes the
 // deterministic legal selection, and XAnswersForScenario records that same
 // choice for XMage.
-func addActivationCostFixtures(p0 *oraclegen.Seat, cost string) {
+func addActivationCostFixtures(p0 *oraclegen.Seat, name, cost string, x ...int) {
+	xv := activationX(cost, x...)
 	for _, tok := range costTokens(cost) {
 		head := tok
 		if i := strings.IndexByte(tok, '<'); i >= 0 {
@@ -561,11 +571,20 @@ func addActivationCostFixtures(p0 *oraclegen.Seat, cost string) {
 				p0.Hand = appendFixtureUnique(p0.Hand, name)
 			}
 		case "ExileFromGrave", "ExileCtrlOrGrave", "CollectEvidence":
-			for _, name := range activationCostFixturesX(tok, activationX(cost)) {
-				p0.Graveyard = appendFixtureUnique(p0.Graveyard, name)
+			if n, ok := namedSelfCount(tok, name, xv); ok {
+				// The filter names the source itself (Say Its Name): the
+				// payment's fodder is n copies of the card, which appendFixtureUnique
+				// would collapse to one.
+				for i := 0; i < n; i++ {
+					p0.Graveyard = append(p0.Graveyard, name)
+				}
+				continue
+			}
+			for _, fixture := range activationCostFixturesX(tok, xv) {
+				p0.Graveyard = appendFixtureUnique(p0.Graveyard, fixture)
 			}
 		case "Exile":
-			for _, name := range activationCostFixturesX(tok, activationX(cost)) {
+			for _, name := range activationCostFixturesX(tok, xv) {
 				p0.Battlefield = appendFixtureUnique(p0.Battlefield, name)
 			}
 		case "Sac":
@@ -575,7 +594,7 @@ func addActivationCostFixtures(p0 *oraclegen.Seat, cost string) {
 			// sacAttachSteps in the prelude.
 			if card, ok := sacAttachedFixture(tok); ok {
 				p0.Battlefield = appendFixtureUnique(p0.Battlefield, card)
-			} else if cards, ok := sacFilterFixtures(tok); ok {
+			} else if cards, ok := sacFilterFixtures(tok, xv); ok {
 				for _, card := range cards {
 					p0.Battlefield = appendFixtureUnique(p0.Battlefield, card)
 				}
@@ -599,6 +618,16 @@ func loyaltyCounter(tok string) bool {
 	}
 	_, err := strconv.Atoi(fields[0])
 	return err == nil
+}
+
+// saXMin is the ability's XMin<N> floor, the lowest legal announced X (a Sac<X/>
+// or ExileFromGrave<X/> count pays it), 0 when the ability names none.
+func saXMin(sa *cards.SA) int {
+	n, err := strconv.Atoi(strings.TrimSpace(sa.ParamStr(cards.PKXMin)))
+	if err != nil || n < 1 {
+		return 0
+	}
+	return n
 }
 
 // costHead names an offending token for a skip reason, folding a bracketed

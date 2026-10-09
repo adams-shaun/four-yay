@@ -359,6 +359,6 @@ func scriptCauseActivationCost(xa [][]oraclegen.XAnswer, c triggerCause, steps [
 	if len(xa) == 0 {
 		xa = make([][]oraclegen.XAnswer, len(steps))
 	}
-	addActivationCostAnswers(xa, activateStepIndex(steps), c.activateCost, decisions)
+	addActivationCostAnswers(xa, activateStepIndex(steps), c.activateCost, "", decisions, activationX(c.activateCost))
 	return xa
 }

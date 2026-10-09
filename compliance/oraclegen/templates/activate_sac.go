@@ -66,7 +66,7 @@ var sacTokenBases = map[string]bool{"food": true, "treasure": true, "clue": true
 // self-sacrifice (handled by sacSelf), a token cost, an attached or
 // status-qualified filter, an announced count, a count above the table and
 // any unmodelled filter.
-func sacFilterFixtures(tok string) ([]string, bool) {
+func sacFilterFixtures(tok string, x int) ([]string, bool) {
 	payload, ok := bracketPayload(tok)
 	if !ok {
 		return nil, false
@@ -79,6 +79,12 @@ func sacFilterFixtures(tok string) ([]string, bool) {
 		return nil, false
 	}
 	n, err := strconv.Atoi(strings.TrimSpace(parts[0]))
+	if parts[0] == "X" {
+		// An announced Sac count (Radiant Lotus's Sac<X/Artifact> with its
+		// XMin$ 1) is paid with x artifacts; an X the cost does not announce
+		// (x == 0) stays the announced-count gap.
+		n, err = x, nil
+	}
 	if err != nil || n < 1 {
 		return nil, false
 	}
@@ -95,7 +101,7 @@ func sacFilterFixtures(tok string) ([]string, bool) {
 
 // sacFilterFixture is sacFilterFixtures for a single-permanent cost.
 func sacFilterFixture(tok string) (string, bool) {
-	cards, ok := sacFilterFixtures(tok)
+	cards, ok := sacFilterFixtures(tok, 0)
 	if !ok || len(cards) != 1 {
 		return "", false
 	}
@@ -187,14 +193,14 @@ func sacAttachSteps(name, cost, zone string) []oraclegen.Step {
 // sacFixtureSupported reports whether a Sac token is cellable (self, a
 // fixture the table names, an attached Aura/Equipment, or a token a maker
 // prelude produces). It is activationCost's admission test.
-func sacFixtureSupported(tok string) bool {
+func sacFixtureSupported(tok string, x int) bool {
 	if sacSelf(tok) || tokenCostSupported(tok) {
 		return true
 	}
 	if _, ok := sacAttachedFixture(tok); ok {
 		return true
 	}
-	_, ok := sacFilterFixtures(tok)
+	_, ok := sacFilterFixtures(tok, x)
 	return ok
 }
 

@@ -72,7 +72,7 @@ func eventTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *card
 		if !okp {
 			return nil, "class-level-gained xmage text ambiguous", true
 		}
-		pool, gap := activationCostIn(f.Abilities[idx].ParamStr(cards.PKCost), "battlefield")
+		pool, gap := activationCostIn(f.Abilities[idx].ParamStr(cards.PKCost), "battlefield", "")
 		if gap != "" {
 			return nil, "class-level-gained cost gap: " + gap, true
 		}

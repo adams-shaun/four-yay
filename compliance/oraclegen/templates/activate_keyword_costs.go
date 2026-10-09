@@ -24,17 +24,24 @@ var forageFixtures = []string{"Grizzly Bears", "Wastes", "Sol Ring"}
 
 // activationX is the X every X-bearing activation cost is announced with: the
 // XMin<N> floor when the cost has one, else 1 for the costs whose X also
-// prices a life or waterbend payment (PayLife<X>, Waterbend<X>). It is 0 for a
-// plain X cost, which keeps PoolFor's legacy X.
-func activationX(cost string) int {
+// prices a life or waterbend payment (PayLife<X>, Waterbend<X>) or whose X
+// counts the payment itself (ExileFromGrave<X/Spec>, which the engine poses
+// the announcement for and a zero X would pay while exiling nothing). It is 0
+// for a plain X cost, which keeps PoolFor's legacy X.
+func activationX(cost string, xMin ...int) int {
 	toks := costTokens(cost)
+	for _, n := range xMin {
+		if n > 0 {
+			return n
+		}
+	}
 	for _, tok := range toks {
 		if n, ok := xMinFloor(tok); ok {
 			return n
 		}
 	}
 	for _, tok := range toks {
-		if tok == "PayLife<X>" || tok == "Waterbend<X>" {
+		if tok == "PayLife<X>" || tok == "Waterbend<X>" || strings.HasPrefix(tok, "ExileFromGrave<X/") {
 			return 1
 		}
 	}
@@ -129,12 +136,15 @@ func keywordCostFixtures(p0 *oraclegen.Seat, cost string) {
 }
 
 // announcesX reports whether the engine asks the activator to announce X for
-// this cost: a bare X mana symbol, PayLife<X> or Waterbend<X>. An XMin<N> floor
+// this cost: a bare X mana symbol, PayLife<X>, Waterbend<X>, and the
+// announced payment counts Sac<X/Spec> and ExileFromGrave<X/Spec> (the engine
+// poses the announcement; the count is paid, not read). An XMin<N> floor
 // whose X only counts exiled cards (Craft's ExileCtrlOrGrave<X/...>) is read
 // from the cost, never asked.
 func announcesX(cost string) bool {
 	for _, tok := range costTokens(cost) {
-		if tok == "X" || tok == "PayLife<X>" || tok == "Waterbend<X>" {
+		if tok == "X" || tok == "PayLife<X>" || tok == "Waterbend<X>" ||
+			strings.HasPrefix(tok, "Sac<X/") || strings.HasPrefix(tok, "ExileFromGrave<X/") {
 			return true
 		}
 	}
@@ -145,8 +155,8 @@ func announcesX(cost string) bool {
 // A Waterbend<X> part first asks which artifacts and creatures to tap (the
 // convoke-style ask precedes the X ask), so that ask is declined with an empty
 // pick: waterbend lets a player tap permanents for {1}, it never requires it.
-func activationXAnswers(cost string) []oraclegen.Answer {
-	x := activationX(cost)
+func activationXAnswers(cost string, xMin ...int) []oraclegen.Answer {
+	x := activationX(cost, xMin...)
 	if x == 0 || !announcesX(cost) {
 		return nil
 	}

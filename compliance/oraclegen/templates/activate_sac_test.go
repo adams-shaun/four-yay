@@ -109,12 +109,12 @@ func TestActivateSacFixtureAndAnswerShareTheTable(t *testing.T) {
 			t.Fatalf("sacFilterFixture(%q) = (%q, %v), want (%q, true)", tc.cost, got, ok, tc.fixture)
 		}
 		var p0 oraclegen.Seat
-		addActivationCostFixtures(&p0, tc.cost)
+		addActivationCostFixtures(&p0, "", tc.cost)
 		if len(p0.Battlefield) != 1 || p0.Battlefield[0] != tc.fixture {
 			t.Fatalf("addActivationCostFixtures(%q) battlefield = %v, want [%s]", tc.cost, p0.Battlefield, tc.fixture)
 		}
 		answers := make([][]oraclegen.XAnswer, 1)
-		addActivationCostAnswers(answers, 0, tc.cost, nil)
+		addActivationCostAnswers(answers, 0, tc.cost, "", nil)
 		matches := 0
 		for _, answer := range answers[0] {
 			if answer.Kind == "choice" && strings.EqualFold(answer.Value, tc.fixture) {
@@ -138,7 +138,7 @@ func TestActivateSacSelfAndNICKNAME(t *testing.T) {
 			t.Fatalf("sacFilterFixture(%q) returned a fixture for a self-sacrifice", cost)
 		}
 		var p0 oraclegen.Seat
-		addActivationCostFixtures(&p0, cost)
+		addActivationCostFixtures(&p0, "", cost)
 		if len(p0.Battlefield) != 0 {
 			t.Fatalf("addActivationCostFixtures(%q) added %v for a self-sacrifice", cost, p0.Battlefield)
 		}

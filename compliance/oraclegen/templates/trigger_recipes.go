@@ -273,7 +273,7 @@ func attackActivationCause(reg *cards.Registry, f *cards.Face, name string, t *c
 	}
 	sa := f.Abilities[abilityIndex]
 	cost := sa.ParamStr(cards.PKCost)
-	mana, gap := activationCostIn(cost, "battlefield")
+	mana, gap := activationCostIn(cost, "battlefield", "")
 	if gap != "" {
 		return triggerCause{}, false
 	}
@@ -288,7 +288,7 @@ func attackActivationCause(reg *cards.Registry, f *cards.Face, name string, t *c
 	idx := abilityIndex
 	activate := oraclegen.Step{Op: "activate", Seat: 0, Card: "p0:" + name, Mana: mana, AbilityIndex: &idx, Answers: activationXAnswers(cost)}
 	setup := oraclegen.Seat{}
-	addActivationCostFixtures(&setup, cost)
+	addActivationCostFixtures(&setup, name, cost, activationX(cost))
 	battlefield := append([]string(nil), setup.Battlefield...)
 	attack := oraclegen.Step{Op: "attack", Seat: 0, Defender: "p1", Attackers: []string{"p0:" + name}}
 	return triggerCause{battlefield: battlefield, steps: []oraclegen.Step{activate, {Op: "resolve"}, attack}, xability: []string{prefix}, activateCost: cost}, true
