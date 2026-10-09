@@ -11,22 +11,30 @@ import (
 // damageRecipeCases is one real card per damage-trigger recipe shape: a bearer
 // (Equipment/Aura) source's combat damage, the card's own combat damage, a
 // keyword-qualified source creature, a creature dealt noncombat damage, the
-// creature an Aura enchants dealt noncombat damage, and the card itself dealt
-// noncombat damage. probe is the Shock cast the cause names for a Shock cause,
-// or "" for an attack cause.
+// creature an Aura enchants dealt noncombat damage, the card itself dealt
+// noncombat damage, the card's combat damage to a blocking creature it names,
+// a creature's combat damage to the card's controller, and a face-down
+// creature's combat damage. probe is the Shock cast the cause names for a
+// Shock cause, or "" for an attack cause.
 var damageRecipeCases = []struct {
 	name, key, shock string
 	attack           bool
+	block            bool
+	seat1Attack      bool
+	morphCast        bool
 }{
-	{"Lost Jitte", "trigger#0.0", "", true},
-	{"Sword of Wealth and Power", "trigger#0.0", "", true},
-	{"Thieving Otter", "trigger#0.0", "", true},
-	{"Fynn, the Fangbearer", "trigger#0.0", "", true},
-	{"Elegy Acolyte", "trigger#0.0", "", true},
-	{"Cracked Skull", "trigger#0.1", "Shock", false},
-	{"Expedited Inheritance", "trigger#0.0", "Shock", false},
-	{"Taii Wakeen, Perfect Shot", "trigger#0.0", "Shock", false},
-	{"Grievous Wound", "trigger#0.0", "Shock", false},
+	{"Lost Jitte", "trigger#0.0", "", true, false, false, false},
+	{"Sword of Wealth and Power", "trigger#0.0", "", true, false, false, false},
+	{"Thieving Otter", "trigger#0.0", "", true, false, false, false},
+	{"Fynn, the Fangbearer", "trigger#0.0", "", true, false, false, false},
+	{"Elegy Acolyte", "trigger#0.0", "", true, false, false, false},
+	{"Cracked Skull", "trigger#0.1", "Shock", false, false, false, false},
+	{"Expedited Inheritance", "trigger#0.0", "Shock", false, false, false, false},
+	{"Taii Wakeen, Perfect Shot", "trigger#0.0", "Shock", false, false, false, false},
+	{"Grievous Wound", "trigger#0.0", "Shock", false, false, false, false},
+	{"Spider-Slayer, Hatred Honed", "trigger#0.0", "", true, true, false, false},
+	{"Contested Game Ball", "trigger#0.0", "", true, false, true, false},
+	{"Yarus, Roar of the Old Gods", "trigger#0.0", "", true, false, false, true},
 }
 
 // TestDamageTriggerRecipesFire serves one real card per damage-trigger recipe
@@ -43,10 +51,33 @@ func TestDamageTriggerRecipesFire(t *testing.T) {
 			if !inZone(p0.Battlefield, tc.name) && !inZone(p0.Hand, tc.name) && !inZone(p0.Graveyard, tc.name) {
 				t.Fatalf("precondition: trigger source %q is in no p0 zone: %+v", tc.name, p0)
 			}
+			if tc.block {
+				// The blocking victim is the damaged creature the trigger names;
+				// it must be on p1's side for the block pair to reach it.
+				if len(it.Scenario.Setup["p1"].Battlefield) == 0 {
+					t.Fatalf("precondition: no blocker on p1's battlefield: %+v", it.Scenario.Setup["p1"])
+				}
+			}
+			if tc.seat1Attack && len(it.Scenario.Setup["p1"].Battlefield) == 0 {
+				t.Fatalf("precondition: no attacker on p1's battlefield: %+v", it.Scenario.Setup["p1"])
+			}
+			if tc.morphCast && len(p0.Hand) == 0 {
+				t.Fatalf("precondition: no face-down cast candidate in p0's hand: %+v", p0)
+			}
 			attack, shock := false, false
+			blockStep, seat1, morphed := false, false, false
 			for _, st := range it.Scenario.Steps {
 				if st.Op == "attack" && len(st.Attackers) > 0 {
 					attack = true
+					if st.Seat == 1 && st.Defender == "p0" {
+						seat1 = true
+					}
+				}
+				if st.Op == "block" && len(st.Blocks) > 0 {
+					blockStep = true
+				}
+				if st.Op == "cast" && st.CastMode != "" {
+					morphed = true
 				}
 				if tc.shock != "" && st.Op == "cast" && strings.HasSuffix(st.Card, ":"+tc.shock) {
 					shock = true
@@ -54,6 +85,15 @@ func TestDamageTriggerRecipesFire(t *testing.T) {
 			}
 			if tc.attack && !attack {
 				t.Fatalf("no attack step in the cause: %+v", it.Scenario.Steps)
+			}
+			if tc.block && !blockStep {
+				t.Fatalf("no block step in the cause: %+v", it.Scenario.Steps)
+			}
+			if tc.seat1Attack && !seat1 {
+				t.Fatalf("no p1-attacks-p0 attack step in the cause: %+v", it.Scenario.Steps)
+			}
+			if tc.morphCast && !morphed {
+				t.Fatalf("no face-down cast step in the cause: %+v", it.Scenario.Steps)
 			}
 			if tc.shock != "" && !shock {
 				t.Fatalf("no %s cast step in the cause: %+v", tc.shock, it.Scenario.Steps)
