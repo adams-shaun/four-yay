@@ -41,13 +41,19 @@ func (e *Engine) attackerBlockedCandidates(t cards.Trigger, source state.ObjID, 
 
 // attackerBlockedByPairCandidates lists the (attacker, blocker) pairs one
 // Forge Mode$ AttackerBlockedByCreature trigger fires for (kw:Flanking's
-// expansion, CR 702.25a: "whenever this creature becomes blocked by a
-// creature without flanking"). Each declared pair whose ATTACKER is the
-// trigger's own source, matches ValidCard$, and whose blocker matches
-// ValidBlocker$ yields one instance; a blocker WITH flanking matches nothing,
-// so it debuffs nobody. ValidCard$ Card.Self works because the trigger's
-// source IS the flanking attacker. The sibling "blocks" half of Forge's mode
-// names the BLOCKER as its source and never reaches here (see the loop).
+// expansion, CR 702.25a, and the "blocks or becomes blocked" pair family).
+// There is no hard role gate: the trigger's own specs select the pairs, read
+// ValidCard$ against the pair's ATTACKER and ValidBlocker$ against the pair's
+// BLOCKER with the source's spec context -- so ValidCard$ Card.Self selects
+// the pairs whose attacker is the source, ValidBlocker$ Card.Self the pairs
+// whose blocker is the source, and the attachment spellings
+// (.AttachedBy/.EnchantedBy/.EquippedBy) select the pairs whose blocker (or
+// attacker) is the source's bearer. A blocker WITH flanking matches nothing,
+// so it debuffs nobody. Which pair member is the source decides the referent
+// capture (triggerAnchoredAtBlocker, the queue branch below): the attacker's
+// trigger remembers the blocker; the blocker's remembers the attacker.
+// ValidCard$ Card.Self works for the attacker half because the trigger's
+// source IS the flanking attacker.
 func (e *Engine) attackerBlockedByPairCandidates(t cards.Trigger, source state.ObjID, ev events.Event) [][2]state.ObjID {
 	if ev.Kind != events.DeclareBlockers || len(ev.Pairs) == 0 {
 		return nil
@@ -56,18 +62,6 @@ func (e *Engine) attackerBlockedByPairCandidates(t cards.Trigger, source state.O
 	sc := e.specCtx(source, ctrl)
 	var out [][2]state.ObjID
 	for _, pr := range ev.Pairs {
-		// The trigger's SOURCE must be the pair's ATTACKER. This hook binds the
-		// blocker as the remembered object, so it is only correct for the
-		// "becomes blocked" half of Forge's mode (kw:Flanking is its only live
-		// carrier). The sibling "blocks" half spells its source as the BLOCKER
-		// (ValidCard$ Creature | ValidBlocker$ Card.Self) and names the attacker
-		// in its body (Defined$ TriggeredAttackerLKICopy); queueing it here would
-		// resolve that referent to the remembered BLOCKER -- the source itself --
-		// and make the creature damage/lose life to itself. That half stays inert
-		// (role-correct referents need a second remembered slot, a separate task).
-		if pr[0] != source {
-			continue
-		}
 		if v := t.ParamStr(cards.PKValidCard); v != "" {
 			asc := sc
 			asc.ExtraKeywords, asc.ExtraKeywordsOwner = e.Derived(pr[0]).Keywords, pr[0]
@@ -92,6 +86,36 @@ func (e *Engine) attackerBlockedByPairCandidates(t cards.Trigger, source state.O
 		out = append(out, pr)
 	}
 	return out
+}
+
+// specHasSourceAnchor reports whether a Valid spec names the trigger's own
+// source side: Card.Self, or an attachment predicate (the source's bearer).
+// A spec without one never anchors the source to a pair.
+func specHasSourceAnchor(spec string) bool {
+	if spec == "" {
+		return false
+	}
+	for _, part := range strings.FieldsFunc(spec, func(r rune) bool { return r == ',' || r == '&' }) {
+		if strings.Contains(part, "Card.Self") || strings.Contains(part, ".AttachedBy") ||
+			strings.Contains(part, ".EnchantedBy") || strings.Contains(part, ".EquippedBy") {
+			return true
+		}
+	}
+	return false
+}
+
+// triggerAnchoredAtBlocker reports which pair member a Mode$
+// AttackerBlockedByCreature trigger's source anchors to: true when the
+// source-side anchor (Card.Self or an attachment predicate) sits in
+// ValidBlocker$ and not in ValidCard$ ("Whenever CARDNAME blocks...", 31
+// corpus lines), false when it sits in ValidCard$ ("...becomes blocked",
+// the flanking shape) or nowhere (the default). The queue branch uses it to
+// pick the role-correct referent capture.
+func triggerAnchoredAtBlocker(t cards.Trigger) bool {
+	if specHasSourceAnchor(t.ParamStr(cards.PKValidCard)) {
+		return false
+	}
+	return specHasSourceAnchor(t.ParamStr(cards.PKValidBlocker))
 }
 
 // flankingPumpSA is kw:Flanking's resolution body (CR 702.25a): the blocked
@@ -312,14 +336,46 @@ func (e *Engine) queueAttackerBlockedTrigger(t cards.Trigger, source state.ObjID
 		if isFlankingMarker(t) {
 			instances = e.flankingInstances(source)
 		}
+		// Which pair member the trigger's source anchors to decides the
+		// referent capture. The attacker half ("...becomes blocked", the
+		// flanking shape) remembers the BLOCKER: TriggeredBlockerLKICopy names
+		// it and TriggeredAttackerLKICopy (its source) falls back to the
+		// Remembered absence through the source itself. The blocker half
+		// ("Whenever CARDNAME blocks...", ValidBlocker$ Card.Self or an
+		// attachment spelling; 31 corpus lines) remembers the ATTACKER, so
+		// TriggeredAttackerLKICopy names the creature it blocked and
+		// TriggeredBlockerLKICopy resolves through the captured TriggerBlocker
+		// role -- the same capture checkBlocksTriggers (Mode$ Blocks) uses.
+		blockerRole := triggerAnchoredAtBlocker(t)
 		for _, pr := range e.attackerBlockedByPairCandidates(t, source, ev) {
-			bid := pr[1]
+			aid, bid := pr[0], pr[1]
 			for i := 0; i < instances; i++ {
 				if e.triggerFireCount[key] >= maxTriggerFires {
 					break
 				}
 				reserve()
 				e.triggerFireCount[key]++
+				ctx := effects.CtxInit{
+					Remembered: []state.Target{{Obj: bid}},
+					Captured:   []state.Target{{Obj: bid}},
+					TriggerContext: effects.TriggerContext{
+						TriggerCard:   bid,
+						TriggerSource: aid,
+					},
+				}
+				if blockerRole {
+					ctx = effects.CtxInit{
+						Remembered: []state.Target{{Obj: aid}},
+						Captured:   []state.Target{{Obj: aid}},
+						TriggerContext: effects.TriggerContext{
+							TriggerCard:     aid,
+							TriggerSource:   aid,
+							TriggerBlocker:  bid,
+							AttackingPlayer: pt(e.controllerOf(aid)),
+							DefendingPlayer: pt(ev.Player),
+						},
+					}
+				}
 				e.pendingTriggers = append(e.pendingTriggers, pendingTrigger{
 					Source:     source,
 					Controller: controller,
@@ -328,14 +384,7 @@ func (e *Engine) queueAttackerBlockedTrigger(t cards.Trigger, source state.ObjID
 					Granted:    granted,
 					Grantor:    grantor,
 					Execute:    t.ParamStr(cards.PKExecute),
-					Ctx: effects.NewCtx(source, controller, effects.CtxInit{
-						Remembered: []state.Target{{Obj: bid}},
-						Captured:   []state.Target{{Obj: bid}},
-						TriggerContext: effects.TriggerContext{
-							TriggerCard:   bid,
-							TriggerSource: pr[0],
-						},
-					}),
+					Ctx:        effects.NewCtx(source, controller, ctx),
 				})
 			}
 		}
