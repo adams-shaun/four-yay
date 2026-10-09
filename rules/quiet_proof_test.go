@@ -339,6 +339,125 @@ func TestQuietProofFixtures(t *testing.T) {
 			},
 			blocker: qbBoardMayPlay,
 		},
+		{
+			// Kicker is an optional ADDITIONAL cost (the offer path adds it to
+			// the printed cost, cost.Plus), so a kicker card whose printed
+			// cost is not affordable is quiet: no kicker variant can be
+			// cheaper than the plain cast. A classifier that marks Kicker
+			// castOpen blocks this window and the row fails.
+			name: "kicker card unaffordable at the printed cost is quiet (Aether Figment)",
+			build: func(t *testing.T) (*Engine, state.PlayerID) {
+				c := lookup(t, reg, "Aether Figment")
+				e := quietBaseLandWith(t, reg, "Island", []*cards.Card{c})
+				addHand(t, e, 0, c)
+				return e, 0
+			},
+			blocker: qbNone,
+		},
+		{
+			// Counter-row: the same kicker card with two Islands — the plain
+			// {1}{U} cast is affordable and blocks through the printed floor,
+			// so the row above is quiet because of affordability, not because
+			// the fixture's board cannot offer anything at all.
+			name: "kicker card affordable at the printed cost blocks (Aether Figment)",
+			build: func(t *testing.T) (*Engine, state.PlayerID) {
+				c := lookup(t, reg, "Aether Figment")
+				extra := lookup(t, reg, "Island")
+				e := quietBaseLandWith(t, reg, "Island", []*cards.Card{c, extra})
+				addZone(t, e, 0, extra, state.ZBattlefield)
+				addHand(t, e, 0, c)
+				return e, 0
+			},
+			blocker: qbHandSpell,
+		},
+		{
+			// §2.5's self-ReduceCost pip floor: Ghalta's only cost static is a
+			// self-scoped generic-only reduction (ValidCard$ Card.Self, no
+			// Color$), so the face is priced at its coloured pip count ({G}{G}
+			// = 2), not castOpen. One Plains cannot pay two pips, so the
+			// window is quiet; a classifier that leaves a self ReduceCost
+			// castOpen blocks it and the row fails.
+			name: "self generic-only ReduceCost is priced at its pip floor (Ghalta)",
+			build: func(t *testing.T) (*Engine, state.PlayerID) {
+				c := lookup(t, reg, "Ghalta, Primal Hunger")
+				e := quietBaseWith(t, reg, []*cards.Card{c})
+				addHand(t, e, 0, c)
+				return e, 0
+			},
+			blocker: qbNone,
+		},
+		{
+			// Counter-row: the pip floor still governs affordability — with
+			// two untapped Forests the two pips are covered and the hand
+			// spell blocks.
+			name: "self ReduceCost floor blocks once the pips are affordable (Ghalta)",
+			build: func(t *testing.T) (*Engine, state.PlayerID) {
+				c := lookup(t, reg, "Ghalta, Primal Hunger")
+				extra := lookup(t, reg, "Forest")
+				e := quietBaseLandWith(t, reg, "Forest", []*cards.Card{c, extra})
+				addZone(t, e, 0, extra, state.ZBattlefield)
+				addHand(t, e, 0, c)
+				return e, 0
+			},
+			blocker: qbHandSpell,
+		},
+		{
+			// Fail-closed side of the refinement: Knight of the Stampede's
+			// ReduceCost is scoped to DINOSAUR spells (ValidCard$ Dinosaur),
+			// not the card itself, so while it sits in hand other hand cards
+			// can become cheaper and the face stays castOpen. A refinement
+			// that mis-scoped it as self would still block here ({3}{G} has
+			// one pip, one Plains covers it), but one that DROPPED the
+			// castOpen for a non-self static would price the face at its
+			// {3}{G} printed floor, call this window quiet and fail the row.
+			name: "non-self ReduceCost static stays castOpen (Knight of the Stampede)",
+			build: func(t *testing.T) (*Engine, state.PlayerID) {
+				c := lookup(t, reg, "Knight of the Stampede")
+				e := quietBaseWith(t, reg, []*cards.Card{c})
+				addHand(t, e, 0, c)
+				return e, 0
+			},
+			blocker: qbHandSpell,
+		},
+		{
+			// Fail-closed side, colour reduction: Khalni Hydra's self
+			// ReduceCost names Color$ G, so it takes green pips and the face
+			// cannot be priced at a pip floor. With one Plains the eight pips
+			// are unaffordable, so a classifier that wrongly applied the
+			// floor would call this quiet and fail the row.
+			name: "self ReduceCost with Color$ stays castOpen (Khalni Hydra)",
+			build: func(t *testing.T) (*Engine, state.PlayerID) {
+				c := lookup(t, reg, "Khalni Hydra")
+				e := quietBaseWith(t, reg, []*cards.Card{c})
+				addHand(t, e, 0, c)
+				return e, 0
+			},
+			blocker: qbHandSpell,
+		},
+		{
+			// The walk's ability loop skips a stack object with no face (an
+			// activated-ability object minted by AbilityPush carries no card),
+			// so the proof must skip it too instead of failing closed on it.
+			// Llanowar Elves is the source: its only ability is a mana
+			// ability, which the ability summary excludes, so the board is
+			// otherwise quiet and the row fails if the proof blocks on the
+			// face-less stack object.
+			name: "ability object on the stack is quiet (the walk skips it)",
+			build: func(t *testing.T) (*Engine, state.PlayerID) {
+				c := lookup(t, reg, "Llanowar Elves")
+				e := quietBaseWith(t, reg, []*cards.Card{c})
+				id := addZone(t, e, 0, c, state.ZBattlefield)
+				e.emit(events.Event{Kind: events.AbilityPush, Obj: id, Player: 0, Amount: 0})
+				if len(e.G.Stack) != 1 {
+					t.Fatal("stack-object precondition: no ability object on the stack")
+				}
+				if o := e.G.Obj(e.G.Stack[0]); o == nil || o.Card != nil || o.Face() != nil {
+					t.Fatalf("stack-object precondition: object is not a face-less ability object: %+v", o)
+				}
+				return e, 0
+			},
+			blocker: qbNone,
+		},
 	}
 	for _, row := range rows {
 		t.Run(row.name, func(t *testing.T) {
@@ -465,7 +584,11 @@ func optKinds(opts []decision.Option) []string {
 // offered no non-mana option. It is the soundness gate for the blocker table.
 //
 // It is sharded by card index so no shard exceeds the 2 GB / 1 min budget;
-// run every shard with -run TestQuietProofCorpusSweep.
+// run every shard with -run TestQuietProofCorpusSweep, or one shard with
+// -run 'TestQuietProofCorpusSweep$/^3-of-8$'. The shards run in parallel
+// (t.Parallel): the whole sweep is ~2x one shard's wall under the 2-vCPU cap
+// instead of 8x, so the parent test itself stays inside the per-test budget
+// that the serial run exceeded on a loaded box (74 s, round t3).
 func TestQuietProofCorpusSweep(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	n := reg.Len()
@@ -475,6 +598,7 @@ func TestQuietProofCorpusSweep(t *testing.T) {
 	const shards = 8
 	for shard := 0; shard < shards; shard++ {
 		t.Run(shardName(shard), func(t *testing.T) {
+			t.Parallel()
 			sweepShard(t, reg, n, shard, shards)
 		})
 	}

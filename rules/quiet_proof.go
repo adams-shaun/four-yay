@@ -298,6 +298,12 @@ func (e *Engine) quietManaCeiling(p state.PlayerID) (int32, bool, bool) {
 		if o == nil || o.Controller != p || o.Tapped || o.PhasedOut || o.FaceDown {
 			continue
 		}
+		if o.Face() == nil {
+			// A face-less battlefield object (an ability object; tokens on
+			// the battlefield always carry a face) is skipped by the mana
+			// section too, so it contributes no ceiling. Not unbounded.
+			continue
+		}
 		ff := e.walkFaceFactsOf(o.Face())
 		if ff == nil {
 			// A battlefield object with no facts could be a mana source; the
@@ -547,8 +553,16 @@ func (e *Engine) quietBattlefieldBlocker(p state.PlayerID, ceiling int32, unboun
 			}
 			for _, id := range e.G.Zone(z, q) {
 				o := e.G.Obj(id)
-				if o == nil || o.Card == nil {
+				if o == nil {
 					return qbBadObject
+				}
+				if o.Face() == nil {
+					// The walk's ability loop skips an object with no face
+					// (an ability object waiting on the stack, a ceased
+					// token): it offers nothing for it, so there is nothing
+					// to block (rules/legal_walk_battlefield.go's `f :=
+					// o.Face(); if f == nil { continue }`).
+					continue
 				}
 				if z == state.ZBattlefield && !existsOnBattlefieldQuiet(o) {
 					// A phased-out permanent is treated as though it does not
@@ -582,7 +596,8 @@ func (e *Engine) quietBattlefieldBlocker(p state.PlayerID, ceiling int32, unboun
 					return qbBattlefieldStack
 				}
 				if zidx >= 0 {
-					if abQuietBlocked(ff.quiet.abQuiet[zidx], o, ceiling, unbounded, sorceryOpen) {
+					aq := ff.quiet.abQuiet[zidx]
+					if abQuietBlocked(aq, o, ceiling, unbounded, sorceryOpen) {
 						return qbBattlefieldAbility
 					}
 				}
@@ -602,7 +617,9 @@ func (e *Engine) quietBattlefieldFaceBlocker(p state.PlayerID, sorceryOpen bool)
 	for _, id := range e.G.Zone(state.ZBattlefield, p) {
 		o := e.G.Obj(id)
 		if o == nil || o.Card == nil {
-			return qbBadObject
+			// The walk's face sections skip an object with no card (the
+			// specialize loop's own gate); there is nothing to block.
+			continue
 		}
 		if !existsOnBattlefieldQuiet(o) {
 			continue

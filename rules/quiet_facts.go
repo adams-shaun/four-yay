@@ -107,12 +107,47 @@ var quietExileHeadNames = [...]string{"Plot", "Suspend"}
 // of the face, like every other walkFaceFacts member. hasAltCosts reports
 // whether the face carries a compiled alternative-cost keyword entry (the
 // walkFaceFacts.altCosts family), which is castOpen for the same reason.
+// castOpenReason names which castOpen source fired. coSelfReduceFloor marks
+// the §2.5 case the pip floor prices instead of blocking: every cost static
+// the face prints is a self-scoped generic-only ReduceCost, so the cast's
+// true mana floor is the face's non-reducible pip count and castOpen is not
+// needed.
+type castOpenReason uint8
+
+const (
+	coNone castOpenReason = iota
+	coAltCosts
+	coKeyword
+	coStatic
+	coSelfReduceFloor
+	coMayPlayStatic
+	coPhyrexian
+	coUnknown
+	coNoManaCost
+)
+
 func computeQuietFaceFacts(f *cards.Face, hasAltCosts bool) quietFaceFacts {
 	var q quietFaceFacts
 	q.isLand = f.IsLand()
 	q.castFloor = f.Cmc()
 	q.instantSpeed = f.IsInstant() || f.HasKeyword("Flash") || mayFlashSacFace(f) || faceHasCastWithFlash(f)
-	q.castOpen = hasAltCosts || quietCastOpen(f)
+	if hasAltCosts {
+		q.castOpen = true
+	} else if r, open := quietCastOpen(f); open {
+		q.castOpen = true
+		if r == coStatic {
+			// §2.5's self-ReduceCost refinement: a face whose only cost
+			// statics are self-scoped generic-only reductions is priced at
+			// its pip floor, not blocked. The floor is a true lower bound of
+			// the real mana cost (a generic-only reduction can never reduce
+			// a coloured or hybrid pip), so claiming quiet below it stays
+			// sound; when the refinement does not hold, r stays coStatic and
+			// the face stays castOpen.
+			if floor, ok := quietSelfReducePipFloor(f); ok {
+				q.castOpen, q.castFloor = false, floor
+			}
+		}
+	}
 	if len(f.Keywords) > 0 {
 		for _, h := range quietGraveHeads {
 			if f.KeywordLinesHaveHead(h.S, h.ID) {
@@ -142,30 +177,34 @@ func computeQuietFaceFacts(f *cards.Face, hasAltCosts bool) quietFaceFacts {
 
 // quietCastOpen reports the §2.5 castOpen conditions: any shape whose real
 // cost could be lower than the printed mana value, or that could replace the
-// mana cost. When in doubt it answers true.
-func quietCastOpen(f *cards.Face) bool {
+// mana cost. When in doubt it answers true. It also returns which source
+// fired, so computeQuietFaceFacts can apply the self-ReduceCost pip floor to
+// the coStatic case.
+func quietCastOpen(f *cards.Face) (castOpenReason, bool) {
 	if f == nil {
-		return true
+		return coUnknown, true
 	}
 	if isNoManaCost(f.ManaCost) {
-		return true
+		return coNoManaCost, true
 	}
 	c := ParseCost(f.ManaCost)
 	if len(c.Phyrexian) > 0 || len(c.HybridPhyrexian) > 0 {
-		return true
+		return coPhyrexian, true
 	}
 	if len(c.Unknown) > 0 || len(c.Withheld) > 0 {
-		return true
+		return coUnknown, true
 	}
-	for _, h := range quietCastOpenHeads {
-		if f.HasKeyword(h) {
-			return true
+	if len(f.Keywords) > 0 {
+		for _, h := range quietCastOpenHeads {
+			if f.HasKeyword(h) {
+				return coKeyword, true
+			}
 		}
 	}
 	for i := range f.Statics {
 		switch f.Statics[i].Mode {
 		case "AlternativeCost", "SetCost", "ReduceCost":
-			return true
+			return coStatic, true
 		}
 		// A self-carried may-play static (Omniscience, Conspiracy Unraveler)
 		// is the second source alternativeCosts reads while the card is still
@@ -173,11 +212,61 @@ func quietCastOpen(f *cards.Face) bool {
 		// Any of the may-play cost keys is enough; when in doubt, castOpen.
 		for _, k := range quietMayPlayCostKeys {
 			if _, ok := f.Statics[i].Params[k]; ok {
-				return true
+				return coMayPlayStatic, true
 			}
 		}
 	}
-	return false
+	return coNone, false
+}
+
+// quietSelfReducePipFloor prices the §2.5 self-ReduceCost refinement: when
+// EVERY cost static the face prints is a ReduceCost scoped to the face itself
+// (ValidCard$ exactly "Card.Self" -- the same predicate costStaticSelfOnly
+// applies at pricing time) and names no Color$ (so it reduces the generic
+// part only; a colour reduction takes pips and a numeric token reduces
+// generic too, so both fail closed), the real mana cost is the printed cost
+// minus non-negative generic reductions. Its true lower bound is therefore
+// the face's NON-REDUCIBLE pip count: the coloured pips (WUBRG only -- the
+// colourless slot and Snow are generic units a reduction may eat) plus the
+// two-colour hybrid pips (payable only as one of their colours, never with
+// generic). Twobrid pips have a generic-paying face and are excluded; a
+// Phyrexian or hybrid-Phyrexian face never reaches here (castOpen). A
+// RaiseCost static only raises, so it does not lower the floor; a
+// SetCost/AlternativeCost static or any may-play cost key can replace the
+// cost with a cheaper one and fails closed.
+func quietSelfReducePipFloor(f *cards.Face) (int32, bool) {
+	if f == nil || isNoManaCost(f.ManaCost) {
+		return 0, false
+	}
+	seen := false
+	for i := range f.Statics {
+		st := &f.Statics[i]
+		switch st.Mode {
+		case "ReduceCost":
+			if validCardSpecIsSelf(st.ParamStr(cards.PKValidCard)) && strings.TrimSpace(st.ParamStr(cards.PKColor)) == "" {
+				seen = true
+				continue
+			}
+			return 0, false
+		case "SetCost", "AlternativeCost":
+			return 0, false
+		default:
+			for _, k := range quietMayPlayCostKeys {
+				if _, ok := st.Params[k]; ok {
+					return 0, false
+				}
+			}
+		}
+	}
+	if !seen {
+		return 0, false
+	}
+	c := ParseCost(f.ManaCost)
+	var pips int32
+	for i := 0; i < 5; i++ {
+		pips += c.Colored[i]
+	}
+	return pips + int32(len(c.Hybrid)), true
 }
 
 // quietMayPlayCostKeys are the may-play static parameters that can substitute
@@ -193,10 +282,18 @@ var quietMayPlayCostKeys = [...]string{"MayPlay", "MayPlayAltManaCost", "MayPlay
 // cast from another zone with its own blocker (recastKW/exileCastKW), not a
 // cheaper hand cast, and marking them castOpen wrongly blocked every hand card
 // that prints one.
+//
+// Kicker is not here either (design §2.5: "only when a kicker could reduce or
+// replace the cost"). A kicker is an OPTIONAL ADDITIONAL cost: the offer path
+// adds it to the printed cost (rules/cast_begin.go's castModeKicked branch,
+// cost.Plus(kickerCost)), so a kicker cast is never cheaper than the plain
+// cast and the printed castFloor already bounds every kicker variant. Two-part
+// and/or kickers add their parts the same way. A kicker with a non-mana part
+// still pays the printed mana, so the floor test governs it too.
 var quietCastOpenHeads = [...]string{
 	"Convoke", "Delve", "Improvise", "Affinity", "Emerge", "Evoke", "Surge",
 	"Spectacle", "Prowl", "Madness", "Ninjutsu", "Dash", "Bargain", "Offspring",
-	"Blitz", "Sneak", "Web-slinging", "Kicker",
+	"Blitz", "Sneak", "Web-slinging",
 	// Conditional flash / cost-permission riders: the face is castable on a
 	// timing or cost the plain classifier cannot price.
 	"Teamwork", "MayFlashSac", "MayFlashCost",
