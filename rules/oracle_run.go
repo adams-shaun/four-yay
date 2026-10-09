@@ -292,6 +292,13 @@ type oracleRun struct {
 	// hand-authored audit fixtures are gorge-internal (no XMage snapshot to
 	// align with) and keep the harness's own fallbacks.
 	xmageFixture bool
+	// revisitsUpkeep mirrors the scenario's shape: true when any step is a
+	// pass_to op that stops at the upkeep step. That is the trigger#0.x
+	// template's shape ([{op:pass_to,step:upkeep},...]), where the scenario
+	// later stops at the same phase the setup drive already walked; the
+	// activate/cast templates carry no such step. The setup-drive arrange
+	// fallback reads it: see the KArrange arm in (*oracleRun).answer.
+	revisitsUpkeep bool
 	// spare, when non-nil, is recycled engine storage build hands to the
 	// probe and the scenario's game (RunOracleScenarioJSON's pool).
 	spare *Spare
@@ -1099,7 +1106,26 @@ func (r *oracleRun) answer(d *decision.Decision, why string) error {
 		// with and its expectations are written for the choose-all fallback
 		// (Ransom Note's cloak audit relies on the setup ETB surveil keeping
 		// the seeded top card on top), so it keeps today's behaviour.
-		if r.xmageFixture && why == "setup" && d.Kind == decision.KArrange &&
+		//
+		// The empty-set answer is further scoped to scenarios that do NOT
+		// later stop at the upkeep step (revisitsUpkeep). The two level-B
+		// templates that pose the setup ask disagree about XMage's unscripted
+		// direction, and only the scenario shape tells them apart: the
+		// trigger#0.x template walks turn 1's upkeep with a pass_to, so its
+		// setup drive has already resolved the same upkeep trigger XMage's
+		// driver later does, and the stored reference KEEPS the looked-at card
+		// on top at the setup checkpoint (gorge's pre-D1 choose-all agreed
+		// there); the activate/cast templates never revisit the phase, and
+		// their stored reference graveyards the setup ask (the D1 rows). With
+		// one rule the empty-set answer is one checkpoint early for the
+		// trigger family -- gorge graveyards at setup while XMage graveyards
+		// only by the resolve checkpoint -- so a scenario that revisits the
+		// upkeep keeps the card on top. Census of every generated scenario in
+		// the six affected manifests (BLB, DFT, FRA, ECL, TDM, SOS) that poses
+		// the setup shape: exactly the six Phase:Surveil trigger#0.0 rows
+		// (diverge, revisitsUpkeep true) and three activate#0.0 rows (agree,
+		// false); no other item poses it, so the shape alone separates them.
+		if r.xmageFixture && why == "setup" && !r.revisitsUpkeep && d.Kind == decision.KArrange &&
 			d.ResumeKind == "arrange" && d.Min == 0 && len(d.Options) > 0 {
 			uniformGraveyard := true
 			for _, o := range d.Options {
@@ -2083,10 +2109,25 @@ func runOracleScenarioWith(reg *cards.Registry, sc oracleScenario, noSnapshot bo
 	return runOracleScenarioSpare(reg, sc, noSnapshot, nil)
 }
 
+// scenarioRevisitsUpkeep reports whether the scenario's steps stop at the
+// upkeep step -- the trigger#0.x template's shape, where the scenario walks
+// the same phase the setup drive already walked. It is the discriminator the
+// setup-drive arrange fallback reads (oracleRun.revisitsUpkeep).
+func scenarioRevisitsUpkeep(sc oracleScenario) bool {
+	for _, st := range sc.Steps {
+		if oracleOpCodes.Code(st.Op) == oracleOpPassTo {
+			if s, ok := state.ParseStep(st.Step); ok && s == state.StepUpkeep {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // runOracleScenarioSpare is runOracleScenarioWith building its engines on
 // sp's recycled storage (see oracleRun.spare).
 func runOracleScenarioSpare(reg *cards.Registry, sc oracleScenario, noSnapshot bool, sp *Spare) (fails []string, transcript []string, run *oracleRun) {
-	r := &oracleRun{reg: reg, refs: map[string]state.ObjID{}, exactRefs: map[string]bool{}, noSnapshot: noSnapshot, step: -1, spare: sp, xmageFixture: sc.xmageFixture}
+	r := &oracleRun{reg: reg, refs: map[string]state.ObjID{}, exactRefs: map[string]bool{}, noSnapshot: noSnapshot, step: -1, spare: sp, xmageFixture: sc.xmageFixture, revisitsUpkeep: scenarioRevisitsUpkeep(sc)}
 	run = r
 	defer func() {
 		if p := recover(); p != nil {
