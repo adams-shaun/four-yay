@@ -31,9 +31,15 @@ func triggerSubs(sub string) bool {
 		"trigger.dies-other", "trigger.zone-change-residue", "trigger.scry", "trigger.surveil", "trigger.noncombat-damage", "trigger.combat-damage-all",
 		"trigger.loyalty-activated", "trigger.discarded", "trigger.attacks-one-target", classLevelGainedSub,
 		"trigger.spell-cast-opponent", "trigger.spell-cast-self-cast", "trigger.spell-cast-opponent-turn", "trigger.commit-crime", "trigger.ability-activated",
+		"trigger.attacks-opponent", "trigger.attached", "trigger.untap-all", "trigger.blocks-vehicle", "trigger.excess-damage",
+		"trigger.ability-activated-opponent", "trigger.ability-triggered", "trigger.case-solved",
 		levelb.UnlockDoorSub, levelb.FullyUnlockSub, stateSelfCountersSub, levelb.CounterAddedSub,
 		levelb.TurnedFaceUpSub, levelb.TurnedFaceUpOtherSub, levelb.SacrificeSub, levelb.DamageSub,
 		levelb.ManaExpendSub, levelb.TapsForManaSub:
+		return true
+	case "trigger.forage", "trigger.give-gift", "trigger.explores", "trigger.collect-evidence",
+		"trigger.manifest-dread", "trigger.discover", "trigger.elemental-bend",
+		"trigger.becomes-plotted", "trigger.becomes-saddled":
 		return true
 	}
 	return tapCombatSub(sub)
@@ -177,6 +183,9 @@ func triggerScenario(f *cards.Face, name string, c triggerCause, req levelb.Requ
 		p0.Battlefield = appendFixtureUnique(p0.Battlefield, name)
 	}
 	p0.Hand = append(p0.Hand, c.hand...)
+	if len(c.libraryTop) > 0 {
+		p0.LibraryTop = append([]string(nil), c.libraryTop...)
+	}
 	p0.Exile = appendFixtureCounts(p0.Exile, c.exile)
 	if filler := etbDiscardFiller(f); filler != "" && !grave && !c.selfInHand && !c.castSelfX {
 		p0.Hand = append([]string{filler}, p0.Hand...)

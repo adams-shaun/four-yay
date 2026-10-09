@@ -950,9 +950,12 @@ func chooseTargets(sc Scenario, ds []rules.OracleDecision) (Scenario, map[int]bo
 	return out, castSteps
 }
 
-// xanswers turns gorge's recorded decisions into XMage's scripted answers,
-// grouped by the step that posed them.
-func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSteps map[int]bool) [][]XAnswer {
+// xanswersSetup turns gorge's recorded decisions into XMage's scripted
+// answers, grouped by the step that posed them. setup is the scenario's setup
+// (nil when the caller has none): it lets a trigger-order decision recorded
+// before step zero be retimed as setup_choice when its sources are the
+// setup-placed permanents (triggerOrderSetupPosed).
+func xanswersSetup(ds []rules.OracleDecision, steps int, modes map[string]int, castSteps map[int]bool, setup map[string]Seat) [][]XAnswer {
 	out := make([][]XAnswer, steps)
 	any := false
 	// A step whose card name is then searched for (Ancient Vendetta's "choose
@@ -977,10 +980,25 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSt
 	// answer that happens to precede the setup decision (Lifecraft Engine's
 	// crew pick) in front of the as-enters dialog. Prepended after the loop.
 	var setupAnswers []XAnswer
+	// Setup-posed trigger orders (a seeded permanent's ETB order pends while
+	// build() places it) share that pre-build queue. They queue AFTER every
+	// as-enters choice: XMage poses the placement dialogs during build() and
+	// the ordering ask only at the first priority, so a colour answer must
+	// precede a name even when the runner recorded the order first.
+	var setupTrigAnswers []XAnswer
 	for i, d := range ds {
 		if d.Step < 0 {
-			if IsSetupChoice(d) {
+			switch {
+			case IsSetupChoice(d):
 				setupAnswers = append(setupAnswers, XAnswer{d.Seat, "setup_choice", d.Picks[0]})
+				any = true
+			case triggerOrderSetupPosed(d, setup):
+				// The last pick is never consumed: XMage asks only while more
+				// than one ability is pending and pushes the last without an
+				// ask (same drop as the gameplay name form below).
+				for k := 0; k+1 < len(d.Picks); k++ {
+					setupTrigAnswers = append(setupTrigAnswers, XAnswer{d.Seat, "setup_choice", triggerOrderChoice(d, k)})
+				}
 				any = true
 			}
 			continue
@@ -1336,13 +1354,16 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSt
 		return nil
 	}
 	demoteTriggerOrderSpans(out, trigSpans)
-	if len(setupAnswers) > 0 {
+	if len(setupAnswers) > 0 || len(setupTrigAnswers) > 0 {
 		// Setup answers are read from xmage_answers[0] before build(), even
 		// when the scenario has no gameplay steps.
 		if len(out) == 0 {
 			out = append(out, nil)
 		}
-		out[0] = append(setupAnswers, out[0]...)
+		lead := make([]XAnswer, 0, len(setupAnswers)+len(setupTrigAnswers))
+		lead = append(lead, setupAnswers...)
+		lead = append(lead, setupTrigAnswers...)
+		out[0] = append(lead, out[0]...)
 	}
 	return out
 }

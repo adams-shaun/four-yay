@@ -34,6 +34,13 @@ func modeFlags(mode string) string {
 		return events.FlagsString(state.FlagMayPlay)
 	case castModeHarmonize:
 		return events.FlagsString(state.FlagHarmonize)
+	case castModePreparedCopy:
+		// The CR 722.3c prepared-copy cast (rules/legal_walk_alt.go's exile
+		// offer): the flag is the provenance the Card.prepared filter
+		// predicate reads (Codie, Ravenous Codex). A CastProvenanceFlag, so
+		// a copy of the prepared copy -- put on the stack, never cast
+		// (CR 707.10) -- does not inherit it.
+		return events.FlagsString(state.FlagPreparedCopy)
 	}
 	if castModeCodes.Code(mode) == castModeBargained {
 		// Bargain (CR 702.166, rules/optional_sacrifice.go): the election's

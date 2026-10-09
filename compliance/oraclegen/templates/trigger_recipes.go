@@ -29,6 +29,10 @@ type triggerCause struct {
 	preludeXAbility []string // XMage rule-text prefix per prelude step; nil when no prelude activates
 	castSelfX       bool     // the card is cast from hand first (an X creature that setup would leave 0/0, or a p0 upkeep/draw trigger whose fixture turn 1 would otherwise spend)
 	opponentHand    []string // probes held by p1 for opponent-cast causes
+	// libraryTop seeds p0's top-of-library cards, for a cause whose keyword
+	// action reads the revealed top card (an explore a "explores a land" /
+	// "explores a nonland" trigger narrows on).
+	libraryTop []string
 	// opponentBattlefield are p1 permanents (a blocker, an attacker, a tap
 	// target, an opponent-comparison gate) the cause needs on the other side
 	// of the table.
@@ -296,6 +300,9 @@ func baseTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards
 		if causes, why, ok := eventTriggerRecipe(reg, f, name, t, sub); ok {
 			return causes, why
 		}
+		if causes, why, ok := keywordActionRecipe(reg, f, name, t, sub); ok {
+			return causes, why
+		}
 		if causes, why, ok := castFamilyRecipe(reg, f, name, t, sub); ok {
 			return causes, why
 		}
@@ -306,6 +313,9 @@ func baseTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards
 			return causes, why
 		}
 		if causes, why, ok := stateTriggerRecipe(reg, f, name, t, sub); ok {
+			return causes, why
+		}
+		if causes, why, ok := remainderTriggerRecipe(reg, f, name, t, sub); ok {
 			return causes, why
 		}
 		return nil, "no recipe for " + sub

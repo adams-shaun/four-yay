@@ -81,7 +81,7 @@ func xanswersForScenario(res rules.OracleResult, sc Scenario, modes map[string]i
 		}
 	}
 	collapseRoomLock(ds)
-	out := xanswers(ds, len(sc.Steps), modes, castSteps)
+	out := xanswersSetup(ds, len(sc.Steps), modes, castSteps, sc.Setup)
 	// The deterministic trample assignment XMage poses as a multi-amount
 	// dialog is no decision the engine recorded, so it is synthesized from
 	// the scenario's own attack/block steps and leads the pass_to step that

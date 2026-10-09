@@ -181,11 +181,13 @@ func TestEventTriggerRecipeShapes(t *testing.T) {
 // TestEventTriggerGapsStayGaps: the opponent's own-turn trigger has no recipe
 // (Solarium Sentry's opponent cast is served now, by the cast-family recipe),
 // and Emrakul's cast trigger is settled by level A, so no level-B scenario is
-// asked for it.
+// asked for it. Gideon the Oathless's opponent-loyalty line is served now
+// (trigger.ability-activated-opponent); Way of the Mind Sculptor's
+// CountersRemovedToPay gate has no cause.
 func TestEventTriggerGapsStayGaps(t *testing.T) {
 	reg := loadGenRegistry(t)
 	for _, tc := range []struct{ name, key string }{
-		{"Gideon the Oathless", "trigger#0.1"},
+		{"Way of the Mind Sculptor", "trigger#0.1"},
 	} {
 		c, _ := reg.Lookup(tc.name)
 		found := false

@@ -69,7 +69,7 @@ func costProbeItem(reg *cards.Registry, f *cards.Face, name string, req levelb.R
 	setupBackFace(&p0, name, req)
 	sc := oraclegen.Scenario{
 		Setup:        map[string]oraclegen.Seat{"p0": p0, "p1": p1},
-		SetupAnswers: oraclegen.OpeningHandAnswers(f),
+		SetupAnswers: append(oraclegen.OpeningHandAnswers(f), p.setupAnswers...),
 	}
 	sc.Steps = append(sc.Steps, fx.CombatSteps()...)
 	sc.Steps = append(sc.Steps, fx.Prelude()...)
@@ -111,8 +111,12 @@ func costProbeItem(reg *cards.Registry, f *cards.Face, name string, req levelb.R
 	}
 	step := oraclegen.Step{Op: "cast", Seat: castSeat, Card: castRef, Mana: p.mana, Targets: targets, CastMode: p.castMode, Answers: p.answers}
 	if a := p.activate; a != nil {
-		index := a.index
-		step = oraclegen.Step{Op: "activate", Seat: 0, Card: "p0:" + p.spell, Mana: p.mana, Targets: a.targets, AbilityIndex: &index}
+		if a.label != "" {
+			step = oraclegen.Step{Op: "activate", Seat: 0, Card: "p0:" + p.spell, Mana: p.mana, Targets: a.targets, Ability: a.label}
+		} else {
+			index := a.index
+			step = oraclegen.Step{Op: "activate", Seat: 0, Card: "p0:" + p.spell, Mana: p.mana, Targets: a.targets, AbilityIndex: &index}
+		}
 	}
 	if p.opponent {
 		sc.Steps = append(sc.Steps, oraclegen.Step{Op: "pass", Seat: 0})
@@ -147,9 +151,26 @@ func costProbeItem(reg *cards.Registry, f *cards.Face, name string, req levelb.R
 		}
 	}
 	if p.activate != nil {
-		it.CR = []string{"602.2"}
+		// An IR ability activation is CR 602.2; a label-selected special
+		// action cites its own rule (a Room unlock is CR 309.5).
+		if p.activate.label == "" {
+			it.CR = []string{"602.2"}
+		} else {
+			it.CR = []string{"309.5"}
+		}
 		if len(it.XAnswers) == 0 {
 			it.XAnswers = make([][]oraclegen.XAnswer, len(it.Steps))
+		}
+		// A token ability's self-sacrifice cost poses no ask to observe (the
+		// source is the sole candidate), so XAnswersForScenario carries no
+		// pick for it; the token probe scripts XMage's own picker answer.
+		// appendTokenAnswers is a no-op when the step already holds it.
+		if len(p.tokenAnswers) > 0 {
+			for i, s := range it.Steps {
+				if s.Op == "activate" {
+					it.XAnswers[i] = appendTokenAnswers(it.XAnswers[i], 0, p.tokenAnswers...)
+				}
+			}
 		}
 	}
 	if p.activate != nil || len(p.preXAbility) > 0 {

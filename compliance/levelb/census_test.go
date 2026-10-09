@@ -163,7 +163,8 @@ var wantCensus = map[string]map[string]int{
 		"trigger.dies-other":                           5,
 		"trigger.discarded":                            2,
 		"trigger.etb-other":                            12,
-		"trigger.gap:AbilityCast":                      2,
+		"trigger.gap:AbilityCast":                      1,
+		"trigger.ability-activated-opponent":           1, // Gideon the Oathless: the opponent-loyalty cause now serves it.
 		"trigger.gap:Blocks":                           1,
 		"trigger.spell-cast-opponent":                  1,
 		"trigger.life-gained":                          7,
