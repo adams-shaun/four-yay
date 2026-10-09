@@ -36,10 +36,21 @@ import (
 // that does not survive to the opponent's turn from setup is served by the
 // late-entry block (combat_late_entry.go): FDN Ball Lightning, FRA Frostbite
 // Pyromental.
+// Re-measured for the G6 combat-replay ticket
+// (cli-20261009T031408Z-eeb9a525): a self CantAttack/CantBlock static whose
+// gorge refuses the action is served by an attacker/blocker-not-offered
+// observation (combat_self_restrict.go); a fixture that loses the card itself
+// is served by the fixture-shape serves (combat_setup_fix.go: died-at-setup
+// counters, the second-card-draw untap, the stun untap, the sac-or-tap late
+// entry); and a self MustAttack (Flamewake Phoenix, Juggernaut) or a priced
+// CantAttackUnless (Archangel of Tithes, other sets) is served by the
+// late-entry block, whose structural-cause guard
+// (combat_late_entry.go) accepted the script-anchored causes. FDN's two
+// block-not-offered rows (Flamewake Phoenix, Juggernaut) moved to served.
 var wantCombatCensus = map[string]map[string]int{
 	"BIG": {"served:combat.attack": 4, "served:combat.block": 4},
 	"EOE": {"served:combat.attack": 49, "served:combat.block": 49},
-	"FDN": {"served:combat.attack": 127, "served:combat.block": 125, "skip:combat block not offered": 2},
+	"FDN": {"served:combat.attack": 127, "served:combat.block": 127},
 	"FRA": {"served:combat.attack": 63, "served:combat.block": 63},
 }
 

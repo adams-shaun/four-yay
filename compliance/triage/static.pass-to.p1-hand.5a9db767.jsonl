@@ -1,0 +1,2 @@
+{"shape":{"template":"static","op":"pass_to","field":"p1.hand","diff":"gorge+[Bolrac-Clan Basher] xmage+[]"},"key":"static | pass_to | p1.hand | gorge+[Bolrac-Clan Basher] xmage+[]","cards":1}
+{"card":"Found Footage","template":"static#0.0","status":"diverge","api":"-","sets":["DSK"],"detail":"step 0 (pass_to) p1.hand: gorge \"[Bolrac-Clan Basher, Wastes]\", xmage \"[Wastes]\""}

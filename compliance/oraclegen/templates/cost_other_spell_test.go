@@ -57,6 +57,7 @@ func TestCostStaticOtherSpellProfiles(t *testing.T) {
 		{"Glamdring, Foe-hammer", "static#0.0", "cast", "Divination", "U", "CCU", 2},
 		{"Eluge, the Shoreless Sea", "static#0.1", "cast", "Damnation", "CBB", "CCBB", 1},
 		{"Agatha of the Vile Cauldron", "static#0.0", "activate", "Ancient Kavu", "C", "CC", 1},
+		{"Doc Aurlock, Grizzled Genius", "static#0.1", "cast", "Brimstone Roundup", "R", "CCR", 2},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			it, skip := GenerateB(reg, tc.name, costRequirement(t, reg, tc.name, tc.key))
@@ -77,6 +78,25 @@ func TestCostStaticOtherSpellProfiles(t *testing.T) {
 			printedCost := c.Faces[0].ManaCost
 			if tc.op == "activate" {
 				printedCost = c.Faces[0].Abilities[*probe.AbilityIndex].ParamStr(cards.PKCost)
+			}
+			if probe.CastMode == "plot" {
+				// A plot action is priced at the card's Plot cost, not its
+				// mana cost, and XMage activates it by its braced rule text.
+				plotCost, ok := c.Faces[0].KeywordCostParam("Plot")
+				if !ok {
+					t.Fatalf("precondition: %s has no Plot cost", tc.probe)
+				}
+				printedCost = plotCost
+				if i := plotStepIndex(it.Steps); i < 0 || it.XAbility[i] != "Plot "+xmageManaText(plotCost) {
+					t.Fatalf("plot step %d carries xmage_ability %q, want %q", i, it.XAbility, "Plot "+xmageManaText(plotCost))
+				}
+				inHand := false
+				for _, h := range it.Scenario.Setup["p0"].Hand {
+					inHand = inHand || h == tc.probe
+				}
+				if !inHand {
+					t.Fatalf("precondition: plot card %s is not in p0's hand", tc.probe)
+				}
 			}
 			if pool, why := oraclegen.PoolFor(printedCost); why != "" || pool != tc.printed {
 				t.Fatalf("precondition: %s prints %q (%s), table says %q", tc.probe, pool, why, tc.printed)
