@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"harness","field":"xmage","diff":"IllegalArgumentException: activate step N has no xmage_ability"},"key":"trigger | harness | xmage | IllegalArgumentException: activate step N has no xmage_ability","cards":1}
+{"card":"Gideon the Oathless","template":"trigger#0.1","status":"harness","api":"ChangesZone:DealDamage+AbilityCast:DealDamage+BecomesTarget:Ward","sets":["FRA"],"detail":"xmage: IllegalArgumentException: activate step 1 has no xmage_ability"}
