@@ -283,7 +283,7 @@ func (w *legalWalk) battlefieldWalk() {
 							}
 							loyal = e.isLoyaltyAbility(ab)
 						}
-						if cards.IsManaAbilityAPI(ab.API) && !loyal {
+						if cards.IsManaAbilitySA(ab) && !loyal {
 							continue
 						}
 						if ab.ParamStr(cards.PKSorcerySpeed) == "True" && !sorcery {
@@ -597,11 +597,11 @@ func (w *legalWalk) battlefieldWalk() {
 				}
 				for _, ga := range e.grantedAbilities(p, id) {
 					ab := ga.SA
-					// cards.IsManaAbilityAPI, not a bare "Mana" check: a granted
+					// cards.IsManaAbilitySA, not a bare "Mana" check: a granted
 					// ManaReflected flows through availableManaAbilities too (its
 					// IsPresent$ gate lives in manaReflectedPresentHolds, which knows
 					// the hasAbility Activated.otherAbility special form).
-					if cards.IsManaAbilityAPI(ab.API) {
+					if cards.IsManaAbilitySA(ab) {
 						continue
 					}
 					if ab.ParamStr(cards.PKSorcerySpeed) == "True" && !sorcery {

@@ -104,7 +104,7 @@ type Board interface {
 	ManaExpendTotal(p state.PlayerID) int32
 
 	// IsLoyaltyAbility is rules' planeswalker loyalty-ability classifier
-	// (CR 606). It stays behind the Board, unlike cards.IsManaAbilityAPI:
+	// (CR 606). It stays behind the Board, unlike cards.IsManaAbilitySA:
 	// its cost half parses Cost$ through rules/cost, which sits above cards.
 	IsLoyaltyAbility(ab *cards.SA) bool
 }
