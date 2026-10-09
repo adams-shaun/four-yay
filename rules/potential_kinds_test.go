@@ -41,14 +41,20 @@ var measuredLegalActionKinds = []string{
 
 // legalActionsPricedKinds parses the legal.go walk family -- the entry body
 // in legal.go (the one (*Engine) method that constructs the legalWalk
-// walker) plus every (*legalWalk) *Walk section method in legal_walk*.go,
-// which the entry calls in order -- and returns every option Kind the walk
-// can emit: a `Kind: "<lit>"` field of a composite literal, the literal first
-// argument of the walk's add(kind, ...) closure (the entry's local one and
-// the sections' legalWalk.add binding), and any `<x>.Kind = "<lit>"`
-// assignment. A Kind the walk computes (anything but the add closure's own
-// `kind` parameter) fails the test: the ratchet only works while every
-// emitted kind is a literal it can read.
+// walker) plus every (*legalWalk) method in legal*.go, which the entry calls
+// in order -- and returns every option Kind the walk can emit: a
+// `Kind: "<lit>"` field of a composite literal, the literal first argument of
+// the walk's add(kind, ...) closure (the entry's local one and the sections'
+// legalWalk.add binding), and any `<x>.Kind = "<lit>"` assignment. A Kind the
+// walk computes (anything but the add closure's own `kind` parameter) fails
+// the test: the ratchet only works while every emitted kind is a literal it
+// can read.
+//
+// The family is matched by receiver type, not a *Walk name suffix: the walk
+// was split into *Walk sections (legal_walk*.go) and extracted helpers the
+// entry calls (manaSection and postWalkTail -- the quiet-seat serve's shared
+// code). A future helper must not be able to hide a new Kind behind a name
+// the ratchet does not expect.
 func legalActionsPricedKinds(t *testing.T) []string {
 	t.Helper()
 	files := sourceFilesUnder(t, ".", func(base string) bool { return strings.HasPrefix(base, "legal") })
@@ -70,10 +76,10 @@ func legalActionsPricedKinds(t *testing.T) []string {
 			}
 			// legalActionsPriced delegates (legalActionsPriced ->
 			// legalActionsWalk -> the entry) to the method that constructs the
-			// legalWalk walker; its sections are the (*legalWalk) *Walk methods
-			// the entry calls (legal_walk*.go). The entry is found by that
-			// construction, never by name, so a rename of any walk method
-			// leaves this ratchet untouched.
+			// legalWalk walker; its sections are every (*legalWalk) method the
+			// entry calls (legal_walk*.go and the extracted helpers). The
+			// entry is found by that construction, never by name, so a rename
+			// of any walk method leaves this ratchet untouched.
 			recvName := ""
 			if star, ok := fn.Recv.List[0].Type.(*ast.StarExpr); ok {
 				if id, ok := star.X.(*ast.Ident); ok {
@@ -84,7 +90,7 @@ func legalActionsPricedKinds(t *testing.T) []string {
 				bodies = append(bodies, fn.Body)
 				haveEntry = true
 			}
-			if recvName == "legalWalk" && strings.HasSuffix(fn.Name.Name, "Walk") {
+			if recvName == "legalWalk" {
 				bodies = append(bodies, fn.Body)
 			}
 		}

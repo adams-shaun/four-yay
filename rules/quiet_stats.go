@@ -37,6 +37,7 @@ var (
 // single-threaded.
 type QuietStatsSnapshot struct {
 	Windows        uint64
+	Served         uint64
 	Proved         uint64
 	ProvedPassOnly uint64
 	ProvedBareMana uint64
@@ -51,6 +52,7 @@ type QuietStatsSnapshot struct {
 func QuietStats() QuietStatsSnapshot {
 	var s QuietStatsSnapshot
 	s.Windows = quietWindows.Load()
+	s.Served = quietServed.Load()
 	s.Proved = quietProved.Load()
 	s.ProvedPassOnly = quietProvedPassOnly.Load()
 	s.ProvedBareMana = quietProvedBareMana.Load()
@@ -182,8 +184,8 @@ func QuietStatsPrint(s QuietStatsSnapshot) string {
 		}
 		return float64(n) * 100 / float64(d)
 	}
-	out := fmt.Sprintf("quietstats: windows %d; proved %d (%.1f%%), pass-only proved %d (%.1f%% of proved), bare-mana proved %d (%.1f%% of proved)\n",
-		s.Windows, s.Proved, pct(s.Proved, s.Windows), s.ProvedPassOnly, pct(s.ProvedPassOnly, s.Proved),
+	out := fmt.Sprintf("quietstats: windows %d; served %d (%.1f%%), proved %d (%.1f%%), pass-only proved %d (%.1f%% of proved), bare-mana proved %d (%.1f%% of proved)\n",
+		s.Windows, s.Served, pct(s.Served, s.Windows), s.Proved, pct(s.Proved, s.Windows), s.ProvedPassOnly, pct(s.ProvedPassOnly, s.Proved),
 		s.ProvedBareMana, pct(s.ProvedBareMana, s.Proved))
 	out += fmt.Sprintf("quietstats: pass-only windows %d; proved %d (%.1f%% of pass-only); unproved %d\n",
 		s.ProvedPassOnly+s.UnprovedPass, s.ProvedPassOnly, pct(s.ProvedPassOnly, s.ProvedPassOnly+s.UnprovedPass), s.UnprovedPass)

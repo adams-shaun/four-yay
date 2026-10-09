@@ -224,6 +224,15 @@ compliance-pass:
 compliance-status:
 	go run ./cmd/oraclediff status -all -out compliance/status.md
 
+# compliance-sets runs the compliance gate at BOTH levels over every
+# committed printed set and writes the per-set table to
+# .coverage/compliance-sets.md (gitignored, generated, never committed):
+# | SET | level A | level B | notes |, counting cards not problems.
+.PHONY: compliance-sets
+compliance-sets:
+	@mkdir -p .coverage
+	go run ./cmd/oraclediff sets -out .coverage/compliance-sets.md
+
 .PHONY: report
 report: $(BIN_DIR)/forgec
 	$(BIN_DIR)/forgec report -dir $(CARDS_DIR)

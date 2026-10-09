@@ -330,6 +330,15 @@ func (e *Engine) priorityOptions(p state.PlayerID, window *windowCollector) (out
 		t0 := quietNow()
 		defer func() { e.quietObserve(p, out, uint64(quietNow()-t0)) }()
 	}
+	// The quiet serve (rules/quiet_serve.go, design §3.2): a proved window's
+	// options without the walk. Sits before the memo and does not depend on
+	// it; the proof's false answer runs the walk below exactly as before.
+	// The counter runs unconditionally: it adds only on served windows, so
+	// the default build pays nothing on the windows it walks.
+	if !quietOff && window == nil && e.quietUsable() && e.seatQuiet(p) {
+		quietServed.Add(1)
+		return e.quietOptions(p)
+	}
 	if !e.prioMemoUsable(window) {
 		prioMemoSkips.Add(1)
 		return e.legalActionsWithWindow(p, window)
