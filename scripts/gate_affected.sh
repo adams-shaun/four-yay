@@ -92,9 +92,39 @@ rules_shard_patterns_from_list() {
     }'
 }
 
-rules_shard_run_patterns() {
-  go test -list '.*' ./rules/ 2>/dev/null | /usr/bin/grep '^Test' \
+shard_run_patterns() {
+  go test -list '.*' "$1/" 2>/dev/null | /usr/bin/grep '^Test' \
     | rules_shard_patterns_from_list
+}
+
+# Round-robin sharding for a package whose time does NOT track its first
+# characters: the templates census package's ~111 s of test time is
+# concentrated in tests that share first characters (the four SameNameAnswer-
+# CensusChunk tests, 44 s, and the two Setup censuses, 25 s, are all "S"), so a
+# count-balanced character split measured 80.6 s in one bucket and 9-13 s in
+# the others (simulated over the per-test durations of a -v run; the real
+# sharded gate read 59.8 s on that shard). Distributing the SORTED test names
+# round-robin spreads the same-prefix census chunks across the buckets:
+# simulated 26.9 / 31.7 / 36.5 / 16.0 s. The list is sorted -u: one test name
+# is listed twice by go test -list (an internal and an external test-package
+# copy share it), and deduping keeps both copies in the single shard whose
+# pattern names them. Output: four ^(name|...)$-anchored
+# alternation patterns, one per line; an empty bucket fails the helper so the
+# caller falls back to the unsplit run. LC_ALL=C keeps the sort order stable
+# across locales; test names are Go identifiers, so no pattern escaping.
+rr_shard_patterns() {
+  go test -list '.*' "$1/" 2>/dev/null | /usr/bin/grep '^Test' | LC_ALL=C sort -u \
+    | awk '!seen[$0]++ { n[++k] = $0 }
+      END {
+        nb = 4
+        for (i = 1; i <= k; i++) { b = i % nb; p[b] = p[b] (p[b] == "" ? "" : "|") n[i] }
+        for (j = 0; j < nb; j++) if (p[j] == "") exit 1
+        for (j = 0; j < nb; j++) print "^(" p[j] ")$"
+      }'
+}
+
+rules_shard_run_patterns() {
+  shard_run_patterns ./rules
 }
 
 # When sourced by scripts/tests/gate_affected_smoke.sh, expose the helpers
@@ -143,6 +173,47 @@ if git diff --name-only "$mb" HEAD | /usr/bin/grep -v -E '_test\.go$' | /usr/bin
 fi
 echo "gate_affected: rules + $(echo $others)$([ $traj = 1 ] && echo ' + cardfuzz findings')"
 
+# The oraclegen templates census package is, when touched, the longest single
+# test job in the gate: run whole it is a ~85-108 s binary (cli-20261009T202402Z
+# measurement: 108.6 s standalone here, 79.5-93.1 s in the 2026-10-09 gate logs)
+# whose time is concentrated in five census tests — the four
+# SameNameAnswerCensusChunk tests (7.8-13.4 s each) plus TestSetupCreatureType-
+# Census (16.2 s) and TestSetupColourCensus (8.8 s) — replaying level-B items
+# through the engine. It sits at the end of a chain that ends with the ~45 s
+# Kr8 pair, so it IS the gate's pole for every compliance-side ticket (the
+# 2026-10-09 14:00-14:34 gate logs: the affected gate ran 221-397 s with
+# templates in the set and 93 s quiet, against a next-slowest of 44.9 s).
+# Shard it four ways by test name exactly like ./rules above: same -skip,
+# separate -p=1 processes, so no census test shares a process with
+# another and no test is dropped (the four patterns are a complete, disjoint
+# partition of the package's 456 distinct top-level test names — 457 listed,
+# one internal/external name pair shares a name and both copies run in the one
+# shard that names it; rr_shard_patterns below
+# distributes the sorted name list round-robin, because a first-character
+# split puts the whole census load in one bucket — see its comment). On
+# listing or balance failure the package stays in the $others run
+# whole, as the rules shards fall back.
+# Four shards, not two, for the same reason as ./rules: the sharded package's
+# own wall is what the gate waits on. Peak RSS is unchanged in kind: the whole
+# templates binary peaks ~585 MB (internal/testbudget census), so four shards
+# add ~1.8 GiB over the single binary at the worst moment (rules sharded AND
+# templates touched: 4 x 1.9 GiB rules shards + 4 x 0.6 GiB templates shards +
+# the Kr8 pair + the $others set ~ 13 GiB against the scope's 16 GiB
+# MemoryMax, same arithmetic as the cli-20261009T130325Z note below the
+# $others launch).
+tmpl_pkg=./compliance/oraclegen/templates
+tmpl1=; tmpl2=; tmpl3=; tmpl4=
+if printf '%s\n' $others | /usr/bin/grep -q -x "$tmpl_pkg"; then
+  { read -r tmpl1; read -r tmpl2; read -r tmpl3; read -r tmpl4; } \
+    < <(rr_shard_patterns "$tmpl_pkg") || true
+  if [ -n "$tmpl1" ] && [ -n "$tmpl2" ] && [ -n "$tmpl3" ] && [ -n "$tmpl4" ]; then
+    others=$(printf '%s\n' $others | /usr/bin/grep -v -x "$tmpl_pkg")
+    echo "gate_affected: $tmpl_pkg sharded: $tmpl1 $tmpl2 $tmpl3 $tmpl4"
+  else
+    tmpl1=; tmpl2=; tmpl3=; tmpl4=
+  fi
+fi
+
 # Gate wall is the longest chain, so the phases below overlap everything that
 # does not depend on another phase (measured on the 2026-10-06 gate logs: for
 # a ticket that moves engine code the `$others` packages summed to ~115 s of
@@ -167,9 +238,18 @@ GOMAXPROCS=6 go vet -p=6 $others ./rules & v=$!
 # 38 s / 62 cpu-s (the three then hit the build cache). The runs below are
 # unchanged, so the result cache and the reported output are too.
 GOMAXPROCS=6 go test -c -o /dev/null ./rules/ & w=$!
+# Same for the templates shards, when the package is sharded below: four
+# separate `go test` processes would each compile and link the same (large)
+# test variant — 26k lines of tests on top of the oraclegen machinery — while
+# one build here warms the cache for all four.
+tmpl_w=
+if [ -n "$tmpl1" ]; then
+  GOMAXPROCS=6 go test -c -o /dev/null "$tmpl_pkg"/ & tmpl_w=$!
+fi
 rc=0
 wait "$v" || rc=1
 wait "$w" || rc=1
+if [ -n "$tmpl_w" ]; then wait "$tmpl_w" || rc=1; fi
 [ "$rc" = 0 ] || exit 1
 
 # The main ./rules run is the longest single test job in the gate and it does
@@ -216,6 +296,19 @@ fi
 # (cli-20261009T114433Z-45f2f307).
 GOMAXPROCS=4 go test -p=1 -run '^TestKr8WorldsInFuzzGames$' ./rules/ & b=$!
 GOMAXPROCS=4 go test -p=1 -run '^TestKr8HeadsCheckpointAll$' ./rules/ & c=$!
+# The four templates census shards, when the package was pulled out of $others
+# above (same -skip as the $others run carries; no templates test matches the
+# global set, so the skip is a no-op there kept for identical semantics).
+# GOMAXPROCS=4 GOMEMLIMIT=3GiB, as the rules shards run: the census tests are
+# serial within their process, so the parallelism only serves the GC and the
+# shared-nothing process boundary is what buys the wall time.
+t1=; t2=; t3=; t4=
+if [ -n "$tmpl1" ]; then
+  GOMAXPROCS=4 GOMEMLIMIT=3GiB go test -p=1 -skip "^($global)$" -run "$tmpl1" "$tmpl_pkg"/ & t1=$!
+  GOMAXPROCS=4 GOMEMLIMIT=3GiB go test -p=1 -skip "^($global)$" -run "$tmpl2" "$tmpl_pkg"/ & t2=$!
+  GOMAXPROCS=4 GOMEMLIMIT=3GiB go test -p=1 -skip "^($global)$" -run "$tmpl3" "$tmpl_pkg"/ & t3=$!
+  GOMAXPROCS=4 GOMEMLIMIT=3GiB go test -p=1 -skip "^($global)$" -run "$tmpl4" "$tmpl_pkg"/ & t4=$!
+fi
 # -p=6: the $others packages are independent test binaries; with -p=1 they
 # ran strictly one at a time and were the long pole of the gate. Measured on
 # the `$others` set alone under the gate scope (800% quota, test results
@@ -234,7 +327,7 @@ GOMAXPROCS=6 go test -p=6 -skip "^($global)$" $others & d=$!
 # runs to finish first.
 go test -p=1 ./internal/searchprobe/ & e=$!
 go test -p=1 -run '^TestCommittedOvershootCaptureReplaysToTheParkedAsk$' ./host/ & f=$!
-pids="$a1 $a2 $a3 $a4 $b $c $d $e $f"
+pids="$a1 $a2 $a3 $a4 $b $c $d $e $f $t1 $t2 $t3 $t4"
 if [ "$traj" = 1 ]; then
   go test -p=1 -run '^(TestRoundTenFindings|TestForbiddenRitualRepeatYesFinding)$' ./cmd/cardfuzz/ & g=$!
   pids="$pids $g"

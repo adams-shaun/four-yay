@@ -171,6 +171,33 @@ else
 	printf 'skip real-list shard check (no ./rules tests listed)\n'
 fi
 
+# The package the gate shards besides ./rules (cli-20261009T202402Z): the same
+# complete-and-disjoint property, over the real templates census list, through
+# the round-robin rr_shard_patterns the gate's pull-out calls. A list failure
+# here is not fatal (the caller keeps the package whole), but a PARTIAL
+# partition would silently drop tests, so it must fail the smoke.
+TEMPLIST=$(bash -c "source '$GATE'; rr_shard_patterns ./compliance/oraclegen/templates" 2>/dev/null || true)
+TMPLRAW=$(go test -list '.*' ./compliance/oraclegen/templates 2>/dev/null | /usr/bin/grep '^Test' || true)
+nlines=$(printf '%s\n' "$TEMPLIST" | /usr/bin/grep -c '^\^(' || true)
+[ "$nlines" = 4 ]
+check "templates shard helper emits exactly four patterns" $? "nlines=$nlines"
+if [ -n "$TMPLRAW" ]; then
+	printf '%s\n' "$TEMPLIST" >"$TMP/tmpl-patterns.txt"
+	printf '%s\n' "$TMPLRAW" >"$TMP/tmpl-names.txt"
+	bad=$(python3 - "$TMP/tmpl-patterns.txt" "$TMP/tmpl-names.txt" <<'PY'
+import re, sys
+pats = [l for l in open(sys.argv[1]).read().split('\n') if l.startswith('^(')]
+names = [l for l in open(sys.argv[2]).read().split('\n') if l]
+miss = [n for n in names if sum(1 for p in pats if re.match(p, n)) != 1]
+print(len(miss))
+PY
+)
+	[ "$bad" = 0 ]
+	check "every real templates test lands in exactly one shard pattern" $? "bad=$bad"
+else
+	printf 'skip real templates shard check (no tests listed)\n'
+fi
+
 # The fallback: a list the helper cannot partition returns nonzero, so the
 # gate runs the unsplit command instead of dropping tests.
 printf '' | patterns >/dev/null 2>&1
