@@ -340,6 +340,9 @@ func classifyStatic(f *cards.Face, st *cards.Static) (sub, gap string) {
 			}
 			return "static.cost", ""
 		}
+		if vc := st.ParamStr(cards.PKValidCard); strings.Contains(vc, "NamedCard") || strings.Contains(vc, "ChosenType") {
+			return "static.cost", "opponent-cast cost static: chosen-name/chosen-type recipient unsupported"
+		}
 		return "static.cost", "opponent-cast cost static"
 	}
 	for _, s := range servableStaticModes {
@@ -361,6 +364,9 @@ func classifyStatic(f *cards.Face, st *cards.Static) (sub, gap string) {
 	}
 	if sub, ok := supportedLegalityStatic(f, st); ok {
 		return sub, ""
+	}
+	if sub, gap := serveStaticMode(f, st); sub != "" || gap != "" {
+		return sub, gap
 	}
 	if sub, ok := gatedLegalityStatic(f, st); ok {
 		return sub, ""
