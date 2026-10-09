@@ -24,7 +24,9 @@
 // is needed and the fixture supplies the state the condition reads. A static
 // gated on Condition$ MaxSpeed is placed with p0 at speed 4. Counter- or
 // speed-gated AddAbility statics use the granted-ability offered observation
-// on the card itself; unserved grants fall through to their named gap.
+// on the card itself; an AddTrigger$ grant is observed by firing the granted
+// trigger (static_granted_trigger.go); unserved grants fall through to their
+// named gap.
 //
 // A candidate is served only when gorge shows an effect: a probe's P/T,
 // evergreen keywords, types or colours differ from its printed ones (Grizzly
@@ -267,6 +269,15 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 	}
 	if gap := staticOffBattlefieldGrantGap(st); gap != "" {
 		return skip(gap)
+	}
+	// A static whose AddTrigger$ grants a TRIGGERED ability is observed by
+	// firing the granted trigger (static_granted_trigger.go). Tried after
+	// every probe, fixture and offered path so an already-served row keeps
+	// its scenario bytes; an unserved grant falls through to its named gap.
+	if st.HasParam(cards.PKAddTrigger) {
+		if it, ok := staticGrantedTriggerItem(reg, f, name, req, st); ok {
+			return it, nil
+		}
 	}
 	if gated || speedGated {
 		if gatedGrantWhy != "" {
