@@ -860,6 +860,20 @@ func faceHasSubtype(f *cards.Face, subtype string) bool {
 // registry rather than the fixed type list.
 func zoneCandidates(reg *cards.Registry, filter, zone string) []cand {
 	alts := strings.Split(filter, ",")
+	// A Creature.ExiledWithSource target (The Darkness Crystal) is a card the
+	// SOURCE under test exiled: the fixture kills p1's Serra Angel while the
+	// source is on the battlefield, so the source's own exile replacement
+	// routes the card to exile bound to it. Setup placement in exile is
+	// bound to nothing, so the kill prelude is the only honest arrangement.
+	if strings.Contains(strings.ToLower(filter), "exiledwithsource") {
+		return []cand{{
+			seat: "p1", zone: "battlefield", card: "Serra Angel",
+			pre: []Step{
+				{Op: "cast", Seat: 0, Card: "p0:Murder", Mana: "BB", Targets: []string{"p1:Serra Angel"}},
+				{Op: "resolve"},
+			},
+		}}
+	}
 	// An Adventure half in the named zone (Edgewall Inn's "target card that's
 	// an Adventure... in your graveyard"): the corpus's plain Adventure
 	// creature, whose graveyard card the AdventureCard filter matches.
