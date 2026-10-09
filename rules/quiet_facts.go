@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -341,6 +342,26 @@ func quietAbilityFacts(f *cards.Face, q *quietFaceFacts) {
 		mask := abilityZoneMask(ab)
 		c := ParseCost(ab.ParamStr(cards.PKCost))
 		floor, tap, nonMana := quietCostFloor(&c)
+		// The offer's ability-cost substitutions, fail closed: every one can
+		// make the real payable price cheaper than the printed floor, so the
+		// bound cannot price the ability and the summary marks it nonMana.
+		// It is the same set offerFloorRefuses declines to floor-test
+		// (rules/legal_walk.go: the ability's own ReduceCost$, an announced X
+		// -- quietCostFloor's X arm -- and TapCreaturesForMana) plus the two
+		// further compositions the printed offer runs: powerUpReduceCost's
+		// PowerUp$ rider and a minted attach-cost SA's AlternateCost$ rider
+		// (abilityAlternateCost prices the rider independently of the printed
+		// cost, so the cheaper of the two is what can be offered). Heirloom
+		// Epic's TapCreaturesForMana made the first arm real: three creature
+		// taps pay three of its {4} with one floating mana, so the printed
+		// floorTap of 4 mis-called a payable ability unaffordable and the
+		// proof called the window quiet while the walk offered it.
+		if pay.TapCreaturesForMana(ab) ||
+			strings.TrimSpace(ab.ParamStr(cards.PKReduceCost)) != "" ||
+			strings.EqualFold(strings.TrimSpace(ab.ParamStr(cards.PKPowerUp)), "True") ||
+			(isAttachCostSA(ab) && strings.TrimSpace(ab.ParamStr(cards.PKAlternateCost)) != "") {
+			nonMana = true
+		}
 		sorc := strings.EqualFold(strings.TrimSpace(ab.ParamStr(cards.PKSorcerySpeed)), "True")
 		for z := 0; z < quietZones; z++ {
 			if mask&(1<<uint(quietZoneBit(z))) == 0 {

@@ -391,9 +391,13 @@ func (e *Engine) quietHandBlocker(p state.PlayerID, ceiling int32, unbounded, so
 		// Keyword actions offered from hand regardless of the face's own
 		// timing: Foretell ({2} on your turn), Plot (sorcery), Suspend
 		// ({2} any step of your turn), MayFlashCost (instant timing when the
-		// ordinary gate fails). Any of them is a blocker while its own window
-		// is open.
-		if quietHandKeywordAction(o, e, p, sorceryOpen) {
+		// ordinary gate fails), Sneak (the caster's own declare-blockers
+		// step, legal_walk_hand.go's above-the-gate offer, gated by the same
+		// sneakTimingOK the offer runs) and Teamwork (the flash-timed
+		// teamworkFlashOffer, gated by the same stackKeywordPossibleH +
+		// activationPhasesOK pair the offer runs). Any of them is a blocker
+		// while its own window is open.
+		if quietHandKeywordAction(o, id, e, p, sorceryOpen) {
 			return qbHandLand
 		}
 		for _, f := range o.Card.Faces {
@@ -749,11 +753,20 @@ func quietFaceHasDownCast(f *cards.Face) bool {
 }
 
 // quietHandKeywordAction reports a hand keyword action offered regardless of
-// the face's own cast timing.
-func quietHandKeywordAction(o *state.Object, e *Engine, p state.PlayerID, sorceryOpen bool) bool {
+// the face's own cast timing. Sneak and Teamwork mirror the exact timing
+// gates their walk offers run (sneakTimingOK; stackKeywordPossibleH +
+// activationPhasesOK), so a window where the walk offers neither stays
+// provable.
+func quietHandKeywordAction(o *state.Object, id state.ObjID, e *Engine, p state.PlayerID, sorceryOpen bool) bool {
+	if e.sneakTimingOK(p) && e.stackKeywordPossibleH(id, kwhSneak) {
+		return true
+	}
 	for _, f := range o.Card.Faces {
 		if f == nil {
 			continue
+		}
+		if e.stackKeywordPossibleH(id, kwhTeamwork) && e.activationPhasesOK(p, f.SpellAbility()) {
+			return true
 		}
 		if f.HasKeyword("Foretell") && e.G.Active == p {
 			return true

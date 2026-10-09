@@ -495,6 +495,65 @@ func TestQuietProofFixtures(t *testing.T) {
 			},
 			blocker: qbBoardCostGrant,
 		},
+		{
+			// The r6 verify mismatch class 1: the hand walk offers a Sneak card's
+			// cast ABOVE the sorcery gate, in the caster's own declare-blockers
+			// step (legal_walk_hand.go's sneakTimingOK arm). A proof that gated
+			// hand casts on the printed timing alone called this window quiet
+			// while the walk offered the cast -- the exact panic
+			// TestSetAudit_tmt_OrokuSaki_SneakIsCastableDeclareBlockers drove.
+			// No attacker is seated, so the walk's offerCastable Return census
+			// refuses the cast; the blocker still must fire (the proof shows
+			// none CAN be offered, and here it cannot know that).
+			name: "sneak card in hand at the caster's declare-blockers blocks (keyword action)",
+			build: func(t *testing.T) (*Engine, state.PlayerID) {
+				c := lookup(t, reg, "Oroku Saki, Shredder Rising")
+				if !c.Faces[0].HasKeyword("Sneak") {
+					t.Fatal("precondition: Oroku Saki does not print Sneak in the corpus")
+				}
+				e, _ := ninjutsuDeck(t, 9411, c)
+				id := searchMoveByName(t, e, "Oroku Saki, Shredder Rising", state.ZHand)
+				if o := e.G.Obj(id); o == nil || o.Zone != state.ZHand {
+					t.Fatalf("precondition: Oroku Saki not in hand: %+v", o)
+				}
+				_ = attackWithBear(t, e)
+				if e.G.Active != 0 || e.G.Step != state.StepDeclareBlockers {
+					t.Fatalf("precondition: not at seat 0's declare-blockers step (turn %d step %v)", e.G.Turn, e.G.Step)
+				}
+				return e, 0
+			},
+			blocker: qbHandLand,
+		},
+		{
+			// The r6 verify mismatch class 2: Heirloom Epic's TapCreaturesForMana
+			// substitution pays most of the printed {4} with creature taps
+			// (legal_walk_battlefield.go's offer composes the credit through
+			// offerCastableUsing), so the printed floorTap of 4 mis-called the
+			// ability unaffordable at a 1-mana ceiling and the proof called the
+			// window quiet while the walk offered it. The three Bears are the
+			// substitution the ability is payable with.
+			name: "battlefield ability priced with creature taps blocks (TapCreaturesForMana nonMana)",
+			build: func(t *testing.T) (*Engine, state.PlayerID) {
+				epic := lookup(t, reg, "Heirloom Epic")
+				bears := []*cards.Card{
+					lookup(t, reg, "Grizzly Bears"), lookup(t, reg, "Grizzly Bears"),
+					lookup(t, reg, "Grizzly Bears"),
+				}
+				e := quietBaseWith(t, reg, append([]*cards.Card{epic}, bears...))
+				if o := e.G.Obj(e.G.Zone(state.ZBattlefield, 0)[0]); o == nil || o.Face() == nil || o.Face().Name != "Plains" {
+					t.Fatal("precondition: the base fixture's untapped Plains is missing")
+				}
+				addZone(t, e, 0, epic, state.ZBattlefield)
+				for _, b := range bears {
+					id := addZone(t, e, 0, b, state.ZBattlefield)
+					if o := e.G.Obj(id); o == nil || o.Zone != state.ZBattlefield {
+						t.Fatalf("precondition: a Bear did not reach the battlefield: %+v", o)
+					}
+				}
+				return e, 0
+			},
+			blocker: qbBattlefieldAbility,
+		},
 	}
 	for _, row := range rows {
 		t.Run(row.name, func(t *testing.T) {
@@ -569,6 +628,83 @@ func TestQuietVerifyGrantAffinityBoard(t *testing.T) {
 	if opt := castOptionFor(t, e, gear); opt.Kind != "cast" {
 		t.Fatalf("the walk did not offer the granted-affinity cast: %+v", opt)
 	}
+}
+
+// TestQuietVerifySneakAndHeirloomWindows runs the two r6 verify-mismatch
+// windows with the verify arm live, the shape TestQuietVerifyGrantAffinityBoard
+// established. Both boards are the ones whose walks OFFERED a non-mana option
+// while the proof called the window quiet (the daemon gate's two panics); each
+// sub-test first asserts the proof now blocks, then asserts the offer is real,
+// so a proof that became quiet again for the wrong reason fails loudly here
+// and -- in this binary's verify mode -- panics inside priorityOptions.
+func TestQuietVerifySneakAndHeirloomWindows(t *testing.T) {
+	reg := testutil.CorpusRegistry(t)
+	t.Run("sneak at declare-blockers", func(t *testing.T) {
+		saki := lookup(t, reg, "Oroku Saki, Shredder Rising")
+		if !saki.Faces[0].HasKeyword("Sneak") {
+			t.Fatal("precondition: Oroku Saki does not print Sneak in the corpus")
+		}
+		e, _ := ninjutsuDeck(t, 9411, saki)
+		id := searchMoveByName(t, e, "Oroku Saki, Shredder Rising", state.ZHand)
+		if o := e.G.Obj(id); o == nil || o.Zone != state.ZHand {
+			t.Fatalf("precondition: Oroku Saki not in hand: %+v", o)
+		}
+		_ = attackWithBear(t, e)
+		fundPool(t, e, "CB")
+		if e.G.Active != 0 || e.G.Step != state.StepDeclareBlockers {
+			t.Fatalf("precondition: not at seat 0's declare-blockers step (turn %d step %v)", e.G.Turn, e.G.Step)
+		}
+		if got := e.quietBlocker(0); got != qbHandLand {
+			t.Fatalf("precondition: quietBlocker = %s, want %s (the sneak window must block)",
+				quietBlockerNames[got], quietBlockerNames[qbHandLand])
+		}
+		// The window is real: the walk offers the sneak cast for {1}{B} plus
+		// the unblocked attacker.
+		if opt := castByName(t, e, 0, "Oroku Saki, Shredder Rising"); opt == nil || opt.Mode != "sneak" {
+			t.Fatalf("the walk did not offer the sneak cast: %+v", opt)
+		}
+	})
+	t.Run("heirloom tap-creatures substitution", func(t *testing.T) {
+		epic := lookup(t, reg, "Heirloom Epic")
+		hasTapCreatures := false
+		for _, ab := range epic.Faces[0].Abilities {
+			if ab != nil && strings.TrimSpace(ab.ParamStr(cards.PKTapCreaturesForMana)) != "" {
+				hasTapCreatures = true
+			}
+		}
+		if !hasTapCreatures {
+			t.Fatal("precondition: Heirloom Epic does not print TapCreaturesForMana")
+		}
+		bears := []*cards.Card{
+			lookup(t, reg, "Grizzly Bears"), lookup(t, reg, "Grizzly Bears"),
+			lookup(t, reg, "Grizzly Bears"),
+		}
+		e := quietBaseWith(t, reg, append([]*cards.Card{epic}, bears...))
+		epicID := addZone(t, e, 0, epic, state.ZBattlefield)
+		for _, b := range bears {
+			addZone(t, e, 0, b, state.ZBattlefield)
+		}
+		// The offer prices the floating pool only (manaFeasiblePoolP), so the
+		// one colourless unit is what remains after three creature taps cover
+		// the rest of the {4}.
+		fundPool(t, e, "C")
+		if got := e.quietBlocker(0); got != qbBattlefieldAbility {
+			t.Fatalf("precondition: quietBlocker = %s, want %s (the tap-creatures substitution must block)",
+				quietBlockerNames[got], quietBlockerNames[qbBattlefieldAbility])
+		}
+		e.priorityRound()
+		// The substitution is real: the walk offers the draw ability, payable
+		// with the one floating mana plus three creature taps.
+		found := false
+		for _, o := range e.legalActions(0) {
+			if o.Kind == "ability" && o.Obj == epicID && strings.Contains(o.Label, "Draw a card") {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatalf("the walk did not offer Heirloom Epic's ability: %+v", e.legalActions(0))
+		}
+	})
 }
 
 // quietBase is the proof's quiet fixture: seat 0 has one untapped Plains on
