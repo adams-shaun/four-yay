@@ -214,13 +214,17 @@ func TestQuietProofFixtures(t *testing.T) {
 			nonOpen: true,
 		},
 		{
-			name: "flashback card in graveyard blocks",
+			// Q3a: a flashback card the seat cannot afford no longer blocks.
+			// Think Twice's flashback is {2}{U} (floor 3) against the base
+			// fixture's one untapped Plains (ceiling 1), so the walk offers
+			// no flashback cast and the proof must stay quiet.
+			name: "flashback card above the mana ceiling is quiet",
 			build: func(t *testing.T) (*Engine, state.PlayerID) {
 				e := quietBaseWith(t, reg, []*cards.Card{lookup(t, reg, "Think Twice")})
 				addZone(t, e, 0, lookup(t, reg, "Think Twice"), state.ZGraveyard)
 				return e, 0
 			},
-			blocker: qbGraveRoute,
+			blocker: qbNone,
 		},
 		{
 			name: "equipment with Equip {1} on the battlefield blocks",
