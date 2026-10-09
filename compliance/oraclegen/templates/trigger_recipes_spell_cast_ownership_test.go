@@ -43,9 +43,13 @@ func TestCastFamilyOwnershipCauseFires(t *testing.T) {
 			// cast is load-bearing, so the resolve-stripping
 			// triggerShownOnStack helper cannot see the trigger: replay the
 			// served scenario verbatim and look for the trigger's own slot.
+			card, ok2 := reg.Lookup(tc.name)
+			if !ok2 || len(card.Faces) == 0 {
+				t.Fatalf("precondition: %s not in registry", tc.name)
+			}
 			res, ok := oraclegen.PlaysThrough(reg, it.Scenario)
 			_, slot, _ := strings.Cut(strings.TrimPrefix(tc.key, "trigger#"), ".")
-			if !ok || !abilityOnStack(res.Snapshots, tc.name, tc.name, slot) {
+			if !ok || !abilityOnStack(res.Snapshots, stackSourceWants(reg, tc.name, card.Faces[0]), slot) {
 				t.Fatalf("%s's ownership trigger never appears on stack (ok=%v)", tc.name, ok)
 			}
 		})

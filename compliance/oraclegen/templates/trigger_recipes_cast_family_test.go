@@ -57,7 +57,7 @@ func TestCastFamilyBackFaceAndNamedOwnershipSkip(t *testing.T) {
 	// grants, so triggerShownOnStack's resolve-stripping replay cannot show
 	// it: replay the served scenario verbatim and look for the trigger slot.
 	res, ok := oraclegen.PlaysThrough(reg, item.Scenario)
-	if !ok || !abilityOnStack(res.Snapshots, "Gonti, Night Minister", "Gonti, Night Minister", gontiReq.Slot) {
+	if !ok || !abilityOnStack(res.Snapshots, stackSourceWants(reg, "Gonti, Night Minister", gonti.Faces[0]), gontiReq.Slot) {
 		t.Fatalf("Gonti, Night Minister's ownership trigger never appears on stack (ok=%v)", ok)
 	}
 }
