@@ -175,6 +175,40 @@ func TestStaticFilterLegendaryProbe(t *testing.T) {
 	}
 }
 
+// TestStaticSourceCounterEquipment: Excalibur II's "equipped creature gets
+// +1/+1 for each charge counter on CARDNAME" was unobservable because the bare
+// scenario holds no charge counters. The fixture places the Equipment holding
+// one charge counter and attaches it to the probe. The precondition asserts
+// the counter is seeded on the source, the attach step exists, and the probe's
+// printed P/T differs from the observed one.
+func TestStaticSourceCounterEquipment(t *testing.T) {
+	reg := testutil.CorpusRegistry(t)
+	const name = "Excalibur II"
+	const probeName = "Grizzly Bears"
+	pc, _ := reg.Lookup(probeName)
+	printed := pc.Faces[0].PT
+	it, final := selfFilterItem(t, reg, name, "static#0.0")
+	if got := it.Setup["p0"].Counters[name]["CHARGE"]; got != 1 {
+		t.Fatalf("%s setup counters = %v, want CHARGE:1", name, it.Setup["p0"].Counters[name])
+	}
+	attached := false
+	for _, st := range it.Steps {
+		if st.Op == "attach" && st.Card == "p0:"+name && st.AttachedTo == "p0:"+probeName {
+			attached = true
+		}
+	}
+	if !attached {
+		t.Fatalf("%s: no attach step from the Equipment to the probe: %+v", name, it.Steps)
+	}
+	probe, ok := permNamed(final, probeName)
+	if !ok {
+		t.Fatalf("%s: probe %s is not on the final battlefield", name, probeName)
+	}
+	if probe.PT == printed {
+		t.Fatalf("%s: probe P/T %s equals printed %s; the charge-counter amount did not land", name, probe.PT, printed)
+	}
+}
+
 // TestStaticEnchantedProbe: a static on enchanted creatures you control (A
 // Tale for the Ages' +2/+2, Archon of the Wild Rose's 4/4 flier) was
 // unobservable because the bare probe is not enchanted. The fixture attaches

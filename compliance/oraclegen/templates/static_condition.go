@@ -37,6 +37,11 @@ type staticFixture struct {
 	// by the same amount, so only a change the static itself makes is
 	// observable.
 	probeCounters map[string]int
+	// sourceCounters puts counters on the CARD UNDER TEST in setup, for a
+	// static whose amount is Count$CardCounters.<KIND> on the source (Excalibur
+	// II's "equipped creature gets +1/+1 for each charge counter on CARDNAME").
+	// The card is placed, not cast, so setup can seed the counters.
+	sourceCounters map[string]int
 	// place puts the card on the battlefield in setup instead of casting it:
 	// a "you haven't cast a spell this turn" gate that the card's own cast
 	// would falsify.
@@ -133,6 +138,12 @@ func (s staticFixture) merge(o staticFixture) staticFixture {
 		for kind, n := range kinds {
 			s.counters[card][kind] += n
 		}
+	}
+	for kind, n := range o.sourceCounters {
+		if s.sourceCounters == nil {
+			s.sourceCounters = map[string]int{}
+		}
+		s.sourceCounters[kind] += n
 	}
 	return s
 }
@@ -371,6 +382,22 @@ func staticBodyFixture(reg *cards.Registry, body string, n int) (staticFixture, 
 		// hand", Stingerback Terror): the fixture holds that many spare cards
 		// so the count is nonzero.
 		return staticFixture{conditionPrelude: conditionPrelude{hand: oraclegen.Repeat("Wastes", staticCountFrom(body))}}, true
+	case strings.HasPrefix(lower, "count$cardcounters."):
+		// An amount counted from the SOURCE's own counters (Excalibur II's
+		// "equipped creature gets +1/+1 for each charge counter on CARDNAME"):
+		// the card is placed on the battlefield holding n counters of the kind,
+		// so the amount is nonzero and the effect lands on the probe.
+		kind := strings.ToUpper(strings.TrimSpace(body[len("Count$CardCounters."):]))
+		if i := strings.IndexByte(kind, '/'); i >= 0 {
+			kind = kind[:i]
+		}
+		if kind == "" {
+			return staticFixture{}, false
+		}
+		if kind == "ALL" {
+			kind = "P1P1"
+		}
+		return staticFixture{sourceCounters: map[string]int{kind: n}, place: true}, true
 	case strings.HasPrefix(lower, "count$valid "):
 		return staticPresence(filter("Count$Valid "), "Battlefield", n)
 	case strings.Contains(lower, "hascardsingraveyard"):
@@ -487,6 +514,20 @@ func staticFixtures(reg *cards.Registry, f *cards.Face, st cards.Static) []stati
 		if hasString(out[i].battlefield, f.Name) {
 			out[i].place = true
 		}
+	}
+	// A source-counter fixture places the card, which fires its own ETB in
+	// gorge but not in XMage's addCard (Chainsaw's enters-and-deals-3). Drop
+	// it so such a card stays on the cast path and keeps its skip rather than
+	// emitting a scenario the two engines replay differently.
+	if staticSelfETB(f) {
+		kept := out[:0]
+		for _, fx := range out {
+			if len(fx.sourceCounters) > 0 {
+				continue
+			}
+			kept = append(kept, fx)
+		}
+		out = kept
 	}
 	return staticAvoidProbeCollision(reg, out)
 }

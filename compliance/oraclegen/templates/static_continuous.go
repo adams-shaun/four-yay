@@ -40,6 +40,7 @@ package templates
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -382,6 +383,18 @@ func staticBase(reg *cards.Registry, c *cards.Card, f *cards.Face, name string, 
 		}
 		base = it
 	}
+	if cond != nil && len(cond.sourceCounters) > 0 && sourceOnBattlefield(base, name) {
+		// A static whose amount is Count$CardCounters.<KIND> on the source
+		// (Excalibur II): the card is placed holding the counters the fixture
+		// names, so the amount is nonzero. An Equipment is attached to the
+		// probe here (the cast path's attach ran only on the cast branch).
+		applySourceCounters(&base, name, cond.sourceCounters)
+		if oraclegen.HasType(f, "Equipment") && !hasAttachStep(base.Steps) {
+			base.Steps = append(base.Steps, oraclegen.Step{
+				Op: "attach", Seat: 0, Card: "p0:" + name, AttachedTo: "p0:" + staticProbe,
+			})
+		}
+	}
 	if plan.aura {
 		addEnchantedProbeAura(&base, staticProbe)
 	}
@@ -578,6 +591,41 @@ func counterGatedBase(f *cards.Face, name, kind string, need int32, probes []str
 	}
 	oraclegen.Baseline(sc.Setup, f)
 	return oraclegen.Item{Scenario: sc}
+}
+
+// sourceOnBattlefield reports whether the card under test is on p0's setup
+// battlefield (the placed path), where setup counters can be seeded.
+func sourceOnBattlefield(base oraclegen.Item, name string) bool {
+	for _, n := range base.Scenario.Setup["p0"].Battlefield {
+		if n == name {
+			return true
+		}
+	}
+	return false
+}
+
+// applySourceCounters seeds the fixture's counters on the card under test.
+func applySourceCounters(base *oraclegen.Item, name string, counters map[string]int) {
+	p0 := base.Scenario.Setup["p0"]
+	kinds := make([]string, 0, len(counters))
+	for kind := range counters {
+		kinds = append(kinds, kind)
+	}
+	sort.Strings(kinds)
+	for _, kind := range kinds {
+		p0 = withSetupCounters(p0, name, kind, int32(counters[kind]))
+	}
+	base.Scenario.Setup["p0"] = p0
+}
+
+// hasAttachStep reports whether steps already carry an attach op.
+func hasAttachStep(steps []oraclegen.Step) bool {
+	for _, st := range steps {
+		if st.Op == "attach" {
+			return true
+		}
+	}
+	return false
 }
 
 func hasString(xs []string, want string) bool {
