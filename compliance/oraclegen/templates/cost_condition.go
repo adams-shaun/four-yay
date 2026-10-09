@@ -126,9 +126,6 @@ func costAmountFixture(reg *cards.Registry, f *cards.Face, st cards.Static) (int
 	if reduction, pres, gap, ok := costPowerAmountFixture(reg, f, amount); ok {
 		return reduction, pres, gap
 	}
-	if gap := costOptionalGenericPaidGap(f, amount); gap != "" {
-		return 0, nil, gap
-	}
 	reduction, compare := 1, "GE1"
 	if strings.HasPrefix(st.Params["KeywordLine"], "Affinity:") {
 		reduction, compare = costAffinityCount, fmt.Sprintf("GE%d", costAffinityCount)
@@ -157,7 +154,7 @@ func costGateFixtures(reg *cards.Registry, f *cards.Face, st cards.Static) ([][]
 		if w := costCombatWord(spec); w != "" {
 			return nil, costCombatGap(spec, w)
 		}
-		pres, gap := activationPresentPrelude(reg, spec, st.Params["PresentZone"], st.Params["PresentCompare"])
+		pres, gap := activationPresentPrelude(reg, nil, "", spec, st.Params["PresentZone"], st.Params["PresentCompare"])
 		if len(pres) == 0 && gap != "" {
 			// An alternative no p0 setup reaches may name an opponent's
 			// battlefield, which the probe's setup carries.
@@ -337,7 +334,7 @@ func costCountPrelude(reg *cards.Registry, f *cards.Face, svar, compare string) 
 			}
 			return nil, costCombatGap(filter, w)
 		}
-		if pres, gap := activationPresentPrelude(reg, strings.TrimSpace(filter), zone, compare); len(pres) > 0 {
+		if pres, gap := activationPresentPrelude(reg, nil, "", strings.TrimSpace(filter), zone, compare); len(pres) > 0 {
 			return pres, ""
 		} else if gap != "" {
 			return nil, costGateGap(filter, gap)

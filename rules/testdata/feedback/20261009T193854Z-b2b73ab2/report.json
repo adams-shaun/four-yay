@@ -1,0 +1,11 @@
+{
+  "received": "2026-10-09T19:38:54Z",
+  "text": "treasure token isn't being used to calculate \"autopay\" --  brazen scourge should be an available action",
+  "url": "https://goforge-demo.codeburro2.net/t/g2?seat=0\u0026token=6f549b555f673a17e3d6ef9b6262560c",
+  "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+  "screenshot": "screenshot.png",
+  "table": "g2",
+  "seat": "0",
+  "client": "client.json",
+  "snapshot": "captured: match.json log.json view.json"
+}

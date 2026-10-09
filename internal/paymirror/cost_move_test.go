@@ -170,6 +170,7 @@ func TestExpectedUnmirrorableVerdict(t *testing.T) {
 // paid with a Lotus Petal): every planned cast whose witness sacrifices a
 // planned source mirrors equivalently -- witness, float route and control.
 func TestPayMirrorSacrificeSourcesSeed1006(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	d, err := LoadDecks(reg)
 	if err != nil {

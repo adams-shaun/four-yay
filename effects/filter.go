@@ -186,6 +186,54 @@ var predicates = map[string]predFn{
 		return src != 0 && o.ID != src && o.PhasedOut && o.Zone == state.ZBattlefield
 	},
 	"attacking": func(g *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool { return o.IsAttacking },
+	// attackingAlone is "attacking alone" (Crowd of True Believers' and
+	// Viper, Cruel Conspirator's target specs): the object is attacking and
+	// is the only creature attacking this combat -- the count of live
+	// battlefield attackers is one. A phased-out attacker has already left
+	// the combat, so it is not counted even if its flag lags.
+	"attackingAlone": func(g *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
+		if !o.IsAttacking || o.Zone != state.ZBattlefield {
+			return false
+		}
+		count := 0
+		for i := range g.Objs {
+			a := &g.Objs[i]
+			if a.Zone == state.ZBattlefield && a.IsAttacking && !a.PhasedOut {
+				count++
+			}
+		}
+		return count == 1
+	},
+	// blockingAlone is "blocking alone" (Thijarian Witness's death
+	// specification): the object blocks at least one attacker, and every
+	// attacker it blocks is blocked only by it.
+	"blockingAlone": func(g *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
+		if !isBlocking(g, o.ID) {
+			return false
+		}
+		blocked := false
+		for i := range g.Objs {
+			a := &g.Objs[i]
+			if len(a.BlockedBy) == 0 {
+				continue
+			}
+			mine := false
+			for _, b := range a.BlockedBy {
+				if b == o.ID {
+					mine = true
+					break
+				}
+			}
+			if !mine {
+				continue
+			}
+			if len(a.BlockedBy) != 1 {
+				return false
+			}
+			blocked = true
+		}
+		return blocked
+	},
 	// unblocked is the CR 509.1h "attacking creature ... with no creatures
 	// blocking it" predicate: the object is attacking and no blocker is
 	// recorded on it. It is the filter half of ninjutsu's activated cost
@@ -508,6 +556,26 @@ var predicates = map[string]predFn{
 	// Giant Beaver are the corpus carriers.
 	"SaddledThisTurn": func(g *state.Game, o *state.Object, _ state.PlayerID, src state.ObjID) bool {
 		return pairedWithSourceThisTurn(g, o, src)
+	},
+	// CrewedBySourceThisTurn is the reverse direction of CrewedThisTurn
+	// (Forge's Vehicle.CrewedBySourceThisTurn): the object was CREWED by the
+	// spec's source this turn -- Balthier and Fran's `Mode$ Attacks |
+	// ValidCard$ Vehicle.CrewedBySourceThisTurn`. SOURCE-RELATIVE the same
+	// way, but read from the source's own pairing (state.Object.CrewedTurn /
+	// CrewedVehicles, folded by events.Apply's Crew case): src paid a Crew
+	// cost this turn and the object is among the Vehicles it crewed. A
+	// missing source or a source that crewed nothing this turn fails closed.
+	"CrewedBySourceThisTurn": func(g *state.Game, o *state.Object, _ state.PlayerID, src state.ObjID) bool {
+		s := g.Obj(src)
+		if s == nil || o == nil || s.CrewedTurn != g.Turn {
+			return false
+		}
+		for _, v := range s.CrewedVehicles {
+			if v == o.ID {
+				return true
+			}
+		}
+		return false
 	},
 	// Permanent is Forge's CardProperty.Permanent (card.isPermanent()): the
 	// printed face is a permanent type, in ANY zone (CR 109.2). This is the

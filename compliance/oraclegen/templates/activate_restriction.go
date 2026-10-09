@@ -16,6 +16,7 @@
 package templates
 
 import (
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -60,7 +61,7 @@ func activateRestriction(reg *cards.Registry, f *cards.Face, name string, sa *ca
 				gaps = append(gaps, "activation restriction: self state ("+spec+")")
 			}
 		} else {
-			pres, gap := activationPresentPrelude(reg, spec, zone, compare)
+			pres, gap := activationPresentPrelude(reg, f, name, spec, zone, compare)
 			if len(pres) > 0 {
 				sources = append(sources, pres)
 			} else {
@@ -69,7 +70,7 @@ func activateRestriction(reg *cards.Registry, f *cards.Face, name string, sa *ca
 		}
 	}
 	if spec := strings.TrimSpace(sa.ParamStr(cards.PKIsPresent2)); spec != "" {
-		pres, gap := activationPresentPrelude(reg, spec, strings.TrimSpace(sa.ParamStr(cards.PKPresentZone)), "")
+		pres, gap := activationPresentPrelude(reg, f, name, spec, strings.TrimSpace(sa.ParamStr(cards.PKPresentZone)), "")
 		if len(pres) > 0 {
 			sources = append(sources, pres)
 		} else {
@@ -167,14 +168,19 @@ func (c conditionPrelude) empty() bool {
 		len(c.opponentHand) == 0 && len(c.opponentBattlefield) == 0 && c.life == 0
 }
 
+// trailingDigits matches a trailing EQ/GE count ("... | SVarCompare$ EQ5").
+var trailingDigits = regexp.MustCompile(`(?:EQ|GE|LE|LT|GT)([0-9]+)$`)
+
 // activationPresentPrelude builds candidate setups for an IsPresent$ filter.
 // The filter is a comma list of alternatives (Forge reads it as an OR); each
 // alternative that names a placeable permanent contributes its stand-in as its
 // own candidate, because any one of them satisfies the whole filter. A bare
 // Card.Self alternative is satisfied by the source already on the battlefield;
+// a self POWER floor the printed card does not meet (Kitsa, Otterball Elite's
+// IsPresent$ Card.powerGE3+Self) is raised with +1/+1 counters on the source;
 // a self STATE setup cannot give (ThisTurnEntered, counters) is skipped and
 // only reported as a gap when no alternative could be built.
-func activationPresentPrelude(reg *cards.Registry, spec, zone, compare string) ([]conditionPrelude, string) {
+func activationPresentPrelude(reg *cards.Registry, f *cards.Face, name, spec, zone, compare string) ([]conditionPrelude, string) {
 	if strings.TrimSpace(zone) == "" {
 		zone = "Battlefield"
 	}
@@ -185,6 +191,19 @@ func activationPresentPrelude(reg *cards.Registry, spec, zone, compare string) (
 	for _, group := range strings.Split(spec, ",") {
 		words := affectedWords(group)
 		if hasWord(words, "Self") {
+			// A Self-anchored group is satisfied (or not) by the source's own
+			// characteristics: a power/toughness floor the printed card does
+			// not meet is raised with +1/+1 counters on the source, and the
+			// static-fixture power floor (a Nessian Asp on the board) would
+			// satisfy a DIFFERENT card than the gate names.
+			if pre, ok := selfPowerFloorPrelude(group, f); ok {
+				out = append(out, pre)
+				continue
+			}
+			if n, kind, ok := selfCounterFloor(group); ok {
+				out = append(out, conditionPrelude{counters: map[string]map[string]int{"__SOURCE__": {kind: n}}})
+				continue
+			}
 			if m := counterFilterRE.FindStringSubmatch(strings.ToLower(group)); m != nil {
 				// Counters on the source itself (Cryptex's "five or more
 				// unlock counters"): the setup carries them.
@@ -238,13 +257,117 @@ func activationGroupCandidates(reg *cards.Registry, group, zone string, n int) [
 		}
 		return nil
 	}
-	if pre, ok := staticPresence(group, zone, n); ok && fitConditionPrelude(pre) {
-		return []conditionPrelude{pre.conditionPrelude}
+	// The repeated-name presence is the established shape (two Forests for a
+	// six-land gate); the distinct-catalogue count is the fallback for a gate
+	// whose count the repeated name cannot reach. staticPresence has no hand
+	// branch — it would place the count on the battlefield — so a hand gate
+	// goes straight to the distinct-catalogue count. Both candidates are
+	// offered when both exist: the caller tries them in order, and which
+	// shape plays through is the settle's call, not this chooser's.
+	var out []conditionPrelude
+	if !strings.EqualFold(zone, "Hand") {
+		if pre, ok := staticPresence(group, zone, n); ok && fitConditionPrelude(pre) {
+			out = append(out, pre.conditionPrelude)
+		}
+	}
+	if n > 1 {
+		if pre, ok := distinctPresence(reg, group, zone, n); ok {
+			out = append(out, pre)
+		}
+	}
+	if len(out) > 0 {
+		return out
 	}
 	if pre, ok := activationPresence(reg, group, zone, n); ok && fitConditionPrelude(pre) {
 		return []conditionPrelude{pre.conditionPrelude}
 	}
 	return nil
+}
+
+// presenceCatalogue lists the distinct corpus cards a presence prelude can
+// place, by zone. Every name is a plain permanent (no ETB effect a count gate
+// would notice); the registry lookup skips any a corpus pin ever drops.
+var presenceCatalogue = []string{
+	// creatures first, then other permanents, then lands
+	"Grizzly Bears", "Serra Angel", "Wall of Air", "Hypnotic Specter", "Hill Giant",
+	"Llanowar Elves", "Colossal Dreadmaw", "Craw Wurm", "Siege Wurm", "Nessian Asp",
+	"Elvish Mystic", "Terror of the Peaks", "Isamaru, Hound of Konda",
+	"Ornithopter", "Sol Ring", "Glorious Anthem", "Honor of the Pure", "Intangible Virtue",
+	"Forest", "Island", "Mountain", "Swamp", "Plains", "Crystal Vein",
+	"Sunken Citadel", "Captivating Cave",
+}
+
+// handCatalogue lists the distinct corpus cards a hand presence prelude can
+// place (Resonating Lute's "Activate only if you have seven or more cards in
+// your hand").
+var handCatalogue = []string{
+	"Shock", "Duress", "Dragon Fodder", "Lightning Bolt", "Cancel",
+	"Lava Spike", "Divination", "Memnite", "Ornithopter", "Giant Growth",
+}
+
+// distinctPresence places n distinct cards matching the group's base word in
+// the zone. ok is false when the zone is not placeable, the catalogue cannot
+// cover n after registry lookups, or the group names a word no catalogue card
+// carries.
+func distinctPresence(reg *cards.Registry, group, zone string, n int) (conditionPrelude, bool) {
+	if staticOpposing(group) {
+		return conditionPrelude{}, false
+	}
+	catalogue := presenceCatalogue
+	switch {
+	case strings.EqualFold(zone, "Hand"):
+		catalogue = handCatalogue
+	case !strings.EqualFold(zone, "Battlefield") && !strings.EqualFold(zone, "Graveyard"):
+		return conditionPrelude{}, false
+	}
+	// A typed group keeps only the cards that carry the type word (a bare
+	// "Creature" filter served with an Ornithopter would undercount).
+	var typed []string
+	base := filterBaseWord(group)
+	// Only a group whose every word the catalogue read serves (a type plus a
+	// controller word) is safe to serve from the catalogue: any other
+	// qualifier (a counter demand, a colour, "withFlying") belongs to the
+	// fixture machinery that built the exact cards for it.
+	for _, w := range affectedWords(group) {
+		lw := strings.ToLower(w)
+		if lw == base || lw == "youctrl" || lw == "youown" || lw == "card" || lw == "permanent" {
+			continue
+		}
+		return conditionPrelude{}, false
+	}
+	// Only the catalogue's own type bases are served here; any other base
+	// (a subtype like Gate) needs the registry subtype lookup the static
+	// machinery runs, and a catalogue card would satisfy nothing.
+	switch base {
+	case "creature", "artifact", "enchantment", "land", "permanent", "card":
+	default:
+		return conditionPrelude{}, false
+	}
+	wantType := base != "permanent" && base != "card"
+	for _, name := range catalogue {
+		c, ok := reg.Lookup(name)
+		if !ok || len(c.Faces) == 0 {
+			continue
+		}
+		if wantType && !oraclegen.HasType(c.Faces[0], base) {
+			continue
+		}
+		typed = append(typed, name)
+	}
+	if len(typed) < n {
+		return conditionPrelude{}, false
+	}
+	var pre conditionPrelude
+	for _, name := range typed[:n] {
+		if strings.EqualFold(zone, "Graveyard") {
+			pre.graveyard = append(pre.graveyard, name)
+		} else if strings.EqualFold(zone, "Hand") {
+			pre.hand = append(pre.hand, name)
+		} else {
+			pre.battlefield = append(pre.battlefield, name)
+		}
+	}
+	return pre, true
 }
 
 // fitConditionPrelude reports whether a static fixture uses only the state a
@@ -284,6 +407,63 @@ func creatureForPowerFloor(group string) string {
 		return "Gigantosaurus"
 	}
 	return "Nessian Asp"
+}
+
+// selfCounterFloor reads a Self counter gate the setup can raise directly
+// (Cryptex's IsPresent$ Card.Self+counters_GE5_UNLOCK): a counters_GE<N>_<KIND>
+// word is satisfied by N counters of KIND on the source at setup. ok is false
+// when the group names no such floor.
+func selfCounterFloor(group string) (n int, kind string, ok bool) {
+	lower := strings.ToLower(group)
+	i := strings.Index(lower, "counters_ge")
+	if i < 0 {
+		return 0, "", false
+	}
+	rest := lower[i+len("counters_ge"):]
+	j := strings.IndexByte(rest, '_')
+	if j <= 0 {
+		return 0, "", false
+	}
+	n, err := strconv.Atoi(rest[:j])
+	if err != nil || n < 1 {
+		return 0, "", false
+	}
+	k := strings.ToUpper(strings.TrimSpace(rest[j+1:]))
+	if k == "" {
+		return 0, "", false
+	}
+	return n, k, true
+}
+
+// selfPowerFloorPrelude raises a Self power/toughness floor the printed card
+// does not meet (Kitsa, Otterball Elite's IsPresent$ Card.powerGE3+Self on a
+// 1/3) with +1/+1 counters on the source, which raise both halves together.
+// ok is false when the filter names no such floor or the printed card already
+// clears it.
+func selfPowerFloorPrelude(group string, f *cards.Face) (conditionPrelude, bool) {
+	needPower, needToughness := 0, 0
+	for _, w := range affectedWords(group) {
+		lower := strings.ToLower(w)
+		if rest, ok := strings.CutPrefix(lower, "powerge"); ok {
+			needPower = max(needPower, atoiOr(rest, 0))
+		}
+		if rest, ok := strings.CutPrefix(lower, "toughnessge"); ok {
+			needToughness = max(needToughness, atoiOr(rest, 0))
+		}
+	}
+	if needPower == 0 && needToughness == 0 {
+		return conditionPrelude{}, false
+	}
+	curPower, curToughness, ok := strings.Cut(strings.TrimSpace(f.PT), "/")
+	if !ok {
+		return conditionPrelude{}, false
+	}
+	power, tough := atoiOr(curPower, 0), atoiOr(curToughness, 0)
+	need := max(needPower-power, needToughness-tough)
+	if need <= 0 {
+		return conditionPrelude{}, false
+	}
+	return conditionPrelude{counters: map[string]map[string]int{"__SOURCE__": {"P1P1": need}}}, true
 }
 
 func atoiOr(s string, fallback int) int {
@@ -462,6 +642,36 @@ func activationSVarPrelude(reg *cards.Registry, f *cards.Face, check, compare st
 		return []conditionPrelude{{life: life}}, ""
 	}
 	n := staticCountFrom(compare)
+	// A colours-among-permanents count (Puca's Eye's "Activate only if there
+	// are five colors among permanents you control",
+	// Count$Valid Permanent.YouCtrl$Colors | SVarCompare$ EQ5): place n
+	// permanents of n distinct colours.
+	if pre, ok := colourCountPrelude(reg, f, body, compare); ok {
+		return []conditionPrelude{pre}, ""
+	}
+	// A this-turn battlefield entry count by type (Lilypad Village's "Activate
+	// only if a Bird, Frog, Otter, or Rat entered the battlefield under your
+	// control this turn", Count$ThisTurnEntered_Battlefield <types>): move a
+	// card of one of the named subtypes from the hand onto the battlefield,
+	// which is a real mid-turn entry.
+	if pre, ok := thisTurnEnteredPrelude(reg, f, body); ok {
+		return []conditionPrelude{pre}, ""
+	}
+	// A distinct-permanent-card-types count (Matzalantli, the Great Door's
+	// delirium gate, Count$ValidGraveyard Card.YouOwn$CardTypesPermanent |
+	// SVarCompare$ GE4): place n cards of n distinct permanent types in the
+	// named zone.
+	if pre, ok := cardTypesPrelude(reg, f, body, n); ok {
+		return []conditionPrelude{pre}, ""
+	}
+	// A type count over two named zones (Cavernous Maw's "Activate only if
+	// the number of other Caves you control plus the number of Cave cards in
+	// your graveyard is three or greater",
+	// Count$ValidGraveyard,Battlefield Cave.YouOwn+Other): place n cards of
+	// the type across the two zones, other than the source.
+	if pre, ok := twoZoneTypePrelude(reg, f, body, n); ok {
+		return []conditionPrelude{pre}, ""
+	}
 	var out []conditionPrelude
 	if pre, ok := staticBodyFixture(reg, body, n); ok {
 		out = append(out, pre.conditionPrelude)
@@ -476,6 +686,10 @@ func activationSVarPrelude(reg *cards.Registry, f *cards.Face, check, compare st
 		out = append(out, c)
 	}
 	out = append(out, historyPreludes(reg, f.Name, body, n)...)
+	// The activate-local gate shapes (a legendary combat-damage body, an
+	// artifact-filtered sacrifice count) before the lifeLoss Shock prelude,
+	// which answers a combat-damage body with non-combat spell damage.
+	out = append(out, activateSVarHistoryPreludes(reg, body, n)...)
 	if lifeLossBody(body) {
 		if step, ok := castProbe(reg, "Shock", "p1"); ok {
 			out = append(out, conditionPrelude{hand: []string{"Shock"}, steps: []oraclegen.Step{step, {Op: "resolve"}}})
@@ -488,6 +702,198 @@ func activationSVarPrelude(reg *cards.Registry, f *cards.Face, check, compare st
 		return out, ""
 	}
 	return nil, "activation restriction: SVar (" + svarLabel(check, body) + ")"
+}
+
+// filterBaseWord is the first comma-separated alternative's head word,
+// lowercased (the oraclegen-side helper is unexported there).
+func filterBaseWord(group string) string {
+	first := strings.SplitN(group, ",", 2)[0]
+	return strings.ToLower(strings.SplitN(strings.TrimSpace(first), ".", 2)[0])
+}
+
+// colourCountPrelude serves a Count$Valid <filter>$Colors gate at EQ<n>
+// (Puca's Eye's five colours among permanents you control): n permanents of n
+// distinct colours, in fixed colour order. The source itself counts only if
+// it is coloured, which these probes' sources are not.
+func colourCountPrelude(reg *cards.Registry, f *cards.Face, body, compare string) (conditionPrelude, bool) {
+	// staticCountFrom reads only GE forms; the gate here is an EQ (Puca's
+	// Eye's SVarCompare$ EQ5), so take the count from the compare's digits.
+	n := 0
+	if m := trailingDigits.FindStringSubmatch(strings.TrimSpace(compare)); m != nil {
+		if v, err := strconv.Atoi(m[1]); err == nil {
+			n = v
+		}
+	}
+	if n < 1 || !strings.HasSuffix(strings.TrimSpace(body), "$Colors") || !strings.Contains(body, "Count$Valid") {
+		return conditionPrelude{}, false
+	}
+	colours := []string{"Serra Angel", "Wall of Air", "Hypnotic Specter", "Hill Giant", "Grizzly Bears"}
+	var pre conditionPrelude
+	placed := 0
+	for _, name := range colours {
+		if placed >= n {
+			break
+		}
+		c, ok := reg.Lookup(name)
+		if !ok || len(c.Faces) == 0 {
+			continue
+		}
+		placed++
+		pre.battlefield = append(pre.battlefield, name)
+	}
+	if placed < n {
+		return conditionPrelude{}, false
+	}
+	return pre, true
+}
+
+// thisTurnEnteredPrelude serves a Count$ThisTurnEntered_Battlefield <types>
+// gate (Lilypad Village's Bird, Frog, Otter or Rat): move a card of one of
+// the named subtypes from the hand onto the battlefield, a real mid-turn
+// entry both engines count. A gate over another destination (Macabre
+// Reconstruction's "a creature card was put into your graveyard from anywhere
+// this turn", Count$ThisTurnEntered_Graveyard) is NOT served: a battlefield
+// entry satisfies nothing there.
+func thisTurnEnteredPrelude(reg *cards.Registry, f *cards.Face, body string) (conditionPrelude, bool) {
+	i := strings.Index(body, "ThisTurnEntered_")
+	if i < 0 {
+		return conditionPrelude{}, false
+	}
+	rest := body[i+len("ThisTurnEntered_"):]
+	// The head is Count$ThisTurnEntered_<Dest>[_from_<Origin>]_<Valid>: only
+	// a battlefield destination is a move-onto-the-battlefield entry.
+	dest, filter, ok := strings.Cut(rest, "_")
+	if !ok || !strings.EqualFold(dest, "Battlefield") {
+		return conditionPrelude{}, false
+	}
+	// An origin qualifier (ThisTurnEntered_Battlefield_from_Hand_Card...) is
+	// satisfied by the same hand-to-battlefield move; drop it.
+	if origin, after, ok := strings.Cut(filter, "_"); ok && strings.EqualFold(origin, "from") {
+		if _, after, ok := strings.Cut(after, "_"); ok {
+			filter = after
+		}
+	}
+	for _, alt := range strings.Split(filter, ",") {
+		sub := filterBaseWord(alt)
+		if sub == "" {
+			continue
+		}
+		name, ok := oraclegen.SubtypeCard(reg, sub)
+		if !ok || strings.EqualFold(name, f.Name) {
+			continue
+		}
+		return conditionPrelude{hand: []string{name},
+			steps: []oraclegen.Step{{Op: "move", Seat: 0, Card: "p0:" + name, To: "battlefield"}}}, true
+	}
+	return conditionPrelude{}, false
+}
+
+// cardTypesPrelude serves a Count$Valid<Zone> <filter>$CardTypesPermanent
+// gate at GE<n> (Matzalantli, the Great Door's delirium): n cards of n
+// distinct permanent card types in the named zone.
+func cardTypesPrelude(reg *cards.Registry, f *cards.Face, body string, n int) (conditionPrelude, bool) {
+	if n < 1 || !strings.Contains(body, "$CardTypesPermanent") {
+		return conditionPrelude{}, false
+	}
+	zone := ""
+	if strings.Contains(body, "ValidGraveyard") {
+		zone = "Graveyard"
+	} else if strings.Contains(body, "ValidBattlefield") {
+		zone = "Battlefield"
+	} else {
+		return conditionPrelude{}, false
+	}
+	types := []string{"Grizzly Bears", "Sol Ring", "Forest", "Glorious Anthem", "Jace Beleren", "Plains", "Island", "Swamp", "Mountain"}
+	seen := map[string]bool{}
+	var pre conditionPrelude
+	for _, name := range types {
+		if len(seen) >= n {
+			break
+		}
+		c, ok := reg.Lookup(name)
+		if !ok || len(c.Faces) == 0 {
+			continue
+		}
+		kind := ""
+		for _, ty := range c.Faces[0].Types {
+			kind = ty
+			break
+		}
+		if kind == "" || seen[kind] {
+			continue
+		}
+		seen[kind] = true
+		if zone == "Graveyard" {
+			pre.graveyard = append(pre.graveyard, name)
+		} else {
+			pre.battlefield = append(pre.battlefield, name)
+		}
+	}
+	if len(seen) < n {
+		return conditionPrelude{}, false
+	}
+	return pre, true
+}
+
+// twoZoneTypePrelude serves a Count$Valid<Zone1>,<Zone2> <Type>.<quals> gate
+// at GE<n> (Cavernous Maw's other-Caves-you-control-plus-Caves-in-graveyard):
+// n distinct cards of the type other than the source, split one-into-the-
+// graveyard-first when the zones name it.
+func twoZoneTypePrelude(reg *cards.Registry, f *cards.Face, body string, n int) (conditionPrelude, bool) {
+	if n < 1 || !strings.Contains(body, "Count$Valid") {
+		return conditionPrelude{}, false
+	}
+	rest := body[strings.Index(body, "Count$Valid")+len("Count$Valid"):]
+	zoneStr, filter, ok := strings.Cut(rest, " ")
+	if !ok || !strings.Contains(zoneStr, "Graveyard") || !strings.Contains(zoneStr, "Battlefield") {
+		return conditionPrelude{}, false
+	}
+	sub := filterBaseWord(filter)
+	if sub == "" {
+		return conditionPrelude{}, false
+	}
+	var pre conditionPrelude
+	placed := 0
+	for _, name := range subtypeCards(reg, sub, f.Name, n) {
+		placed++
+		if placed == 1 {
+			pre.graveyard = append(pre.graveyard, name)
+			continue
+		}
+		pre.battlefield = append(pre.battlefield, name)
+	}
+	if placed < n {
+		return conditionPrelude{}, false
+	}
+	return pre, true
+}
+
+// subtypeCards lists up to n distinct corpus cards whose front face carries
+// the subtype, excluding avoid. Mirrors registrySubtype's walk (front face
+// only, XMage-known names only) but collects several.
+func subtypeCards(reg *cards.Registry, subtype, avoid string, n int) []string {
+	if reg == nil || n < 1 {
+		return nil
+	}
+	var out []string
+	for i := 0; i < reg.Len() && len(out) < n; i++ {
+		c := reg.Card(i)
+		if len(c.Faces) == 0 {
+			continue
+		}
+		f := c.Faces[0]
+		if strings.EqualFold(f.Name, avoid) || !oraclegen.XMageKnown(f.Name) {
+			continue
+		}
+		hit := false
+		for _, ty := range f.Types {
+			hit = hit || strings.EqualFold(strings.TrimSpace(ty), subtype)
+		}
+		if hit {
+			out = append(out, f.Name)
+		}
+	}
+	return out
 }
 
 // startingLife is the two-player starting life total both engines deal

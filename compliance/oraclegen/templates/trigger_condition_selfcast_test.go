@@ -111,7 +111,7 @@ func triggerSelfCastItem(t *testing.T, reg *cards.Registry, name, key string) or
 		if !ok {
 			t.Fatalf("%s %s: gorge cannot play the served scenario with a pass pair", name, key)
 		}
-		if !abilityOnStack(res.Snapshots, name, f.Name, req.Slot) {
+		if !abilityOnStack(res.Snapshots, stackSourceWants(reg, name, f), req.Slot) {
 			t.Fatalf("%s %s: the trigger ability is never on the stack", name, key)
 		}
 		return it

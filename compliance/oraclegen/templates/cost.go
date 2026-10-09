@@ -205,9 +205,8 @@ func parameterCostProbes(reg *cards.Registry, f *cards.Face, name string, idx in
 				p.hand = appendUnique(p.hand, elfBeholdFixture(reg)...)
 			}
 		}
-		// An additional cost the token table cannot pay (Waterbend<X>, a
-		// BeholdExile type with no fixture) must not become a probe whose
-		// precondition is false.
+		// An additional cost the token table cannot pay (a BeholdExile type
+		// with no fixture) must not become a probe whose precondition is false.
 		p.mustReplay = true
 		return []costProbe{p}, "", true
 	}
@@ -242,6 +241,16 @@ func parameterCostProbes(reg *cards.Registry, f *cards.Face, name string, idx in
 	// An amount the cast itself announces (Count$xPaid over a Sac<X> part)
 	// is served by the cast before the board-count paths see it.
 	if probes, gap, handled := announcedSacXProbes(reg, f, st, name, p, base); handled {
+		if len(probes) == 0 {
+			return nil, gap, true
+		}
+		return probes, "", true
+	}
+	// The election itself is the amount (Count$OptionalGenericCostPaid over
+	// an OptionalCost part): the cast MODE carries it, so the probe is the
+	// optional-cost variant at the exact reduced price, with the cost's own
+	// fixture in the setup.
+	if probes, gap, handled := optionalGenericPaidProbes(reg, f, st, name, p, base); handled {
 		if len(probes) == 0 {
 			return nil, gap, true
 		}

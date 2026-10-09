@@ -30,6 +30,7 @@ import (
 //   - 4129 seq 5797: Demonic Tutor, equivalent (the Ogre pay-life-only
 //     witness stays pinned by TestWitnessReadsPayLifeOnlySources).
 func TestRoundSixFindingsMirrorKernel(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	d, err := LoadDecks(reg)
 	if err != nil {

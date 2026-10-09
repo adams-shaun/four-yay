@@ -115,6 +115,7 @@ func TestPayMirrorAuthoredFixtureEquivalent(t *testing.T) {
 // mismatch shapes (multi-type lands, additional/contribution costs) are NOT
 // skipped here: they are simply not in these decks, and each has a story.
 func TestPayMirrorRepoDecksFixedSeedsEquivalent(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	d, err := LoadDecks(reg)
 	if err != nil {

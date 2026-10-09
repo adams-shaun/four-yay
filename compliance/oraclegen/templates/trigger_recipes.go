@@ -28,6 +28,8 @@ type triggerCause struct {
 	// activate steps need selectors exactly as the cause's do.
 	preludeXAbility []string // XMage rule-text prefix per prelude step; nil when no prelude activates
 	castSelfX       bool     // the card is cast from hand first (an X creature that setup would leave 0/0, or a p0 upkeep/draw trigger whose fixture turn 1 would otherwise spend)
+	selfBackUp      bool     // the card is placed on its back face at setup (a transform-INTO-the-front-face trigger served by the back face's own enabler)
+	selfFrontUp     bool     // the card is kept on its front face at setup even though the requirement's face is 1 (a back-face Transformed row served by the front face's own enabler)
 	opponentHand    []string // probes held by p1 for opponent-cast causes
 	// libraryTop seeds p0's top-of-library cards, for a cause whose keyword
 	// action reads the revealed top card (an explore a "explores a land" /
@@ -312,6 +314,9 @@ func baseTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards
 		if causes, why, ok := tapCombatRecipe(reg, f, name, t, sub); ok {
 			return causes, why
 		}
+		if causes, why, ok := crewedTriggerRecipe(reg, f, name, t, sub); ok {
+			return causes, why
+		}
 		if causes, why, ok := stateTriggerRecipe(reg, f, name, t, sub); ok {
 			return causes, why
 		}
@@ -374,7 +379,7 @@ func attackActivationCause(reg *cards.Registry, f *cards.Face, name string, t *c
 	}
 	sa := f.Abilities[abilityIndex]
 	cost := sa.ParamStr(cards.PKCost)
-	mana, gap := activationCostIn(cost, "battlefield")
+	mana, gap := activationCostIn(cost, "battlefield", "")
 	if gap != "" {
 		return triggerCause{}, false
 	}
@@ -389,7 +394,7 @@ func attackActivationCause(reg *cards.Registry, f *cards.Face, name string, t *c
 	idx := abilityIndex
 	activate := oraclegen.Step{Op: "activate", Seat: 0, Card: "p0:" + name, Mana: mana, AbilityIndex: &idx, Answers: activationXAnswers(cost)}
 	setup := oraclegen.Seat{}
-	addActivationCostFixtures(&setup, cost)
+	addActivationCostFixtures(&setup, name, cost, activationX(cost))
 	battlefield := append([]string(nil), setup.Battlefield...)
 	attack := oraclegen.Step{Op: "attack", Seat: 0, Defender: "p1", Attackers: []string{"p0:" + name}}
 	return triggerCause{battlefield: battlefield, steps: []oraclegen.Step{activate, {Op: "resolve"}, attack}, xability: []string{prefix}, activateCost: cost}, true

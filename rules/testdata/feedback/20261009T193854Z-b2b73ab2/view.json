@@ -1,0 +1,1896 @@
+{
+  "viewer": 0,
+  "own_deck": {
+    "name": "FDN_top_00007_WR",
+    "main": [
+      {
+        "name": "Arahbo, the First Fang",
+        "count": 1
+      },
+      {
+        "name": "Axgard Cavalry",
+        "count": 1
+      },
+      {
+        "name": "Brazen Scourge",
+        "count": 1
+      },
+      {
+        "name": "Cathar Commando",
+        "count": 1
+      },
+      {
+        "name": "Felidar Savior",
+        "count": 2
+      },
+      {
+        "name": "Goblin Surprise",
+        "count": 1
+      },
+      {
+        "name": "Goldvein Pick",
+        "count": 2
+      },
+      {
+        "name": "Hare Apparent",
+        "count": 5
+      },
+      {
+        "name": "Healer's Hawk",
+        "count": 1
+      },
+      {
+        "name": "Heroic Reinforcements",
+        "count": 2
+      },
+      {
+        "name": "Kellan, Planar Trailblazer",
+        "count": 1
+      },
+      {
+        "name": "Krenko, Mob Boss",
+        "count": 1
+      },
+      {
+        "name": "Luminous Rebuke",
+        "count": 1
+      },
+      {
+        "name": "Mountain",
+        "count": 8,
+        "land": true
+      },
+      {
+        "name": "Plains",
+        "count": 8,
+        "land": true
+      },
+      {
+        "name": "Prideful Parent",
+        "count": 1
+      },
+      {
+        "name": "Sun-Blessed Healer",
+        "count": 1
+      },
+      {
+        "name": "Sure Strike",
+        "count": 1
+      },
+      {
+        "name": "Valkyrie's Call",
+        "count": 1
+      }
+    ],
+    "curve": [
+      {
+        "cmc": 0,
+        "count": 16
+      },
+      {
+        "cmc": 1,
+        "count": 2
+      },
+      {
+        "cmc": 2,
+        "count": 11
+      },
+      {
+        "cmc": 3,
+        "count": 4
+      },
+      {
+        "cmc": 4,
+        "count": 5
+      },
+      {
+        "cmc": 5,
+        "count": 2
+      }
+    ]
+  },
+  "visibility": "seat",
+  "turn": 20,
+  "round": 10,
+  "step": "main1",
+  "phase": "main1",
+  "active": 1,
+  "priority": 0,
+  "over": false,
+  "draw": false,
+  "winner": null,
+  "players": [
+    {
+      "seat": 0,
+      "name": "You",
+      "life": 25,
+      "lost": false,
+      "library_size": 24,
+      "hand_size": 2,
+      "graveyard_size": 7,
+      "library": [
+        {
+          "id": 1,
+          "name": "Arahbo, the First Fang",
+          "types": "Legendary Creature Cat Avatar",
+          "mana_cost": "2 W",
+          "printing": {
+            "name": "Arahbo, the First Fang"
+          },
+          "token": "#1",
+          "tapped": false,
+          "power": 2,
+          "toughness": 2,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 6,
+          "name": "Felidar Savior",
+          "types": "Creature Cat Beast",
+          "mana_cost": "3 W",
+          "printing": {
+            "name": "Felidar Savior"
+          },
+          "token": "#6",
+          "tapped": false,
+          "power": 2,
+          "toughness": 3,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "Lifelink"
+          ],
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 9,
+          "name": "Goldvein Pick",
+          "types": "Artifact Equipment",
+          "mana_cost": "2",
+          "printing": {
+            "name": "Goldvein Pick"
+          },
+          "token": "#9",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "Equip:1"
+          ],
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 10,
+          "name": "Hare Apparent",
+          "types": "Creature Rabbit Noble",
+          "mana_cost": "1 W",
+          "printing": {
+            "name": "Hare Apparent"
+          },
+          "token": "#10",
+          "tapped": false,
+          "power": 2,
+          "toughness": 2,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "A deck can have any number of cards named CARDNAME."
+          ],
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 12,
+          "name": "Hare Apparent",
+          "types": "Creature Rabbit Noble",
+          "mana_cost": "1 W",
+          "printing": {
+            "name": "Hare Apparent"
+          },
+          "token": "#12",
+          "tapped": false,
+          "power": 2,
+          "toughness": 2,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "A deck can have any number of cards named CARDNAME."
+          ],
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 13,
+          "name": "Hare Apparent",
+          "types": "Creature Rabbit Noble",
+          "mana_cost": "1 W",
+          "printing": {
+            "name": "Hare Apparent"
+          },
+          "token": "#13",
+          "tapped": false,
+          "power": 2,
+          "toughness": 2,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "A deck can have any number of cards named CARDNAME."
+          ],
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 16,
+          "name": "Heroic Reinforcements",
+          "types": "Sorcery",
+          "mana_cost": "2 R W",
+          "spell_api": "Token",
+          "printing": {
+            "name": "Heroic Reinforcements"
+          },
+          "token": "#16",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 17,
+          "name": "Heroic Reinforcements",
+          "types": "Sorcery",
+          "mana_cost": "2 R W",
+          "spell_api": "Token",
+          "printing": {
+            "name": "Heroic Reinforcements"
+          },
+          "token": "#17",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 19,
+          "name": "Krenko, Mob Boss",
+          "types": "Legendary Creature Goblin Warrior",
+          "mana_cost": "2 R R",
+          "printing": {
+            "name": "Krenko, Mob Boss"
+          },
+          "token": "#19",
+          "tapped": false,
+          "power": 3,
+          "toughness": 3,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 20,
+          "name": "Luminous Rebuke",
+          "types": "Instant",
+          "mana_cost": "4 W",
+          "spell_api": "Destroy",
+          "printing": {
+            "name": "Luminous Rebuke"
+          },
+          "token": "#20",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 21,
+          "name": "Mountain",
+          "types": "Basic Land Mountain",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Mountain"
+          },
+          "token": "#21",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              0,
+              0,
+              0,
+              1,
+              0,
+              0
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 22,
+          "name": "Mountain",
+          "types": "Basic Land Mountain",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Mountain"
+          },
+          "token": "#22",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              0,
+              0,
+              0,
+              1,
+              0,
+              0
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 23,
+          "name": "Mountain",
+          "types": "Basic Land Mountain",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Mountain"
+          },
+          "token": "#23",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              0,
+              0,
+              0,
+              1,
+              0,
+              0
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 24,
+          "name": "Mountain",
+          "types": "Basic Land Mountain",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Mountain"
+          },
+          "token": "#24",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              0,
+              0,
+              0,
+              1,
+              0,
+              0
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 25,
+          "name": "Mountain",
+          "types": "Basic Land Mountain",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Mountain"
+          },
+          "token": "#25",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              0,
+              0,
+              0,
+              1,
+              0,
+              0
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 26,
+          "name": "Mountain",
+          "types": "Basic Land Mountain",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Mountain"
+          },
+          "token": "#26",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              0,
+              0,
+              0,
+              1,
+              0,
+              0
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 27,
+          "name": "Mountain",
+          "types": "Basic Land Mountain",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Mountain"
+          },
+          "token": "#27",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              0,
+              0,
+              0,
+              1,
+              0,
+              0
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 30,
+          "name": "Plains",
+          "types": "Basic Land Plains",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Plains"
+          },
+          "token": "#30",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              1,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 33,
+          "name": "Plains",
+          "types": "Basic Land Plains",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Plains"
+          },
+          "token": "#33",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              1,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 34,
+          "name": "Plains",
+          "types": "Basic Land Plains",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Plains"
+          },
+          "token": "#34",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              1,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 35,
+          "name": "Plains",
+          "types": "Basic Land Plains",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Plains"
+          },
+          "token": "#35",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              1,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 36,
+          "name": "Plains",
+          "types": "Basic Land Plains",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Plains"
+          },
+          "token": "#36",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              1,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 38,
+          "name": "Sun-Blessed Healer",
+          "types": "Creature Human Cleric",
+          "mana_cost": "1 W",
+          "printing": {
+            "name": "Sun-Blessed Healer"
+          },
+          "token": "#38",
+          "tapped": false,
+          "power": 3,
+          "toughness": 1,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "Kicker:1 W",
+            "Lifelink"
+          ],
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 40,
+          "name": "Valkyrie's Call",
+          "types": "Enchantment",
+          "mana_cost": "3 W W",
+          "printing": {
+            "name": "Valkyrie's Call"
+          },
+          "token": "#40",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        }
+      ],
+      "hand": [
+        {
+          "id": 3,
+          "name": "Brazen Scourge",
+          "types": "Creature Gremlin",
+          "mana_cost": "1 R R",
+          "printing": {
+            "name": "Brazen Scourge"
+          },
+          "token": "#3",
+          "tapped": false,
+          "power": 3,
+          "toughness": 3,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "Haste"
+          ],
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 4,
+          "name": "Cathar Commando",
+          "types": "Creature Human Soldier",
+          "mana_cost": "1 W",
+          "printing": {
+            "name": "Cathar Commando"
+          },
+          "token": "#4",
+          "tapped": false,
+          "power": 3,
+          "toughness": 1,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "Flash"
+          ],
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "ability_costs": [
+            "1 Sac\u003c1/CARDNAME\u003e"
+          ]
+        }
+      ],
+      "battlefield": [
+        {
+          "id": 28,
+          "name": "Mountain",
+          "types": "Basic Land Mountain",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Mountain"
+          },
+          "token": "#28",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              0,
+              0,
+              0,
+              1,
+              0,
+              0
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 32,
+          "name": "Plains",
+          "types": "Basic Land Plains",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Plains"
+          },
+          "token": "#32",
+          "tapped": true,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              1,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 29,
+          "name": "Plains",
+          "types": "Basic Land Plains",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Plains"
+          },
+          "token": "#29",
+          "tapped": true,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              1,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 31,
+          "name": "Plains",
+          "types": "Basic Land Plains",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Plains"
+          },
+          "token": "#31",
+          "tapped": true,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              1,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 15,
+          "name": "Healer's Hawk",
+          "types": "Creature Bird",
+          "mana_cost": "W",
+          "printing": {
+            "name": "Healer's Hawk"
+          },
+          "token": "#15",
+          "tapped": true,
+          "power": 2,
+          "toughness": 2,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "Flying",
+            "Lifelink"
+          ],
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 37,
+          "name": "Prideful Parent",
+          "types": "Creature Cat",
+          "mana_cost": "2 W",
+          "printing": {
+            "name": "Prideful Parent"
+          },
+          "token": "#37",
+          "tapped": false,
+          "power": 2,
+          "toughness": 2,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "Vigilance"
+          ],
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 91,
+          "name": "Cat Token",
+          "types": "Creature Cat",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Cat Token"
+          },
+          "token": "#91",
+          "is_token": true,
+          "tapped": false,
+          "power": 1,
+          "toughness": 1,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 8,
+          "name": "Goldvein Pick",
+          "types": "Artifact Equipment",
+          "mana_cost": "2",
+          "printing": {
+            "name": "Goldvein Pick"
+          },
+          "token": "#8",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "Equip:1"
+          ],
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": true,
+          "attached_to": 15,
+          "ability_costs": [
+            "1"
+          ]
+        },
+        {
+          "id": 97,
+          "name": "Treasure Token",
+          "types": "Artifact Treasure",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Treasure Token"
+          },
+          "token": "#97",
+          "is_token": true,
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": true,
+          "produces": {
+            "colour": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              0
+            ],
+            "any": true
+          }
+        }
+      ],
+      "graveyard": [
+        {
+          "id": 7,
+          "name": "Goblin Surprise",
+          "types": "Instant",
+          "mana_cost": "2 R",
+          "spell_api": "Charm",
+          "printing": {
+            "name": "Goblin Surprise"
+          },
+          "token": "#7",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 11,
+          "name": "Hare Apparent",
+          "types": "Creature Rabbit Noble",
+          "mana_cost": "1 W",
+          "printing": {
+            "name": "Hare Apparent"
+          },
+          "token": "#11",
+          "tapped": false,
+          "power": 2,
+          "toughness": 2,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "A deck can have any number of cards named CARDNAME."
+          ],
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": true
+        },
+        {
+          "id": 39,
+          "name": "Sure Strike",
+          "types": "Instant",
+          "mana_cost": "1 R",
+          "spell_api": "Pump",
+          "printing": {
+            "name": "Sure Strike"
+          },
+          "token": "#39",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 2,
+          "name": "Axgard Cavalry",
+          "types": "Creature Dwarf Berserker",
+          "mana_cost": "1 R",
+          "printing": {
+            "name": "Axgard Cavalry"
+          },
+          "token": "#2",
+          "tapped": false,
+          "power": 2,
+          "toughness": 2,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 18,
+          "name": "Kellan, Planar Trailblazer",
+          "types": "Legendary Creature Human Faerie Scout",
+          "mana_cost": "R",
+          "printing": {
+            "name": "Kellan, Planar Trailblazer"
+          },
+          "token": "#18",
+          "tapped": false,
+          "power": 2,
+          "toughness": 1,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 5,
+          "name": "Felidar Savior",
+          "types": "Creature Cat Beast",
+          "mana_cost": "3 W",
+          "printing": {
+            "name": "Felidar Savior"
+          },
+          "token": "#5",
+          "tapped": false,
+          "power": 2,
+          "toughness": 3,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "Lifelink"
+          ],
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        },
+        {
+          "id": 14,
+          "name": "Hare Apparent",
+          "types": "Creature Rabbit Noble",
+          "mana_cost": "1 W",
+          "printing": {
+            "name": "Hare Apparent"
+          },
+          "token": "#14",
+          "tapped": false,
+          "power": 2,
+          "toughness": 2,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "A deck can have any number of cards named CARDNAME."
+          ],
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false
+        }
+      ],
+      "exile": [],
+      "pool": {},
+      "potential_actions": [
+        {
+          "kind": "cast",
+          "obj": 4,
+          "label": "Cast Cathar Commando"
+        }
+      ],
+      "available": {
+        "R": 1
+      },
+      "command": [],
+      "commanders": [],
+      "completed_dungeons": 0,
+      "commander_casts": []
+    },
+    {
+      "seat": 1,
+      "name": "Bot",
+      "life": 15,
+      "lost": false,
+      "library_size": 22,
+      "hand_size": 0,
+      "graveyard_size": 7,
+      "hand": null,
+      "battlefield": [
+        {
+          "id": 67,
+          "name": "Mountain",
+          "types": "Basic Land Mountain",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Mountain"
+          },
+          "token": "#67",
+          "tapped": true,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 1,
+          "owner": 1,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              0,
+              0,
+              0,
+              1,
+              0,
+              0
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 70,
+          "name": "Plains",
+          "types": "Basic Land Plains",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Plains"
+          },
+          "token": "#70",
+          "tapped": true,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 1,
+          "owner": 1,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              1,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 62,
+          "name": "Mountain",
+          "types": "Basic Land Mountain",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Mountain"
+          },
+          "token": "#62",
+          "tapped": true,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 1,
+          "owner": 1,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              0,
+              0,
+              0,
+              1,
+              0,
+              0
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 74,
+          "name": "Plains",
+          "types": "Basic Land Plains",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Plains"
+          },
+          "token": "#74",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 1,
+          "owner": 1,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              1,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 65,
+          "name": "Mountain",
+          "types": "Basic Land Mountain",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Mountain"
+          },
+          "token": "#65",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 1,
+          "owner": 1,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              0,
+              0,
+              0,
+              1,
+              0,
+              0
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 63,
+          "name": "Mountain",
+          "types": "Basic Land Mountain",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Mountain"
+          },
+          "token": "#63",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 1,
+          "owner": 1,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              0,
+              0,
+              0,
+              1,
+              0,
+              0
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 59,
+          "name": "Krenko, Mob Boss",
+          "types": "Legendary Creature Goblin Warrior",
+          "mana_cost": "2 R R",
+          "printing": {
+            "name": "Krenko, Mob Boss"
+          },
+          "token": "#59",
+          "tapped": true,
+          "power": 3,
+          "toughness": 3,
+          "damage": 0,
+          "attacking": false,
+          "controller": 1,
+          "owner": 1,
+          "summon_sick": false,
+          "activated_this_turn": 1,
+          "ability_costs": [
+            "T"
+          ]
+        },
+        {
+          "id": 88,
+          "name": "Goblin Token",
+          "types": "Creature Goblin",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Goblin Token"
+          },
+          "token": "#88",
+          "is_token": true,
+          "tapped": false,
+          "power": 1,
+          "toughness": 1,
+          "damage": 0,
+          "attacking": false,
+          "controller": 1,
+          "owner": 1,
+          "summon_sick": false
+        },
+        {
+          "id": 55,
+          "name": "Helpful Hunter",
+          "types": "Creature Cat",
+          "mana_cost": "1 W",
+          "printing": {
+            "name": "Helpful Hunter"
+          },
+          "token": "#55",
+          "tapped": false,
+          "power": 1,
+          "toughness": 1,
+          "damage": 0,
+          "attacking": false,
+          "controller": 1,
+          "owner": 1,
+          "summon_sick": false
+        },
+        {
+          "id": 68,
+          "name": "Plains",
+          "types": "Basic Land Plains",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Plains"
+          },
+          "token": "#68",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 1,
+          "owner": 1,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              1,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "any": false
+          }
+        },
+        {
+          "id": 54,
+          "name": "Healer's Hawk",
+          "types": "Creature Bird",
+          "mana_cost": "W",
+          "printing": {
+            "name": "Healer's Hawk"
+          },
+          "token": "#54",
+          "tapped": false,
+          "power": 1,
+          "toughness": 1,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "Flying",
+            "Lifelink"
+          ],
+          "controller": 1,
+          "owner": 1,
+          "summon_sick": false
+        },
+        {
+          "id": 93,
+          "name": "Goblin Token",
+          "types": "Creature Goblin",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Goblin Token"
+          },
+          "token": "#93",
+          "is_token": true,
+          "tapped": false,
+          "power": 1,
+          "toughness": 1,
+          "damage": 0,
+          "attacking": false,
+          "controller": 1,
+          "owner": 1,
+          "summon_sick": false
+        },
+        {
+          "id": 94,
+          "name": "Goblin Token",
+          "types": "Creature Goblin",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Goblin Token"
+          },
+          "token": "#94",
+          "is_token": true,
+          "tapped": false,
+          "power": 1,
+          "toughness": 1,
+          "damage": 0,
+          "attacking": false,
+          "controller": 1,
+          "owner": 1,
+          "summon_sick": false
+        },
+        {
+          "id": 99,
+          "name": "Goblin Token",
+          "types": "Creature Goblin",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Goblin Token"
+          },
+          "token": "#99",
+          "is_token": true,
+          "tapped": false,
+          "power": 1,
+          "toughness": 1,
+          "damage": 0,
+          "attacking": false,
+          "controller": 1,
+          "owner": 1,
+          "summon_sick": true
+        },
+        {
+          "id": 100,
+          "name": "Goblin Token",
+          "types": "Creature Goblin",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Goblin Token"
+          },
+          "token": "#100",
+          "is_token": true,
+          "tapped": false,
+          "power": 1,
+          "toughness": 1,
+          "damage": 0,
+          "attacking": false,
+          "controller": 1,
+          "owner": 1,
+          "summon_sick": true
+        },
+        {
+          "id": 101,
+          "name": "Goblin Token",
+          "types": "Creature Goblin",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Goblin Token"
+          },
+          "token": "#101",
+          "is_token": true,
+          "tapped": false,
+          "power": 1,
+          "toughness": 1,
+          "damage": 0,
+          "attacking": false,
+          "controller": 1,
+          "owner": 1,
+          "summon_sick": true
+        },
+        {
+          "id": 102,
+          "name": "Goblin Token",
+          "types": "Creature Goblin",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Goblin Token"
+          },
+          "token": "#102",
+          "is_token": true,
+          "tapped": false,
+          "power": 1,
+          "toughness": 1,
+          "damage": 0,
+          "attacking": false,
+          "controller": 1,
+          "owner": 1,
+          "summon_sick": true
+        },
+        {
+          "id": 75,
+          "name": "Prideful Parent",
+          "types": "Creature Cat",
+          "mana_cost": "2 W",
+          "printing": {
+            "name": "Prideful Parent"
+          },
+          "token": "#75",
+          "tapped": false,
+          "power": 2,
+          "toughness": 2,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "Vigilance"
+          ],
+          "controller": 1,
+          "owner": 1,
+          "summon_sick": true
+        },
+        {
+          "id": 104,
+          "name": "Cat Token",
+          "types": "Creature Cat",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Cat Token"
+          },
+          "token": "#104",
+          "is_token": true,
+          "tapped": false,
+          "power": 1,
+          "toughness": 1,
+          "damage": 0,
+          "attacking": false,
+          "controller": 1,
+          "owner": 1,
+          "summon_sick": true
+        }
+      ],
+      "graveyard": [
+        {
+          "id": 48,
+          "name": "Goblin Boarders",
+          "types": "Creature Goblin Pirate",
+          "mana_cost": "2 R",
+          "printing": {
+            "name": "Goblin Boarders"
+          },
+          "token": "#48",
+          "tapped": false,
+          "power": 3,
+          "toughness": 2,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "etbCounter:P1P1:1:CheckSVar$ RaidTest:Raid — CARDNAME enters with a +1/+1 counter on it if you attacked this turn."
+          ],
+          "controller": 1,
+          "owner": 1,
+          "summon_sick": false
+        },
+        {
+          "id": 45,
+          "name": "Fanatical Firebrand",
+          "types": "Creature Goblin Pirate",
+          "mana_cost": "R",
+          "printing": {
+            "name": "Fanatical Firebrand"
+          },
+          "token": "#45",
+          "tapped": false,
+          "power": 1,
+          "toughness": 1,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "Haste"
+          ],
+          "controller": 1,
+          "owner": 1,
+          "summon_sick": true
+        },
+        {
+          "id": 78,
+          "name": "Sower of Chaos",
+          "types": "Creature Devil",
+          "mana_cost": "3 R",
+          "printing": {
+            "name": "Sower of Chaos"
+          },
+          "token": "#78",
+          "tapped": false,
+          "power": 4,
+          "toughness": 3,
+          "damage": 0,
+          "attacking": false,
+          "controller": 1,
+          "owner": 1,
+          "summon_sick": true
+        },
+        {
+          "id": 41,
+          "name": "Ajani's Pridemate",
+          "types": "Creature Cat Soldier",
+          "mana_cost": "1 W",
+          "printing": {
+            "name": "Ajani's Pridemate"
+          },
+          "token": "#41",
+          "tapped": false,
+          "power": 3,
+          "toughness": 3,
+          "damage": 0,
+          "attacking": false,
+          "counters": {
+            "P1P1": 1
+          },
+          "controller": 1,
+          "owner": 1,
+          "summon_sick": false
+        },
+        {
+          "id": 47,
+          "name": "Felidar Savior",
+          "types": "Creature Cat Beast",
+          "mana_cost": "3 W",
+          "printing": {
+            "name": "Felidar Savior"
+          },
+          "token": "#47",
+          "tapped": false,
+          "power": 2,
+          "toughness": 3,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "Lifelink"
+          ],
+          "controller": 1,
+          "owner": 1,
+          "summon_sick": false
+        },
+        {
+          "id": 49,
+          "name": "Goblin Boarders",
+          "types": "Creature Goblin Pirate",
+          "mana_cost": "2 R",
+          "printing": {
+            "name": "Goblin Boarders"
+          },
+          "token": "#49",
+          "tapped": false,
+          "power": 3,
+          "toughness": 2,
+          "damage": 0,
+          "attacking": false,
+          "keywords": [
+            "etbCounter:P1P1:1:CheckSVar$ RaidTest:Raid — CARDNAME enters with a +1/+1 counter on it if you attacked this turn."
+          ],
+          "controller": 1,
+          "owner": 1,
+          "summon_sick": true
+        },
+        {
+          "id": 51,
+          "name": "Goblin Surprise",
+          "types": "Instant",
+          "mana_cost": "2 R",
+          "spell_api": "Charm",
+          "printing": {
+            "name": "Goblin Surprise"
+          },
+          "token": "#51",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 1,
+          "owner": 1,
+          "summon_sick": false
+        }
+      ],
+      "exile": [],
+      "pool": {},
+      "available": {
+        "R": 2,
+        "W": 2
+      },
+      "command": [],
+      "commanders": [],
+      "completed_dungeons": 0,
+      "commander_casts": [],
+      "archetype": {
+        "known": true,
+        "seen": 26,
+        "top": "go-wide",
+        "top_score": 0.4537037037037037,
+        "scores": {
+          "aggro": 0.046296296296296294,
+          "burn": 0.046296296296296294,
+          "control": 0,
+          "go-wide": 0.4537037037037037,
+          "midrange": 0.037037037037037035,
+          "ramp": 0.3888888888888889,
+          "tempo": 0.027777777777777776
+        }
+      }
+    }
+  ],
+  "stack": [],
+  "pending": [],
+  "decision": {
+    "seq": 2624,
+    "player": 0,
+    "kind": "priority",
+    "prompt": "turn 20, main1 — You has priority",
+    "min": 1,
+    "max": 1,
+    "options": [
+      {
+        "index": 0,
+        "kind": "activate",
+        "label": "Activate Mountain for mana",
+        "obj": 28,
+        "player": 0
+      },
+      {
+        "index": 1,
+        "kind": "activate",
+        "label": "Activate Treasure Token for mana",
+        "obj": 97,
+        "player": 0,
+        "cost": "T Sac\u003c1/CARDNAME\u003e"
+      },
+      {
+        "index": 2,
+        "kind": "pass",
+        "label": "Pass priority",
+        "player": 0
+      },
+      {
+        "index": 3,
+        "kind": "concede",
+        "label": "Concede",
+        "player": 0
+      }
+    ],
+    "payment_actions": [
+      {
+        "id": "27997d5170be6a047102a7c9590dd847c5d888ed9a3eddaa1eca48640269a4d9",
+        "cast": {
+          "object": 4,
+          "face": 0,
+          "origin": "hand"
+        },
+        "label": "Cast Cathar Commando",
+        "plans": [
+          {
+            "version": 1,
+            "id": "af11de85bf77934634e7918915173a3da53f88eeaf470e9a6416b21272280866",
+            "cost": {
+              "generic": 1,
+              "mana": [
+                1,
+                0,
+                0,
+                0,
+                0,
+                0
+              ]
+            },
+            "activations": [
+              {
+                "source": 28,
+                "source_zone_seq": 41,
+                "ability": {
+                  "kind": "intrinsic",
+                  "intrinsic": "basic_land"
+                },
+                "produces": [
+                  0,
+                  0,
+                  0,
+                  1,
+                  0,
+                  0
+                ]
+              },
+              {
+                "source": 97,
+                "source_zone_seq": 0,
+                "ability": {
+                  "kind": "printed"
+                },
+                "produces": [
+                  1,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "consequence": {
+                  "sacrifice": true
+                }
+              }
+            ],
+            "pool_spend": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "pool_after": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

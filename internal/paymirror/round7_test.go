@@ -53,6 +53,7 @@ import (
 // the whole game is still replayed and every planned cast must mirror, but
 // no named cast is required.
 func TestRoundSevenFindingsMirror(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	d, err := LoadDecks(reg)
 	if err != nil {

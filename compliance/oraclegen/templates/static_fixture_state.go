@@ -115,6 +115,41 @@ func staticTokenSpec(reg *cards.Registry, maker string) (name string, spec stati
 	return "", staticProbeSpec{}, false
 }
 
+// staticAttachedCountFixture is the fixture for a count of the attachments
+// on the card itself ("+2/+0 for each Equipment attached to him", Winter
+// Soldier, Icy Assassin; "for each Aura and Equipment attached to CARDNAME",
+// Kellan, the Fae-Blooded): the equip fixture attaches staticEquipCard to the
+// card, so the count reads one and the static's own grant lands on top of the
+// equipment's own P/T shift, which the compared baseline (the attach="self"
+// cardPT shift) carries. staticBodyFixture's Count$Valid walker cannot place
+// the attachment a plain board card would stand in for (staticPresence's
+// battlefield cards are unattached), so this is the attached filter's own
+// builder: every comma alternative must name an Equipment or Aura that is
+// Attached, with no further qualifier a bearer the card itself cannot give.
+func staticAttachedCountFixture(reg *cards.Registry, filter string) (staticFixture, bool) {
+	saw := false
+	for _, group := range strings.Split(filter, ",") {
+		words := affectedWords(group)
+		if len(words) != 2 || !hasWord(words, "Attached") {
+			return staticFixture{}, false
+		}
+		switch words[0] {
+		case "Equipment", "Aura":
+			saw = true
+		default:
+			return staticFixture{}, false
+		}
+	}
+	if !saw {
+		return staticFixture{}, false
+	}
+	pt, ok := staticEquipPTDelta(reg, staticEquipCard)
+	if !ok {
+		return staticFixture{}, false
+	}
+	return staticFixture{equip: staticEquipCard, attach: "self", attachPT: pt}, true
+}
+
 // staticEquipCard is the Equipment the equip fixture attaches. It prints no
 // keyword, trigger or ability beyond its one static's constant +2/+0, so the
 // fixture's own contribution to the equipped permanent is exactly the P/T

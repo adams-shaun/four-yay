@@ -463,23 +463,44 @@ held = read(cands_path)
 # it anyway sends a brief carrying a number that is no longer true -- which
 # happened once, a ticket titled "merge_fix rate is 77%" filed minutes after the
 # metric was corrected to 24.6%. A stale candidate is retired, not queued.
-out, new, stale = [], 0, 0
+out, new, stale, rearmed = [], 0, 0, 0
 for c in held:
     cid = c.get("id")
-    if c.get("status") in ("open", None) and cid not in fresh_by_id:
+    fresh = fresh_by_id.get(cid)
+    if c.get("status") in ("open", None) and fresh is None:
         c["status"] = "stale"
         stale += 1
-    elif c.get("status") in ("open", None) and cid in fresh_by_id:
+    elif c.get("status") in ("open", None) and fresh is not None:
         # The id is stable across branch-set churn, but the measurement under
         # it is not: an OPEN row whose id the fresh generation still produces
         # gets its title/body/est_delta/evidence refreshed so ranking and the
         # filed brief name the CURRENT holders, not the ones from the cycle
         # the candidate was first minted. queued/done/stale rows are never
         # rewritten -- their history is the point.
-        f = fresh_by_id[cid]
         for k in ("title", "body", "est_delta", "est_cost", "evidence"):
-            if k in f:
-                c[k] = f[k]
+            if k in fresh:
+                c[k] = fresh[k]
+    elif c.get("status") == "stale" and fresh is not None:
+        # A retired candidate whose id the current generation produces again
+        # is not stale evidence: for a stable-id alarm candidate (the ids
+        # stopped embedding the measurement -- see seed_candidates.py) stale
+        # simply means the alarm CLEARED. It coming back is a new episode;
+        # re-open with the fresh fields instead of staying retired forever.
+        c["status"] = "open"
+        c.update({k: fresh[k] for k in ("title", "body", "est_delta", "est_cost", "evidence") if k in fresh})
+        rearmed += 1
+    elif c.get("status") == "queued" and fresh is not None:
+        # One re-file per real regression: a queued (already filed) row whose
+        # measured cost grew past what was filed with -- est_delta is the
+        # measured cost for every axis that carries a moving one -- re-opens
+        # once, refreshed. Within 20% it is probe jitter, not a regression:
+        # the open ticket keeps working the metric as filed.
+        held_d = float(c.get("est_delta") or 0)
+        fresh_d = float(fresh.get("est_delta") or 0)
+        if held_d > 0 and fresh_d >= 1.2 * held_d:
+            c["status"] = "open"
+            c.update({k: fresh[k] for k in ("title", "body", "est_delta", "est_cost", "evidence") if k in fresh})
+            rearmed += 1
     out.append(c)
 have = {c.get("id") for c in out}
 for cid, c in fresh_by_id.items():
@@ -489,14 +510,15 @@ for cid, c in fresh_by_id.items():
 with open(cands_path, "w") as f:
     for c in out:
         f.write(json.dumps(c) + "\n")
-print(f"{len(out)}\t{new}\t{stale}")
+print(f"{len(out)}\t{new}\t{stale}\t{rearmed}")
 PY
 )
 TOTAL=$(printf '%s' "$REFRESH" | cut -f1)
 NEW=$(printf '%s' "$REFRESH" | cut -f2)
 STALE=$(printf '%s' "$REFRESH" | cut -f3)
+REARMED=$(printf '%s' "$REFRESH" | cut -f4)
 rm -f "$STATE/.candidates.new"
-saw "candidate backlog: ${TOTAL:-0} total, ${NEW:-0} new, ${STALE:-0} retired as stale this cycle"
+saw "candidate backlog: ${TOTAL:-0} total, ${NEW:-0} new, ${STALE:-0} retired as stale, ${REARMED:-0} re-armed this cycle"
 
 if [ "$QUIET" = 1 ]; then
 	skipped "opportunity step skipped this cycle (see the reason above)"
