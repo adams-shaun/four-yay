@@ -518,7 +518,7 @@ func (e *Engine) planAbilityPayment(p state.PlayerID, id state.ObjID, ability in
 		return PaymentPlanOutcome{Reason: "unsupported"}
 	}
 	pa, ok := o.PileAbilityAt(ability)
-	if !ok || pa.SA == nil || pa.SA.Kind != "AB" || cards.IsManaAbilityAPI(pa.SA.API) {
+	if !ok || pa.SA == nil || pa.SA.Kind != "AB" || cards.IsManaAbilitySA(pa.SA) {
 		return PaymentPlanOutcome{Reason: "unsupported", Detail: "ability"}
 	}
 	ab := pa.SA

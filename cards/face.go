@@ -232,7 +232,7 @@ func (f *Face) ManaAbilities() []*SA {
 func (f *Face) textualManaAbilities() []*SA {
 	var out []*SA
 	for _, a := range f.Abilities {
-		if a.Kind == "AB" && a.API == "Mana" {
+		if manaAbilityListEntry(a) {
 			out = append(out, a)
 		}
 	}

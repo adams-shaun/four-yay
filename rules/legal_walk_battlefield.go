@@ -13,141 +13,155 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
+// manaSection is the walk's mana-activation section, extracted verbatim from
+// battlefieldWalk (quiet-seat Q2, design
+// docs/superpowers/specs/2026-10-08-quiet-seat-walk-skip-design.md §3.3) so
+// the quiet serve (rules/quiet_serve.go) can run exactly this block without
+// the walk's other sections, and the walk itself goes through the one copy.
+// It returns the board-wide facts it derives, because the battlefieldWalk
+// sections that follow read the same read-once snapshot.
+func (w *legalWalk) manaSection() walkBoardFacts {
+	e, p := w.e, w.p
+	actionStatics := &w.actionStatics
+	out := &w.out
+	// Mana abilities may explicitly function from the battlefield, hand or
+	// graveyard (Spirit Guides and Jack-o'-Lantern). availableManaAbilities
+	// applies each ability's ActivationZone, Activator$ and full cost gate.
+	// The battlefield is walked for EVERY seat, not just p's, because an
+	// ability another player's Activator$ permits (Mana Cache's "Any player
+	// may activate this ability") reaches them through p's offer; every other
+	// object still fails the controller/selector gate in the choke point.
+	// The walk only inspects each object's mana-ability list, so one scratch
+	// buffer serves every object (taken from the Engine for the loop, so a
+	// re-entrant walk allocates its own).
+	// The walk's board-wide facts (legal_walk_skip.go): read once here,
+	// outside every face probe, and shared with the mana walk through
+	// actionStatics so it stops re-deriving them per object.
+	board := w.boardFacts()
+	if w.rec != nil {
+		w.rec.board = board
+	}
+	// The object classes below are exact only once the log's touches
+	// are caught up (walk_objclass.go).
+	e.walkClassesCatchUp()
+	// The mana section reads no pricing pool: a potential walk at the
+	// recorded priority walk's state serves its options
+	// (walk_block_reuse.go).
+	manaStart := len(*out)
+	if !w.reuseManaSection() {
+		masBuf := e.manaAbBuf
+		e.manaAbBuf = nil
+		for _, z := range []state.Zone{state.ZBattlefield, state.ZHand, state.ZGraveyard} {
+			zonePlayers := []state.PlayerID{p}
+			if z == state.ZBattlefield {
+				zonePlayers = make([]state.PlayerID, len(e.G.Players))
+				for seat := range zonePlayers {
+					zonePlayers[seat] = state.PlayerID(seat)
+				}
+			}
+			// A mana-cold object offers nothing on this board
+			// (walk_objclass.go); verify mode visits it and checks its skip.
+			manaCls := board.ready && !board.addAbility && !board.hasGrants
+			lTypeBlock := w.manaLTypeBlockMay(board)
+			for _, zonePlayer := range zonePlayers {
+				// The seat's own battlefield membership is recorded for
+				// PotentialMana (walk_block_reuse.go: recordMembers).
+				own := w.rec != nil && z == state.ZBattlefield && zonePlayer == p
+				// The mana-member carry serves a seat's OWN battlefield
+				// objects (legal-walk design §S4). A board-wide grant or an
+				// add-ability changes every object's membership, so those
+				// boards keep the direct walk.
+				ownSeat := z == state.ZBattlefield && zonePlayer == p
+				carryable := ownSeat && !board.hasGrants && !board.addAbility
+				useCls := manaCls && !own && !(z == state.ZBattlefield && lTypeBlock)
+				for zi, id := range e.G.Zone(z, zonePlayer) {
+					if useCls && !e.walkClassOf(id).manaHot {
+						if !walkSkipVerify {
+							continue
+						}
+						w.verifyManaCold(board, e.G.Obj(id), id, z)
+					}
+					o := e.G.Obj(id)
+					if z == state.ZBattlefield && !pay.ExistsOnBattlefield(o) {
+						// CR 702.25b: a phased-out permanent is treated as though it
+						// does not exist, so its mana abilities are not offered. The
+						// choke point appendAvailableManaAbilities is gated too, which
+						// covers the payment windows this offer walk does not reach.
+						continue
+					}
+					f := o.Face()
+					if f == nil {
+						continue
+					}
+					if w.manaWalkEmpty(board, o, id, f) {
+						// Provably nothing to offer (legal_walk_skip.go).
+						if walkSkipVerify {
+							if got := e.appendAvailableManaAbilities(masBuf[:0], actionStatics, p, id); len(got) != 0 {
+								panic(fmt.Sprintf("rules: mana walk skip dropped %d abilities of obj %d", len(got), id))
+							}
+						}
+						if own {
+							w.rec.recordMembers(zi, nil)
+						}
+						continue
+					}
+					var mas []*cards.SA
+					if carryable {
+						if all, ok := e.manaMemberLookup(id); ok {
+							if walkCacheVerify {
+								want := e.appendAvailableManaAbilitiesGate(nil, actionStatics, p, id, true)
+								if !slices.EqualFunc(want, all, pay.SameManaAbility) {
+									panic(fmt.Sprintf("rules: mana-member carry of obj %d is stale (carry %d %v, want %d %v, p %d)", id, len(all), manaLineList(all), len(want), manaLineList(want), p))
+								}
+							}
+							if own {
+								w.rec.recordMembers(zi, all)
+							}
+							mas = e.filterPayableMana(masBuf[:0], all, p, o, id)
+						} else {
+							all := e.appendAvailableManaAbilitiesGate(masBuf[:0], actionStatics, p, id, true)
+							e.manaMemberStore(id, all)
+							if own {
+								w.rec.recordMembers(zi, all)
+							}
+							mas = e.filterPayableMana(masBuf[:0], all, p, o, id)
+						}
+					} else if own {
+						mas = w.ownManaMembers(masBuf[:0], zi, o, id)
+					} else {
+						mas = e.appendAvailableManaAbilities(masBuf[:0], actionStatics, p, id)
+					}
+					masBuf = mas
+					if len(mas) == 0 {
+						continue
+					}
+					opt := decision.Option{Index: len(*out), Kind: "activate", Label: w.manaLabel(f), Obj: id}
+					// fb-led1: a mana ability that costs more than a bare tap is the
+					// play the window exists for — carry its cost so the client's
+					// empty-priority-window floor stops instead of passing it away.
+					if marker := e.manaActivationCostMarker(mas); marker != "" {
+						opt.Cost = marker
+					}
+					*out = append(*out, opt)
+				}
+			}
+		}
+		clear(masBuf)
+		e.manaAbBuf = masBuf[:0]
+	}
+	w.recordManaSection(manaStart)
+	return board
+}
+
 // battlefieldWalk is the battlefield/hand/graveyard/exile ability section,
 // offered only when the walk is not castsOnly.
 func (w *legalWalk) battlefieldWalk() {
 	e, p := w.e, w.p
 	sorcery := w.sorcery
-	actionStatics := &w.actionStatics
 	out := &w.out
 	castsOnly := w.castsOnly
 	if !castsOnly {
-		// Mana abilities may explicitly function from the battlefield, hand or
-		// graveyard (Spirit Guides and Jack-o'-Lantern). availableManaAbilities
-		// applies each ability's ActivationZone, Activator$ and full cost gate.
-		// The battlefield is walked for EVERY seat, not just p's, because an
-		// ability another player's Activator$ permits (Mana Cache's "Any player
-		// may activate this ability") reaches them through p's offer; every other
-		// object still fails the controller/selector gate in the choke point.
-		// The walk only inspects each object's mana-ability list, so one scratch
-		// buffer serves every object (taken from the Engine for the loop, so a
-		// re-entrant walk allocates its own).
-		// The walk's board-wide facts (legal_walk_skip.go): read once here,
-		// outside every face probe, and shared with the mana walk through
-		// actionStatics so it stops re-deriving them per object.
-		board := w.boardFacts()
-		if w.rec != nil {
-			w.rec.board = board
-		}
-		// The object classes below are exact only once the log's touches
-		// are caught up (walk_objclass.go).
-		e.walkClassesCatchUp()
-		// The mana section reads no pricing pool: a potential walk at the
-		// recorded priority walk's state serves its options
-		// (walk_block_reuse.go).
-		manaStart := len(*out)
-		if !w.reuseManaSection() {
-			masBuf := e.manaAbBuf
-			e.manaAbBuf = nil
-			for _, z := range []state.Zone{state.ZBattlefield, state.ZHand, state.ZGraveyard} {
-				zonePlayers := []state.PlayerID{p}
-				if z == state.ZBattlefield {
-					zonePlayers = make([]state.PlayerID, len(e.G.Players))
-					for seat := range zonePlayers {
-						zonePlayers[seat] = state.PlayerID(seat)
-					}
-				}
-				// A mana-cold object offers nothing on this board
-				// (walk_objclass.go); verify mode visits it and checks its skip.
-				manaCls := board.ready && !board.addAbility && !board.hasGrants
-				lTypeBlock := w.manaLTypeBlockMay(board)
-				for _, zonePlayer := range zonePlayers {
-					// The seat's own battlefield membership is recorded for
-					// PotentialMana (walk_block_reuse.go: recordMembers).
-					own := w.rec != nil && z == state.ZBattlefield && zonePlayer == p
-					// The mana-member carry serves a seat's OWN battlefield
-					// objects (legal-walk design §S4). A board-wide grant or an
-					// add-ability changes every object's membership, so those
-					// boards keep the direct walk.
-					ownSeat := z == state.ZBattlefield && zonePlayer == p
-					carryable := ownSeat && !board.hasGrants && !board.addAbility
-					useCls := manaCls && !own && !(z == state.ZBattlefield && lTypeBlock)
-					for zi, id := range e.G.Zone(z, zonePlayer) {
-						if useCls && !e.walkClassOf(id).manaHot {
-							if !walkSkipVerify {
-								continue
-							}
-							w.verifyManaCold(board, e.G.Obj(id), id, z)
-						}
-						o := e.G.Obj(id)
-						if z == state.ZBattlefield && !pay.ExistsOnBattlefield(o) {
-							// CR 702.25b: a phased-out permanent is treated as though it
-							// does not exist, so its mana abilities are not offered. The
-							// choke point appendAvailableManaAbilities is gated too, which
-							// covers the payment windows this offer walk does not reach.
-							continue
-						}
-						f := o.Face()
-						if f == nil {
-							continue
-						}
-						if w.manaWalkEmpty(board, o, id, f) {
-							// Provably nothing to offer (legal_walk_skip.go).
-							if walkSkipVerify {
-								if got := e.appendAvailableManaAbilities(masBuf[:0], actionStatics, p, id); len(got) != 0 {
-									panic(fmt.Sprintf("rules: mana walk skip dropped %d abilities of obj %d", len(got), id))
-								}
-							}
-							if own {
-								w.rec.recordMembers(zi, nil)
-							}
-							continue
-						}
-						var mas []*cards.SA
-						if carryable {
-							if all, ok := e.manaMemberLookup(id); ok {
-								if walkCacheVerify {
-									want := e.appendAvailableManaAbilitiesGate(nil, actionStatics, p, id, true)
-									if !slices.EqualFunc(want, all, pay.SameManaAbility) {
-										panic(fmt.Sprintf("rules: mana-member carry of obj %d is stale (carry %d %v, want %d %v, p %d)", id, len(all), manaLineList(all), len(want), manaLineList(want), p))
-									}
-								}
-								if own {
-									w.rec.recordMembers(zi, all)
-								}
-								mas = e.filterPayableMana(masBuf[:0], all, p, o, id)
-							} else {
-								all := e.appendAvailableManaAbilitiesGate(masBuf[:0], actionStatics, p, id, true)
-								e.manaMemberStore(id, all)
-								if own {
-									w.rec.recordMembers(zi, all)
-								}
-								mas = e.filterPayableMana(masBuf[:0], all, p, o, id)
-							}
-						} else if own {
-							mas = w.ownManaMembers(masBuf[:0], zi, o, id)
-						} else {
-							mas = e.appendAvailableManaAbilities(masBuf[:0], actionStatics, p, id)
-						}
-						masBuf = mas
-						if len(mas) == 0 {
-							continue
-						}
-						opt := decision.Option{Index: len(*out), Kind: "activate", Label: w.manaLabel(f), Obj: id}
-						// fb-led1: a mana ability that costs more than a bare tap is the
-						// play the window exists for — carry its cost so the client's
-						// empty-priority-window floor stops instead of passing it away.
-						if marker := e.manaActivationCostMarker(mas); marker != "" {
-							opt.Cost = marker
-						}
-						*out = append(*out, opt)
-					}
-				}
-			}
-			clear(masBuf)
-			e.manaAbBuf = masBuf[:0]
-		}
-		w.recordManaSection(manaStart)
+		board := w.manaSection()
 
 		// Activated abilities (Task 10): every non-mana AB$ ability on a
 		// permanent p controls, and every one on a card in p's graveyard whose
@@ -283,7 +297,7 @@ func (w *legalWalk) battlefieldWalk() {
 							}
 							loyal = e.isLoyaltyAbility(ab)
 						}
-						if cards.IsManaAbilityAPI(ab.API) && !loyal {
+						if cards.IsManaAbilitySA(ab) && !loyal {
 							continue
 						}
 						if ab.ParamStr(cards.PKSorcerySpeed) == "True" && !sorcery {
@@ -597,7 +611,7 @@ func (w *legalWalk) battlefieldWalk() {
 				}
 				for _, ga := range e.grantedAbilities(p, id) {
 					ab := ga.SA
-					// cards.IsManaAbilityAPI, not a bare "Mana" check: a granted
+					// cards.IsManaAbilitySA, not a bare "Mana" check: a granted
 					// ManaReflected flows through availableManaAbilities too (its
 					// IsPresent$ gate lives in manaReflectedPresentHolds, which knows
 					// the hasAbility Activated.otherAbility special form). A granted
@@ -605,9 +619,9 @@ func (w *legalWalk) battlefieldWalk() {
 					// is NOT a mana ability (CR 605.1a excludes loyalty abilities),
 					// so it is offered HERE as an ordinary ability exactly as a
 					// printed loyalty mana ability is (the printed loop's own
-					// `IsManaAbilityAPI && !loyal` skip); the mana walk excludes it
+					// `IsManaAbilitySA && !loyal` skip); the mana walk excludes it
 					// symmetrically (mana_activation.go's isLoyaltyAbility skip).
-					if cards.IsManaAbilityAPI(ab.API) && !e.isLoyaltyAbility(ab) {
+					if cards.IsManaAbilitySA(ab) && !e.isLoyaltyAbility(ab) {
 						continue
 					}
 					if ab.ParamStr(cards.PKSorcerySpeed) == "True" && !sorcery {

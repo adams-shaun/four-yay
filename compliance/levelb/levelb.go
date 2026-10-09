@@ -278,7 +278,17 @@ func classifyTrigger(f *cards.Face, t *cards.Trigger) (sub, gap string, covered 
 		return gapMode()
 
 	case cards.TriggerDrawn:
-		if strings.EqualFold(t.ParamStr(cards.PKValidPlayer), "You") || namesYouCtrl(t.ParamStr(cards.PKValidCard)) {
+		vp := strings.ToLower(strings.TrimSpace(t.ParamStr(cards.PKValidPlayer)))
+		vc := t.ParamStr(cards.PKValidCard)
+		if strings.EqualFold(vp, "you") || namesYouCtrl(vc) {
+			return "trigger.drawn", "", false
+		}
+		// An opponent-draws filter (ValidCard$ Card.OppOwn) or an
+		// opponent/player ValidPlayer is served by the other-player cause.
+		if vp == "opponent" || vp == "player" || filterHasToken(vc, "OppOwn") || filterHasToken(vc, "OppCtrl") {
+			return "trigger.drawn-other", "", false
+		}
+		if vp == "" && strings.TrimSpace(vc) == "" {
 			return "trigger.drawn", "", false
 		}
 		return gapMode()
@@ -451,6 +461,9 @@ func supportedLegalityStatic(f *cards.Face, st *cards.Static) (string, bool) {
 		if NamedCardActivationStatic(f, st) {
 			return "static.cant-be-activated-named", true
 		}
+		if NamedCardActivationEntersStatic(f, st) {
+			return "static.cant-be-activated-named-enters", true
+		}
 		if strings.EqualFold(st.ParamStr(cards.PKValidCard), "Card") && strings.EqualFold(st.ParamStr(cards.PKValidSA), "Activated.!ManaAbility") && strings.EqualFold(st.ParamStr(cards.PKPhases), "BeginCombat->EndCombat") && !st.HasParam(cards.PKActivator) && !st.HasParam(cards.PKAffectedZone) && !st.HasParam(cards.PKCondition) {
 			return "static.cant-be-activated-combat", true
 		}
@@ -522,6 +535,35 @@ func faceHasSubtype(f *cards.Face, t string) bool {
 // whose as-enters replacement names the card (NameCard).
 func NamedCardActivationStatic(f *cards.Face, st *cards.Static) bool {
 	if f.IsLand() || f.ManaCost == "" || !strings.EqualFold(st.ParamStr(cards.PKValidCard), "Card.NamedCard") ||
+		!strings.EqualFold(st.ParamStr(cards.PKValidSA), "Activated.!ManaAbility") {
+		return false
+	}
+	allowed := 2
+	for _, k := range []cards.ParamKey{cards.PKMode, cards.PKDescription, cards.PKSecondary} {
+		if st.HasParam(k) {
+			allowed++
+		}
+	}
+	if len(st.Params) != allowed {
+		return false
+	}
+	for _, body := range f.SVars {
+		if strings.Contains(body, "DB$ NameCard") {
+			return true
+		}
+	}
+	return false
+}
+
+// NamedCardActivationEntersStatic reports whether st is Petrified Hamlet's
+// shape: the same chosen-name lock (CantBeActivated ValidCard$ Card.NamedCard
+// on non-mana activations) on a land whose ETB trigger poses the NameCard ask
+// while the trigger resolves ("When this land enters, choose a land card
+// name"), not through an as-enters replacement. The name is chosen
+// mid-trigger-resolution, so the observation plays the land and answers the
+// ask with the library top (static_named_enters.go).
+func NamedCardActivationEntersStatic(f *cards.Face, st *cards.Static) bool {
+	if !f.IsLand() || !strings.EqualFold(st.ParamStr(cards.PKValidCard), "Card.NamedCard") ||
 		!strings.EqualFold(st.ParamStr(cards.PKValidSA), "Activated.!ManaAbility") {
 		return false
 	}

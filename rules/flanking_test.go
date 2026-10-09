@@ -93,19 +93,19 @@ func TestFlankingKnightOfTheHolyNimbusDebuffsBlockers(t *testing.T) {
 	}
 }
 
-// TestAttackerBlockedByCreatureBlockerRoleStaysInert is the regression pin for
-// the pair hook's role gate. Forge's Mode$ AttackerBlockedByCreature has two
+// TestAttackerBlockedByCreatureBlockerRoleFires pins the blocker half of
+// Forge's Mode$ AttackerBlockedByCreature pair hook. Forge's mode has two
 // halves: the "becomes blocked" line (source = the ATTACKER, body names
 // Defined$ TriggeredBlockerLKICopy) and the "blocks" line (source = the
 // BLOCKER, spelled ValidCard$ Creature | ValidBlocker$ Card.Self, body names
-// Defined$ TriggeredAttackerLKICopy). The pair hook binds the blocker as the
-// remembered object, so it may only fire the attacker-role half; firing the
-// blocker-role half would resolve TriggeredAttackerLKICopy to the remembered
-// BLOCKER -- the source itself -- and make the blocking creature damage itself.
-// Ornery Goblin carries both halves ("blocks or becomes blocked"); when it
-// BLOCKS, only the self-source line matches and it must stay inert, leaving
-// both creatures undamaged.
-func TestAttackerBlockedByCreatureBlockerRoleStaysInert(t *testing.T) {
+// Defined$ TriggeredAttackerLKICopy). The pair hook used to gate every
+// instance on pr[0]==source, so the blocker half was inert (Skewer Slinger,
+// Witherscale Wurm, Wooden Stake; see trigger_blocks_blocker_test.go). Ornery
+// Goblin carries both halves ("blocks or becomes blocked"); when it BLOCKS,
+// the self-source line matches and must deal 1 damage to the ATTACKER it
+// blocked -- never to the remembered BLOCKER (itself), which the old role gate
+// guarded against.
+func TestAttackerBlockedByCreatureBlockerRoleFires(t *testing.T) {
 	t.Parallel()
 	goblin := mshCorpusCardPath(t, "Ornery Goblin", "o/ornery_goblin.txt")
 	e := combatEngine(t)
@@ -119,14 +119,25 @@ func TestAttackerBlockedByCreatureBlockerRoleStaysInert(t *testing.T) {
 		t.Fatalf("expected a blockers decision, got %+v", d)
 	}
 	submitBlockersOnly(t, e, blocker)
-	if len(e.pendingTriggers) != 0 || len(e.G.Stack) != 0 {
-		t.Fatalf("blocker-role trigger queued %d triggers / %d stack objects, want 0",
+	// Precondition: the pair is really formed, so the trigger below is the
+	// blocker half and not a phantom.
+	bb := e.G.Obj(bear).BlockedBy
+	if len(bb) != 1 || bb[0] != blocker {
+		t.Fatalf("attacker BlockedBy = %v, want [%d] (the block must be recorded)", bb, blocker)
+	}
+	// The blocker half is on the stack at the declare-blockers priority ask.
+	if len(e.pendingTriggers) != 0 || len(e.G.Stack) != 1 {
+		t.Fatalf("blocker-role trigger queued %d triggers / %d stack objects, want 0 / 1",
 			len(e.pendingTriggers), len(e.G.Stack))
 	}
-	if got := e.G.Obj(blocker).Damage; got != 0 {
-		t.Fatalf("blocking creature took %d damage, want 0 (the blocks half must stay inert)", got)
-	}
 	if got := e.G.Obj(bear).Damage; got != 0 {
-		t.Fatalf("attacker took %d damage, want 0", got)
+		t.Fatalf("attacker damage before the trigger resolves = %d, want 0", got)
+	}
+	e.resolveTop()
+	if got := e.G.Obj(bear).Damage; got != 1 {
+		t.Fatalf("attacker damage after the blocker-role trigger = %d, want 1 (the blocks half must damage the blocked attacker)", got)
+	}
+	if got := e.G.Obj(blocker).Damage; got != 0 {
+		t.Fatalf("blocking creature took %d damage from its own trigger, want 0", got)
 	}
 }

@@ -97,7 +97,8 @@ func ManaAbilityLabel(ma *cards.SA, chosen string) string {
 }
 
 func manaProducedLabel(ma *cards.SA, chosen string) string {
-	mp := params.ManaOf(ma)
+	prod := manaProductionSA(ma)
+	mp := params.ManaOf(prod)
 	produced := SubstituteChosenProduced(mp.Produced, chosen)
 	switch manaProducedLabelCodes.Code(string(produced)) {
 	case manaProducedLabelAny:
@@ -120,12 +121,28 @@ func manaProducedLabel(ma *cards.SA, chosen string) string {
 	}
 	if cols, ok := params.ComboColours(produced); ok {
 		if len(cols) == 1 {
-			return "Add " + ManaAmountPips(ma, cols[0])
+			return "Add " + ManaAmountPips(prod, cols[0])
 		}
 		last := len(cols) - 1
 		return "Add " + strings.Join(cols[:last], ", ") + " or " + cols[last]
 	}
-	return "Add " + ManaAmountPips(ma, produced)
+	return "Add " + ManaAmountPips(prod, produced)
+}
+
+// manaProductionSA is the SA whose Produced$/Amount$ a wheel label names: the
+// ability itself, or the DB$ Mana production a chain head delegates to (an
+// "AB$ ChooseColor | SubAbility$ DBMana" head carries no Produced$ of its
+// own, so labelling the head directly rendered a bare "Add ").
+func manaProductionSA(ma *cards.SA) *cards.SA {
+	if ma == nil {
+		return nil
+	}
+	if params.ManaOf(ma).Produced == "" {
+		if sub := cards.ManaChainProduction(ma); sub != nil {
+			return sub
+		}
+	}
+	return ma
 }
 
 // ManaAmountPips repeats a single-pip production by the ability's literal

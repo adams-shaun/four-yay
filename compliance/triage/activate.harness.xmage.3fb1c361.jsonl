@@ -1,0 +1,3 @@
+{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"IllegalArgumentException: activate step N has no xmage_ability"},"key":"activate | harness | xmage | IllegalArgumentException: activate step N has no xmage_ability","cards":2}
+{"card":"Gogo, Master of Mimicry","template":"activate#0.0","status":"harness","api":"-","sets":["FIN"],"detail":"xmage: IllegalArgumentException: activate step 0 has no xmage_ability"}
+{"card":"Peter Parker's Camera","template":"activate#0.0","status":"harness","api":"-","sets":["SPM"],"detail":"xmage: IllegalArgumentException: activate step 0 has no xmage_ability"}

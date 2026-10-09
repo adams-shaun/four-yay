@@ -116,7 +116,9 @@ func TestTriggerFilterGapsAreNamed(t *testing.T) {
 		// is pinned on carriers whose predicates are still unknown.
 		{"Melek, Izzet Paragon", "trigger#0.0", "wasCastFromYourLibrary"},
 		{"Providence of Night", "trigger#0.0", "CostsHybridMana"},
-		{"Ares, God of War", "trigger#0.0", "dies victim must be attacking"},
+		// Ares, God of War's attacking-victim row is served by the g17
+		// mid-combat destroy cause (trigger_victim_specials.go); no census
+		// card names an unserved dying-victim qualifier any more.
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			c, ok := reg.Lookup(tc.name)

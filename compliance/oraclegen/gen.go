@@ -1503,6 +1503,13 @@ func targetDecisionAnswers(r *answerRouting, i int) []XAnswer {
 				as = append(as, XAnswer{d.Seat, "target", ref})
 				continue
 			}
+			if currentFaceTargetRef(d, k) {
+				// The option label names a different object than the ref --
+				// the permanent's current face (a transformed DFC, a face-down
+				// card). The ref's identity alias selects the live object.
+				as = append(as, XAnswer{d.Seat, "target", ref})
+				continue
+			}
 			_, marker := SameNameAmbiguity(d, k)
 			as = append(as, XAnswer{d.Seat, "target", oraclediffRefName(ref) + marker})
 		}
@@ -1864,6 +1871,12 @@ func triggerOrderNamesDistinct(d rules.OracleDecision) bool {
 func isScenarioRefShaped(s string) bool {
 	i := strings.IndexByte(s, ':')
 	return i > 1 && s[0] == 'p' && strings.Trim(s[1:i], "0123456789") == ""
+}
+
+// IsScenarioRefShaped is the exported form of isScenarioRefShaped, for
+// template answer writers that must never emit "@" before a non-ref label.
+func IsScenarioRefShaped(s string) bool {
+	return isScenarioRefShaped(s)
 }
 
 // trigSpan records where one trigger-order decision's name answers sit in a
