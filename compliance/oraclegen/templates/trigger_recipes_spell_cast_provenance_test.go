@@ -79,7 +79,7 @@ func TestSpellCastProvenanceCauseFires(t *testing.T) {
 			if err != nil {
 				t.Fatalf("%s replay err=%v", tc.name, err)
 			}
-			if !abilityOnStack(res.Snapshots, tc.name, card.Faces[0].Name, stackSlot(req)) {
+			if !abilityOnStack(res.Snapshots, stackSourceWants(reg, tc.name, card.Faces[0]), stackSlot(req)) {
 				t.Fatalf("%s trigger never reached the stack", tc.name)
 			}
 		})

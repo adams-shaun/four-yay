@@ -76,7 +76,7 @@ var wantCensus = map[string]map[string]int{
 		"trigger.ltb-other":                1,
 		"trigger.ltb-self":                 4,
 		"trigger.damage":                   6,
-		"trigger.gap:LandPlayed":           1,
+		"trigger.land-played":              1, // The Endstone: agent-20261009T160853Z-c3e35453
 		"trigger.phase":                    20,
 		"trigger.blocks":                   1,
 		"trigger.sacrificed":               2,

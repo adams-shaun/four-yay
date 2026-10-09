@@ -86,6 +86,34 @@ func classifyEventTrigger(t *cards.Trigger) (sub string, ok bool) {
 		// controller for You/Player, an opponent for Opponent); the engine's
 		// LifeLost matcher still decides per card whether the loss fires it.
 		return "trigger.life-lost", true
+	case cards.TriggerTransformed:
+		// "Whenever this permanent transforms into CARDNAME": a self-transform
+		// body (ValidCard$ Card.Self). The cause is the card's own Phase
+		// transform enabler on its front face, whose payment or auto SetState
+		// flips it and fires every face's Transformed trigger. A watcher's
+		// transformed-object filter (Cult of the Waxing Moon) stays a gap.
+		if namesSelf(t.ParamStr(cards.PKValidCard)) {
+			return "trigger.transformed", true
+		}
+	case cards.TriggerCycled:
+		// "When you cycle this card": the cause activates the card's own
+		// cycling ability from its hand, whose cost discard is the engine's
+		// tagged cycle event (rules/trigmatch/cards.go cycledMatches).
+		if namesSelf(t.ParamStr(cards.PKValidCard)) {
+			return "trigger.cycled", true
+		}
+	case cards.TriggerLandPlayed:
+		// "Whenever you play a land" without an origin qualifier: the cause is
+		// p0's own land drop. An origin-scoped shape (Gwen Stacy's from-exile,
+		// Shadow of the Goblin's not-from-hand) and a not-owned land (Shadow's
+		// ValidCard$ ...+YouDontOwn) stay gaps: the plain play cause plays a
+		// p0-owned land from its hand, and a Static$ LandPlayed trigger never
+		// reaches the stack to be observed.
+		origin := t.ParamStr(cards.PKOrigin)
+		if (strings.TrimSpace(origin) == "" || strings.EqualFold(origin, "Hand")) &&
+			!filterHasToken(t.ParamStr(cards.PKValidCard), "YouDontOwn") {
+			return "trigger.land-played", true
+		}
 	case cards.TriggerDiscarded:
 		if namesSelf(t.ParamStr(cards.PKValidCard)) || discardByController(t) {
 			return "trigger.discarded", true

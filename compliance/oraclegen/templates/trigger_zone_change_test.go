@@ -21,7 +21,7 @@ func stackedAfterCause(t *testing.T, reg *cards.Registry, sc oraclegen.Scenario,
 	passes := []oraclegen.Step{{Op: "pass", Seat: 0}, {Op: "pass", Seat: 1}}
 	for _, try := range [][]oraclegen.Step{steps, append(append([]oraclegen.Step(nil), steps...), passes...)} {
 		sc.Steps = try
-		if _, res, ok := oraclegen.Settle(reg, sc); ok && abilityOnStack(res.Snapshots, name, name, slot) {
+		if _, res, ok := oraclegen.Settle(reg, sc); ok && abilityOnStack(res.Snapshots, stackSourceWants(reg, name, wantsFace(t, reg, name)), slot) {
 			return true
 		}
 	}
@@ -190,4 +190,15 @@ func TestTokenChangesZoneFilterGetsItsTokenMaker(t *testing.T) {
 	if why != "" || len(causes) != 1 || causes[0].steps[0].Card != "p0:Sprout" {
 		t.Fatalf("causes=%+v why=%q, want one Sprout cause", causes, why)
 	}
+}
+
+// wantsFace looks name up for stackSourceWants; the two shared helpers here
+// predate the wants form of abilityOnStack.
+func wantsFace(t *testing.T, reg *cards.Registry, name string) *cards.Face {
+	t.Helper()
+	c, ok := reg.Lookup(name)
+	if !ok {
+		t.Fatalf("%s not in the corpus", name)
+	}
+	return c.Faces[0]
 }

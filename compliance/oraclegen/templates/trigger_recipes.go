@@ -28,6 +28,8 @@ type triggerCause struct {
 	// activate steps need selectors exactly as the cause's do.
 	preludeXAbility []string // XMage rule-text prefix per prelude step; nil when no prelude activates
 	castSelfX       bool     // the card is cast from hand first (an X creature that setup would leave 0/0, or a p0 upkeep/draw trigger whose fixture turn 1 would otherwise spend)
+	selfBackUp      bool     // the card is placed on its back face at setup (a transform-INTO-the-front-face trigger served by the back face's own enabler)
+	selfFrontUp     bool     // the card is kept on its front face at setup even though the requirement's face is 1 (a back-face Transformed row served by the front face's own enabler)
 	opponentHand    []string // probes held by p1 for opponent-cast causes
 	// opponentBattlefield are p1 permanents (a blocker, an attacker, a tap
 	// target, an opponent-comparison gate) the cause needs on the other side
