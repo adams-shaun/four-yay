@@ -2380,6 +2380,16 @@ const unlimitedHandSize = 1 << 20
 //
 // Both routes are consulted through the ONE value grammar
 // effects.HandSizeValueOK, so they cannot disagree about what a value means.
+// A value that is not a literal -- an SVar name, Winter, Misanthropic
+// Guide's "Delirium -- each opponent's maximum hand size is equal to seven
+// minus the number of those card types" -- is priced through the shared
+// count evaluator (setMaxHandSizeSVar) on the PRINTED route only, where the
+// source face's SVar table is at hand; the Effect-delivered route carries
+// only the raw string and keeps refusing one. A printed static's own
+// "as long as" gate (Condition$ Delirium, an IsPresent$ rider) is the
+// intervening-if continuousGateHolds already evaluates for every other
+// static family, so a gated maximum exists exactly while its condition
+// holds.
 // The scan walks the printed statics first (in their deterministic
 // activeStatics order), then the registered continuous effects (in active()
 // order); the FIRST affecting static wins. Applying two at once has no rules
@@ -2396,7 +2406,13 @@ func (e *Engine) maxHandSizeFor(p state.PlayerID) int {
 		if !effects.MatchesPlayerSpecFrom(e.G, sv.ParamStr(cards.PKAffected), p, sv.Controller, sv.Source) {
 			continue
 		}
+		if !e.continuousGateHolds(sv) {
+			continue
+		}
 		if n, ok := effects.HandSizeValueOK(raw); ok {
+			return n
+		}
+		if n, ok := setMaxHandSizeSVar(e, sv, raw); ok {
 			return n
 		}
 	}
@@ -2413,6 +2429,38 @@ func (e *Engine) maxHandSizeFor(p state.PlayerID) int {
 		}
 	}
 	return maxHandSize
+}
+
+// setMaxHandSizeSVar prices a printed SetMaxHandSize$ value that names an
+// SVar instead of a literal: the source face's table resolves the body
+// through the shared count evaluator, so Winter, Misanthropic Guide's
+// Y = Number$7/Minus.X (X = the card types in the controller's graveyard)
+// reads 3 with four types there and Midnight Oil's X = Count$CardCounters.HOUR
+// reads the counters. A name the face has no SVar for, or a body the
+// evaluator does not model (EvalCountOK's verdict), reports false -- the
+// fail-closed direction the literal grammar already took, so an unreadable
+// value leaves the default rather than a guessed maximum. A free function
+// over effects.Host, not an Engine method: it needs only the Game and the
+// static view, and the engine surface stays closed.
+func setMaxHandSizeSVar(h effects.Host, sv staticView, raw string) (int, bool) {
+	o := h.Game().Obj(sv.Source)
+	if o == nil || o.Face() == nil {
+		return 0, false
+	}
+	svars := sv.SVars
+	if svars == nil {
+		svars = o.Face().SVars
+	}
+	body := strings.TrimSpace(svars[raw])
+	if body == "" {
+		return 0, false
+	}
+	ctx := effects.NewCtxPtr(sv.Source, sv.Controller, effects.CtxInit{SVars: svars})
+	n, ok := effects.EvalCountOK(h, ctx, body)
+	if !ok || n < 0 {
+		return 0, false
+	}
+	return int(n), true
 }
 
 // cleanupStep is the CR 514 cleanup step's turn-based actions, Task D1
