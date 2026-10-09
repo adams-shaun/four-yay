@@ -56,6 +56,18 @@ public final class ScenarioReplayDriverContractTest {
         return (Boolean) method.invoke(null, target);
     }
 
+    /** The attach STEP's idempotence: a bearer that already lists the
+     * attachment (its ETB attach trigger attached the same pair during the
+     * resolve step) makes the step a no-op instead of the refusal
+     * Card.addAttachment would throw. */
+    private static boolean attachAlreadySatisfied(List<UUID> bearerAttachments, UUID attachmentId)
+            throws Exception {
+        Class<?> adapter = Class.forName("org.mage.test.oracle.ScenarioReplay");
+        Method method = adapter.getDeclaredMethod("attachAlreadySatisfied", List.class, UUID.class);
+        method.setAccessible(true);
+        return (Boolean) method.invoke(null, bearerAttachments, attachmentId);
+    }
+
     private static void attachments() throws Exception {
         mage.target.TargetPermanent ordinary = new mage.target.TargetPermanent();
         mage.target.TargetPermanent unrelatedChoice = new mage.target.TargetPermanent();
@@ -113,8 +125,16 @@ public final class ScenarioReplayDriverContractTest {
                 "a leading skip must fall through, not auto-select");
         check(skipped.equals(Arrays.asList(SKIP, bears.toString())),
                 "a leading skip was consumed by the attach branch");
+        // The attach STEP is idempotent: a bearer that already lists the
+        // attachment is a satisfied no-op (the ETB attach trigger attached
+        // this pair during the resolve step), not a refusal.
+        check(attachAlreadySatisfied(Arrays.asList(bears), bears),
+                "an already-listed attachment was not treated as satisfied");
+        check(!attachAlreadySatisfied(Arrays.asList(elves), bears),
+                "an unrelated attachment was treated as satisfied");
+        check(!attachAlreadySatisfied(null, bears), "a null attachment list was satisfied");
         System.out.println("PASS attach-ask choice (scripted first/non-first, consume, successive, "
-                + "unique auto-select, ambiguous, unmatched, skip)");
+                + "unique auto-select, ambiguous, unmatched, skip, idempotent step)");
     }
 
     private static void zones() {

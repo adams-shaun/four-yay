@@ -42,9 +42,18 @@ func serveOffered(reg *cards.Registry, f *cards.Face, name, mode string, req lev
 }
 
 // cantBeCastOpponentTurnItem: p0 passes priority in main1 and p1 holds Gut
-// Shot ({R/P}, payable with life, so no mana pool is needed).
+// Shot ({R/P}, payable with life, so no mana pool is needed). Both seats pass
+// as a pair (the driver expresses one engine pass as both seats yielding in
+// order; a lone pass step is not a supported XMage pass pattern).
 func cantBeCastOpponentTurnItem(reg *cards.Registry, f *cards.Face, name string, req levelb.Requirement) (oraclegen.Item, *oraclegen.Skip) {
-	sc := staticScenario(f, name, []string{name}, nil, []oraclegen.Step{{Op: "pass", Seat: 0, Expect: offeredNot(1, "cast", "p1:"+opponentCastProbe)}})
+	// The offer is checked at the checkpoint after p0's pass, where p1
+	// holds priority; the second pass yields it back so the turn ends.
+	// sourceRemovedControlFails flips the last step that carries an
+	// assertion, which this pair's first pass is.
+	sc := staticScenario(f, name, []string{name}, nil, []oraclegen.Step{
+		{Op: "pass", Seat: 0, Expect: offeredNot(1, "cast", "p1:"+opponentCastProbe)},
+		{Op: "pass", Seat: 1},
+	})
 	p0, p1 := sc.Setup["p0"], sc.Setup["p1"]
 	setupBackFace(&p0, name, req)
 	p1.Hand = []string{opponentCastProbe}
@@ -52,9 +61,12 @@ func cantBeCastOpponentTurnItem(reg *cards.Registry, f *cards.Face, name string,
 	return serveOffered(reg, f, name, "CantBeCast", req, "601.2", sc, func() string { return sourceRemovedControlFails(reg, sc, name) })
 }
 
-// cantBeActivatedOpponentTurnItem: the same pass, p1 holding Mogg Fanatic.
+// cantBeActivatedOpponentTurnItem: the same pass pair, p1 holding Mogg Fanatic.
 func cantBeActivatedOpponentTurnItem(reg *cards.Registry, f *cards.Face, name string, req levelb.Requirement) (oraclegen.Item, *oraclegen.Skip) {
-	sc := staticScenario(f, name, []string{name}, nil, []oraclegen.Step{{Op: "pass", Seat: 0, Expect: offeredNot(1, "activate", "p1:"+activatedProbe)}})
+	sc := staticScenario(f, name, []string{name}, nil, []oraclegen.Step{
+		{Op: "pass", Seat: 0, Expect: offeredNot(1, "activate", "p1:"+activatedProbe)},
+		{Op: "pass", Seat: 1},
+	})
 	p0, p1 := sc.Setup["p0"], sc.Setup["p1"]
 	setupBackFace(&p0, name, req)
 	p1.Battlefield = append(p1.Battlefield, activatedProbe)
