@@ -89,15 +89,17 @@ func (e *Engine) attackerBlockedByPairCandidates(t cards.Trigger, source state.O
 }
 
 // specHasSourceAnchor reports whether a Valid spec names the trigger's own
-// source side: Card.Self, or an attachment predicate (the source's bearer).
-// A spec without one never anchors the source to a pair.
+// source side: Card.Self, Card.EffectSource (its Effect-delivered alias,
+// effects/filter.go: EffectSource = Self), or an attachment predicate (the
+// source's bearer). A spec without one never anchors the source to a pair.
 func specHasSourceAnchor(spec string) bool {
 	if spec == "" {
 		return false
 	}
 	for _, part := range strings.FieldsFunc(spec, func(r rune) bool { return r == ',' || r == '&' }) {
-		if strings.Contains(part, "Card.Self") || strings.Contains(part, ".AttachedBy") ||
-			strings.Contains(part, ".EnchantedBy") || strings.Contains(part, ".EquippedBy") {
+		if strings.Contains(part, "Card.Self") || strings.Contains(part, "Card.EffectSource") ||
+			strings.Contains(part, ".AttachedBy") || strings.Contains(part, ".EnchantedBy") ||
+			strings.Contains(part, ".EquippedBy") {
 			return true
 		}
 	}
