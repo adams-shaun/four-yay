@@ -536,7 +536,7 @@ func (e *Engine) quietExileBlocker(p state.PlayerID) quietBlockerID {
 		if e.airbendCastAvailable(id) {
 			return qbExileRoute
 		}
-		if e.quietFaceExileRoute(o.Face()) {
+		if e.quietFaceExileRoute(o.Face()) || e.quietObjectDerivedRoute(id, quietExileDerivedHeads...) {
 			return qbExileRoute
 		}
 	}
@@ -576,7 +576,7 @@ func (e *Engine) quietGraveBlocker(p state.PlayerID) quietBlockerID {
 		if aftermathAlternateFace(o) != nil {
 			return qbGraveRoute
 		}
-		if e.quietFaceGraveRoute(o.Face()) {
+		if e.quietFaceGraveRoute(o.Face()) || e.quietObjectDerivedRoute(id, quietGraveDerivedHeads...) {
 			return qbGraveRoute
 		}
 	}
@@ -591,6 +591,20 @@ func (e *Engine) quietFaceGraveRoute(f *cards.Face) bool {
 		return true
 	}
 	return ff.quiet.recastKW
+}
+
+// quietObjectDerivedRoute reports whether id could carry any of heads on its
+// DERIVED keyword list (printed plus layer-6 granted). mayHaveDerivedKeywordAnyH
+// is the cheap necessary condition hasKeywordH and derivedKeywordParamH
+// themselves start with, so a false answer means the walk's own derived reads
+// cannot see the head either -- exactly the over-approximation the proof
+// needs. It covers the printed lines, intrinsic keywords, keyword counters,
+// the status flags and any active AddKeyword$ grant, so a layer-6 grant the
+// printed face lacks (Snapcaster Mage's Flashback, Underworld Breach's
+// Escape, Dream Devourer's Foretell) cannot slip past a proof that read only
+// the printed face.
+func (e *Engine) quietObjectDerivedRoute(id state.ObjID, heads ...kwHead) bool {
+	return e.mayHaveDerivedKeywordAnyH(id, heads...)
 }
 
 // quietBattlefieldBlocker covers battlefieldWalk: the mana section is never a
@@ -761,23 +775,31 @@ func quietHandKeywordAction(o *state.Object, id state.ObjID, e *Engine, p state.
 	if e.sneakTimingOK(p) && e.stackKeywordPossibleH(id, kwhSneak) {
 		return true
 	}
+	// The action keywords are read through the DERIVED precheck, the same
+	// necessary condition the walk's own reads start with: Dream Devourer's
+	// layer-6 AddKeyword$ Foretell grant reaches a plain hand card and the
+	// walk offers the {2} action, so a printed-only proof would call the
+	// window quiet. The Foretell turn gate mirrors the walk's own
+	// (e.G.Active == p || playerForetellsAnyTurn), so a grant that only widens
+	// the timing (Cosmos Charger) still blocks.
+	if e.mayHaveDerivedKeywordH(id, kwhForetell) &&
+		(e.G.Active == p || e.playerForetellsAnyTurn(p)) {
+		return true
+	}
+	if e.mayHaveDerivedKeywordH(id, kwhSuspend) && e.G.Active == p {
+		return true
+	}
+	if e.mayHaveDerivedKeywordH(id, kwhPlot) && sorceryOpen {
+		return true
+	}
+	if e.mayHaveDerivedKeywordH(id, kwhMayFlashCost) {
+		return true
+	}
 	for _, f := range o.Card.Faces {
 		if f == nil {
 			continue
 		}
 		if e.stackKeywordPossibleH(id, kwhTeamwork) && e.activationPhasesOK(p, f.SpellAbility()) {
-			return true
-		}
-		if f.HasKeyword("Foretell") && e.G.Active == p {
-			return true
-		}
-		if f.HasKeyword("Suspend") && e.G.Active == p {
-			return true
-		}
-		if f.HasKeyword("Plot") && sorceryOpen {
-			return true
-		}
-		if f.HasKeyword("MayFlashCost") {
 			return true
 		}
 	}

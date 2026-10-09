@@ -104,6 +104,40 @@ var quietExileHeads = [...]kwHead{kwhWarp, kwhForetell}
 // printed heads.
 var quietExileHeadNames = [...]string{"Plot", "Suspend"}
 
+// quietHandActionHeads are the keyword-action heads the hand walk offers
+// beyond a face's own cast timing, as precompiled heads for the derived
+// precheck. Suspend, Plot and MayFlashCost have no keyword_heads.go literal.
+var (
+	kwhSuspend      = newKWHead("Suspend")
+	kwhPlot         = newKWHead("Plot")
+	kwhMayFlashCost = newKWHead("MayFlashCost")
+)
+
+// quietGraveDerivedHeads and quietExileDerivedHeads are the DERIVED-keyword
+// twins of recastKW / exileCastKW: every graveyard- and exile-recast head,
+// including the parameterless/activation ones, for the per-object derived
+// precheck (quietObjectDerivedRoute). A layer-6 grant -- Snapcaster Mage's
+// Flashback, Underworld Breach's Escape, a Warp/Foretell grant -- reaches an
+// object whose printed face lacks the head, and the walk offers the recast, so
+// the proof must read the derived list, not only the printed face.
+var quietGraveDerivedHeads = func() []kwHead {
+	out := make([]kwHead, 0, len(quietGraveHeads)+len(quietGraveHeadNames))
+	out = append(out, quietGraveHeads[:]...)
+	for _, n := range quietGraveHeadNames {
+		out = append(out, newKWHead(n))
+	}
+	return out
+}()
+
+var quietExileDerivedHeads = func() []kwHead {
+	out := make([]kwHead, 0, len(quietExileHeads)+len(quietExileHeadNames))
+	out = append(out, quietExileHeads[:]...)
+	for _, n := range quietExileHeadNames {
+		out = append(out, newKWHead(n))
+	}
+	return out
+}()
+
 // computeQuietFaceFacts builds the quiet facts for f. It is a pure function
 // of the face, like every other walkFaceFacts member. hasAltCosts reports
 // whether the face carries a compiled alternative-cost keyword entry (the
