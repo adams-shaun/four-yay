@@ -2,8 +2,10 @@ package effects_test
 
 import (
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -204,55 +206,76 @@ func TestCompiledFilterMatchesTextualOracle(t *testing.T) {
 		contexts[i] = contextsFor(g)
 	}
 	zones := []state.Zone{state.ZGraveyard, state.ZHand, state.ZExile, state.ZLibrary}
-	checks, mismatches, matched := 0, 0, 0
-	report := func(format string, args ...any) {
-		mismatches++
-		if mismatches <= 20 {
+	// The spec x game x context x object sweep runs as four parallel chunk
+	// subtests (TestKr8WorldsInFuzzGames's shape): the fixtures are read-only
+	// under both matchers (the compiled matchers never write g/o; the spec
+	// cache publishes entries atomically and
+	// TestCompiledSpecCacheConcurrent already exercises it from many
+	// goroutines), each chunk owns a strided spec slice -- strided, because
+	// the work per spec varies with the spec's selectivity and contiguous
+	// slices measured 4.8-8.4s per chunk against a 4.8s floor -- and the
+	// counters are atomic, so the measured counts are independent of
+	// scheduling. Measured 2026-10-09 (GOMAXPROCS=4, same 143,013,000
+	// comparisons, 0 mismatches both ways): 22.3s serial, 17.6s with six
+	// contiguous chunks (one 8.4s straggler), 12.2s with these four strided.
+	var checks, matched, mismatches atomic.Int64
+	report := func(t *testing.T, format string, args ...any) {
+		if mismatches.Add(1) <= 20 {
 			t.Errorf(format, args...)
 		}
 	}
-	for _, spec := range specs {
-		match, matchZone := effects.CompiledSpecForTest(spec)
-		for gi, g := range games {
-			ids := pickObjs(g)
-			for ci, sc := range contexts[gi] {
-				for _, id := range ids {
-					o := g.Obj(id)
-					want := effects.MatchesObjectTextOracle(g, spec, o, sc)
-					got := match(g, o, sc)
-					checks++
-					if want {
-						matched++
-					}
-					if got != want {
-						report("game %d ctx %d spec %q obj %d (%s, zone %v): oracle %v compiled %v",
-							gi, ci, spec, id, faceName(o), o.Zone, want, got)
-					}
-					if ci == 0 {
-						if cached := effects.MatchesObjectCompiledCached(g, spec, o, sc); cached != want {
-							report("cached: game %d spec %q obj %d: oracle %v cached %v", gi, spec, id, want, cached)
-						}
-					}
-					if o.IsCopy && o.Zone != state.ZStack && o.Zone != state.ZBattlefield {
-						continue
-					}
-					for _, z := range zones {
-						want := effects.MatchesZoneTextOracle(g, spec, o, sc, z)
-						checks++
-						if got := matchZone(g, o, sc, z); got != want {
-							report("zone %v game %d ctx %d spec %q obj %d: oracle %v compiled %v",
-								z, gi, ci, spec, id, want, got)
+	const chunks = 4
+	t.Run("specs", func(t *testing.T) {
+		for c := 0; c < chunks; c++ {
+			c := c
+			t.Run(strconv.Itoa(c), func(t *testing.T) {
+				t.Parallel()
+				for i := c; i < len(specs); i += chunks {
+					spec := specs[i]
+					match, matchZone := effects.CompiledSpecForTest(spec)
+					for gi, g := range games {
+						ids := pickObjs(g)
+						for ci, sc := range contexts[gi] {
+							for _, id := range ids {
+								o := g.Obj(id)
+								want := effects.MatchesObjectTextOracle(g, spec, o, sc)
+								got := match(g, o, sc)
+								checks.Add(1)
+								if want {
+									matched.Add(1)
+								}
+								if got != want {
+									report(t, "game %d ctx %d spec %q obj %d (%s, zone %v): oracle %v compiled %v",
+										gi, ci, spec, id, faceName(o), o.Zone, want, got)
+								}
+								if ci == 0 {
+									if cached := effects.MatchesObjectCompiledCached(g, spec, o, sc); cached != want {
+										report(t, "cached: game %d spec %q obj %d: oracle %v cached %v", gi, spec, id, want, cached)
+									}
+								}
+								if o.IsCopy && o.Zone != state.ZStack && o.Zone != state.ZBattlefield {
+									continue
+								}
+								for _, z := range zones {
+									want := effects.MatchesZoneTextOracle(g, spec, o, sc, z)
+									checks.Add(1)
+									if got := matchZone(g, o, sc, z); got != want {
+										report(t, "zone %v game %d ctx %d spec %q obj %d: oracle %v compiled %v",
+											z, gi, ci, spec, id, want, got)
+									}
+								}
+							}
 						}
 					}
 				}
-			}
+			})
 		}
-	}
-	if matched == 0 {
+	})
+	if matched.Load() == 0 {
 		t.Fatal("no spec matched any object: the sample exercises nothing")
 	}
 	t.Logf("%d specs, %d states, %d comparisons (%d oracle matches), %d mismatches",
-		len(specs), len(games), checks, matched, mismatches)
+		len(specs), len(games), checks.Load(), matched.Load(), mismatches.Load())
 }
 
 // TestCompiledSpecCacheConcurrent exercises the process-wide cache from many

@@ -202,8 +202,20 @@ else
   GOMAXPROCS=4 GOMEMLIMIT=3GiB go test -p=1 -skip "^($global|$kr8|$postmerge)$" ./rules/ & a1=$!
   a2=; a3=; a4=
 fi
-go test -p=1 -run '^TestKr8WorldsInFuzzGames$' ./rules/ & b=$!
-go test -p=1 -run '^TestKr8HeadsCheckpointAll$' ./rules/ & c=$!
+# The two Kr8 runs sit under the gate env's inherited GOMAXPROCS=2, which
+# holds each one's parallel game pool to two tests at a time; both are
+# process-global tests (cloneFuzzTapeWorldHook / tapeCheckpointAll), so they
+# cannot join the shards' binary. GOMAXPROCS=4, as the shards run: the Kr8
+# pair was the longest pole of the whole affected phase (measured on the
+# 2026-10-09 gate logs, agent-20261009T044926Z-8ec278bb/r2: 69.2s and 34.3s
+# against the shards' 19-34s), and standalone in this worktree the worlds
+# test reads 15.3s at GOMAXPROCS=2 vs 9.5s at 4 -- the gate figure is that
+# run inflated ~4.5x by the ~30 concurrent threads the phase starts against
+# the scope's 1600% quota, so the extra parallelism is exactly what a
+# quota-bound phase shares out. GOMEMLIMIT stays the inherited 3GiB
+# (cli-20261009T114433Z-45f2f307).
+GOMAXPROCS=4 go test -p=1 -run '^TestKr8WorldsInFuzzGames$' ./rules/ & b=$!
+GOMAXPROCS=4 go test -p=1 -run '^TestKr8HeadsCheckpointAll$' ./rules/ & c=$!
 # -p=6: the $others packages are independent test binaries; with -p=1 they
 # ran strictly one at a time and were the long pole of the gate. Measured on
 # the `$others` set alone under the gate scope (800% quota, test results
