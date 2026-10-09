@@ -600,8 +600,14 @@ func (w *legalWalk) battlefieldWalk() {
 					// cards.IsManaAbilityAPI, not a bare "Mana" check: a granted
 					// ManaReflected flows through availableManaAbilities too (its
 					// IsPresent$ gate lives in manaReflectedPresentHolds, which knows
-					// the hasAbility Activated.otherAbility special form).
-					if cards.IsManaAbilityAPI(ab.API) {
+					// the hasAbility Activated.otherAbility special form). A granted
+					// LOYALTY mana ability (Way of the Pyromancer's "[+1]: Add {R}.")
+					// is NOT a mana ability (CR 605.1a excludes loyalty abilities),
+					// so it is offered HERE as an ordinary ability exactly as a
+					// printed loyalty mana ability is (the printed loop's own
+					// `IsManaAbilityAPI && !loyal` skip); the mana walk excludes it
+					// symmetrically (mana_activation.go's isLoyaltyAbility skip).
+					if cards.IsManaAbilityAPI(ab.API) && !e.isLoyaltyAbility(ab) {
 						continue
 					}
 					if ab.ParamStr(cards.PKSorcerySpeed) == "True" && !sorcery {

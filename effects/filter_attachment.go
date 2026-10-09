@@ -178,8 +178,12 @@ func sharesTypeArg(p string) (name, arg string, ok bool) {
 // sharesNameWithArg recognises the supported two-token name-comparison
 // referents. It matches on the shared referent resolver's OWN vocabulary
 // table, whose supported referents (Targeted, Remembered, RememberedCard,
-// TriggeredCard) each carry a distinct code, so an unintended referent cannot
-// leak in through a shared code. Anything else stays unbound and fails closed.
+// TriggeredCard, Self) each carry a distinct code, so an unintended referent
+// cannot leak in through a shared code. Self is the static's own source
+// (Marvin, Murderous Mimic's `Creature.YouCtrl+!sharesNameWith Self`, whose
+// GainsAbilitiesOf$ filter excludes the source's own name); sharesTypeReferents
+// resolves it to SpecContext.Source. Anything else stays unbound and fails
+// closed.
 func sharesNameWithArg(p string) (string, bool) {
 	name, arg, ok := strings.Cut(p, " ")
 	if !ok || wordPredicateSharesCodes.Code(name) != wordPredicateSharesNameWith {
@@ -188,7 +192,8 @@ func sharesNameWithArg(p string) (string, bool) {
 	arg = strings.TrimSpace(arg)
 	switch sharesTypeReferentsCodes.Code(arg) {
 	case sharesTypeReferentsTargeted, sharesTypeReferentsRemembered,
-		sharesTypeReferentsRememberedCard, sharesTypeReferentsTriggeredCard:
+		sharesTypeReferentsRememberedCard, sharesTypeReferentsTriggeredCard,
+		sharesTypeReferentsSelf:
 		return arg, true
 	}
 	return "", false
