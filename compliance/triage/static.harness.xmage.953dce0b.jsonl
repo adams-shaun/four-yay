@@ -1,4 +1,6 @@
-{"shape":{"template":"static","op":"harness","field":"xmage","diff":"IllegalArgumentException: activate step N has no xmage_ability"},"key":"static | harness | xmage | IllegalArgumentException: activate step N has no xmage_ability","cards":3}
+{"shape":{"template":"static","op":"harness","field":"xmage","diff":"IllegalArgumentException: activate step N has no xmage_ability"},"key":"static | harness | xmage | IllegalArgumentException: activate step N has no xmage_ability","cards":5}
+{"card":"Agatha's Soul Cauldron","template":"static#0.0","status":"harness","api":"-","sets":["WOE"],"detail":"xmage: IllegalArgumentException: activate step 0 has no xmage_ability"}
 {"card":"Bender's Waterskin","template":"static#0.0","status":"harness","api":"-","sets":["TLA"],"detail":"xmage: IllegalArgumentException: activate step 2 has no xmage_ability"}
 {"card":"Furtive Courier","template":"static#0.0","status":"harness","api":"Attacks:Draw","sets":["MKM"],"detail":"xmage: IllegalArgumentException: activate step 4 has no xmage_ability"}
 {"card":"Surveillance Phantasm","template":"static#0.0","status":"harness","api":"-","sets":["FRA"],"detail":"xmage: IllegalArgumentException: activate step 0 has no xmage_ability"}
+{"card":"Wonder Man, Hollywood Hero","template":"static#0.0","status":"harness","api":"-","sets":["MSH"],"detail":"xmage: IllegalArgumentException: activate step 1 has no xmage_ability"}
