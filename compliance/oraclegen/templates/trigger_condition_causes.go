@@ -185,11 +185,16 @@ func preludeAttacks(p conditionPrelude) bool {
 }
 
 // applyPrelude layers one condition prelude over a cause. The prelude's steps
-// run before the cause's.
+// run before the cause's. When the merged setup carries a name twice and a
+// cause step references it (an attack step's attacker, a cast target), the
+// base's own copy is dropped: the prelude's serves both the count and the
+// ref, and two distinct offered objects for one emitted pick is exactly the
+// same-name ambiguity the answer census measures.
 func applyPrelude(base triggerCause, p conditionPrelude) triggerCause {
 	c := base
 	c.hand = append(append([]string(nil), base.hand...), p.hand...)
 	c.battlefield = append(append([]string(nil), base.battlefield...), p.battlefield...)
+	c.battlefield = dropRedundantSetup(base.steps, c.battlefield)
 	c.tapped = append(append([]string(nil), base.tapped...), p.tapped...)
 	c.graveyard = append(append([]string(nil), base.graveyard...), p.graveyard...)
 	c.opponentHand = append(append([]string(nil), base.opponentHand...), p.opponentHand...)
@@ -198,6 +203,43 @@ func applyPrelude(base triggerCause, p conditionPrelude) triggerCause {
 	c.prelude = append(append([]oraclegen.Step(nil), base.prelude...), p.steps...)
 	c.preludeXAbility = append(append([]string(nil), base.preludeXAbility...), p.xability...)
 	return c
+}
+
+// dropRedundantSetup removes one copy of each name the merged setup carries
+// twice while a cause step's card reference names it, keeping the first (the
+// prelude's, whose count the gate reads).
+func dropRedundantSetup(steps []oraclegen.Step, merged []string) []string {
+	refs := []string(nil)
+	for _, st := range steps {
+		refs = append(refs, st.Attackers...)
+		refs = append(refs, st.Targets...)
+		refs = append(refs, st.Card)
+	}
+	for _, r := range refs {
+		name := r
+		if i := strings.IndexByte(r, ':'); i >= 0 {
+			name = r[i+1:]
+		}
+		if name == "" || name == r {
+			continue
+		}
+		have := 0
+		for _, n := range merged {
+			if n == name {
+				have++
+			}
+		}
+		if have < 2 {
+			continue
+		}
+		for i, n := range merged {
+			if n == name {
+				merged = append(merged[:i:i], merged[i+1:]...)
+				break
+			}
+		}
+	}
+	return merged
 }
 
 func mergeCounters(a, b map[string]map[string]int) map[string]map[string]int {

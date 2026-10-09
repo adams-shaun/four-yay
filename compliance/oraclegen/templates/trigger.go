@@ -50,6 +50,9 @@ func PassToSteps() []string {
 		"end",
 		"end-combat",
 		"main1@p0",
+		// The opponent-turn cast cause passes to p1's main phase before p0
+		// casts there.
+		"main1@p1",
 		"main2",
 		"upkeep@p0",
 		"upkeep@p1",
