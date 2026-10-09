@@ -64,6 +64,12 @@ import (
 // card in its zone since cli-3b80d13b1), so DFT loses its four
 // "granted ability in Graveyard is not offered by the engine" skips and its
 // served count rises by four.
+// Re-pinned by merge agent-20261009T094023Z-a30f7588 (mrg1): merging the
+// AddStaticAbility$ granted-static observation (agent-20261009T094023Z,
+// commit 14a747f94) with main's generator serves FRA Tomik, Orzhov Lawmage
+// and DFT Racers' Scoreboard, each previously the set's lone
+// "grants a static ability" skip; those skip rows leave and each served
+// count rises by one.
 // It fails in both directions.
 var wantStaticContinuousCensus = map[string]map[string]int{
 	"BIG": {
@@ -82,22 +88,20 @@ var wantStaticContinuousCensus = map[string]map[string]int{
 		"skip:static needs counters on the affected permanent":                                       1,
 	},
 	"FRA": {
-		"served": 34,
-		"skip:static effect not observable on a probe or the card":                   2,
-		"skip:static grants a static ability (observed only through its own effect)": 1,
-		"skip:static counts cards exiled with the source":                            1,
-		"skip:static grants only keywords outside the compared evergreen set":        1,
+		"served": 35,
+		"skip:static effect not observable on a probe or the card":            2,
+		"skip:static counts cards exiled with the source":                     1,
+		"skip:static grants only keywords outside the compared evergreen set": 1,
 	},
 	// DFT includes the Surveyor cycle's graveyard AddAbility$ grant, served by
 	// the gated-grant observation's off-battlefield arm (agent-
 	// 20261009T060626Z-a6d0cf40); its four former engine-gap skips are gone.
 	"DFT": {
-		"served": 57,
+		"served": 58,
 		"skip:static amount is a computed count the fixture does not make observable":            1,
 		"skip:static characteristic-defining P/T of a non-creature (the snapshot omits its P/T)": 1,
 		"skip:static effect not observable on a probe or the card":                               2,
 		"skip:static gated self grant is not offered in the gate-on fixture":                     1,
-		"skip:static grants a static ability (observed only through its own effect)":             1,
 		"skip:static grants a replacement effect (needs an event the replacement can change)":    2,
 	},
 }

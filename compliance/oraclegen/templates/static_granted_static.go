@@ -385,7 +385,7 @@ func grantedProbeItem(reg *cards.Registry, f *cards.Face, name string, req level
 		if len(res.Snapshots) == 0 {
 			return false
 		}
-		ok, _ := staticObservedNamed(res.Snapshots[len(res.Snapshots)-1], f, name, st, specs)
+		ok, _ := staticObservedNamed(res.Snapshots[len(res.Snapshots)-1], f, name, st, specs, staticBaseline{})
 		return ok
 	}
 	sc, pre := grantedStaticScenario(f, name, gate, "", []string{staticProbe}, nil, nil)
