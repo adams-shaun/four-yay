@@ -1,0 +1,2 @@
+{"shape":{"template":"static","op":"setup","field":"p0.library","diff":"placement"},"key":"static | setup | p0.library | placement","cards":1}
+{"card":"Endrider Spikespitter","template":"static#0.0","status":"diverge","api":"-","sets":["DFT"],"detail":"setup p0.exile: gorge \"[Wastes]\", xmage \"[]\""}
