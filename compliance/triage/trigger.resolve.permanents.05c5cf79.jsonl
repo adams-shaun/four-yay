@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"resolve","field":"permanents","diff":"gorge+Promising Stairs; xmage+$CARD"},"key":"trigger | resolve | permanents | gorge+Promising Stairs; xmage+$CARD","cards":1}
+{"card":"Central Elevator","template":"trigger#1.0","status":"diverge","api":"UnlockDoor:ChangeZone","detail":"step 1 (resolve) permanents: gorge \"c0 o0 Promising Stairs [enchantment room] {U}\", xmage \"c0 o0 Central Elevator [enchantment room] {U}\""}

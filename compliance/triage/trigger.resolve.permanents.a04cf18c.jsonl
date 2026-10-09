@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"resolve","field":"permanents","diff":"gorge+Forgotten Cellar; xmage+$CARD"},"key":"trigger | resolve | permanents | gorge+Forgotten Cellar; xmage+$CARD","cards":1}
+{"card":"Walk-In Closet","template":"trigger#1.0","status":"diverge","api":"-","detail":"step 1 (resolve) permanents: gorge \"c0 o0 Forgotten Cellar [enchantment room] {G}\", xmage \"c0 o0 Walk-In Closet [enchantment room] {G}\""}

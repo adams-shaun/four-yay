@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"resolve","field":"permanents","diff":"gorge+Shattered Yard; xmage+$CARD"},"key":"trigger | resolve | permanents | gorge+Shattered Yard; xmage+$CARD","cards":1}
+{"card":"Glassworks","template":"trigger#1.0","status":"diverge","api":"UnlockDoor:DealDamage","detail":"step 1 (resolve) permanents: gorge \"c0 o0 Shattered Yard [enchantment room] {R}\", xmage \"c0 o0 Glassworks [enchantment room] {R}\""}

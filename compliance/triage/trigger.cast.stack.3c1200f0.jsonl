@@ -1,2 +1,0 @@
-{"shape":{"template":"trigger","op":"cast","field":"stack","diff":"gorge=[spell:$CARD@p0] xmage=[spell:Shattered Yard@p0]"},"key":"trigger | cast | stack | gorge=[spell:$CARD@p0] xmage=[spell:Shattered Yard@p0]","cards":1}
-{"card":"Glassworks","template":"trigger#1.0","status":"diverge","api":"UnlockDoor:DealDamage","detail":"step 0 (cast) stack: gorge \"[spell:Glassworks@p0]\", xmage \"[spell:Shattered Yard@p0]\""}

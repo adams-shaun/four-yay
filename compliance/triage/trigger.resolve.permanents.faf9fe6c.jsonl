@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"resolve","field":"permanents","diff":"gorge+Elegant Rotunda; xmage+$CARD"},"key":"trigger | resolve | permanents | gorge+Elegant Rotunda; xmage+$CARD","cards":1}
+{"card":"Grand Entryway","template":"trigger#1.0","status":"diverge","api":"UnlockDoor:Token","detail":"step 1 (resolve) permanents: gorge \"c0 o0 Elegant Rotunda [enchantment room] {W}\", xmage \"c0 o0 Grand Entryway [enchantment room] {W}\""}
