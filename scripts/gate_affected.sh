@@ -202,20 +202,17 @@ else
   GOMAXPROCS=4 GOMEMLIMIT=3GiB go test -p=1 -skip "^($global|$kr8|$postmerge)$" ./rules/ & a1=$!
   a2=; a3=; a4=
 fi
-# The two Kr8 runs sit under the gate env's inherited GOMAXPROCS=2, which
-# holds each one's parallel game pool to two tests at a time; both are
-# process-global tests (cloneFuzzTapeWorldHook / tapeCheckpointAll), so they
-# cannot join the shards' binary. GOMAXPROCS=4, as the shards run: the Kr8
-# pair was the longest pole of the whole affected phase (measured on the
-# 2026-10-09 gate logs, agent-20261009T044926Z-8ec278bb/r2: 69.2s and 34.3s
-# against the shards' 19-34s), and standalone in this worktree the worlds
-# test reads 15.3s at GOMAXPROCS=2 vs 9.5s at 4 -- the gate figure is that
-# run inflated ~4.5x by the ~30 concurrent threads the phase starts against
-# the scope's 1600% quota, so the extra parallelism is exactly what a
-# quota-bound phase shares out. GOMEMLIMIT stays the inherited 3GiB
-# (cli-20261009T114433Z-45f2f307).
-GOMAXPROCS=4 go test -p=1 -run '^TestKr8WorldsInFuzzGames$' ./rules/ & b=$!
-GOMAXPROCS=4 go test -p=1 -run '^TestKr8HeadsCheckpointAll$' ./rules/ & c=$!
+# TestKr8WorldsInFuzzGames runs its six games as t.Parallel subtests (the same
+# shape as the shards above), so it needs the same GOMAXPROCS=4 override: at
+# the gate env's GOMAXPROCS=2 only two games run at once. Measured in this
+# worktree, one run alone under the 400% seat scope: GOMAXPROCS=2 -> 23.7 s,
+# GOMAXPROCS=6 -> 14.5 s; the gate's own 2-vCPU cap is the operator's 4-vCPU
+# per-test budget, so 4 (like the shards) is the right value. GOMEMLIMIT=3GiB
+# is the operator's 2026-10-09 per-test budget, as on the shard lines;
+# TestKr8HeadsCheckpointAll is sequential (it flips a process-wide default),
+# so the override is inert there but keeps the two Kr8 processes consistent.
+GOMAXPROCS=4 GOMEMLIMIT=3GiB go test -p=1 -run '^TestKr8WorldsInFuzzGames$' ./rules/ & b=$!
+GOMAXPROCS=4 GOMEMLIMIT=3GiB go test -p=1 -run '^TestKr8HeadsCheckpointAll$' ./rules/ & c=$!
 # -p=6: the $others packages are independent test binaries; with -p=1 they
 # ran strictly one at a time and were the long pole of the gate. Measured on
 # the `$others` set alone under the gate scope (800% quota, test results
@@ -230,8 +227,8 @@ GOMAXPROCS=6 go test -p=6 -skip "^($global)$" $others & d=$!
 # Event-text changes (any new or reworded event) move the committed
 # overshoot capture and the searchprobe digests; e2e19ebae and 5fa9f31a both
 # broke them unseen by this gate on 2026-10-05. Both checks are seconds, so
-# they start with everything else instead of waiting for the two short Kr8
-# runs to finish first.
+# they start with everything else instead of waiting for the two Kr8 runs to
+# finish first.
 go test -p=1 ./internal/searchprobe/ & e=$!
 go test -p=1 -run '^TestCommittedOvershootCaptureReplaysToTheParkedAsk$' ./host/ & f=$!
 pids="$a1 $a2 $a3 $a4 $b $c $d $e $f"
