@@ -339,6 +339,12 @@ func quietActiveKWGrantBlocker(head string) bool {
 		return true
 	}
 	for _, h := range quietCastOpenHeads {
+		// Affinity is owned by continuousMintsCostStatic (an Affinity grant
+		// mints a bound ReduceCost static, reported as qbBoardCostGrant); do
+		// not steal its attribution here.
+		if strings.EqualFold(h, "Affinity") {
+			continue
+		}
 		if strings.EqualFold(head, h) {
 			return true
 		}
