@@ -112,7 +112,7 @@ func activateWith(reg *cards.Registry, f *cards.Face, name string, req levelb.Re
 	preludes := withTokenCostPrelude(reg, cost, append([]conditionPrelude{{}}, restrictions...))
 	for _, fx := range oraclegen.Fixtures(reg, slots) {
 		for _, pre := range preludes {
-			it, ok := activateWithFixture(reg, f, name, req, idx, prefix, mana, cost, zone, fx, pre)
+			it, ok := activateWithFixture(reg, f, name, req, idx, prefix, mana, cost, zone, fx, pre, slots)
 			if ok {
 				return it, true
 			}
@@ -123,7 +123,7 @@ func activateWith(reg *cards.Registry, f *cards.Face, name string, req levelb.Re
 
 // activateWithFixture builds and settles one fixture with one restriction
 // prelude applied.
-func activateWithFixture(reg *cards.Registry, f *cards.Face, name string, req levelb.Requirement, idx int, prefix, mana, cost, zone string, fx oraclegen.Fixture, pre conditionPrelude) (oraclegen.Item, bool) {
+func activateWithFixture(reg *cards.Registry, f *cards.Face, name string, req levelb.Requirement, idx int, prefix, mana, cost, zone string, fx oraclegen.Fixture, pre conditionPrelude, slots []oraclegen.Slot) (oraclegen.Item, bool) {
 	abilityIndex := idx
 	p0 := *fx.P0()
 	switch zone {
@@ -220,6 +220,12 @@ func activateWithFixture(reg *cards.Registry, f *cards.Face, name string, req le
 		it.XAbility[activateStep] = comboPrefix
 		dropColourChoices(it.XAnswers, activateStep)
 	}
+	// A waterbend-cost activation: the tap-helpers ask the routing dropped
+	// was the only scripted answer for asks XMage never poses; whatever the
+	// ability itself asks (an unfilled "up to" target, the Waterbend<X>
+	// announce, a "you may reveal" pick) is re-scripted here.
+	addWaterbendFollowups(it.XAnswers, activateStep, cost, f.Abilities[idx].Params["SpellDescription"],
+		sc.Steps[activateStep].Targets, fx.Omitted(), slots)
 	return it, true
 }
 

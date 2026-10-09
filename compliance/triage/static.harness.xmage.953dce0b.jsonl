@@ -1,2 +1,3 @@
-{"shape":{"template":"static","op":"harness","field":"xmage","diff":"IllegalArgumentException: activate step N has no xmage_ability"},"key":"static | harness | xmage | IllegalArgumentException: activate step N has no xmage_ability","cards":1}
+{"shape":{"template":"static","op":"harness","field":"xmage","diff":"IllegalArgumentException: activate step N has no xmage_ability"},"key":"static | harness | xmage | IllegalArgumentException: activate step N has no xmage_ability","cards":2}
+{"card":"Furtive Courier","template":"static#0.0","status":"harness","api":"Attacks:Draw","sets":["MKM"],"detail":"xmage: IllegalArgumentException: activate step 4 has no xmage_ability"}
 {"card":"Surveillance Phantasm","template":"static#0.0","status":"harness","api":"-","sets":["FRA"],"detail":"xmage: IllegalArgumentException: activate step 0 has no xmage_ability"}

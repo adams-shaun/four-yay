@@ -17,6 +17,7 @@ package templates
 
 import (
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -29,6 +30,13 @@ type staticFixture struct {
 	conditionPrelude
 	p1Battlefield []string // cards on p1's battlefield (an opponent's planeswalker)
 	exile         []string // cards in p0's exile
+	// probeCounters puts counters on the probe (staticProbe) in setup, keyed
+	// by kind: the affected permanent's counter gate
+	// (Creature.YouCtrl+counters_GE1_P1P1, Permanent.YouCtrl+HasCounters) the
+	// bare scenario leaves at zero. The probe spec's compared P/T is shifted
+	// by the same amount, so only a change the static itself makes is
+	// observable.
+	probeCounters map[string]int
 	// place puts the card on the battlefield in setup instead of casting it:
 	// a "you haven't cast a spell this turn" gate that the card's own cast
 	// would falsify.
@@ -40,13 +48,26 @@ type staticFixture struct {
 func (s staticFixture) setupOnly() bool { return len(s.steps) == 0 && !s.place }
 
 // seats adds the fixture's cards to the two seats. Battlefield cards are
-// appended as is, not de-duplicated: "seven or more lands" needs seven.
+// appended as is, not de-duplicated: "seven or more lands" needs seven. The
+// probe counters land on BOTH seats' probe: the compared probe spec is keyed
+// by card name, so a probe countered on p0 only would make p1's untouched
+// probe read as changed against the shifted spec -- a false observation no
+// static's grant can explain.
 func (s staticFixture) seats(p0, p1 *oraclegen.Seat) {
 	p0.Hand = append(p0.Hand, s.hand...)
 	p0.Battlefield = append(p0.Battlefield, s.battlefield...)
 	p0.Graveyard = append(p0.Graveyard, s.graveyard...)
 	p0.Exile = append(p0.Exile, s.exile...)
 	p1.Battlefield = append(p1.Battlefield, s.p1Battlefield...)
+	kinds := make([]string, 0, len(s.probeCounters))
+	for kind := range s.probeCounters {
+		kinds = append(kinds, kind)
+	}
+	sort.Strings(kinds)
+	for _, kind := range kinds {
+		*p0 = oraclegen.WithCounters(*p0, staticProbe, kind, int32(s.probeCounters[kind]))
+		*p1 = oraclegen.WithCounters(*p1, staticProbe, kind, int32(s.probeCounters[kind]))
+	}
 }
 
 // apply adds the fixture to a cast fixture: cards in the seats, turn-history
@@ -65,7 +86,46 @@ func (s staticFixture) merge(o staticFixture) staticFixture {
 	s.p1Battlefield = append(append([]string(nil), s.p1Battlefield...), o.p1Battlefield...)
 	s.exile = append(append([]string(nil), s.exile...), o.exile...)
 	s.place = s.place || o.place
+	for kind, n := range o.probeCounters {
+		if s.probeCounters == nil {
+			s.probeCounters = map[string]int{}
+		}
+		s.probeCounters[kind] += n
+	}
 	return s
+}
+
+// staticProbeCounterFixture is the fixture for a static whose affected
+// permanent carries a counter gate the bare scenario leaves at zero:
+// Creature.YouCtrl+counters_GE1_P1P1 (Training Regimen's trample lord), or
+// HasCounters for a gate on any counter (Innkeeper's Talent level 2's ward).
+// The probe holds the counters the gate names, so the static's grant lands on
+// it; the compared probe spec is shifted by the same counters, so a static
+// that grants nothing still observes nothing. The card's own counter gate is
+// counterGatedBase's, not this fixture's, and a gate on the opponent's
+// permanents has no p1-side fixture here.
+func staticProbeCounterFixture(st *cards.Static, affected string) (staticFixture, bool) {
+	if _, _, ok := staticCounterGate(st); ok {
+		return staticFixture{}, false
+	}
+	words := affectedWords(affected)
+	if hasWord(words, "OppCtrl") {
+		return staticFixture{}, false
+	}
+	for _, w := range words {
+		if !strings.HasPrefix(w, "counters_") && w != "HasCounters" {
+			continue
+		}
+		kind, n := "P1P1", 1
+		if m := probeCounterGate.FindStringSubmatch(w); m != nil {
+			if v, err := strconv.Atoi(m[1]); err == nil && v > 0 {
+				n = v
+			}
+			kind = strings.ToUpper(m[2])
+		}
+		return staticFixture{probeCounters: map[string]int{kind: n}}, true
+	}
+	return staticFixture{}, false
 }
 
 // staticFixtureTable maps one word of an IsPresent / Count$Valid filter to the

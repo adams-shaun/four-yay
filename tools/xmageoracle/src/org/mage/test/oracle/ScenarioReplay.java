@@ -612,6 +612,17 @@ public class ScenarioReplay extends CardTestPlayerBase {
         }
     }
 
+    /** Whether the scripted attach step is already satisfied: the bearer
+     * already lists the attachment. An ETB attach trigger (Baseball Bat,
+     * Coral Sword, Shredder's Armor, ...) attaches the same pair during
+     * the resolve step, and Card.addAttachment refuses an attachment the
+     * bearer already lists, while gorge's runner accepts the re-attach
+     * as a no-op -- so the driver must too. */
+    static boolean attachAlreadySatisfied(java.util.List<java.util.UUID> bearerAttachments,
+            java.util.UUID attachmentId) {
+        return bearerAttachments != null && bearerAttachments.contains(attachmentId);
+    }
+
     public static void main(String[] args) throws Exception {
         if (args.length != 2) {
             System.err.println("usage: ScenarioReplay <in.jsonl> <out.jsonl>");
@@ -2213,6 +2224,14 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 runCode("attach " + card + " to " + bearer, turn, phase, playerA, (info, pl, g) -> {
                     Permanent attachment = permanentRef(g, card);
                     Permanent target = permanentRef(g, bearer);
+                    // gorge's runner accepts a re-attach as a no-op: an ETB
+                    // attach trigger (Baseball Bat, Coral Sword, Shredder's
+                    // Armor, ...) may already have attached this exact pair
+                    // during the resolve step, and Card.addAttachment refuses
+                    // an attachment the bearer already lists (H5 rows).
+                    if (attachAlreadySatisfied(target.getAttachments(), attachment.getId())) {
+                        return;
+                    }
                     // Card.addAttachment links both sides (the bearer's
                     // attachment list and the attachment's attachedTo) and
                     // applies XMage's own legality checks.
