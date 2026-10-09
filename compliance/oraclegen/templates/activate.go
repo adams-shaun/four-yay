@@ -572,7 +572,7 @@ func addActivationCostAnswers(answers [][]oraclegen.XAnswer, step int, cost, nam
 					}
 					observed = true
 					if i < len(d.Picks) {
-						picks = append(picks, observedCostPick(d, i))
+						picks = append(picks, observedSacPick(tok, d, i))
 					}
 				}
 			}

@@ -139,6 +139,24 @@ func TestActivateEquip(t *testing.T) {
 	assertActivateItem(t, reg, "Basilisk Collar", "activate#0.0", "Equip {2}")
 }
 
+// TestActivateEquipCompoundCost covers My Precious's compound Equip cost:
+// the prefix spells XMage's EquipAbility order, the non-mana part first.
+func TestActivateEquipCompoundCost(t *testing.T) {
+	reg := loadGenRegistry(t)
+	c, ok := reg.Lookup("My Precious")
+	if !ok || len(c.Faces) == 0 {
+		t.Fatal("precondition: My Precious is not in the corpus")
+	}
+	ab := c.Faces[0].Abilities[0]
+	if kw := ab.ParamStr(cards.PKKeyword); kw != "Equip" {
+		t.Fatalf("precondition: My Precious ability keyword = %q, want Equip", kw)
+	}
+	if cost := ab.ParamStr(cards.PKCost); cost != "2 PayLife<2>" {
+		t.Fatalf("precondition: My Precious cost = %q, want 2 PayLife<2>", cost)
+	}
+	assertActivateItem(t, reg, "My Precious", "activate#0.0", "Equip&mdash;Pay 2 life.{2}")
+}
+
 // TestActivatePlaneswalkerLoyalty covers a planeswalker's loyalty ability:
 // the +/-N prefix and a device whose loyalty is high enough for the cost.
 func TestActivatePlaneswalkerLoyalty(t *testing.T) {

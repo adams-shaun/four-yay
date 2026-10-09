@@ -32,6 +32,9 @@ func TestTapCombatClassification(t *testing.T) {
 		{"attacked by an opponent", creature, "AttackersDeclared", map[string]string{"AttackedTarget": "You"}, "trigger.opponent-attacks"},
 		{"attacked by an opponent with two", creature, "AttackersDeclared", map[string]string{"AttackedTarget": "You", "AttackingPlayer": "Opponent", "ValidAttackersAmount": "GE2"}, "trigger.opponent-attacks"},
 		{"any player attacks with three", creature, "AttackersDeclared", map[string]string{"AttackingPlayer": "Player", "ValidAttackers": "Creature", "ValidAttackersAmount": "GE3"}, "trigger.attacks"},
+		{"mana tap is a static mana ability", creature, "TapsForMana", map[string]string{"ValidCard": "Land", "Static": "True"}, TapsForManaSub},
+		{"creature mana tap is a static mana ability", creature, "TapsForMana", map[string]string{"ValidCard": "Creature", "Static": "True"}, TapsForManaSub},
+		{"you expend four", creature, "ManaExpend", map[string]string{"Amount": "4", "Player": "You"}, ManaExpendSub},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			got := Requirements(cardOf(&cards.Face{Types: tc.types, Triggers: []cards.Trigger{trig(tc.mode, tc.params)}}))
@@ -48,7 +51,7 @@ func TestTapCombatClassification(t *testing.T) {
 		params map[string]string
 		want   string
 	}{
-		{"mana tap is a static mana ability", creature, "TapsForMana", map[string]string{"ValidCard": "Card.Self", "Static": "True"}, "trigger.gap:TapsForMana"},
+		{"artifact token mana tap has no probe", creature, "TapsForMana", map[string]string{"ValidCard": "Artifact.token", "Static": "True"}, "trigger.gap:TapsForMana"},
 		{"teamwork tap", creature, "Taps", map[string]string{"ValidCard": "Card.Self", "Teamwork": "True"}, "trigger.gap:Taps"},
 		{"crewed vehicle taps", creature, "Taps", map[string]string{"ValidCard": "Card.CrewedBySource"}, "trigger.gap:Taps"},
 		{"class level trigger", creature, "Taps", map[string]string{"ValidCard": "Card.Self", "ClassBand": "3"}, "trigger.gap:Taps"},

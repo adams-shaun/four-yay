@@ -18,17 +18,23 @@ func TestActivateSacFilterFixtures(t *testing.T) {
 	reg := loadGenRegistry(t)
 	cases := []struct {
 		name, key, fixture string
+		// want is the XMage answer that names the fixture. Empty means the
+		// fixture's plain name; a Room fixture is answered by its exact-ref
+		// alias instead, because XMage names the Room object by its whole
+		// split name and the plain name can never match
+		// (agent-20261009T041321Z-84a3a3ce).
+		want string
 	}{
-		{"Nita, Forum Conciliator", "activate#0.0", "Llanowar Elves"},
-		{"Snowslope Hunter", "activate#0.0", "Llanowar Elves"},
-		{"Ezrim, Agency Chief", "activate#0.0", "Ornithopter"},
-		{"Stone-Giant of High Pass", "activate#0.0", "Ornithopter"},
-		{"Intruding Soulrager", "activate#0.0", "Bottomless Pool"},
-		{"Wick, the Whorled Mind", "activate#0.0", "Skullcap Snail"},
-		{"Quina, Qu Gourmet", "activate#0.0", "Anurid Murkdiver"},
-		{"Bolg's Company", "activate#0.0", "Goblin Piker"},
-		{"Ripchain Razorkin", "activate#0.0", "Forest"},
-		{"Syr Ginger, the Meal Ender", "activate#0.0", ""}, // NICKNAME: sacrifices itself, no fixture
+		{"Nita, Forum Conciliator", "activate#0.0", "Llanowar Elves", ""},
+		{"Snowslope Hunter", "activate#0.0", "Llanowar Elves", ""},
+		{"Ezrim, Agency Chief", "activate#0.0", "Ornithopter", ""},
+		{"Stone-Giant of High Pass", "activate#0.0", "Ornithopter", ""},
+		{"Intruding Soulrager", "activate#0.0", "Bottomless Pool", "@p0:Bottomless Pool"},
+		{"Wick, the Whorled Mind", "activate#0.0", "Skullcap Snail", ""},
+		{"Quina, Qu Gourmet", "activate#0.0", "Anurid Murkdiver", ""},
+		{"Bolg's Company", "activate#0.0", "Goblin Piker", ""},
+		{"Ripchain Razorkin", "activate#0.0", "Forest", ""},
+		{"Syr Ginger, the Meal Ender", "activate#0.0", "", ""}, // NICKNAME: sacrifices itself, no fixture
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -62,15 +68,19 @@ func TestActivateSacFilterFixtures(t *testing.T) {
 				return
 			}
 			matches := 0
+			want := tc.want
+			if want == "" {
+				want = tc.fixture
+			}
 			for _, stepAnswers := range it.XAnswers {
 				for _, answer := range stepAnswers {
-					if answer.Kind == "choice" && strings.EqualFold(answer.Value, tc.fixture) {
+					if answer.Kind == "choice" && strings.EqualFold(answer.Value, want) {
 						matches++
 					}
 				}
 			}
 			if matches != 1 {
-				t.Fatalf("XMage answers name sacrifice fixture %q %d times, want once: %+v", tc.fixture, matches, it.XAnswers)
+				t.Fatalf("XMage answers name sacrifice fixture %q (as %q) %d times, want once: %+v", tc.fixture, want, matches, it.XAnswers)
 			}
 		})
 	}

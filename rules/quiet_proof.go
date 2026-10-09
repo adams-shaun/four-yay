@@ -111,6 +111,12 @@ var quietCoveredSections = map[string]bool{
 	"recordAbilityBlock":        true,
 	"maxSpeedBoastHolds":        true,
 	"pricing":                   true,
+	// The Q2 extractions (design §3.3): manaSection is the walk's mana
+	// section itself, which the proof never blocks on (§2.3) and the quiet
+	// serve runs verbatim; postWalkTail is the filters/pass/concede/result
+	// tail the quiet serve shares.
+	"manaSection":  true,
+	"postWalkTail": true,
 	// add is the walk's local option-append closure (pass/concede and the
 	// sections' own appends); it is covered by the sections that call it.
 	"add": true,

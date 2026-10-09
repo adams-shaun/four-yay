@@ -92,12 +92,13 @@ func TestSetupCreatureTypeChoiceLeadsSiblingRows(t *testing.T) {
 // wantSetupTypeCensus pins, per declared set, the number of generated
 // scenarios whose setup places a permanent with an as-enters type ask and how
 // many have the answer queued before setup placement (want all). The level-A
-// sets come from activateCensusSets; BLB, ECL and DFT are the level-B sets
-// that carry this brief's measured rows (Patchwork Banner, Eclipsed Realms,
-// Gathering Stone, Lifecraft Engine), so the census counts the class the fix
-// actually targets rather than only the level-A universe. Measured 2026-10-06
-// with this ticket's generator; a template, predicate or generator change
-// that moves a count shows up as a diff, and so does a stale pin.
+// sets come from activateCensusSets; BLB, ECL, DFT and LCI are the level-B
+// sets that carry this brief's measured rows (Patchwork Banner, Eclipsed
+// Realms, Gathering Stone, Lifecraft Engine), so the census counts the class
+// the fix actually targets rather than only the level-A universe. Measured
+// 2026-10-06 with this ticket's generator; a template, predicate or
+// generator change that moves a count shows up as a diff, and so does a
+// stale pin.
 //
 // Re-measured for cli-20261009T031408Z-5823e7de (Level B activate fixtures):
 // LCI 3 -> 4. Serving Cavernous Maw's activate#0.1 (a level-B activate row)
@@ -105,6 +106,14 @@ func TestSetupCreatureTypeChoiceLeadsSiblingRows(t *testing.T) {
 // places a permanent carrying an as-enters creature-type ask (the type count
 // over two named zones the row's restriction reads). The item tracks the new
 // scenario one-for-one and disappears if that activate serving is reverted.
+//
+// ECL moved 6 -> 8 on 2026-10-09 (ticket g17, cli-20261009T031408Z-3dd5d7df,
+// from main): the trigger#0.0 rows of Dawn-Blessed Pennant and Rimefire
+// Torque, previously the "etb filter ChosenType" skips, now generate
+// scenarios, and those scenarios place the as-enters type permanent (the etb
+// special-filter cause, with the generic probe walk as fallback); measured at
+// 8/8 both with and without chosenTypeETBCauses. The merged tree carries both
+// this and the Cavernous Maw serving above, so ECL pins 8 and LCI pins 4.
 var wantSetupTypeCensus = map[string][2]int{
 	"BIG": {0, 0},
 	"EOE": {0, 0},
@@ -112,7 +121,7 @@ var wantSetupTypeCensus = map[string][2]int{
 	"FRA": {0, 0},
 	// level-B sets carrying the measured rows.
 	"BLB": {3, 3},
-	"ECL": {6, 6},
+	"ECL": {8, 8},
 	"DFT": {1, 1},
 	"LCI": {4, 4},
 }

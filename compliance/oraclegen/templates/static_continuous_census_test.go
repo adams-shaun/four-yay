@@ -76,12 +76,11 @@ var wantStaticContinuousCensus = map[string]map[string]int{
 		"skip:static needs counters on the affected permanent":                                       1,
 	},
 	"FRA": {
-		"served": 33,
+		"served": 34,
 		"skip:static effect not observable on a probe or the card":                   2,
 		"skip:static grants a static ability (observed only through its own effect)": 1,
 		"skip:static counts cards exiled with the source":                            1,
 		"skip:static grants only keywords outside the compared evergreen set":        1,
-		"skip:static needs a token (setup places none)":                              1,
 	},
 	// DFT includes the Surveyor cycle's graveyard AddAbility$ grant, whose
 	// engine-gap skip remains pinned separately.
