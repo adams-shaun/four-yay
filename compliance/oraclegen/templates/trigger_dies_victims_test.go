@@ -126,34 +126,101 @@ func TestDiesOtherEquipmentIsAttachedBeforeTheKill(t *testing.T) {
 	}
 }
 
-// TestDiesOtherUnplaceableVictimsKeepNamedSkips: a victim the setup cannot
-// place is skipped by name, never as a bare "did not fire".
-func TestDiesOtherUnplaceableVictimsKeepNamedSkips(t *testing.T) {
+// TestDiesOtherDamagedVictimKeepsNamedSkip: the one victim qualifier no
+// cause here serves — "damaged" — keeps its named skip, never a bare "did
+// not fire" (ticket g17 serves the other victim qualifiers).
+func TestDiesOtherDamagedVictimKeepsNamedSkip(t *testing.T) {
 	reg := loadGenRegistry(t)
-	for _, tc := range []struct{ name, key, want string }{
-		{"Trophy Hunter", "trigger#0.0", "dies victim must be damaged"},
-		{"Teysa, Opulent Oligarch", "trigger#0.1", "dies victim must be a Clue"},
-		{"Massacre Girl, Known Killer", "trigger#0.0", "dies victim must have toughness less than 1"},
-		{"Ares, God of War", "trigger#0.0", "dies victim must be attacking"},
+	c, ok := reg.Lookup("Trophy Hunter")
+	if !ok {
+		t.Fatalf("Trophy Hunter missing")
+	}
+	for _, r := range levelb.Requirements(c) {
+		if r.Key != "trigger#0.0" {
+			continue
+		}
+		if r.Sub != "trigger.dies-other" {
+			t.Fatalf("precondition: Trophy Hunter trigger#0.0 classified %s", r.Sub)
+		}
+		if _, skip := GenerateB(reg, "Trophy Hunter", r); skip == nil || !strings.Contains(skip.Reason, "dies victim must be damaged") {
+			t.Fatalf("skip = %+v, want a reason naming %q", skip, "dies victim must be damaged")
+		}
+		return
+	}
+	t.Fatalf("precondition: Trophy Hunter carries no requirement trigger#0.0")
+}
+
+// TestDiesOtherSpecialVictimsAreServed: a dies-other victim qualifier the
+// placed-victim walk cannot satisfy (ticket g17) is served by its dedicated
+// cause, and the scenario names the mechanism — the Clue dies as a token
+// after its maker, a Blight Rot cast takes the victim to 0 toughness, an
+// attacking victim dies mid-combat — mirroring
+// TestTriggerETBProbeSpecialFilters' mechanism assertions.
+func TestDiesOtherSpecialVictimsAreServed(t *testing.T) {
+	reg := loadGenRegistry(t)
+	for _, tc := range []struct {
+		name, key string
+		served    func(t *testing.T, it oraclegen.Item)
+	}{
+		{"Teysa, Opulent Oligarch", "trigger#0.1", func(t *testing.T, it oraclegen.Item) {
+			// The Clue maker's death creates the token; an artifact destroy
+			// then kills the token, which is what the trigger reads.
+			tokenKilled := false
+			for _, st := range it.Scenario.Steps {
+				if st.Op == "cast" {
+					for _, tg := range st.Targets {
+						tokenKilled = tokenKilled || strings.Contains(tg, "token:Clue")
+					}
+				}
+			}
+			if !tokenKilled {
+				t.Fatalf("no step kills the Clue token: steps = %+v", it.Scenario.Steps)
+			}
+		}},
+		{"Massacre Girl, Known Killer", "trigger#0.0", func(t *testing.T, it oraclegen.Item) {
+			// The counters take the victim to 0 toughness on the side the
+			// filter names, so the state-based action sends it to the
+			// graveyard.
+			countered := false
+			for _, st := range it.Scenario.Steps {
+				if st.Op == "cast" && strings.Contains(st.Card, "Blight Rot") {
+					for _, tg := range st.Targets {
+						countered = countered || tg == "p1:Grizzly Bears"
+					}
+				}
+			}
+			if !countered {
+				t.Fatalf("no Blight Rot cast counters p1's victim: steps = %+v", it.Scenario.Steps)
+			}
+		}},
+		{"Ares, God of War", "trigger#0.0", func(t *testing.T, it oraclegen.Item) {
+			// The victim attacks and is destroyed mid-combat, so its LKI
+			// carries the attacking state the filter reads.
+			attacked := false
+			destroyed := false
+			for _, st := range it.Scenario.Steps {
+				if st.Op == "attack" {
+					for _, a := range st.Attackers {
+						attacked = attacked || a == "p0:Grizzly Bears"
+					}
+				}
+				if st.Op == "cast" {
+					for _, tg := range st.Targets {
+						destroyed = destroyed || tg == "p0:Grizzly Bears"
+					}
+				}
+			}
+			if !attacked || !destroyed {
+				t.Fatalf("attack step or victim destroy missing: steps = %+v", it.Scenario.Steps)
+			}
+		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			c, ok := reg.Lookup(tc.name)
-			if !ok {
-				t.Fatalf("%s missing", tc.name)
+			it := triggerRequirement(t, reg, tc.name, tc.key, "trigger.dies-other")
+			tc.served(t, it)
+			if res, ok := oraclegen.PlaysThrough(reg, it.Scenario); !ok || len(res.Fails) != 0 {
+				t.Fatalf("does not play through gorge: ok=%v fails=%v", ok, res.Fails)
 			}
-			for _, r := range levelb.Requirements(c) {
-				if r.Key != tc.key {
-					continue
-				}
-				if r.Sub != "trigger.dies-other" {
-					t.Fatalf("precondition: %s %s classified %s", tc.name, tc.key, r.Sub)
-				}
-				if _, skip := GenerateB(reg, tc.name, r); skip == nil || !strings.Contains(skip.Reason, tc.want) {
-					t.Fatalf("skip = %+v, want a reason naming %q", skip, tc.want)
-				}
-				return
-			}
-			t.Fatalf("precondition: %s carries no requirement %s", tc.name, tc.key)
 		})
 	}
 }

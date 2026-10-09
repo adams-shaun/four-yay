@@ -1,7 +1,6 @@
 package templates
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -170,16 +169,22 @@ func TestTokenFilterIsServedOnlyForCreatureTokens(t *testing.T) {
 	}
 }
 
-// TestTokenChangesZoneUnservableKeepsItsNamedSkip: a ChangesZoneAll filter no
-// creature token meets still reports the named "etb filter token" reason.
-func TestTokenChangesZoneUnservableKeepsItsNamedSkip(t *testing.T) {
+// TestTokenChangesZoneFilterGetsItsTokenMaker: a ChangesZoneAll token filter
+// is handled by tokenEnterCauses' one-token maker for every positive-token
+// base (ticket g17): the maker is the candidate cause and the trigger's own
+// matcher decides at replay what the token satisfies. The corpus sweep
+// behind the cause table found every positive-token ChangesZone filter on a
+// Creature/Card/Permanent base (e.g. Belladonna Took, Junk Winder), so the
+// Artifact base here pins only the maker-as-candidate behaviour, not a
+// served row.
+func TestTokenChangesZoneFilterGetsItsTokenMaker(t *testing.T) {
 	reg := loadGenRegistry(t)
 	tr := &cards.Trigger{Mode: "ChangesZoneAll", Params: map[string]string{"Destination": "Battlefield", "ValidCards": "Artifact.token+YouCtrl"}}
 	causes, why := etbProbeCauses(reg, "Some Card", tr)
-	if causes != nil || !strings.HasPrefix(why, "etb filter token") {
-		t.Fatalf("causes=%d why=%q, want the named token skip", len(causes), why)
+	if why != "" || len(causes) != 1 || causes[0].steps[0].Card != "p0:Sprout" {
+		t.Fatalf("causes=%d why=%q, want the one Sprout token maker", len(causes), why)
 	}
-	// The creature filter is served by exactly the one-token maker.
+	// The creature filter is served by exactly the one-token maker too.
 	tr.Params["ValidCards"] = "Card.token+YouCtrl"
 	causes, why = etbProbeCauses(reg, "Some Card", tr)
 	if why != "" || len(causes) != 1 || causes[0].steps[0].Card != "p0:Sprout" {
