@@ -1121,15 +1121,19 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSt
 				as = damageSplitAnswers(d)
 				break
 			}
-			if d.Resume == "mana_color" && len(d.ManaColours) > 0 {
-				// A Produced$ "Combo <colours>" ask is XMage's
-				// AddManaInAnyCombinationEffect at every unit count: one
-				// multi-amount message per offered colour, in the set's own
-				// order, zeroes included (Muerra, Trash Tactician's Add R /
-				// Add G pair). The set rides the decision (ManaColours); a
-				// produced-Any ask stays on the routing below, which is what
-				// its colour dialog and WUBRG multi-amount already agree
-				// with.
+			if d.Resume == "mana_color" && len(d.ManaColours) > 1 {
+				// A Produced$ "Combo <colours>" ask whose offered span
+				// exceeds one colour is XMage's AddManaInAnyCombinationEffect
+				// at every unit count: one multi-amount message per offered
+				// colour, in the set's own order, zeroes included (Muerra,
+				// Trash Tactician's Add R / Add G pair). The set rides the
+				// decision (ManaColours); a produced-Any ask stays on the
+				// routing below, which is what its colour dialog and WUBRG
+				// multi-amount already agree with. A SINGLE-colour Combo set
+				// (effects/params/produced.go returns ok for one colour too)
+				// keeps the ordinary choice routing: no committed row exists
+				// to measure its dialog shape against, and switching it to
+				// amount answers on a hunch would serve an unmeasured guess.
 				as = manaColourAllocation(d)
 				break
 			}

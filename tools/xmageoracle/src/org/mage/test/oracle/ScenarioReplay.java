@@ -1255,16 +1255,23 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 // before any state-based action, so a placement that would die
                 // as an SBA (a printed 0/0, an X-cost creature's X=0 board)
                 // survives with them. Apply through XMage's enter-with-counters
-                // map, keyed by the placed card's id -- a staged back face's
-                // placement now holds the back half, which setupNames keys by
-                // the front spelling -- so the counters are on the permanent
-                // when the first SBA check runs, exactly the runner's order.
-                // applySetupState no longer re-adds them.
+                // map, keyed by the id the placement resolution produces.
+                // CardUtil.getDefaultCardSideForBattlefield is the exact card
+                // the cheat() placement turns into a PermanentCard (a stored
+                // half maps to itself, a stored parent to its left half, a
+                // plain card to itself), and PermanentCard shares the card's
+                // id, so applyEnterWithCounters' getEnterWithCounters lookup
+                // hits for plain cards AND staged back faces alike. Keying on
+                // getMainCard() instead holds the parent's id for a staged
+                // half, which the resolution never looks up. The counters are
+                // on the permanent when the first SBA check runs, exactly the
+                // runner's order; applySetupState no longer re-adds them.
                 JsonObject counters = s.has("counters") ? s.getAsJsonObject("counters") : null;
                 JsonElement kinds = counters == null ? null : counters.get(n);
                 if (kinds != null && kinds.isJsonObject()) {
                     List<PutToBattlefieldInfo> placements = getBattlefieldCards(p);
-                    Card placedCard = placements.get(placements.size() - 1).getMainCard();
+                    Card placedCard = CardUtil.getDefaultCardSideForBattlefield(
+                            currentGame, placements.get(placements.size() - 1).getCard());
                     Counters enter = new Counters();
                     for (Map.Entry<String, JsonElement> byKind : kinds.getAsJsonObject().entrySet()) {
                         enter.addCounter(xmageCounter(byKind.getKey()).createInstance(byKind.getValue().getAsInt()));

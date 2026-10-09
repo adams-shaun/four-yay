@@ -111,7 +111,12 @@ func TestCombatDamageAnswersTrampleAssignment(t *testing.T) {
 		t.Fatalf("precondition: block %v does not name attacker %v",
 			sc.Steps[1].Blocks[0][1], sc.Steps[0].Attackers[0])
 	}
-	res := rules.OracleResult{Snapshots: []rules.OracleSnapshot{
+	res := rules.OracleResult{Decisions: []rules.OracleDecision{{
+		Step: 2, Seat: 0, Kind: "choose_n", GorgeKind: "choose",
+		Options: 2, Min: 1, Max: 1,
+		Picks: []string{"Wastes"}, PickIdx: []int{0},
+		PickRefs: []string{"p0:Wastes#27"}, PickKinds: []string{"dig"}, Resume: "dig",
+	}}, Snapshots: []rules.OracleSnapshot{
 		{Permanents: []rules.OracleSnapPerm{}},
 		{Permanents: []rules.OracleSnapPerm{
 			{Ref: "p0:Ojer Kaslem, Deepest Growth", PT: "6/5", Keywords: []string{"Trample"}},
@@ -123,15 +128,20 @@ func TestCombatDamageAnswersTrampleAssignment(t *testing.T) {
 		}},
 		{Permanents: []rules.OracleSnapPerm{}},
 	}}
-	out := [][]XAnswer{nil, nil, {{0, "choice", "Wastes"}}, nil}
-	XAnswersForScenario(res, sc, nil, nil)
-	prependCombatDamageAnswers(res, sc, out)
+	// The WIRE, not a hand-built slice: XAnswersForScenario is the only path
+	// that serves rows (gen_composite.go wires the prepend into it), so the
+	// test asserts its return. If the wire is reverted, the decision stream
+	// at step 2 loses its leading assignment answers and this test fails.
+	out := XAnswersForScenario(res, sc, nil, nil)
+	if len(out) != len(sc.Steps) {
+		t.Fatalf("wired answers cover %d steps, want %d", len(out), len(sc.Steps))
+	}
 	// The dialog's messages are the blockers only; the unassigned 4 tramples
-	// to the defender by itself and is never an option.
+	// to the defender by itself and is never an option. The assignment
+	// answers lead the step's own scripted answer (the Dig's land pick).
 	if got := out[2]; len(got) != 2 || got[0] != (XAnswer{0, "amount", "2"}) {
 		t.Fatalf("trample assignment answers = %+v, want [amount 2] leading step 2", out[2])
 	}
-	// Precedence: the assignment leads the step's own answers.
 	if out[2][1] != (XAnswer{0, "choice", "Wastes"}) {
 		t.Fatalf("the step's own answers no longer follow the assignment: %+v", out[2])
 	}

@@ -25,6 +25,15 @@ func TestDriverAppliesSetupCountersWithPlacement(t *testing.T) {
 	// a staged placement (a face-1 combat row) is keyed by the card the
 	// placement list now holds, and through XMage's enter-with-counters map,
 	// which the placement path consumes before the first SBA check.
+	//
+	// The key MUST be the card the placement RESOLUTION produces:
+	// CardUtil.getDefaultCardSideForBattlefield maps a stored back half to
+	// itself and a stored parent to its left half (CardUtil.java:1270), and
+	// PermanentCard shares its card's id, so applyEnterWithCounters'
+	// getEnterWithCounters lookup hits for a staged half AND a plain card.
+	// Keying on getMainCard() instead holds the parent's id for a staged
+	// half -- an id the resolution never looks up (the Sunbird Standard
+	// face-1 break, fixed round 2).
 	addStart := strings.Index(java, "private int add(JsonObject s, String key, Zone zone, TestPlayer p) {")
 	if addStart < 0 {
 		t.Fatal("ScenarioReplay.java has no add() placement helper")
@@ -38,6 +47,13 @@ func TestDriverAppliesSetupCountersWithPlacement(t *testing.T) {
 	applyAt := strings.Index(addFn, "setEnterWithCounters(placedCard.getId(), enter)")
 	if stagingAt < 0 || applyAt < 0 || stagingAt > applyAt {
 		t.Fatalf("add() must apply the setup counters after the back-face staging; add():\n%s", addFn)
+	}
+	if !strings.Contains(addFn, "CardUtil.getDefaultCardSideForBattlefield(") ||
+		!strings.Contains(addFn, "getCard())") {
+		t.Fatalf("add() must key the counters by the id the placement resolution produces; add():\n%s", addFn)
+	}
+	if strings.Contains(addFn, "placements.get(placements.size() - 1).getMainCard()") {
+		t.Fatalf("add() must not key the counters by getMainCard(): for a staged back half that is the parent's id, which the resolution never looks up; add():\n%s", addFn)
 	}
 	for _, want := range []string{
 		`counters.get(n)`,                  // the scenario's counters JSON, by the placed name
