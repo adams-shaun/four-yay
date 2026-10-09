@@ -364,6 +364,7 @@ func triggerServe(reg *cards.Registry, f *cards.Face, name string, req levelb.Re
 		it.XAnswers = oraclegen.RetargetForcedLookPicks(it.XAnswers, res.Decisions)
 	}
 	it.XAnswers = scriptPreludeSacrifice(it.XAnswers, c.prelude, len(sc.Steps))
+	it.XAnswers = scriptPreludeActivationCost(it.XAnswers, c.prelude, c.preludeActivationCost, len(sc.Steps), res.Decisions)
 	it.XAnswers = scriptCauseActivationCost(it.XAnswers, c, sc.Steps, res.Decisions)
 	// A "sacrifice a permanent unless you discard a card" decline: XMage
 	// poses the cost's own ask on the target queue (trigger_declines.go).

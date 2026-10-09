@@ -68,3 +68,63 @@ func TestTriggerSelfActivatedAttributeMindStone(t *testing.T) {
 		t.Fatalf("%s: no activate step on the source: %v", name, it.Scenario.Steps)
 	}
 }
+
+func TestTriggerSelfActivatedAttributeSoulStone(t *testing.T) {
+	reg := loadGenRegistry(t)
+	const name = "The Soul Stone"
+	// Precondition: the gate really is the card's own harnessed attribute,
+	// granted by an activated Harness ability whose cost exiles a creature.
+	card, ok := reg.Lookup(name)
+	if !ok {
+		t.Fatalf("precondition: %s not in the corpus", name)
+	}
+	gate := strings.ToLower(card.Faces[0].Triggers[0].ParamStr(cards.PKIsPresent))
+	if !strings.Contains(gate, "harnessed") {
+		t.Fatalf("precondition: %s IsPresent$ = %q, want harnessed", name, gate)
+	}
+	var grantCost string
+	for _, sa := range card.Faces[0].Abilities {
+		body := strings.ToLower(sa.Line)
+		if sa.IsActivated() && strings.Contains(body, "alterattribute") && strings.Contains(body, "attributes$ harnessed") {
+			grantCost = sa.ParamStr(cards.PKCost)
+		}
+	}
+	if grantCost == "" {
+		t.Fatalf("precondition: %s grants harnessed by no activated ability", name)
+	}
+	if !strings.Contains(strings.ToUpper(grantCost), "EXILE<1/CREATURE>") {
+		t.Fatalf("precondition: harness cost %q, want an Exile<1/Creature> part", grantCost)
+	}
+	it := triggerItem(t, reg, name, "trigger#0.0")
+	// The harness prelude carries the cost fixture: setup p0 controls the
+	// creature the Exile cost consumes while the activation plays.
+	creature := false
+	for _, bf := range it.Scenario.Setup["p0"].Battlefield {
+		if bf == "Colossal Dreadmaw" {
+			creature = true
+		}
+	}
+	if !creature {
+		t.Fatalf("%s: setup battlefield %v, want the Exile cost's Colossal Dreadmaw fixture", name, it.Scenario.Setup["p0"].Battlefield)
+	}
+	// XMage scripts the cost pick on the harness activate step.
+	act := 0
+	for i, st := range it.Scenario.Steps {
+		if st.Op != "activate" || st.Card != "p0:"+name {
+			continue
+		}
+		act++
+		pick := false
+		for _, xa := range it.XAnswers[i] {
+			if xa.Kind == "choice" && strings.EqualFold(xa.Value, "Colossal Dreadmaw") {
+				pick = true
+			}
+		}
+		if !pick {
+			t.Fatalf("%s step %d: XAnswers %v, want the Exile cost's Colossal Dreadmaw pick", name, i, it.XAnswers[i])
+		}
+	}
+	if act != 1 {
+		t.Fatalf("%s: %d harness activate steps, want 1: %v", name, act, it.Scenario.Steps)
+	}
+}

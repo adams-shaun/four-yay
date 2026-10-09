@@ -1,6 +1,5 @@
-{"shape":{"template":"trigger","op":"resolve","field":"p0.library","diff":"placement"},"key":"trigger | resolve | p0.library | placement","cards":14}
+{"shape":{"template":"trigger","op":"resolve","field":"p0.library","diff":"placement"},"key":"trigger | resolve | p0.library | placement","cards":12}
 {"card":"Broodheart Engine","template":"trigger#0.0","status":"diverge","api":"Phase:Surveil","sets":["DFT"],"detail":"step 1 (resolve) p0.graveyard: gorge \"[]\", xmage \"[Wastes]\""}
-{"card":"Choco, Seeker of Paradise","template":"trigger#0.0","status":"diverge","api":"AttackersDeclared:Dig+ChangesZone:Pump","sets":["FIN"],"detail":"step 1 (resolve) p0.hand: gorge \"[]\", xmage \"[Wastes]\""}
 {"card":"Coveted Falcon","template":"trigger#0.1","status":"diverge","api":"Attacks:GainControl+TurnFaceUp:Pump","sets":["MKM"],"detail":"step 3 (resolve) p0.hand: gorge \"[]\", xmage \"[Wastes]\""}
 {"card":"Essence Anchor","template":"trigger#0.0","status":"diverge","api":"Phase:Surveil","sets":["TDM"],"detail":"step 1 (resolve) p0.graveyard: gorge \"[]\", xmage \"[Wastes]\""}
 {"card":"Expedited Inheritance","template":"trigger#0.0","status":"diverge","api":"DamageDoneOnce:Dig","sets":["MKM"],"detail":"step 1 (resolve) p0.exile: gorge \"[Wastes]\", xmage \"[Wastes, Wastes]\""}
@@ -11,5 +10,4 @@
 {"card":"Mindwhisker","template":"trigger#0.0","status":"diverge","api":"Phase:Surveil","sets":["BLB"],"detail":"step 1 (resolve) p0.graveyard: gorge \"[]\", xmage \"[Wastes]\""}
 {"card":"Morcant's Eyes","template":"trigger#0.0","status":"diverge","api":"Phase:Surveil","sets":["ECL"],"detail":"step 1 (resolve) p0.graveyard: gorge \"[]\", xmage \"[Wastes]\""}
 {"card":"Projektor Inspector","template":"trigger#0.1","status":"diverge","api":"ChangesZone:Discard+TurnFaceUp:Discard","sets":["MKM"],"detail":"step 1 (resolve) p0.graveyard: gorge \"[Wastes]\", xmage \"[]\""}
-{"card":"The Earth King","template":"trigger#0.1","status":"diverge","api":"ChangesZone:Token+AttackersDeclared:ChangeZone","sets":["TLA"],"detail":"step 1 (resolve) p0.library_count: gorge \"38\", xmage \"37\""}
 {"card":"Unidentified Hovership","template":"trigger#0.1","status":"diverge","api":"ChangesZone:ChangeZone+ChangesZone:ManifestDread","sets":["DSK"],"detail":"step 1 (resolve) p0.graveyard: gorge \"[Unidentified Hovership, Shatter, Wastes]\", xmage \"[Unidentified Hovership, Shatter]\""}
