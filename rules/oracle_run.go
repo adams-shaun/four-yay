@@ -303,6 +303,14 @@ type oracleRun struct {
 	// probe and the scenario's game (RunOracleScenarioJSON's pool).
 	spare *Spare
 	step  int // the scenario step being played; -1 during setup
+	// preChecked marks the steps whose Expect set was already evaluated
+	// PRE-submit (the attack op, against the still-pending declare-attackers
+	// decision): runOracleScenarioSpare's post-step re-check skips them,
+	// because after the declaration the phase has advanced, the attackers
+	// decision is gone, and the same attack_required / can_attack reads
+	// would fail loudly. Only the attack op writes it; nil until the first
+	// such step (the audit-test oracleRun{} literal carries none).
+	preChecked map[int]bool
 	// exactRefs marks the setup refs the driver reconstructs from object
 	// identity: a ref bound to a card placed on the BATTLEFIELD at setup.
 	// Battlefield is first in both gorge's setup order and XMage's
@@ -1189,6 +1197,33 @@ func blockersDecision(r *oracleRun) (*decision.Decision, error) {
 	return nil, harnessf("block: no blockers decision pending")
 }
 
+// oracleAttackExpectPreSubmit evaluates an attack step's Expect set against
+// the PENDING declare-attackers decision, before the declaration is
+// submitted: at that point e.Pending() IS the attackers decision, so the
+// attack_required and can_attack offered-options reads (and every other
+// expectation) see the real board. After the submit the phase advances and
+// the same reads would fail loudly ("no attackers decision pending"), so a
+// passing set marks the step pre-checked (oracleRun.preChecked) and
+// runOracleScenarioSpare's post-step re-check skips it. A non-empty result
+// aborts the step BEFORE any declaration goes in. A free function, not a
+// method, like blockersDecision: oracleRun holds a *Engine, so a method
+// would grow engineSurface.
+func oracleAttackExpectPreSubmit(r *oracleRun, st oracleStep) []string {
+	if r.preChecked == nil {
+		r.preChecked = map[int]bool{}
+	}
+	var bad []string
+	for _, x := range st.Expect {
+		for _, b := range r.check(x) {
+			bad = append(bad, fmt.Sprintf("pre-submit (attack): %s", b))
+		}
+	}
+	if len(bad) == 0 {
+		r.preChecked[r.step] = true
+	}
+	return bad
+}
+
 // untilPriority answers non-priority decisions until a priority decision
 // (or the end of the game) is pending.
 func (r *oracleRun) untilPriority(why string) error {
@@ -1661,6 +1696,16 @@ func (r *oracleRun) do(st oracleStep) error {
 				return harnessf("attack: never reached the declare-attackers decision")
 			}
 			if d.Kind == decision.KAttackers && d.Player == seat {
+				// The step's Expect set reads the PENDING attackers decision
+				// (attack_required / can_attack are offered-options reads), so
+				// it is evaluated here, before the declaration goes in -- the
+				// post-step re-check would only see the gone decision. See
+				// oracleAttackExpectPreSubmit.
+				if len(st.Expect) > 0 {
+					if bad := oracleAttackExpectPreSubmit(r, st); len(bad) > 0 {
+						return harnessf("%s", strings.Join(bad, "; "))
+					}
+				}
 				used := map[int]bool{}
 				var choices []int
 				for _, a := range st.Attackers {
@@ -2164,9 +2209,15 @@ func runOracleScenarioSpare(reg *cards.Registry, sc oracleScenario, noSnapshot b
 			fails = append(fails, fmt.Sprintf("after step %d (%s): %s", i, st.Op, msg))
 		}
 		r.extraFails = nil
-		for _, x := range st.Expect {
-			for _, b := range r.check(x) {
-				fails = append(fails, fmt.Sprintf("after step %d (%s): %s", i, st.Op, b))
+		// An attack step's Expect set was already evaluated pre-submit,
+		// against the still-pending attackers decision (see
+		// oracleAttackExpectPreSubmit); the re-check here would read the
+		// gone decision and fail loudly for a shape that passed.
+		if !r.preChecked[i] {
+			for _, x := range st.Expect {
+				for _, b := range r.check(x) {
+					fails = append(fails, fmt.Sprintf("after step %d (%s): %s", i, st.Op, b))
+				}
 			}
 		}
 	}

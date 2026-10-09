@@ -143,13 +143,26 @@ func TestMaxBlockersSafewrightCavalry(t *testing.T) {
 }
 
 // TestMustAttackRedHerring pins the MustAttack requirement flag (MKM Red
-// Herring): the card's attacker option carries it, the probe's does not, and
-// flipping the card's assertion makes the engine fail the run.
+// Herring): the attack step's expects read the requirement off the PENDING
+// attackers decision pre-submit (agent-20261009T172754Z-e2838eed: the
+// scenario declares the card, because a checkpoint on the pending decision
+// diverged against XMage's force-declare), the probe's option does not carry
+// it, and flipping the card's assertion fails the run pre-submit, before the
+// declaration is ever submitted.
 func TestMustAttackRedHerring(t *testing.T) {
 	reg := loadGenRegistry(t)
 	it := staticItemFor(t, reg, "Red Herring", "static#0.0", "static.must-attack-self")
+	atk := -1
+	for i := range it.Steps {
+		if it.Steps[i].Op == "attack" {
+			atk = i
+		}
+	}
+	if atk < 0 {
+		t.Fatal("precondition: item carries no attack step")
+	}
 	req, probeReq := false, false
-	for _, e := range lastExpect(it) {
+	for _, e := range it.Steps[atk].Expect {
 		if e.AttackRequired == nil || e.Want == nil {
 			continue
 		}
@@ -168,11 +181,10 @@ func TestMustAttackRedHerring(t *testing.T) {
 	}
 	ctl := it.Scenario
 	ctl.Steps = append([]oraclegen.Step(nil), ctl.Steps...)
-	last := &ctl.Steps[len(ctl.Steps)-1]
-	last.Expect = append([]oraclegen.Expect(nil), last.Expect...)
-	for i := range last.Expect {
-		if last.Expect[i].AttackRequired != nil && last.Expect[i].AttackRequired.Attacker == gatedCardAt("Red Herring") {
-			last.Expect[i].Want = boolPtr(false)
+	ctl.Steps[atk].Expect = append([]oraclegen.Expect(nil), ctl.Steps[atk].Expect...)
+	for i := range ctl.Steps[atk].Expect {
+		if ctl.Steps[atk].Expect[i].AttackRequired != nil && ctl.Steps[atk].Expect[i].AttackRequired.Attacker == gatedCardAt("Red Herring") {
+			ctl.Steps[atk].Expect[i].Want = boolPtr(false)
 		}
 	}
 	if res, ok := runStatic(reg, ctl); !ok || !failsName(res.Fails, "Red Herring must attack") {
