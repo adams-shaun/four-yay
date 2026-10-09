@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"resolve","field":"p0.graveyard","diff":"gorge+[Terminate] xmage+[]"},"key":"trigger | resolve | p0.graveyard | gorge+[Terminate] xmage+[]","cards":1}
+{"card":"Lilah, Undefeated Slickshot","template":"trigger#0.0","status":"diverge","api":"SpellCast:Effect+SpellCast:Pump","sets":["OTJ"],"detail":"step 1 (resolve) p0.graveyard: gorge \"[Grizzly Bears, Terminate]\", xmage \"[Grizzly Bears]\""}
