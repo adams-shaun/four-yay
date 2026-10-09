@@ -185,6 +185,12 @@ func activationPresentPrelude(reg *cards.Registry, spec, zone, compare string) (
 	for _, group := range strings.Split(spec, ",") {
 		words := affectedWords(group)
 		if hasWord(words, "Self") {
+			if m := counterFilterRE.FindStringSubmatch(strings.ToLower(group)); m != nil {
+				// Counters on the source itself (Cryptex's "five or more
+				// unlock counters"): the setup carries them.
+				out = append(out, conditionPrelude{counters: map[string]map[string]int{"__SOURCE__": {strings.ToUpper(m[2]): counterAmount(strings.ToLower(group))}}})
+				continue
+			}
 			if staticFixtureFor(group, 0) == "" {
 				selfState = true
 				continue

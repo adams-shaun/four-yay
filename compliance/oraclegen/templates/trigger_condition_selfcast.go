@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/compliance/oraclegen"
 )
 
 // selfCastAttribute reports the self-attribute a CheckSVar$ Count$ValidSelf
@@ -62,6 +63,65 @@ func selfTriggerGrants(f *cards.Face, t *cards.Trigger, attr string) bool {
 		}
 	}
 	return false
+}
+
+// selfActivatedAttributePreludes is the setup for an IsPresent$ Card.Self+<attr>
+// gate the source's own activated ability grants (The Mind Stone's "{5}{W},
+// {T}: Harness"): the prelude activates that ability in turn 1's first main
+// phase, before the trigger's own checkpoint. A cost with no choice to answer
+// only (a mana payment and a tap) is served; a cost whose fixtures carry a
+// choice the trigger path does not script is left to the named gap.
+func selfActivatedAttributePreludes(reg *cards.Registry, f *cards.Face, group string) []conditionPrelude {
+	attr := ""
+	for _, w := range affectedWords(group) {
+		lower := strings.ToLower(w)
+		if lower == "self" || counterFilterRE.MatchString(lower) {
+			continue
+		}
+		attr = lower
+	}
+	if attr == "" {
+		return nil
+	}
+	prefixes, why := oraclegen.XMageAbility(f)
+	if why != "" {
+		return nil
+	}
+	var out []conditionPrelude
+	for i, sa := range f.Abilities {
+		if !sa.IsActivated() {
+			continue
+		}
+		body := strings.ToLower(sa.Line)
+		if !strings.Contains(body, "alterattribute") || !strings.Contains(body, "attributes$ "+attr) {
+			continue
+		}
+		if defined := sa.ParamStr(cards.PKDefined); defined != "" && !strings.EqualFold(defined, "Self") {
+			continue
+		}
+		cost := sa.ParamStr(cards.PKCost)
+		mana, gap := activationCostIn(cost, "battlefield")
+		if gap != "" {
+			continue
+		}
+		setup := oraclegen.Seat{}
+		addActivationCostFixtures(&setup, cost)
+		if len(setup.Battlefield) != 0 || len(setup.Graveyard) != 0 || len(setup.Hand) != 0 {
+			// The cost's fixtures carry a state the activation answer machinery
+			// scripts through the activate cause path, not through a prelude.
+			continue
+		}
+		prefix, exists := prefixes[i]
+		if !exists {
+			continue
+		}
+		idx := i
+		out = append(out, conditionPrelude{
+			steps:    []oraclegen.Step{{Op: "activate", Seat: 0, Card: "p0:" + f.Name, Mana: mana, AbilityIndex: &idx}},
+			xability: []string{prefix},
+		})
+	}
+	return out
 }
 
 // selfCastGateCauses appends a cast-self variant of each base cause when the

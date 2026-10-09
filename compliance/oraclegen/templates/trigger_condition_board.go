@@ -77,6 +77,9 @@ func groupFixtures(reg *cards.Registry, f *cards.Face, group, zone string, n int
 	lower := strings.ToLower(group)
 	if selfDefined || hasWord(words, "Self") {
 		var out []conditionPrelude
+		if pre := selfActivatedAttributePreludes(reg, f, group); len(pre) > 0 {
+			out = append(out, pre...)
+		}
 		if hasWord(words, "tapped") && f.IsCreature() {
 			// A setup-tapped permanent untaps before the checkpoint: the
 			// source attacks and stays tapped through main2.
