@@ -340,6 +340,9 @@ func classifyStatic(f *cards.Face, st *cards.Static) (sub, gap string) {
 	if sub, ok := supportedLegalityStatic(f, st); ok {
 		return sub, ""
 	}
+	if sub, ok := gatedLegalityStatic(f, st); ok {
+		return sub, ""
+	}
 	if sub, ok := cantBeShape(f, st); ok {
 		return sub, ""
 	}

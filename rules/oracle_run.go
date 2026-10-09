@@ -172,33 +172,39 @@ type oracleAnswer struct {
 }
 
 type oracleExpect struct {
-	Card           string            `json:"card,omitempty"`
-	Zone           string            `json:"zone,omitempty"`
-	PT             string            `json:"pt,omitempty"`
-	Keywords       []string          `json:"keywords,omitempty"`
-	NoKeywords     []string          `json:"no_keywords,omitempty"`
-	Types          []string          `json:"types,omitempty"`
-	NoTypes        []string          `json:"no_types,omitempty"`
-	Tapped         *bool             `json:"tapped,omitempty"`
-	Damage         *int32            `json:"damage,omitempty"`
-	Counters       map[string]int32  `json:"counters,omitempty"`
-	Life           map[string]int32  `json:"life,omitempty"`
-	HandSize       map[string]int    `json:"hand_size,omitempty"`
-	GraveyardSize  map[string]int    `json:"graveyard_size,omitempty"`
-	Pool           map[string]string `json:"pool,omitempty"`
-	TriggerOnStack string            `json:"trigger_on_stack,omitempty"`
-	StackSize      *int              `json:"stack_size,omitempty"`
-	Offered        *oracleOffered    `json:"offered,omitempty"`
-	CanBlock       *oracleCanBlock   `json:"can_block,omitempty"`
-	CanAttack      *oracleCanAttack  `json:"can_attack,omitempty"`
+	Card           string                `json:"card,omitempty"`
+	Zone           string                `json:"zone,omitempty"`
+	PT             string                `json:"pt,omitempty"`
+	Keywords       []string              `json:"keywords,omitempty"`
+	NoKeywords     []string              `json:"no_keywords,omitempty"`
+	Types          []string              `json:"types,omitempty"`
+	NoTypes        []string              `json:"no_types,omitempty"`
+	Tapped         *bool                 `json:"tapped,omitempty"`
+	Damage         *int32                `json:"damage,omitempty"`
+	Counters       map[string]int32      `json:"counters,omitempty"`
+	Life           map[string]int32      `json:"life,omitempty"`
+	HandSize       map[string]int        `json:"hand_size,omitempty"`
+	GraveyardSize  map[string]int        `json:"graveyard_size,omitempty"`
+	Pool           map[string]string     `json:"pool,omitempty"`
+	TriggerOnStack string                `json:"trigger_on_stack,omitempty"`
+	StackSize      *int                  `json:"stack_size,omitempty"`
+	Offered        *oracleOffered        `json:"offered,omitempty"`
+	CanBlock       *oracleCanBlock       `json:"can_block,omitempty"`
+	CanAttack      *oracleCanAttack      `json:"can_attack,omitempty"`
+	AttackRequired *oracleAttackRequired `json:"attack_required,omitempty"`
 	// LookAtLibraryTop asserts, per seat, whether that player may look at
 	// the top card of their own library right now (a Continuous MayLookAt$
 	// grant, Engine.MayLookAtLibraryTop): hidden-information permission no
 	// snapshot field carries.
 	LookAtLibraryTop map[string]bool `json:"look_at_library_top,omitempty"`
-	Count            *oracleCount    `json:"count,omitempty"`
-	Eq               *int            `json:"eq,omitempty"`
-	Want             *bool           `json:"want,omitempty"`
+	// MaxHandSize asserts, per seat, that player's effective CR 514.1
+	// maximum hand size (a Continuous SetMaxHandSize$ static, the same read
+	// cleanupStep discards to): a player-rule number no snapshot field
+	// carries.
+	MaxHandSize map[string]int `json:"max_hand_size,omitempty"`
+	Count       *oracleCount   `json:"count,omitempty"`
+	Eq          *int           `json:"eq,omitempty"`
+	Want        *bool          `json:"want,omitempty"`
 }
 
 type oracleOffered struct {
@@ -210,6 +216,17 @@ type oracleOffered struct {
 
 type oracleCanBlock struct {
 	Blocker  string `json:"blocker"`
+	Attacker string `json:"attacker"`
+	// MaxBlockers, when set, additionally asserts the MinMaxBlocker Max$
+	// bound the matched pair option publishes (0 = no bound).
+	MaxBlockers *int `json:"max_blockers,omitempty"`
+}
+
+// oracleAttackRequired asserts whether the attacker option carries the
+// MustAttack requirement (Option.Required, set from mustAttackRequired in
+// askAttackers): a legality static that makes attacking MANDATORY is
+// otherwise invisible to the offered-options read.
+type oracleAttackRequired struct {
 	Attacker string `json:"attacker"`
 }
 
@@ -527,6 +544,19 @@ func (r *oracleRun) build(sc oracleScenario) error {
 			}
 			backFace := setupPlacedBackFace(sc.Setup[fmt.Sprintf("p%d", p)], pl.name)
 			if from := e.G.Obj(id).Zone; from != pl.zone {
+				// A back-face battlefield card enters ON its back face: the
+				// FlipFace rides ahead of the MoveZone (the same sequence a
+				// transformed ChangeZone emits, effects.applyTransformed), so
+				// the entry fold reads the face XMage's addCard places --
+				// a back-face Saga creature enters with its lore counter, a
+				// back-face non-Saga (a transformed Saga's creature, the
+				// crafted Braided Quipu) enters with none and no chapter
+				// trigger. A flip after the entry would leave the FRONT
+				// face's entry grants (The Legend of Kuruk's lore counter)
+				// stranded on a permanent whose face never carried them.
+				if backFace && pl.zone == state.ZBattlefield {
+					e.emit(events.Event{Kind: events.FlipFace, Obj: id, Amount: 1, Text: "Transformed"})
+				}
 				pendingBefore := len(e.pendingTriggers)
 				e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: from, To: pl.zone})
 				if sc.xmageFixture && pl.zone == state.ZBattlefield {
@@ -554,13 +584,19 @@ func (r *oracleRun) build(sc oracleScenario) error {
 					e.orderedTriggers = ordered
 				}
 			}
-			if pl.zone == state.ZBattlefield {
-				// A back-face battlefield card starts transformed: FlipFace's
-				// Amount is the destination face index (1), applied through
-				// events.Apply like every other setup op, so the replay
-				// reconstructs the same face from the log.
-				if backFace {
-					e.emit(events.Event{Kind: events.FlipFace, Obj: id, Amount: 1})
+			if pl.zone == state.ZBattlefield && backFace {
+				// A back-face PLANESWALKER whose entering face prints no
+				// positive loyalty (Forge's "Loyalty: 0" carry-over spelling,
+				// Oko, Lorwyn Liege's Shadowmoor Scion) is not enterable as
+				// printed: a real Oko reaches the back face by transforming,
+				// carrying its loyalty. XMage's addCard places the back face
+				// with the front face's starting loyalty, so the harness
+				// grants that where the entry fold (reading the back face)
+				// granted none; without it the walker sits at 0 loyalty and
+				// the CR 704.5i state-based action removes it before its
+				// first-main-phase trigger can fire.
+				if n := setupBackFaceLoyalty(e.G.Obj(id)); n > 0 {
+					e.emit(events.Event{Kind: events.CounterChange, Obj: id, Counter: "LOYALTY", Amount: n})
 				}
 			}
 			for _, tapped := range sc.Setup[fmt.Sprintf("p%d", p)].Tapped {
@@ -1684,6 +1720,11 @@ func (r *oracleRun) check(x oracleExpect) []string {
 			failf("%s may look at library top=%v, want %v", k, !want, want)
 		}
 	}
+	for k, want := range x.MaxHandSize {
+		if p, ok := seatOf(k); ok && e.maxHandSizeFor(p) != want {
+			failf("%s max hand size %d, want %d", k, e.maxHandSizeFor(p), want)
+		}
+	}
 	for k, want := range x.GraveyardSize {
 		if p, ok := seatOf(k); ok && len(e.G.Zone(state.ZGraveyard, p)) != want {
 			failf("%s graveyard size %d, want %d", k, len(e.G.Zone(state.ZGraveyard, p)), want)
@@ -1754,13 +1795,40 @@ func (r *oracleRun) check(x oracleExpect) []string {
 			failf("can_block: no blockers decision pending")
 		} else {
 			found := false
+			var matched decision.Option
 			for _, o := range d.Options {
 				if o.Obj == b && o.Attacker == a {
 					found = true
+					matched = o
 				}
 			}
 			if found != r.wantBool(x) {
 				failf("%s can block %s = %v, want %v", x.CanBlock.Blocker, x.CanBlock.Attacker, found, r.wantBool(x))
+			}
+			if found && x.CanBlock.MaxBlockers != nil && matched.MaxBlockers != *x.CanBlock.MaxBlockers {
+				failf("%s blocks %s with bound %d, want %d", x.CanBlock.Blocker, x.CanBlock.Attacker, matched.MaxBlockers, *x.CanBlock.MaxBlockers)
+			}
+		}
+	}
+	if x.AttackRequired != nil {
+		id, err := r.resolve(x.AttackRequired.Attacker)
+		if err != nil {
+			return []string{err.Error()}
+		}
+		d := e.Pending()
+		if d == nil || d.Kind != decision.KAttackers {
+			failf("attack_required: no attackers decision pending")
+		} else {
+			found, required := false, false
+			for _, o := range d.Options {
+				if o.Obj == id {
+					found, required = true, o.Required
+				}
+			}
+			if !found {
+				failf("%s is not offered as an attacker", x.AttackRequired.Attacker)
+			} else if required != r.wantBool(x) {
+				failf("%s must attack = %v, want %v", x.AttackRequired.Attacker, required, r.wantBool(x))
 			}
 		}
 	}

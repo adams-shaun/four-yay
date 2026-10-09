@@ -136,7 +136,11 @@ func TestStaticContinuousClassLevelDispositions(t *testing.T) {
 		{name: "Ninja Teen", served: true},
 		{name: "Blacksmith's Talent", reason: "static needs an equipped permanent"},
 		{name: "Caretaker's Talent", reason: "static needs a token (setup places none)"},
-		{name: "Innkeeper's Talent", reason: "static needs counters on the affected permanent"},
+		// Innkeeper's Talent served since the setup-counters fixture ticket
+		// (cli-20261009T031409Z-a76de35a): the level-2 ward static's
+		// Permanent.YouCtrl+HasCounters gate is now probed with a countered
+		// Bear.
+		{name: "Innkeeper's Talent", served: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			card, ok := reg.Lookup(tc.name)

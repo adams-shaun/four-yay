@@ -101,9 +101,9 @@ func TestStaticContinuousUnobservedStaysSkipped(t *testing.T) {
 // cannot reach carry their own reason rather than the generic one.
 func TestStaticContinuousNamedGaps(t *testing.T) {
 	for _, row := range []struct{ card, key, want string }{
-		{"Flood the Engine", "static#0.0", "removes the abilities of a permanent the fixture gives none"},
 		{"Lumbering Worldwagon", "static#0.0", "characteristic-defining P/T of a non-creature"},
-		{"Vnwxt, Verbose Host", "static#0.0", "static hand size is not observable"},
+		{"Winter, Misanthropic Guide", "static#0.0", "static hand size is not observable"},
+		{"Sunbird Standard", "static#1.0", "static amount is a computed count"},
 	} {
 		if got := staticSkipReason(t, row.card, row.key); !strings.Contains(got, row.want) {
 			t.Errorf("%s %s skip = %q, want it to contain %q", row.card, row.key, got, row.want)

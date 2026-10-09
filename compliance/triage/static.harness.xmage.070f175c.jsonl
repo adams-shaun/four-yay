@@ -1,0 +1,4 @@
+{"shape":{"template":"static","op":"harness","field":"xmage","diff":"IllegalArgumentException: cast_mode flashback unsupported"},"key":"static | harness | xmage | IllegalArgumentException: cast_mode flashback unsupported","cards":3}
+{"card":"Bilbo, Thief in the Night","template":"static#0.0","status":"harness","api":"Attacks:Play","sets":["HOB"],"detail":"xmage: IllegalArgumentException: cast_mode flashback unsupported"}
+{"card":"Doc Aurlock, Grizzled Genius","template":"static#0.0","status":"harness","api":"-","sets":["OTJ"],"detail":"xmage: IllegalArgumentException: cast_mode flashback unsupported"}
+{"card":"Norman Osborn","template":"static#1.0","status":"harness","api":"DamageDone:Connive","sets":["SPM"],"detail":"xmage: IllegalArgumentException: cast_mode flashback unsupported"}

@@ -33,7 +33,8 @@ func staticSubs(sub string) bool {
 	case "static.disable-triggers", "static.combat-damage-toughness", "static.can-attack-defender", "static.can-attack-defender-svar", "static.cant-block-by", "static.cant-be-cast-threshold", "static.cant-be-cast-combat", "static.cant-be-activated-combat", "static.cant-block-self", "static.cant-block-by-self", "static.min-blockers",
 		"static.cant-be-cast-opponent-turn", "static.cant-be-cast-first-turns", "static.cant-be-cast-limit", "static.cant-be-activated-opponent-turn", "static.cant-be-activated-all", "static.cant-be-activated-enchanted", "static.panharmonicon", "static.optional-cost",
 		"static.cant-attack-enchanted", "static.cant-block-enchanted", "static.cant-block-by-blocker-filter", "static.cant-gain-life", "static.mana-convert-creature-spells", "static.cant-be-activated-named",
-		"static.tap-power-value", "static.cast-with-flash", "static.untap-other-player", "static.cant-draw":
+		"static.tap-power-value", "static.cast-with-flash", "static.untap-other-player", "static.cant-draw",
+		"static.cant-attack-gated", "static.cant-block-gated", "static.cant-block-by-gated", "static.can-attack-defender-gated", "static.max-blockers", "static.must-attack-self":
 		return true
 	}
 	return false
@@ -76,6 +77,18 @@ func staticRequirement(reg *cards.Registry, f *cards.Face, name string, req leve
 		return cantBlockEnchantedItem(reg, f, name, req)
 	case "static.cant-block-by-blocker-filter":
 		return cantBlockByBlockerFilterItem(reg, f, name, req)
+	case "static.cant-attack-gated":
+		return gatedCantAttackItem(reg, f, name, req)
+	case "static.cant-block-gated":
+		return gatedCantBlockItem(reg, f, name, req)
+	case "static.cant-block-by-gated":
+		return gatedUnblockableItem(reg, f, name, req)
+	case "static.can-attack-defender-gated":
+		return gatedCanAttackDefenderItem(reg, f, name, req)
+	case "static.max-blockers":
+		return maxBlockersItem(reg, f, name, req)
+	case "static.must-attack-self":
+		return mustAttackItem(reg, f, name, req)
 	case "static.cant-gain-life":
 		return cantGainLifeItem(reg, f, name, req)
 	case "static.mana-convert-creature-spells":

@@ -144,6 +144,15 @@ func declinedChoice(d rules.OracleDecision) bool {
 	return d.Kind == "choose_n" && d.Resume == "choice" && d.Min == 0 && d.Max > 0 && len(d.Picks) == 0
 }
 
+// waterbendHelperDeclined is a declined waterbend tap-helpers ask
+// (rules/pay/castasks.go's "Tap <name> to waterbend for 1" option, option
+// kind waterbend_generic). Only a payment ask carries the phrase: option 0's
+// label names the helper and the contribution ({1} of the waterbend amount).
+func waterbendHelperDeclined(d rules.OracleDecision) bool {
+	return d.Kind == "choose_n" && len(d.Picks) == 0 &&
+		strings.HasSuffix(d.First, " to waterbend for 1")
+}
+
 // route returns the answers for decision i when this file owns it.
 func (r *answerRouting) route(i int) (as []XAnswer, owned bool) {
 	d := r.ds[i]
@@ -159,6 +168,14 @@ func (r *answerRouting) route(i int) (as []XAnswer, owned bool) {
 	switch {
 	case soleAltCost(d):
 		return as, true
+	case waterbendHelperDeclined(d):
+		// The waterbend tap-helpers ask: XMage pays the ability's waterbend
+		// generic from the prefilled mana pool and never poses the ask, so
+		// neither of the declined pair's halves has an ask to answer (Giant
+		// Koi, Aang, Swift Savior, ...). The ability's own target or effect
+		// asks are re-scripted by the serving template when it knows they
+		// follow (activate_waterbend.go).
+		return nil, true
 	case r.soleCost[i]:
 		// XMage still asks the cost's own pick (TargetCardInHand "discard
 		// cost", TargetSacrifice) through makeChoose, by name.

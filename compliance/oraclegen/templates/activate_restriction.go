@@ -51,6 +51,14 @@ func activateRestriction(reg *cards.Registry, f *cards.Face, name string, sa *ca
 			} else {
 				gaps = append(gaps, "activation restriction: class level ("+spec+")")
 			}
+		} else if solvedSelfSpec(spec) {
+			// IsPresent$ Card.Self+IsSolved: the ability is offered only once
+			// the source Case has solved itself at its end step.
+			if pres, ok := solvedCasePreludes(reg, f); ok {
+				sources = append(sources, pres)
+			} else {
+				gaps = append(gaps, "activation restriction: self state ("+spec+")")
+			}
 		} else {
 			pres, gap := activationPresentPrelude(reg, spec, zone, compare)
 			if len(pres) > 0 {
@@ -77,11 +85,21 @@ func activateRestriction(reg *cards.Registry, f *cards.Face, name string, sa *ca
 		}
 	}
 	if act := strings.TrimSpace(sa.ParamStr(cards.PKActivation)); act != "" {
-		pre, ok, gap := activationKeywordPrelude(act)
-		if ok {
-			sources = append(sources, []conditionPrelude{pre})
+		if strings.EqualFold(act, "Solved") {
+			// Activation$ Solved: the ability is offered only once the source
+			// Case has solved itself at its end step.
+			if pres, ok := solvedCasePreludes(reg, f); ok {
+				sources = append(sources, pres)
+			} else {
+				gaps = append(gaps, "activation restriction: activation Solved")
+			}
 		} else {
-			gaps = append(gaps, gap)
+			pre, ok, gap := activationKeywordPrelude(act)
+			if ok {
+				sources = append(sources, []conditionPrelude{pre})
+			} else {
+				gaps = append(gaps, gap)
+			}
 		}
 	}
 	out := restrictCandidates(sources)
@@ -167,6 +185,12 @@ func activationPresentPrelude(reg *cards.Registry, spec, zone, compare string) (
 	for _, group := range strings.Split(spec, ",") {
 		words := affectedWords(group)
 		if hasWord(words, "Self") {
+			if m := counterFilterRE.FindStringSubmatch(strings.ToLower(group)); m != nil {
+				// Counters on the source itself (Cryptex's "five or more
+				// unlock counters"): the setup carries them.
+				out = append(out, conditionPrelude{counters: map[string]map[string]int{"__SOURCE__": {strings.ToUpper(m[2]): counterAmount(strings.ToLower(group))}}})
+				continue
+			}
 			if staticFixtureFor(group, 0) == "" {
 				selfState = true
 				continue
@@ -609,9 +633,7 @@ func applyActivationPrelude(p0 oraclegen.Seat, name string, pre conditionPrelude
 		life := pre.life
 		p0.Life = &life
 	}
-	for _, card := range pre.battlefield {
-		p0.Battlefield = appendFixtureUnique(p0.Battlefield, card)
-	}
+	p0.Battlefield = appendFixtureCounts(p0.Battlefield, pre.battlefield)
 	for _, card := range pre.tapped {
 		if card == "__SOURCE__" {
 			card = name
