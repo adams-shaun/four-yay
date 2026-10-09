@@ -48,6 +48,10 @@ type costProbe struct {
 	precast *precast
 	// castMode elects a cast option by its Mode ("bargained" for Bargain);
 	// answers scripts the mid-cast asks that election poses (the sacrifice).
+	// castFrom names the zone the probe casts its spell from ("graveyard",
+	// the cast-provenance probe's Flashback cast): the spell is seeded there
+	// and NOT in the hand, and castMode elects that cast's option.
+	castFrom   string
 	castMode   string
 	answers    []oraclegen.Answer
 	mustReplay bool
@@ -170,6 +174,9 @@ func parameterCostProbes(reg *cards.Registry, f *cards.Face, name string, idx in
 			if extra, why := oraclegen.PoolFor(st.Params["Cost"]); why == "" {
 				p.mana = extra + base
 			}
+		} else if st.Params["Amount"] == "" && !raiseCostTokenProbes(&p, st.Params["Cost"]) {
+			// The token table does not own this Cost$: p keeps the printed
+			// price, and the named skip below stands.
 		}
 		if cost := st.Params["Cost"]; strings.Contains(cost, "BeholdExile<1/") {
 			for typ, card := range beholdFixture {
@@ -182,9 +189,9 @@ func parameterCostProbes(reg *cards.Registry, f *cards.Face, name string, idx in
 				p.hand = appendUnique(p.hand, elfBeholdFixture(reg)...)
 			}
 		}
-		// An additional cost the generator cannot pay (Waterbend, Blight,
-		// ChooseCard, a behold type with no fixture) must not become a probe
-		// whose precondition is false.
+		// An additional cost the token table cannot pay (Waterbend<X>, a
+		// BeholdExile type with no fixture) must not become a probe whose
+		// precondition is false.
 		p.mustReplay = true
 		return []costProbe{p}, "", true
 	}
@@ -216,6 +223,14 @@ func parameterCostProbes(reg *cards.Registry, f *cards.Face, name string, idx in
 	p.answers = append(p.answers, xAnswers(f)...)
 	// The amount, the count it tallies and every gate come from the static's
 	// own parameters (costConditionProbes); unknown grammars are named gaps.
+	// An amount the cast itself announces (Count$xPaid over a Sac<X> part)
+	// is served by the cast before the board-count paths see it.
+	if probes, gap, handled := announcedSacXProbes(reg, f, st, name, p, base); handled {
+		if len(probes) == 0 {
+			return nil, gap, true
+		}
+		return probes, "", true
+	}
 	probes, reduction, gap := costConditionProbes(reg, f, st, name, p)
 	if gap != "" {
 		return nil, gap, true

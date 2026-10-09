@@ -257,7 +257,10 @@ func (e *Engine) grantedSVarsFor(id state.ObjID) map[string]string {
 // YouCtrl resolves against the granting static's controller, so a stolen
 // Oracle reveals to its controller, never to a library owner the grant does
 // not cover. A read over active()'s sorted slice; the answer is boolean, so
-// no order reaches anything ordered.
+// no order reaches anything ordered. The same rule's read over an arbitrary
+// object (a face-down permanent, Found Footage) is the oracle runner's
+// mayLookAtObject: the spec matching is shared, the object here comes from a
+// zone lookup the battlefield read cannot do.
 func (e *Engine) MayLookAtLibraryTop(p state.PlayerID) bool {
 	lib := e.G.Zone(state.ZLibrary, p)
 	if len(lib) == 0 {

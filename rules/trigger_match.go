@@ -1747,6 +1747,8 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 				// "create a Feather"). MergedTriggerPush instead carries the
 				// under-card's pile index so events.Apply resolves the name
 				// against THAT face's own SVar table.
+				tc := observer.triggerReferents(t, id, *ev, objLKI)
+				attackersDeclaredCapture(boardOf(observer), t, id, *ev, &tc)
 				pt := pendingTrigger{
 					Source:     id,
 					Controller: controller,
@@ -1757,7 +1759,7 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 						Captured:       e.triggerRememberedFor(t, *ev, id),
 						LKI:            objLKI,
 						Snap:           effects.LKISnapshots{Power: lkiPower, Toughness: lkiToughness, PTValid: objLKI != nil && lkiPTValid},
-						TriggerContext: observer.triggerReferents(t, id, *ev, objLKI),
+						TriggerContext: tc,
 					}),
 				}
 				pt.cause = causeOf(boardOf(observer), t, id, *ev, pt.Ctx.TriggerContext.TriggerCard)
@@ -2460,6 +2462,29 @@ func (e *Engine) triggerRememberedFor(t cards.Trigger, ev events.Event, source s
 		return append(out, state.Target{Player: ev.Player, IsPlayer: true})
 	}
 	return triggerRemembered(ev, source)
+}
+
+// attackersDeclaredCapture binds the fire-time matched-attacker capture on an
+// AttackersDeclared(OneTarget) trigger's context (task tek1): the attackers
+// that passed THIS line's own ValidAttackers$ filter, read off the shared
+// trigmatch walk the match itself ran (AttackersDeclaredMatchedAttackers), so
+// the capture can never name an attacker the boolean match did not admit and
+// never drifts from it. It is what effects.TriggerContext.TriggerAttackers
+// carries to resolution and what the TriggerObjectsAttackers count ref reads
+// (The Earth King's "up to that many basic land cards", where "that many" is
+// the MATCHED attackers' count, not the whole declared batch Ctx.Remembered
+// holds). A free function over trigmatch.Board -- not an Engine method -- in
+// the lasagna's free-func-over-a-narrow-interface shape. Engine scratch only:
+// it rides the per-stack triggerContexts map (clone:"deep", removed when the
+// stack object leaves) and a replay re-derives it because pushTrigger
+// re-executes this same capture.
+func attackersDeclaredCapture(b trigmatch.Board, t cards.Trigger, source state.ObjID, ev events.Event, tc *effects.TriggerContext) {
+	if mk := t.ModeKind(); mk != cards.TriggerAttackersDeclared && mk != cards.TriggerAttackersDeclaredOneTarget {
+		return
+	}
+	if matched, ok := trigmatch.AttackersDeclaredMatchedAttackers(b, t, source, ev); ok {
+		tc.TriggerAttackers = matched
+	}
 }
 
 // triggerMatches decides whether one cards.Trigger fires for ev. lki is the

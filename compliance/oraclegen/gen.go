@@ -16,6 +16,7 @@ package oraclegen
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -183,6 +184,11 @@ type Expect struct {
 	// LookAtLibraryTop is the runner's per-seat "may look at the top card of
 	// their library" assertion (rules oracleExpect.LookAtLibraryTop).
 	LookAtLibraryTop map[string]bool `json:"look_at_library_top,omitempty"`
+	// LookAt is the same read over a battlefield object (rules
+	// oracleExpect.LookAt, mayLookAtObject): a Continuous MayLookAt$ grant
+	// over a face-down permanent is hidden information no snapshot field
+	// carries. The key names the seat, the value the object ref.
+	LookAt map[string]string `json:"look_at,omitempty"`
 	// MaxHandSize is the runner's per-seat effective CR 514.1 maximum hand
 	// size assertion (rules oracleExpect.MaxHandSize), a Continuous
 	// SetMaxHandSize$ grant no snapshot field carries.
@@ -274,6 +280,14 @@ type Skip struct {
 
 // mayYes queues, on the step that posed it, an answer taking option 0 for
 // every decision gorge's fallback left empty although it offered options.
+// A payment-tap ask (Convoke/Improvise/Waterbend/Harmonize's "Tap <name>
+// for 1/for <colour>/to waterbend for 1", a creature-mana "instead of
+// paying 1", a Harmonize "reduce by N") is never force-answered: the tap
+// changes which mana the cast spends, and the two engines must agree on the
+// payment, so the injected pick leaves gorge pool mana floating that a
+// pool-paid cast spends (The Wandering Rescuer, Lofty Dreams). The empty
+// fallback answer is kept: both engines then pay the whole cost from the
+// pool.
 func mayYes(sc Scenario, ds []rules.OracleDecision) (Scenario, bool) {
 	out := sc
 	out.Steps = append([]Step(nil), sc.Steps...)
@@ -283,12 +297,39 @@ func mayYes(sc Scenario, ds []rules.OracleDecision) (Scenario, bool) {
 			d.Via == "target" || d.Via == "answer" || (d.GorgeKind != "choose" && d.GorgeKind != "target") {
 			continue
 		}
+		if len(d.Picks) == 0 && tapPaymentAsk(d.First) {
+			continue
+		}
 		st := out.Steps[d.Step]
 		st.Answers = append(append([]Answer(nil), st.Answers...), Answer{Kind: d.GorgeKind, Pick: []string{d.First}})
 		out.Steps[d.Step] = st
 		changed = true
 	}
 	return out, changed
+}
+
+// tapPaymentAsk reports an option label from pay.ConvokeAsk's optional
+// tap-for-payment menu. The family is matched by label because a
+// rules.OracleDecision carries no option kinds when the fallback declined
+// it; every member names the tapped permanent and the contribution. A mana
+// wheel's "Tap <name> for mana" and a mandatory pay ask (Min 1, so gorge's
+// fallback answered it and Picks is non-empty) do not match.
+func tapPaymentAsk(label string) bool {
+	if !strings.HasPrefix(label, "Tap ") {
+		return false
+	}
+	if strings.HasSuffix(label, " for 1") || strings.HasSuffix(label, " instead of paying 1") {
+		return true
+	}
+	if strings.Contains(label, " (reduce by ") {
+		return true
+	}
+	for _, c := range []string{"W", "U", "B", "R", "G"} {
+		if strings.HasSuffix(label, " for "+c) {
+			return true
+		}
+	}
+	return false
 }
 
 // searchPicks queues, on the hidden-library-search step that posed it, an
@@ -851,6 +892,10 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSt
 		}
 	}
 	routing := newAnswerRouting(ds)
+	// Trigger-order name answers are demoted back to the inert text form when
+	// the step also scripts other asks (see the trigger_order case).
+	var trigSpans []*trigSpan
+	var pendingTrig *trigSpan
 	// Setup ETB replacement choices (colour or creature type) are answered
 	// before XMage places the seeded permanents, so they must LEAD step zero's
 	// answer stream: the driver queues them before build() and XMage's as-enters
@@ -1108,11 +1153,49 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSt
 			}
 		case "order":
 			if d.GorgeKind == "trigger_order" {
-				// chooseTriggeredAbility compares the choice against the ability's
-				// rule text (getRule) or its source's name, not gorge's
-				// "<Source>: <text>" label, so drop the source prefix here.
-				for _, label := range d.Picks {
-					as = append(as, XAnswer{d.Seat, "choice", triggerRule(label)})
+				// XMage's chooseTriggeredAbility matches a scripted choice
+				// against the ability's rule text (getRule) or its source
+				// object's NAME. Gorge's label carries the card's
+				// TriggerDescription$, which is XMage's rule wording only by
+				// coincidence ("put a +1/+1 counter on this creature" against
+				// XMage's "...put a +1/+1 counter on {this}"), so a text
+				// choice misses and the replay's fallback player orders the
+				// stack itself (the Adrenaline Jockey/trigger#0.1 drift). Name
+				// the pick's source object instead: that is the name XMage
+				// matches (a ref would carry the "@" alias form the trigger
+				// ask rejects). XMage asks for the next ability only while
+				// more than one is pending (its loop pushes the last
+				// remaining one without an ask), so the final pick is never
+				// consumed and is dropped here.
+				//
+				// The name only steers when the picks' sources are DISTINCT:
+				// two simultaneous triggers off ONE source (Thundertrap
+				// Trainer's ETB and Offspring, both p0:Thundertrap Trainer)
+				// answer with the same name, which XMage cannot tell apart --
+				// there the rule text is the only distinguishing answer, and
+				// it already agrees. So a same-source order keeps the old
+				// inert text form; only a distinct-source order names each
+				// source. (This is also what keeps the level-A cast-resolve
+				// scenarios whose order ask is incidental -- Thundertrap
+				// Trainer, Molten Man -- byte-identical to the frozen verdict.)
+				//
+				// A plain name is also CONSUMABLE by any later makeChoose XMage
+				// poses, unlike the inert rule text: when the step's answers
+				// also script other asks, a leftover name (the ask XMage posed
+				// at another point than gorge recorded, e.g. Baron Strucker's
+				// ETB order) derails them. So the name form is kept only when
+				// this step scripts nothing else; shared steps keep the old
+				// inert text form (demoteTriggerOrderSpans).
+				if !triggerOrderNamesDistinct(d) {
+					as = append(as, triggerOrderTextAnswers(d)...)
+					break
+				}
+				n := len(d.Picks)
+				for k := 0; k < n-1; k++ {
+					as = append(as, XAnswer{d.Seat, "choice", triggerOrderChoice(d, k)})
+				}
+				if len(as) > 0 {
+					pendingTrig = &trigSpan{step: d.Step, count: len(as), old: triggerOrderTextAnswers(d)}
 				}
 				break
 			}
@@ -1150,6 +1233,11 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSt
 			continue
 		}
 		if len(as) > 0 {
+			if pendingTrig != nil {
+				pendingTrig.start = len(out[d.Step])
+				trigSpans = append(trigSpans, pendingTrig)
+				pendingTrig = nil
+			}
 			out[d.Step] = append(out[d.Step], as...)
 			any = true
 		}
@@ -1157,6 +1245,7 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSt
 	if !any {
 		return nil
 	}
+	demoteTriggerOrderSpans(out, trigSpans)
 	if len(setupAnswers) > 0 {
 		// Setup answers are read from xmage_answers[0] before build(), even
 		// when the scenario has no gameplay steps.
@@ -1663,6 +1752,135 @@ func xmQueue(kind, label string) string {
 		return "choice"
 	}
 	return "choice"
+}
+
+// triggerOrderChoice is the XMage choice for pick k of a trigger-order
+// decision: the pick's source object's plain NAME ("Adrenaline Jockey"),
+// which XMage's chooseTriggeredAbility matches against the ability's source
+// object name. Gorge's label carries the card's TriggerDescription$, which is
+// XMage's rule wording only by coincidence ("put a +1/+1 counter on this
+// creature" against XMage's "...put a +1/+1 counter on {this}"), so the text
+// form misses and the replay's fallback player orders the stack itself (the
+// Adrenaline Jockey/trigger#0.1 drift). A plain name, not a ref: the trigger
+// ask resolves no aliases (TestPlayer's assertAliasSupportInChoices), so the
+// driver's "@" alias form would fail the replay outright. A pick whose ref is
+// not a scenario ref (an emblem or other sourceless trigger; PickRefs then
+// carries the label) falls back to the label's rule text, the pre-name
+// behaviour.
+func triggerOrderChoice(d rules.OracleDecision, k int) string {
+	if k < len(d.PickRefs) {
+		if ref := d.PickRefs[k]; isScenarioRefShaped(ref) {
+			return oraclediffRefName(ref)
+		}
+	}
+	if k < len(d.Picks) {
+		return triggerRule(d.Picks[k])
+	}
+	return ""
+}
+
+// triggerOrderNamesDistinct reports whether the picks' source object NAMES are
+// unique. XMage's chooseTriggeredAbility matches a choice against the source's
+// name, so two simultaneous triggers off one source (Thundertrap Trainer's ETB
+// and Offspring, both "p0:Thundertrap Trainer") would both answer with the same
+// name and cannot be ordered by it; the rule text is the only distinguishing
+// answer there. A pick with no scenario ref falls back to text anyway, so it is
+// skipped here (it cannot collide).
+func triggerOrderNamesDistinct(d rules.OracleDecision) bool {
+	seen := map[string]bool{}
+	for k := range d.Picks {
+		if k >= len(d.PickRefs) || !isScenarioRefShaped(d.PickRefs[k]) {
+			continue
+		}
+		name := oraclediffRefName(d.PickRefs[k])
+		if name == "" {
+			continue
+		}
+		if seen[name] {
+			return false
+		}
+		seen[name] = true
+	}
+	return true
+}
+
+// isScenarioRefShaped reports whether s is a "p<seat>:<name>[#k]" object ref
+// (the shape isScenarioRef on the driver accepts), not a bare label.
+func isScenarioRefShaped(s string) bool {
+	i := strings.IndexByte(s, ':')
+	return i > 1 && s[0] == 'p' && strings.Trim(s[1:i], "0123456789") == ""
+}
+
+// trigSpan records where one trigger-order decision's name answers sit in a
+// step's answer list, and the inert text answers that replace them when the
+// step also scripts other asks.
+type trigSpan struct {
+	step  int
+	start int
+	count int
+	old   []XAnswer
+}
+
+// triggerOrderTextAnswers is the pre-name behaviour: the label's rule text
+// for every pick. XMage's rule wording matches gorge's TriggerDescription$
+// only by coincidence, so these are inert -- never consumed, never steering
+// the order -- but they are also unconsumable by the step's other dialogs.
+func triggerOrderTextAnswers(d rules.OracleDecision) []XAnswer {
+	out := make([]XAnswer, 0, len(d.Picks))
+	for _, label := range d.Picks {
+		out = append(out, XAnswer{d.Seat, "choice", triggerRule(label)})
+	}
+	return out
+}
+
+// demoteTriggerOrderSpans rewrites a step's trigger-order name answers back to
+// the inert text form when the step's answer list also carries other asks'
+// answers: a plain name is consumable by any later makeChoose (a target or
+// order dialog), so a leftover one derails them, while the text form is not
+// (measured: Baron Strucker/static#0.0, whose ETB order ask XMage poses at
+// another point than gorge recorded, replays agree only with the text form).
+// A step whose ONLY answers are trigger-order names keeps the name form: the
+// names are consumed by the order ask itself and steer it.
+func demoteTriggerOrderSpans(out [][]XAnswer, spans []*trigSpan) {
+	if len(spans) == 0 {
+		return
+	}
+	byStep := map[int][]*trigSpan{}
+	for _, sp := range spans {
+		byStep[sp.step] = append(byStep[sp.step], sp)
+	}
+	steps := make([]int, 0, len(byStep))
+	for step := range byStep {
+		steps = append(steps, step)
+	}
+	sort.Ints(steps)
+	for _, step := range steps {
+		sp := byStep[step]
+		if step >= len(out) {
+			continue
+		}
+		covered := map[int]bool{}
+		for _, s := range sp {
+			for k := 0; k < s.count; k++ {
+				covered[s.start+k] = true
+			}
+		}
+		shared := false
+		for i := range out[step] {
+			if !covered[i] {
+				shared = true
+				break
+			}
+		}
+		if !shared {
+			continue
+		}
+		for i := len(sp) - 1; i >= 0; i-- {
+			s := sp[i]
+			tail := append([]XAnswer(nil), out[step][s.start+s.count:]...)
+			out[step] = append(out[step][:s.start], append(append([]XAnswer(nil), s.old...), tail...)...)
+		}
+	}
 }
 
 // triggerRule drops gorge's "<SourceName>: " prefix from a trigger-order

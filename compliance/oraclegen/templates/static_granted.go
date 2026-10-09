@@ -22,9 +22,12 @@
 //     no second drop.
 //
 // Every other grant shape keeps a named skip (staticGrantGap): a granted
-// trigger, a static ability, abilities gained from another card and an SVar a
-// granted trigger reads. Each needs an observation this file does not build,
-// named in the skip so the census tells the shapes apart.
+// ability the probes cannot pay for or receive, a static ability, abilities
+// gained from another card and an SVar a granted trigger reads. A granted
+// TRIGGER is observed by firing it (static_granted_trigger.go); the skip
+// below names only the grants that observation cannot serve. Each needs an
+// observation this file does not build, named in the skip so the census tells
+// the shapes apart.
 package templates
 
 import (
@@ -287,7 +290,7 @@ const (
 	staticGrantLoyaltyReason     = "grants a loyalty ability the probe planeswalkers cannot pay for"
 	staticGrantLoyaltyManaReason = "grants a loyalty ability that adds mana (its offered label names no text to assert)"
 	staticGrantActivateReason    = "grants an activated ability (needs the driver's activate on a granted ability)"
-	staticGrantTriggerReason     = "grants a triggered ability (needs a probe-sourced trigger cause)"
+	staticGrantTriggerReason     = "grants a triggered ability (needs a probe-sourced trigger cause)" // static_granted_trigger.go serves the shapes it can; the rest keep this skip
 	staticGrantReplacementReason = "grants a replacement effect (needs an event the replacement can change)"
 	staticGrantStaticReason      = "grants a static ability (observed only through its own effect)"
 	staticGrantGainsReason       = "gains the activated abilities of other cards (needs a donor card)"

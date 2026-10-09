@@ -11,8 +11,9 @@ import (
 
 // All nine graveyard sources in the brief must be tried from their trigger
 // zone. Darklight Phoenix's phase condition is now met by the count-aware
-// turn-history preludes; Persistent Marshstalker still keeps its graveyard-zone
-// skip (trigger did not fire from the graveyard).
+// turn-history preludes; Persistent Marshstalker's Threshold attack is now
+// served by a Rat probe attacker while the source itself sits in the
+// graveyard (the source cannot attack from there).
 func TestTriggerETBProbeGraveyardSources(t *testing.T) {
 	reg := loadGenRegistry(t)
 	for _, tc := range []struct{ name, sub, skip string }{
@@ -24,7 +25,7 @@ func TestTriggerETBProbeGraveyardSources(t *testing.T) {
 		{"Wolfbat", "trigger.drawn", ""},
 		{"Furious Forebear", "trigger.dies-other", ""},
 		{"Darklight Phoenix", "trigger.phase", ""},
-		{"Persistent Marshstalker", "trigger.attacks", "trigger did not fire from the graveyard"},
+		{"Persistent Marshstalker", "trigger.attacks", ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			c, ok := reg.Lookup(tc.name)

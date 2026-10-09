@@ -17,7 +17,7 @@ var spellCastGE = regexp.MustCompile(`(?i)(?:ManaSpent|cmc)\s*GE\s*(\d+)`)
 // spellCastProbeCauses orders causes from the most constrained shape to a
 // corpus-ordered fallback. Firing, rather than a second copy of Forge's
 // filter grammar, decides whether each candidate is suitable.
-func spellCastProbeCauses(reg *cards.Registry, name string, t *cards.Trigger) []triggerCause {
+func spellCastProbeCauses(reg *cards.Registry, f *cards.Face, name string, t *cards.Trigger) []triggerCause {
 	filter := t.ParamStr(cards.PKValidCard)
 	targets := t.ParamStr(cards.PKTargetsValid)
 	targetProbe := strings.Contains(targets, "Creature") || strings.Contains(targets, "Self") || strings.Contains(t.ParamStr(cards.PKValidTgts), "Creature")
@@ -94,13 +94,22 @@ func spellCastProbeCauses(reg *cards.Registry, name string, t *cards.Trigger) []
 			continue
 		}
 		probeTargets := []string(nil)
+		targetPerm := ""
 		if targetProbe {
-			probeTargets = append(probeTargets, spellCastTriggerTarget(name, t))
+			// The trigger names a permanent the probe spell must target (a
+			// creature you control, an artifact or land). The setup places a
+			// probe permanent the filter accepts and the spell targets it; the
+			// old recipe targeted the source, which is not a permanent of that
+			// type, so the cast was illegal and the trigger never fired.
+			targetPerm, probeTargets = spellCastTriggerTarget(reg, name, t)
 		} else if target := spellProbeTarget(probe, filter, name, t); target != "" {
 			probeTargets = append(probeTargets, target)
 		}
 		if count == 1 {
 			if c, ok := castCause(reg, name, probe, probeTargets...); ok {
+				if targetPerm != "" {
+					c.battlefield = append(c.battlefield, targetPerm)
+				}
 				out = append(out, c)
 			}
 		} else if c, ok := repeatedCastCause(reg, probe, count, probeTargets); ok {
@@ -110,7 +119,11 @@ func spellCastProbeCauses(reg *cards.Registry, name string, t *cards.Trigger) []
 			break
 		}
 	}
-	return out
+	// A provenance-gated trigger (cast from exile / not from hand, an
+	// Adventure face) needs its own cause ahead of the ordinary hand probes:
+	// the hand cast never satisfies the predicate, so it would only waste a
+	// fixture pass before the row skipped.
+	return append(spellCastProvenanceCauses(reg, f, name, t), out...)
 }
 
 // filterAcceptedFirst moves the probes gorge's own matcher accepts for the
@@ -180,12 +193,37 @@ func repeatedCastCause(reg *cards.Registry, probe string, count int, targets []s
 	return c, true
 }
 
-func spellCastTriggerTarget(source string, t *cards.Trigger) string {
-	targetFilter := strings.ToLower(t.ParamStr(cards.PKTargetsValid) + "," + t.ParamStr(cards.PKValidTgts))
-	if strings.Contains(targetFilter, "opponent") {
-		return "p1"
+// spellCastTriggerTarget picks the target a spell-cast trigger's probe spell
+// must name, and the permanent the setup places for it. The trigger's
+// TargetsValid$ names the target filter; gorge's matcher accepts a probe
+// permanent of the right type. An opponent target is p1 itself (a burn spell);
+// a Self filter keeps the source. It returns ("", ["p1"]) when the target is a
+// player and ("", nil) when the filter is blank.
+func spellCastTriggerTarget(reg *cards.Registry, source string, t *cards.Trigger) (string, []string) {
+	spec := strings.TrimSpace(t.ParamStr(cards.PKTargetsValid))
+	if spec == "" {
+		spec = strings.TrimSpace(t.ParamStr(cards.PKValidTgts))
 	}
-	return "p0:" + source
+	if spec == "" {
+		return "", nil
+	}
+	if strings.Contains(strings.ToLower(spec), "opponent") {
+		return "", []string{"p1"}
+	}
+	fp := newFilterProbe(spec, state.ZBattlefield)
+	// Llanowar Elves, not the Grizzly Bears: Baseline already puts a Grizzly
+	// Bears on p1, and a p0 target of the same name makes the same-name
+	// census's target pick ambiguous.
+	for _, n := range []string{"Llanowar Elves", "Ornithopter", "Plains"} {
+		card, ok := reg.Lookup(n)
+		if !ok || len(card.Faces) == 0 {
+			continue
+		}
+		if fp.accepts(card) {
+			return n, []string{"p0:" + n}
+		}
+	}
+	return "", []string{"p0:" + source}
 }
 
 func spellProbeTarget(probe, filter, source string, t *cards.Trigger) string {

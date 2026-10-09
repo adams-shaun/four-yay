@@ -161,7 +161,8 @@ func TestTriggerConditionBoardFixtures(t *testing.T) {
 func TestTriggerConditionBoardSkips(t *testing.T) {
 	reg := loadGenRegistry(t)
 	for _, tc := range []struct{ name, key, want string }{
-		{"Paradox Shaper", "trigger#0.0", "turn history (Count$ValidSelf Card.!IsPrepared)"},
+		// Paradox Shaper moved to the served side: its consumed self-attribute
+		// gate is a cast-self cause now (trigger_condition_selfcast_test.go).
 		{"Case of the Market Melee", "trigger#0.2", "needs a solved Case"},
 	} {
 		card, ok := reg.Lookup(tc.name)

@@ -60,12 +60,20 @@ var (
 		{"dinosaur", []string{"Orazca Frillback"}},
 		{"hero", []string{"Brave Brawler", "Pet Avengers", "Guerrilla Gorilla"}},
 	}
-	// attackerTypeProbes are the types a ValidAttackers filter names.
-	attackerTypeProbes = map[string]string{"spider": "Giant Spider"}
+	// attackerTypeProbes are the types an attack trigger's ValidCard$ or
+	// ValidAttackers$ filter names, each with the plain creature probe of
+	// that type, in order.
+	attackerTypeProbes = []struct{ word, probe string }{
+		{"spider", "Giant Spider"},
+		{"wolf", "Young Wolf"},
+	}
 	// powerProbe is a 4-power creature, and menaceProbe a creature with menace.
 	powerProbe, menaceProbe = "Nessian Asp", "Boggart Brute"
 	// equipProbe is the Equipment attached to the attacker.
 	equipProbe = "Bonesplitter"
+	// suspectProbe is the creature whose own enter trigger suspects it, cast
+	// by a "suspected creature attacks" cause.
+	suspectProbe = "Frantic Scapegoat"
 	// attackFillers are the plain attackers added to reach an attacker count.
 	attackFillers = []string{"Grizzly Bears", "Llanowar Elves", "Elvish Mystic", "Nessian Asp"}
 )
@@ -79,6 +87,17 @@ func existingCards(reg *cards.Registry, names []string) []string {
 		}
 	}
 	return out
+}
+
+// attackerTypeProbe is the plain creature of the named type the attack filters
+// probe, "" when the table has none.
+func attackerTypeProbe(word string) string {
+	for _, tp := range attackerTypeProbes {
+		if tp.word == word {
+			return tp.probe
+		}
+	}
+	return ""
 }
 
 // etbDiscardFiller is the card to put first in p0's hand when the card under
@@ -110,6 +129,11 @@ func triggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards.Tri
 	if conditionTriggerSub(sub) {
 		causes = append(causes, conditionCauses(reg, f, name, t, sub, causes)...)
 	}
+	// A self-attribute gate the setup-placed source cannot show (prepared
+	// consumed by the turn-1 upkeep firing, a suspect grant dropped with the
+	// setup's ETB) gets a cast-self variant of every cause so far.
+	selfCast := selfCastGateCauses(reg, f, name, t, causes)
+	causes = append(causes, selfCast...)
 	// A ClassBand$ trigger's granted body is live only from its level on, so
 	// every cause first raises the Class to that level. Prepending after the
 	// condition variants keeps the sorcery-speed level-up ahead of any
@@ -161,11 +185,16 @@ func preludeAttacks(p conditionPrelude) bool {
 }
 
 // applyPrelude layers one condition prelude over a cause. The prelude's steps
-// run before the cause's.
+// run before the cause's. When the merged setup carries a name twice and a
+// cause step references it (an attack step's attacker, a cast target), the
+// base's own copy is dropped: the prelude's serves both the count and the
+// ref, and two distinct offered objects for one emitted pick is exactly the
+// same-name ambiguity the answer census measures.
 func applyPrelude(base triggerCause, p conditionPrelude) triggerCause {
 	c := base
 	c.hand = append(append([]string(nil), base.hand...), p.hand...)
 	c.battlefield = append(append([]string(nil), base.battlefield...), p.battlefield...)
+	c.battlefield = dropRedundantSetup(base.steps, c.battlefield)
 	c.tapped = append(append([]string(nil), base.tapped...), p.tapped...)
 	c.graveyard = append(append([]string(nil), base.graveyard...), p.graveyard...)
 	c.opponentHand = append(append([]string(nil), base.opponentHand...), p.opponentHand...)
@@ -174,6 +203,43 @@ func applyPrelude(base triggerCause, p conditionPrelude) triggerCause {
 	c.prelude = append(append([]oraclegen.Step(nil), base.prelude...), p.steps...)
 	c.preludeXAbility = append(append([]string(nil), base.preludeXAbility...), p.xability...)
 	return c
+}
+
+// dropRedundantSetup removes one copy of each name the merged setup carries
+// twice while a cause step's card reference names it, keeping the first (the
+// prelude's, whose count the gate reads).
+func dropRedundantSetup(steps []oraclegen.Step, merged []string) []string {
+	refs := []string(nil)
+	for _, st := range steps {
+		refs = append(refs, st.Attackers...)
+		refs = append(refs, st.Targets...)
+		refs = append(refs, st.Card)
+	}
+	for _, r := range refs {
+		name := r
+		if i := strings.IndexByte(r, ':'); i >= 0 {
+			name = r[i+1:]
+		}
+		if name == "" || name == r {
+			continue
+		}
+		have := 0
+		for _, n := range merged {
+			if n == name {
+				have++
+			}
+		}
+		if have < 2 {
+			continue
+		}
+		for i, n := range merged {
+			if n == name {
+				merged = append(merged[:i:i], merged[i+1:]...)
+				break
+			}
+		}
+	}
+	return merged
 }
 
 func mergeCounters(a, b map[string]map[string]int) map[string]map[string]int {
@@ -294,9 +360,29 @@ func attackShape(reg *cards.Registry, f *cards.Face, name string, t *cards.Trigg
 	if strings.Contains(text, "attacking+other") {
 		add(attackFillers[0])
 	}
+	// A typed attacker: the trigger's filter names a creature type the table
+	// probes (Tolsimir, Midnight's Light's "a Wolf you control attacks").
+	filterLower := strings.ToLower(filter)
+	for _, tp := range attackerTypeProbes {
+		if strings.Contains(filterLower, tp.word) {
+			add(tp.probe)
+		}
+	}
+	// A suspected attacker: the suspect comes from Frantic Scapegoat's own
+	// enter trigger, cast here rather than placed, because setup placement
+	// drops enter triggers and a placed copy is never suspected. The
+	// scapegoat then joins the attack step.
+	if strings.Contains(filterLower, "issuspected") {
+		if st, ok := castProbe(reg, suspectProbe); ok {
+			c.hand = appendFixtureUnique(c.hand, suspectProbe)
+			c.prelude = append(c.prelude, st, oraclegen.Step{Op: "resolve"})
+			atk = appendFixtureUnique(atk, "p0:"+suspectProbe)
+			changed = true
+		}
+	}
 	if m := attackersAmountRE.FindStringSubmatch(text); m != nil {
 		n, _ := strconv.Atoi(m[1])
-		typed := attackerTypeProbes[strings.ToLower(t.ParamStr(cards.PKValidAttackers))]
+		typed := attackerTypeProbe(strings.ToLower(t.ParamStr(cards.PKValidAttackers)))
 		pool := attackFillers
 		if typed != "" {
 			pool = []string{typed}

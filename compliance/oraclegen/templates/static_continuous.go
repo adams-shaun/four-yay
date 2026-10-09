@@ -24,7 +24,9 @@
 // is needed and the fixture supplies the state the condition reads. A static
 // gated on Condition$ MaxSpeed is placed with p0 at speed 4. Counter- or
 // speed-gated AddAbility statics use the granted-ability offered observation
-// on the card itself; unserved grants fall through to their named gap.
+// on the card itself; an AddTrigger$ grant is observed by firing the granted
+// trigger (static_granted_trigger.go); unserved grants fall through to their
+// named gap.
 //
 // A candidate is served only when gorge shows an effect: a probe's P/T,
 // evergreen keywords, types or colours differ from its printed ones (Grizzly
@@ -230,6 +232,13 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 			return it, nil
 		}
 	}
+	// A removal of all abilities defined by the permanent the card enchants
+	// (Flood the Engine, Frozen in Ice, ...) is unobservable on the vanilla
+	// fixture; retry it on a host that prints an ability. After every existing
+	// path, so a served row keeps its bytes.
+	if it, ok := staticAbilityRemovalItem(reg, f, name, req, st); ok {
+		return it, nil
+	}
 	// A static that acts on cards outside the battlefield changes nothing a
 	// snapshot shows; it is observed as an offered option instead
 	// (static_offer.go). A look-at permission shows in neither engine's
@@ -239,6 +248,17 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 	}
 	if st.HasParam(cards.PKMayLookAt) {
 		if it, ok := lookAtLibraryTopItem(reg, f, name, req); ok {
+			return it, nil
+		}
+		// The library-top read fails on a MayLookAt$ static the plain shape
+		// does not cover: a grant gated on the source's own Case being solved
+		// (the Case solves itself at the end step), or a grant over a
+		// face-down battlefield permanent rather than the library top. Both
+		// carry the named look-at skip when their scenario cannot be built.
+		if it, ok := lookAtSolvedItem(reg, f, name, req, st); ok {
+			return it, nil
+		}
+		if it, ok := lookAtFaceDownItem(reg, f, name, req, st); ok {
 			return it, nil
 		}
 		return skip(staticLookAtReason)
@@ -260,6 +280,15 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 	}
 	if gap := staticOffBattlefieldGrantGap(st); gap != "" {
 		return skip(gap)
+	}
+	// A static whose AddTrigger$ grants a TRIGGERED ability is observed by
+	// firing the granted trigger (static_granted_trigger.go). Tried after
+	// every probe, fixture and offered path so an already-served row keeps
+	// its scenario bytes; an unserved grant falls through to its named gap.
+	if st.HasParam(cards.PKAddTrigger) {
+		if it, ok := staticGrantedTriggerItem(reg, f, name, req, st); ok {
+			return it, nil
+		}
 	}
 	if gated || speedGated {
 		if gatedGrantWhy != "" {
@@ -295,6 +324,11 @@ func staticBase(reg *cards.Registry, c *cards.Card, f *cards.Face, name string, 
 	probes := append([]string{staticProbe}, plan.probes...)
 	var base oraclegen.Item
 	switch {
+	case req.Face > 0 && levelb.IsRoomCard(c):
+		// A Room's second door is cast, not placed: no engine unlocks a
+		// setup-placed door (CR 709.5). The face named by its own face name
+		// is the door the runner binds to room_alt.
+		return roomDoorCastBase(reg, c, f, name, req, probes)
 	case staticCounterGated(&st) && (!staticSelfETB(f) || stationGatedSelf(f, &st)):
 		// The card starts on the battlefield holding the counters its gate
 		// names, so the effect is already on at the first checkpoint. A card
