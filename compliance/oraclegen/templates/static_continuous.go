@@ -300,8 +300,16 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 func staticBase(reg *cards.Registry, c *cards.Card, f *cards.Face, name string, req levelb.Requirement, plan staticProbePlan, cond *staticFixture) (oraclegen.Item, string) {
 	st, _ := staticSlotOf(f, req)
 	probes := append([]string{staticProbe}, plan.probes...)
+	selfKind, selfNeed, selfGated := staticSelfCounterGate(f, &st)
 	var base oraclegen.Item
 	switch {
+	case selfGated && !staticSelfETB(f):
+		// A static gated on its own counters through CheckSVar$ X with
+		// SVar:X:Count$CardCounters.<KIND> (Warden of the Inner Sky): the
+		// card starts on the battlefield holding the counters its gate
+		// names, so the effect is live at the first checkpoint. A card with
+		// its own ETB trigger stays on the cast path (staticSelfETB).
+		base = counterGatedBase(f, name, selfKind, selfNeed, plan.probes)
 	case staticCounterGated(&st) && (!staticSelfETB(f) || stationGatedSelf(f, &st)):
 		// The card starts on the battlefield holding the counters its gate
 		// names, so the effect is already on at the first checkpoint. A card

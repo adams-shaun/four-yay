@@ -68,6 +68,37 @@ func (s staticFixture) seats(p0, p1 *oraclegen.Seat) {
 		*p0 = oraclegen.WithCounters(*p0, staticProbe, kind, int32(s.probeCounters[kind]))
 		*p1 = oraclegen.WithCounters(*p1, staticProbe, kind, int32(s.probeCounters[kind]))
 	}
+	// Fixture counters (a "creature you control with a counter on it" gate)
+	// ride the embedded conditionPrelude's counters map: card name -> kind ->
+	// count, applied to p0's battlefield copy. Sorted so the emitted setup is
+	// deterministic. A "__SOURCE__" key never reaches here -- staticFixtures
+	// drops the counter-bearing conditionPreludes that use it.
+	cards := make([]string, 0, len(s.counters))
+	for card := range s.counters {
+		cards = append(cards, card)
+	}
+	sort.Strings(cards)
+	for _, card := range cards {
+		fk := make([]string, 0, len(s.counters[card]))
+		for kind := range s.counters[card] {
+			fk = append(fk, kind)
+		}
+		sort.Strings(fk)
+		for _, kind := range fk {
+			*p0 = oraclegen.WithCounters(*p0, card, kind, int32(s.counters[card][kind]))
+		}
+	}
+}
+
+// addCounter records n counters of kind on the fixture's battlefield card.
+func (s *staticFixture) addCounter(card, kind string, n int) {
+	if s.counters == nil {
+		s.counters = map[string]map[string]int{}
+	}
+	if s.counters[card] == nil {
+		s.counters[card] = map[string]int{}
+	}
+	s.counters[card][kind] += n
 }
 
 // apply adds the fixture to a cast fixture: cards in the seats, turn-history
@@ -91,6 +122,17 @@ func (s staticFixture) merge(o staticFixture) staticFixture {
 			s.probeCounters = map[string]int{}
 		}
 		s.probeCounters[kind] += n
+	}
+	for card, kinds := range o.counters {
+		if s.counters == nil {
+			s.counters = map[string]map[string]int{}
+		}
+		if s.counters[card] == nil {
+			s.counters[card] = map[string]int{}
+		}
+		for kind, n := range kinds {
+			s.counters[card][kind] += n
+		}
 	}
 	return s
 }
@@ -165,10 +207,19 @@ var staticFixtureTable = []struct {
 // stand-in, taken i-th. "" when no stand-in is known or the filter names a
 // state setup cannot give (a token, a counter, a solved Case).
 func staticFixtureFor(group string, i int) string {
+	// A "named<Card Name>" filter (Phoenix Fleet Airship's "eight or more
+	// permanents named Phoenix Fleet Airship") names a specific card with
+	// spaces in it; return the name whole rather than splitting it on its
+	// spaces into dead words.
+	if idx := strings.Index(group, "named"); idx >= 0 {
+		if name := strings.TrimSpace(group[idx+len("named"):]); name != "" {
+			return name
+		}
+	}
 	words := affectedWords(group)
 	for _, w := range words {
 		switch {
-		case w == "token", w == "HasCounters", w == "IsSolved", w == "Attached", strings.HasPrefix(w, "named"), strings.HasPrefix(w, "counters_"):
+		case w == "token", w == "IsSolved", w == "Attached", strings.HasPrefix(w, "named"), strings.HasPrefix(w, "counters_"):
 			return ""
 		}
 	}
@@ -251,6 +302,13 @@ func staticPresence(filter, zone string, n int) (staticFixture, bool) {
 			out.p1Battlefield = append(out.p1Battlefield, card)
 		default:
 			out.battlefield = append(out.battlefield, card)
+			// A "creature you control with a counter on it" gate (Formation
+			// Breaker) needs the fixture creature to actually hold a counter:
+			// the card is placed on p0's battlefield and the counter rides
+			// setup (the engine's HasCounters predicate reads it).
+			if hasWord(affectedWords(g), "HasCounters") {
+				out.addCounter(card, "P1P1", 1)
+			}
 		}
 	}
 	return out, true
@@ -419,6 +477,16 @@ func staticFixtures(reg *cards.Registry, f *cards.Face, st cards.Static) []stati
 			continue
 		}
 		out = append(out, staticFixture{conditionPrelude: c})
+	}
+	// A fixture that puts a copy of the card under test on the battlefield
+	// (a named-permanents count such as Phoenix Fleet Airship's eight copies)
+	// cannot also CAST it: the two share a name, so the cast step's "pN:Name"
+	// ref binds the setup copy and the cast fails. Place the card instead, so
+	// the source is on the battlefield from setup like the fixture copies.
+	for i := range out {
+		if hasString(out[i].battlefield, f.Name) {
+			out[i].place = true
+		}
 	}
 	return staticAvoidProbeCollision(reg, out)
 }

@@ -52,6 +52,10 @@ var staticProbeTable = []struct{ word, card string }{
 	{"Hero", "Hero in Training"},
 	{"Kithkin", "Eclipsed Kithkin"},
 	{"Land", "Dryad Arbor"},
+	// A lord whose Affected$ names the Legendary supertype (Serah Farron's
+	// "Legendary creatures you control get +2/+2") needs a legendary creature
+	// probe; Barktooth Warbeard is a vanilla 6/5 so it cannot move itself.
+	{"Legendary", "Barktooth Warbeard"},
 	{"Merfolk", "Coral Merfolk"},
 	{"Mount", "Gila Courser"},
 	{"Mouse", "Veteran Guardmouse"},
