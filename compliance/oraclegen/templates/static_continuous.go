@@ -241,6 +241,17 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 		if it, ok := lookAtLibraryTopItem(reg, f, name, req); ok {
 			return it, nil
 		}
+		// The library-top read fails on a MayLookAt$ static the plain shape
+		// does not cover: a grant gated on the source's own Case being solved
+		// (the Case solves itself at the end step), or a grant over a
+		// face-down battlefield permanent rather than the library top. Both
+		// carry the named look-at skip when their scenario cannot be built.
+		if it, ok := lookAtSolvedItem(reg, f, name, req, st); ok {
+			return it, nil
+		}
+		if it, ok := lookAtFaceDownItem(reg, f, name, req, st); ok {
+			return it, nil
+		}
 		return skip(staticLookAtReason)
 	}
 	if it, ok := staticSpellLifelinkItem(reg, c, f, name, req, st); ok {

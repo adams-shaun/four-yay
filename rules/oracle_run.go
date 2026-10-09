@@ -197,9 +197,15 @@ type oracleExpect struct {
 	// grant, Engine.MayLookAtLibraryTop): hidden-information permission no
 	// snapshot field carries.
 	LookAtLibraryTop map[string]bool `json:"look_at_library_top,omitempty"`
-	Count            *oracleCount    `json:"count,omitempty"`
-	Eq               *int            `json:"eq,omitempty"`
-	Want             *bool           `json:"want,omitempty"`
+	// LookAt asserts, per seat, whether that player may look at the named
+	// battlefield object right now (a Continuous MayLookAt$ grant over a
+	// face-down permanent, mayLookAtObject): hidden-information permission
+	// no snapshot field carries. The value is the object ref, resolved like
+	// every other expect card.
+	LookAt map[string]string `json:"look_at,omitempty"`
+	Count  *oracleCount      `json:"count,omitempty"`
+	Eq     *int              `json:"eq,omitempty"`
+	Want   *bool             `json:"want,omitempty"`
 }
 
 type oracleOffered struct {
@@ -207,6 +213,25 @@ type oracleOffered struct {
 	Kind  string `json:"kind"`
 	Card  string `json:"card"`
 	Label string `json:"label,omitempty"`
+}
+
+// mayLookAtObject is the Continuous MayLookAt grant's read over an arbitrary
+// object (Engine.MayLookAtLibraryTop is the same rule on the library top,
+// whose spec pins the object to a zone lookup a battlefield object does not
+// carry): a live grant's Affected$ spec matches id under the granting
+// controller. A free function over the engine's active slice and spec
+// matcher, passed as values so no new *Engine parameter joins the surface
+// ratchet; the look_at expectation's assertion is this permission read, and
+// the seat it asserts for is the granting static's controller in every
+// corpus shape (layers.go's MayLookAt branch names who may look).
+func mayLookAtObject(ces []ContinuousEffect, matches func(string, state.ObjID, state.PlayerID, state.ObjID) bool, id state.ObjID) bool {
+	for ceI := 0; ceI < len(ces); ceI++ {
+		ce := &ces[ceI]
+		if ce.MayLookAt && matches(ce.Affects, id, ce.Controller, ce.Source) {
+			return true
+		}
+	}
+	return false
 }
 
 type oracleCanBlock struct {
@@ -1713,6 +1738,18 @@ func (r *oracleRun) check(x oracleExpect) []string {
 	for k, want := range x.LookAtLibraryTop {
 		if p, ok := seatOf(k); ok && e.MayLookAtLibraryTop(p) != want {
 			failf("%s may look at library top=%v, want %v", k, !want, want)
+		}
+	}
+	for seat, ref := range x.LookAt {
+		if _, ok := seatOf(seat); !ok {
+			continue
+		}
+		id, err := r.resolve(ref)
+		if err != nil {
+			return []string{err.Error()}
+		}
+		if mayLookAtObject(e.active(), e.matchesSpecFrom, id) != r.wantBool(x) {
+			failf("%s: %s may look at it=%v, want %v", ref, seat, !r.wantBool(x), r.wantBool(x))
 		}
 	}
 	for k, want := range x.GraveyardSize {
