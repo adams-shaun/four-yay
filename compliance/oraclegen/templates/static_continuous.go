@@ -243,6 +243,15 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 		}
 		return skip(staticLookAtReason)
 	}
+	// A player-rule static (SetMaxHandSize$) changes no snapshot field; it is
+	// observed as a runner expectation of the effective maximum
+	// (static_hand_size.go). A value the engine does not price keeps its
+	// named gap below.
+	if st.HasParam(cards.PKSetMaxHandSize) {
+		if it, ok := staticMaxHandSizeItem(reg, f, name, req, st); ok {
+			return it, nil
+		}
+	}
 	if it, ok := staticSpellLifelinkItem(reg, c, f, name, req, st); ok {
 		return it, nil
 	}

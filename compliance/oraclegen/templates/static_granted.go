@@ -135,6 +135,32 @@ func grantedLandPlays(st cards.Static) bool {
 	return err == nil && n > 0
 }
 
+// firstPlayNeedsResolve reports whether the source card's own trigger fires
+// when the first land enters or is played (a Landfall ChangesZone or a
+// LandPlayed trigger): the trigger sits on the stack at the second land's
+// offer checkpoint, where the land-play gate is not at sorcery speed, so the
+// scenario resolves it first. A source with no land-entry trigger keeps its
+// scenario bytes (the resolve is only emitted for a source that has one).
+func firstPlayNeedsResolve(f *cards.Face) bool {
+	for i := range f.Triggers {
+		tr := &f.Triggers[i]
+		switch tr.Mode {
+		case "LandPlayed":
+			return true
+		case "ChangesZone":
+			if !strings.Contains(tr.ParamStr(cards.PKDestination), "Battlefield") {
+				continue
+			}
+			for _, w := range affectedWords(tr.ParamStr(cards.PKValidCard)) {
+				if w == "Land" {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
 // grantedActivatedAbility is the non-mana, non-loyalty activated ability an
 // AddAbility$ static grants to another permanent (the recipient carries it),
 // nil when the grant is not one. A granted activated ability is observed the
@@ -168,10 +194,29 @@ func grantOfferable(f *cards.Face, st cards.Static) bool {
 // probe) or an extra land drop (one).
 func grantTries(reg *cards.Registry, f *cards.Face, st cards.Static) []offerTry {
 	if grantedLandPlays(st) {
-		return []offerTry{{
+		t := offerTry{
 			probe: grantLandPlaySecond, zone: offerHand, kind: "play",
 			firstPlay: grantLandPlayFirst, extraHand: []string{grantLandPlayFirst},
-		}}
+			resolveFirstPlay: firstPlayNeedsResolve(f),
+		}
+		// An "as long as" rider (Thranduil's Company's IsPresent$
+		// Elf.YouCtrl+Other) is an intervening-if the engine evaluates, so
+		// the scenario must hold the board the gate reads or the grant never
+		// exists and the observation proves nothing. The same presence
+		// fixture machinery the condition fixtures use builds it; a presence
+		// no fixture reaches leaves the row to its named gap.
+		if present := st.ParamStr(cards.PKIsPresent); present != "" {
+			zone := st.ParamStr(cards.PKPresentZone)
+			if zone == "" {
+				zone = "Battlefield"
+			}
+			fx, ok := staticPresence(present, zone, 1)
+			if !ok {
+				return nil
+			}
+			t.extraBF = fx.battlefield
+		}
+		return []offerTry{t}
 	}
 	if sa := grantedLoyaltyAbility(f, st); sa != nil {
 		var tries []offerTry
