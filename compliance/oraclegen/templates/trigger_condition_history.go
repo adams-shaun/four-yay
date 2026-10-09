@@ -30,6 +30,8 @@ var historyKinds = []historyKind{
 	{"count$attackersdeclared", attackHistory},
 	{"count$isprime", primeHistory},
 	{"lifelostthisturn", lifeHistory},
+	{"youscrythisturn", scryHistory},
+	{"yousurveilthisturn", surveilHistory},
 }
 
 var (
