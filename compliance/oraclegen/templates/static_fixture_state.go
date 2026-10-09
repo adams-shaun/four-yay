@@ -130,7 +130,11 @@ const staticEquipCard = "Bonesplitter"
 func staticEquipFixture(reg *cards.Registry, st cards.Static) (staticFixture, bool) {
 	affected := st.ParamStr(cards.PKAffected)
 	words := affectedWords(affected)
-	if !hasWord(words, "equipped") {
+	// "modified" (CR 700.7: equipped, enchanted by you, or counters) is
+	// served by the Equipment fixture too: an attached Bonesplitter makes
+	// the host modified, so a static that grants on "Card.modified" is
+	// observed the same way (measured: Skyward Spider's flying grant).
+	if !hasWord(words, "equipped") && !hasWord(words, "modified") {
 		return staticFixture{}, false
 	}
 	// A static defined by the permanent the card itself is attached to (an
