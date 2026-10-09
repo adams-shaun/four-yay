@@ -21,7 +21,7 @@ func TestOtherModeTriggerClassification(t *testing.T) {
 		{"Moonstone, Harsh Mistress", "trigger#0.0", "trigger.discarded"},
 		{"King T'Challa", "trigger#0.0", "trigger.drawn-other"},
 		{"Gleaming Splendor", "trigger#0.0", "trigger.drawn-other"},
-		{"Tinybones, Bauble Burglar", "trigger#0.0", "trigger.gap:Discarded"},
+		{"Tinybones, Bauble Burglar", "trigger#0.0", "trigger.discarded-opponent"},
 	} {
 		c, ok := reg.Lookup(tc.name)
 		if !ok {
