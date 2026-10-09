@@ -1,7 +1,0 @@
-{"shape":{"template":"static","op":"harness","field":"xmage","diff":"IllegalArgumentException: unsupported pass pattern at step N"},"key":"static | harness | xmage | IllegalArgumentException: unsupported pass pattern at step N","cards":6}
-{"card":"Grand Abolisher","template":"static#0.0","status":"harness","api":"-","sets":["BIG"],"detail":"xmage: IllegalArgumentException: unsupported pass pattern at step 0"}
-{"card":"Grand Abolisher","template":"static#0.1","status":"harness","api":"-","sets":["BIG"],"detail":"xmage: IllegalArgumentException: unsupported pass pattern at step 0"}
-{"card":"Jennifer Walters","template":"static#0.0","status":"harness","api":"-","sets":["MSH"],"detail":"xmage: IllegalArgumentException: unsupported pass pattern at step 0"}
-{"card":"Jennifer Walters","template":"static#1.0","status":"harness","api":"-","sets":["MSH"],"detail":"xmage: IllegalArgumentException: unsupported pass pattern at step 0"}
-{"card":"Kutzil, Malamet Exemplar","template":"static#0.0","status":"harness","api":"DamageDoneOnce:Draw","sets":["LCI"],"detail":"xmage: IllegalArgumentException: unsupported pass pattern at step 0"}
-{"card":"Voice of Victory","template":"static#0.0","status":"harness","api":"Attacks:Token","sets":["TDM"],"detail":"xmage: IllegalArgumentException: unsupported pass pattern at step 0"}
