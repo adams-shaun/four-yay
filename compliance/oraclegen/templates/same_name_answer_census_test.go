@@ -204,11 +204,17 @@ func sameNameBucketRank(bucket string) int {
 // moved: the other keyword-action causes (explore, plot, saddle, collect
 // evidence, discover, gift, forage, elemental bend) generate items whose
 // picks are exact aliases or need no same-name discrimination.
+//
+// Re-measured on the merge of this branch with that keyword-action land: the
+// merged tree carries the branch's Say Its Name item AND both main items
+// (Disturbing Mirth, Paranormal Analyst), so merged DSK unproven is 36. The
+// auto-merged pin read 35 because both sides pinned 35 before the merge (each
+// held two of the three items); re-pinned to 36 here. Unresolved stayed 0.
 var wantSameNameCensus = map[string]string{
 	"BIG": `{"alias":0,"copy":0,"unresolved":0,"unproven":1,"items":null}`,
 	"BLB": `{"alias":3,"copy":0,"unresolved":0,"unproven":5,"items":null}`,
 	"DFT": `{"alias":0,"copy":0,"unresolved":0,"unproven":3,"items":null}`,
-	"DSK": `{"alias":2,"copy":0,"unresolved":0,"unproven":35,"items":null}`,
+	"DSK": `{"alias":2,"copy":0,"unresolved":0,"unproven":36,"items":null}`,
 	"ECL": `{"alias":0,"copy":0,"unresolved":0,"unproven":5,"items":null}`,
 	"EOE": `{"alias":3,"copy":0,"unresolved":0,"unproven":2,"items":null}`,
 	"FDN": `{"alias":0,"copy":1,"unresolved":0,"unproven":2,"items":null}`,
