@@ -272,7 +272,7 @@ fi
 # (agent-20261009T195921Z-c0900c9d): standalone (-cpuprofile vehicle) GOGC=off
 # reads 13.2s / 3.09 GiB peak vs GOGC=200's 16.3s / 1.24 GiB (GOGC=400 a wash,
 # 16.1s / 1.96 GiB), but under this phase's shape the worlds pole's on-CPU
-# work GREW 26.4 -> 32.3 cpu-s and its wall got worse (45.4s -> 51.4s), while
+# work GREW 26.4 -> 32.3 cpu-s and its wall got worse (45.4s -> 50.5s), while
 # the unmodified shape itself read 46.1s and 64.9s twenty minutes apart with
 # the shared box's load at 33-40/32: the residual gate wall here is the pole
 # being descheduled by the fleet's box load, which no line-local env knob buys
