@@ -1467,6 +1467,11 @@ var stringMapParams = map[string]string{
 	// Goad-static helpers inspect map arguments copied from parsed SVar
 	// statics, not card SA Params; their callers classify the actual source.
 	"effects:goadStaticGrantReadable:params": "parsed Goad static-line Params map, not a card SA Params map",
+	// effects/restrictions.go replacementRedirectsToExile: params is one
+	// ReplaceWith$ line parseReplacementLine built from the face's SVar
+	// table (the Fizzle$ rider the exile-redirect admission reads), not a
+	// card Params map.
+	"effects:replacementRedirectsToExile:params": "parseReplacementLine-built ReplaceWith$ line map, not a card Params map",
 	// effects/misc.go compoundRememberedSpec: params is the map parseStaticLine
 	// built from one SVar static line -- its ValidCard$/ValidTarget$ keys are
 	// consumed here, but the map originates in an SVar body, not a card's

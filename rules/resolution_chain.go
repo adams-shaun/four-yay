@@ -246,17 +246,38 @@ func (e *Engine) registerRebound(id state.ObjID, controller state.PlayerID) {
 // hand. The cast-provenance bit above is stamped only for a face that
 // natively carries the keyword at pay time, which is too early for a
 // mid-stack grant, so the granted path reads the object's derived keywords
-// and the log's cast origin instead. A copy was put on the stack, never cast
-// (CR 707.10), so it rebounds neither way; the recast from exile carries no
-// grant (the UntilEOT pump is long gone) and reads not-cast-from-hand, so
-// CR 702.95e's "doesn't rebound again" holds.
+// and the log's cast origin instead -- but only for a GRANTED keyword: a
+// face that natively carries Rebound is this bit's own population, and
+// reading it here too would rebound a native carrier whose provenance bit
+// was never stamped because nothing cast it (the CR 608 resolution harness
+// puts such a spell on the stack directly with a hand-origin push). A copy
+// was put on the stack, never cast (CR 707.10), so it rebounds neither way;
+// the recast from exile carries no grant (the UntilEOT pump is long gone)
+// and reads not-cast-from-hand, so CR 702.95e's "doesn't rebound again"
+// holds.
 func (e *Engine) spellReboundGranted(o *state.Object) bool {
-	if o == nil || o.IsCopy {
+	if o == nil || o.IsCopy || faceCarriesRebound(o) {
 		return false
 	}
 	for _, k := range e.Keywords(o.ID) {
 		if strings.EqualFold(strings.TrimSpace(k), "Rebound") {
 			return e.WasCastFromHand(o.ID)
+		}
+	}
+	return false
+}
+
+// faceCarriesRebound reports whether the object's printed face natively
+// carries the Rebound keyword: that population is stamped FlagRebound at pay
+// time, so a spell still carrying the keyword there was granted nothing.
+func faceCarriesRebound(o *state.Object) bool {
+	f := o.Face()
+	if f == nil {
+		return false
+	}
+	for _, k := range f.Keywords {
+		if strings.EqualFold(strings.TrimSpace(k), "Rebound") {
+			return true
 		}
 	}
 	return false
