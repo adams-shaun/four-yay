@@ -432,19 +432,28 @@ func triggerServe(reg *cards.Registry, f *cards.Face, name string, req levelb.Re
 			copy(it.XAbility[offset:], c.xability)
 		}
 	}
-	// Every activate step must carry its XMage rule text at its own index,
-	// and no other step may carry any: the runner throws on an activate step
-	// with an empty xmage_ability, and a misaligned parallel slice would
-	// activate the wrong source (or hand XMage a rule text for a step that
-	// activates nothing). A refusal here names a recipe bug, never a fixture
-	// miss.
+	// Every step the XMage driver reads a rule text for must carry it at its
+	// own index, and no other step may carry any: the driver throws on an
+	// activate step with an empty xmage_ability (ScenarioReplay's "activate")
+	// and on a plot cast without one (its "plot" special action), while a
+	// misaligned parallel slice would hand a neighbour's text to the wrong
+	// step. A refusal here names a recipe bug, never a fixture miss.
 	for i, st := range sc.Steps {
 		text := i < len(it.XAbility) && it.XAbility[i] != ""
-		if (st.Op == "activate") != text {
+		if stepNeedsXAbility(st) != text {
 			return it, false
 		}
 	}
 	return it, true
+}
+
+// stepNeedsXAbility reports whether the XMage replay driver reads a rule text
+// for this step: every activate step, and a cast step whose cast_mode is the
+// plot special action (ScenarioReplay's "plot" case activates PlotAbility by
+// the "Plot {cost}" text). No other step reads one, so any text on another
+// step is a misaligned parallel slice.
+func stepNeedsXAbility(st oraclegen.Step) bool {
+	return st.Op == "activate" || (st.Op == "cast" && strings.EqualFold(st.CastMode, plotCastMode))
 }
 
 // stackSlot is the Trigger index gorge stamps on the stack entry that the
