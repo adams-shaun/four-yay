@@ -347,6 +347,56 @@ func filterPredicate(filter, word string) bool {
 	return false
 }
 
+// stripFilterWord removes one '.'/'+'-separated predicate word from every
+// alternative of filter, preserving the remaining separators ("attackingAlone"
+// out of "Creature.YouCtrl+attackingAlone" leaves "Creature.YouCtrl"). ok is
+// false when no alternative carried the word, so the caller keeps its generic
+// path. The word is matched whole: "attackingAlone" never tears "attacking"
+// out of an alternative that carries both.
+func stripFilterWord(filter, word string) (string, bool) {
+	found := false
+	alts := strings.Split(filter, ",")
+	for i, alt := range alts {
+		var parts []string
+		var seps []byte
+		rest := alt
+		for {
+			k := strings.IndexAny(rest, ".+")
+			if k < 0 {
+				parts = append(parts, rest)
+				break
+			}
+			parts = append(parts, rest[:k])
+			seps = append(seps, rest[k])
+			rest = rest[k+1:]
+		}
+		var kept []string
+		var keptSeps []byte
+		for j, p := range parts {
+			if strings.TrimSpace(p) == word {
+				found = true
+				continue
+			}
+			if j > 0 && len(kept) > 0 {
+				keptSeps = append(keptSeps, seps[j-1])
+			}
+			kept = append(kept, p)
+		}
+		var sb strings.Builder
+		for j, p := range kept {
+			if j > 0 {
+				sb.WriteByte(keptSeps[j-1])
+			}
+			sb.WriteString(p)
+		}
+		alts[i] = sb.String()
+	}
+	if !found {
+		return filter, false
+	}
+	return strings.Join(alts, ","), true
+}
+
 // filterCombat classifies a target filter: an attacking demand, else a
 // blocking demand, and whether it demands the candidate be tapped. A filter
 // that names attacking or blocking already has a combat answer, so a
@@ -417,7 +467,24 @@ func candidatesFor(reg *cards.Registry, filter, parentTarget string, stackTarget
 			return zoneCandidates(reg, filter, zone)
 		}
 	}
+	// Arrangement predicates the fixture satisfies by placing exactly one
+	// candidate, not by which card it places: a lone attacker
+	// ("Creature.YouCtrl+attackingAlone", Crowd of True Believers) and a
+	// permanent sharing its name with no other permanent you control (Yenna's
+	// "Enchantment.YouCtrl+doesNotShareNameWith OtherYourBattlefield"). Strip
+	// the word so the ordinary type path arranges the candidate; a lone
+	// attacker keeps the attacker role explicitly.
+	alone := false
+	if f2, ok := stripFilterWord(filter, "attackingAlone"); ok {
+		filter, alone = f2, true
+	}
+	if f2, ok := stripFilterWord(filter, "doesNotShareNameWith OtherYourBattlefield"); ok {
+		filter = f2
+	}
 	role, tapped := filterCombat(filter)
+	if alone {
+		role, tapped = roleAttacker, false
+	}
 	alt := strings.Split(filter, ",")
 	base := strings.ToLower(strings.SplitN(strings.TrimSpace(alt[0]), ".", 2)[0])
 	mine := strings.Contains(filter, "YouCtrl") || strings.Contains(filter, "YouOwn")
@@ -432,6 +499,17 @@ func candidatesFor(reg *cards.Registry, filter, parentTarget string, stackTarget
 			// A creature that entered the battlefield THIS TURN exists only
 			// mid-turn: the token a prelude cast made entered this turn.
 			return tokenCandidates(true)
+		}
+		if filterHasComponent(filter, "Worthy") {
+			// Worthy is the Marvel-set status word (effects' wordWorthy): a
+			// Legendary non-Villain creature with red or white in its colour
+			// characteristics. Serve a real corpus card that qualifies --
+			// Wyleth, Soul of Steel (1RW Legendary, no ETB body); the
+			// engine's own wordWorthy read is the legality gate.
+			if mine {
+				return []cand{{seat: "p0", zone: "battlefield", card: "Wyleth, Soul of Steel"}}
+			}
+			return []cand{{seat: "p1", zone: "battlefield", card: "Wyleth, Soul of Steel"}}
 		}
 		if base == "artifact" && strings.Contains(filter, "token") {
 			return artifactTokenCandidates()

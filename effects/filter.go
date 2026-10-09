@@ -160,6 +160,54 @@ var predicates = map[string]predFn{
 		return src != 0 && o.ID != src && o.PhasedOut && o.Zone == state.ZBattlefield
 	},
 	"attacking": func(g *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool { return o.IsAttacking },
+	// attackingAlone is "attacking alone" (Crowd of True Believers' and
+	// Viper, Cruel Conspirator's target specs): the object is attacking and
+	// is the only creature attacking this combat -- the count of live
+	// battlefield attackers is one. A phased-out attacker has already left
+	// the combat, so it is not counted even if its flag lags.
+	"attackingAlone": func(g *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
+		if !o.IsAttacking || o.Zone != state.ZBattlefield {
+			return false
+		}
+		count := 0
+		for i := range g.Objs {
+			a := &g.Objs[i]
+			if a.Zone == state.ZBattlefield && a.IsAttacking && !a.PhasedOut {
+				count++
+			}
+		}
+		return count == 1
+	},
+	// blockingAlone is "blocking alone" (Thijarian Witness's death
+	// specification): the object blocks at least one attacker, and every
+	// attacker it blocks is blocked only by it.
+	"blockingAlone": func(g *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
+		if !isBlocking(g, o.ID) {
+			return false
+		}
+		blocked := false
+		for i := range g.Objs {
+			a := &g.Objs[i]
+			if len(a.BlockedBy) == 0 {
+				continue
+			}
+			mine := false
+			for _, b := range a.BlockedBy {
+				if b == o.ID {
+					mine = true
+					break
+				}
+			}
+			if !mine {
+				continue
+			}
+			if len(a.BlockedBy) != 1 {
+				return false
+			}
+			blocked = true
+		}
+		return blocked
+	},
 	// unblocked is the CR 509.1h "attacking creature ... with no creatures
 	// blocking it" predicate: the object is attacking and no blocker is
 	// recorded on it. It is the filter half of ninjutsu's activated cost
