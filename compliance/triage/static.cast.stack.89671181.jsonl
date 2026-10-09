@@ -1,0 +1,2 @@
+{"shape":{"template":"static","op":"cast","field":"stack","diff":"gorge=[spell:Dazzling Theater // Prop Room@p0] xmage=[spell:Dazzling Theater@p0]"},"key":"static | cast | stack | gorge=[spell:Dazzling Theater // Prop Room@p0] xmage=[spell:Dazzling Theater@p0]","cards":1}
+{"card":"Inquisitive Glimmer","template":"static#0.1","status":"diverge","api":"-","sets":["DSK"],"detail":"step 0 (cast) stack: gorge \"[spell:Dazzling Theater // Prop Room@p0]\", xmage \"[spell:Dazzling Theater@p0]\""}
