@@ -210,6 +210,59 @@ func AttackersDeclaredBatch(t cards.Trigger) bool {
 	return t.Mode == "AttackersDeclared" && strings.TrimSpace(t.ParamStr(cards.PKAttackedTarget)) == ""
 }
 
+// AttackersDeclaredMatchedAttackers is AttackersDeclaredOneTargetMatches's
+// shared walk, handing back what the boolean form discards: the attackers
+// that passed the trigger line's own ValidAttackers$ filter, in declaration
+// order, and whether the line matched at all (the same gates: the
+// AttackingPlayer$/AttackedTarget$ player specs and the
+// ValidAttackersAmount$ count). The boolean matcher below delegates here, and
+// rules' queue point (checkFaceTriggers' pendingTrigger build) calls the SAME
+// function for the fire-time capture the TriggerObjectsAttackers count ref
+// reads (effects.TriggerContext.TriggerAttackers) -- one home for "which
+// attackers matched", so the capture can never name an attacker the boolean
+// match did not admit. The SAME semantics serve both the per-defender
+// AttackersDeclaredOneTarget shape and the batch AttackersDeclared shape: the
+// batch ids come from e.Facts().DeclaredAttackers when the declaration
+// scratch carries one.
+func AttackersDeclaredMatchedAttackers(e Board, t cards.Trigger, source state.ObjID, ev events.Event, remembered ...[]state.Target) ([]state.ObjID, bool) {
+	if ev.Kind != events.DeclareAttackers || len(ev.IDs) == 0 {
+		return nil, false
+	}
+	ctrl := e.ControllerOf(source)
+	ids := ev.IDs
+	if batch := e.Facts().DeclaredAttackers; AttackersDeclaredBatch(t) && len(batch) > 0 {
+		ids = batch
+	}
+	attacker := e.ControllerOf(ids[0])
+	ctx := effects.NewCtxPtr(source, ctrl, effects.CtxInit{})
+	if src := e.Game().Obj(source); src != nil && src.Face() != nil {
+		ctx.SVars = src.Face().SVars
+	}
+	if v := t.ParamStr(cards.PKAttackingPlayer); v != "" && !effects.MatchesPlayerSpecWithCounts(e.Game(), e.EvalCount, ctx, v, attacker, ctrl) {
+		return nil, false
+	}
+	if v := t.ParamStr(cards.PKAttackedTarget); v != "" && !effects.MatchesPlayerSpecWithCounts(e.Game(), e.EvalCount, ctx, v, ev.Player, ctrl) {
+		return nil, false
+	}
+	var capture []state.Target
+	if len(remembered) != 0 {
+		capture = remembered[0]
+	}
+	var matched []state.ObjID
+	for _, id := range ids {
+		if v := t.ParamStr(cards.PKValidAttackers); v == "" || e.MatchesSpec(v, id, source, ctrl, SpecOpts{DelayedRemembered: capture}) {
+			matched = append(matched, id)
+		}
+	}
+	if len(matched) == 0 {
+		return nil, false
+	}
+	if v := t.ParamStr(cards.PKValidAttackersAmount); v != "" && !ComparePresent(len(matched), v) {
+		return nil, false
+	}
+	return matched, true
+}
+
 // AttackersDeclaredOneTargetMatches implements the "whenever [one or more]
 // creatures attack a player" trigger (Forge Mode$ AttackersDeclaredOneTarget)
 // and, routed to the same matcher, the batch "whenever you attack" trigger
@@ -228,43 +281,14 @@ func AttackersDeclaredBatch(t cards.Trigger) bool {
 // checkFaceTriggers (Engine.attackersDeclaredFired). A direct synthetic emit
 // with no declaration scratch falls back to ev.IDs, which is the declaration
 // itself in every single-defender case.
+//
+// It is AttackersDeclaredMatchedAttackers's boolean form: the shared walk
+// answers which attackers the line's ValidAttackers$ admitted and whether the
+// line matched, and this wrapper keeps the registry's uniform Matcher
+// signature.
 func AttackersDeclaredOneTargetMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Event, remembered ...[]state.Target) bool {
-	if ev.Kind != events.DeclareAttackers || len(ev.IDs) == 0 {
-		return false
-	}
-	ctrl := e.ControllerOf(source)
-	ids := ev.IDs
-	if batch := e.Facts().DeclaredAttackers; AttackersDeclaredBatch(t) && len(batch) > 0 {
-		ids = batch
-	}
-	attacker := e.ControllerOf(ids[0])
-	ctx := effects.NewCtxPtr(source, ctrl, effects.CtxInit{})
-	if src := e.Game().Obj(source); src != nil && src.Face() != nil {
-		ctx.SVars = src.Face().SVars
-	}
-	if v := t.ParamStr(cards.PKAttackingPlayer); v != "" && !effects.MatchesPlayerSpecWithCounts(e.Game(), e.EvalCount, ctx, v, attacker, ctrl) {
-		return false
-	}
-	if v := t.ParamStr(cards.PKAttackedTarget); v != "" && !effects.MatchesPlayerSpecWithCounts(e.Game(), e.EvalCount, ctx, v, ev.Player, ctrl) {
-		return false
-	}
-	matches := 0
-	var capture []state.Target
-	if len(remembered) != 0 {
-		capture = remembered[0]
-	}
-	for _, id := range ids {
-		if v := t.ParamStr(cards.PKValidAttackers); v == "" || e.MatchesSpec(v, id, source, ctrl, SpecOpts{DelayedRemembered: capture}) {
-			matches++
-		}
-	}
-	if matches == 0 {
-		return false
-	}
-	if v := t.ParamStr(cards.PKValidAttackersAmount); v != "" && !ComparePresent(matches, v) {
-		return false
-	}
-	return true
+	_, ok := AttackersDeclaredMatchedAttackers(e, t, source, ev, remembered...)
+	return ok
 }
 
 // ExertedMatches is the trig:Exerted half of CR 702.100 (task exert1 built the
