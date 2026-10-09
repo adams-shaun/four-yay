@@ -13,13 +13,15 @@ import (
 // table rather than a per-card branch: Champions of the Perfect's
 // BeholdExile<1/Elf> has an Elf fixture (elfBeholdFixture), and
 // cost_raise_tokens.go pays Waterbend<N> (Benevolent River Spirit, Water
-// Whip), Blight<X> (Soul Immolation) and Close Encounter's ChooseCard.
-// Crashing Wave's Waterbend<X> casts at the pool-bound X = 0.
+// Whip), Waterbend<X> at an announced X = 1 (Crashing Wave, Foggy Swamp
+// Visions, Waterbender's Restoration), Blight<X> (Soul Immolation) and Close
+// Encounter's ChooseCard.
 func TestCostStaticOwnAdditionalCostRequiresReplay(t *testing.T) {
 	reg := loadGenRegistry(t)
 	names := []string{
 		"Champion of the Clachan", "Officious Interrogation", "Dragon's Prey",
-		"Crashing Wave", "Champions of the Perfect",
+		"Crashing Wave", "Champions of the Perfect", "Foggy Swamp Visions",
+		"Waterbender's Restoration",
 		"Benevolent River Spirit", "Water Whip", "Soul Immolation", "Close Encounter",
 	}
 	for _, name := range names {
