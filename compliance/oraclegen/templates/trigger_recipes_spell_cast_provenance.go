@@ -16,12 +16,14 @@ import (
 // <x> provenance" (spellCastNarrowSkip). Each cause below produces the cast
 // the predicate needs, and gorge's own matcher decides whether it fires.
 //
-// The ownership family (Card.YouDontOwn, Spell.YouDontOwn) is deliberately
-// not handled: p0 has no way to cast a p1-owned card without an
-// exile-and-grant effect the fixture setup cannot build, and Gonti's
-// `ValidSAonCard$ Spell.YouDontOwn` is not modelled by the engine at all
-// (trigmatch.spellValidSAonCardMatches fails it closed). See the ticket's
-// report Issues.
+// The ownership family (Card.YouDontOwn, Spell.YouDontOwn) is served by one
+// generic exile-and-grant cause: Nita, Forum Conciliator's own activated
+// ability exiles a p1-owned instant from p1's graveyard and grants p0 the
+// right to cast it this turn, so the cause's cast is a spell p0 does not
+// own. The engine evaluates the ownership predicate rules-side
+// (effects/filter.go) and models Gonti's `ValidSAonCard$ Spell.YouDontOwn`
+// head (trigmatch.spellValidSAonCardMatches), so the same cast fires every
+// manifest row whose trigger names it.
 func spellCastProvenanceCauses(reg *cards.Registry, f *cards.Face, name string, t *cards.Trigger) []triggerCause {
 	filter := strings.ToLower(strings.ReplaceAll(
 		t.ParamStr(cards.PKValidCard)+","+t.ParamStr(cards.PKValidSAonCard), " ", ""))
@@ -39,7 +41,81 @@ func spellCastProvenanceCauses(reg *cards.Registry, f *cards.Face, name string, 
 			out = append(out, c)
 		}
 	}
+	if strings.Contains(filter, "youdontown") {
+		if c, ok := spellCastYouDontOwnCause(reg); ok {
+			c.prelude = prelude
+			out = append(out, c)
+		}
+	}
 	return out
+}
+
+// spellCastYouDontOwnCause builds the exile-and-grant cast for the ownership
+// family (Card.YouDontOwn, Spell.YouDontOwn). Nita, Forum Conciliator's own
+// activated ability exiles a p1-owned instant from p1's graveyard, then its
+// Effect grants p0 permission to cast that card this turn; the cast step
+// names the card by its OWNER (p1), so gorge casts a spell p0 does not own.
+// Nita is a generic granter the way Misthollow Griffin is the generic
+// from-exile probe: the predicate reads the cast spell's owner, so the same
+// cast serves any card whose trigger names it. The sacrifice cost's pick is
+// scripted to the deterministic activation-cost fixture, so the trigger
+// source on p0's battlefield is never the permanent sacrificed.
+func spellCastYouDontOwnCause(reg *cards.Registry) (triggerCause, bool) {
+	const granter = "Nita, Forum Conciliator"
+	granterCard, ok := reg.Lookup(granter)
+	if !ok || len(granterCard.Faces) == 0 {
+		return triggerCause{}, false
+	}
+	pf := granterCard.Faces[0]
+	prefixes, why := oraclegen.XMageAbility(pf)
+	if why != "" {
+		return triggerCause{}, false
+	}
+	probe := "Opt"
+	probeCard, ok := reg.Lookup(probe)
+	if !ok || len(probeCard.Faces) == 0 {
+		return triggerCause{}, false
+	}
+	pool, why := oraclegen.PoolFor(probeCard.Faces[0].ManaCost)
+	if why != "" {
+		return triggerCause{}, false
+	}
+	for i, sa := range pf.Abilities {
+		if !sa.IsActivated() || !strings.Contains(sa.ParamStr(cards.PKValidTgts), "Instant") {
+			continue
+		}
+		cost := sa.ParamStr(cards.PKCost)
+		mana, gap := activationCostIn(cost, "battlefield")
+		if gap != "" {
+			continue
+		}
+		prefix, exists := prefixes[i]
+		if !exists {
+			continue
+		}
+		idx := i
+		setup := oraclegen.Seat{}
+		addActivationCostFixtures(&setup, cost)
+		answers := activationXAnswers(cost)
+		if len(setup.Battlefield) > 0 {
+			// The cost's own fixture table names the sacrifice; scripting it
+			// by ref keeps the pick deterministic and the XMage answer
+			// (recorded from the observed decision) identical to it.
+			answers = append(answers, oraclegen.Answer{Kind: "choose", Pick: []string{"p0:" + setup.Battlefield[0]}})
+		}
+		return triggerCause{
+			battlefield:       append([]string{granter}, setup.Battlefield...),
+			opponentGraveyard: []string{probe},
+			steps: []oraclegen.Step{
+				{Op: "activate", Seat: 0, Card: "p0:" + granter, Mana: mana, AbilityIndex: &idx, Targets: []string{"p1:" + probe}, Answers: answers},
+				{Op: "resolve"},
+				{Op: "cast", Seat: 0, Card: "p1:" + probe, Mana: pool},
+			},
+			xability:     []string{prefix, "", ""},
+			activateCost: cost,
+		}, true
+	}
+	return triggerCause{}, false
 }
 
 // filterNamesAdventure reports whether the filter carries the `Adventure`
