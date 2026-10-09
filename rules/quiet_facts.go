@@ -316,6 +316,20 @@ func quietSelfReducePipFloor(f *cards.Face) (int32, bool) {
 	return pips + int32(len(c.Hybrid)), true
 }
 
+// quietRecastOfferCreditHeads are the keyword heads the offer gate credits
+// onto the recast cost through offerCastableUsing itself, independent of the
+// base the caller passes. Delve is the one such head: offerCastableUsing
+// reads hasKeywordH(id, kwhDelve) and subtracts one generic per graveyard card
+// on EVERY cast scope (rules/mana.go), including the flashback/mayhem/warp
+// recasts whose loops pass the raw cost without castOfferBase -- so the
+// printed recast floor is not a lower bound of what the walk can offer.
+// Convoke and Improvise are deliberately absent: their credit is composed by
+// castOfferBase, which those loops do not call, so it does not reach the
+// priced route. A future offer-time credit added to offerCastableUsing must be
+// listed here. A granted Delve is a board-wide blocker via
+// quietActiveKWGrantBlocker's quietCastOpenHeads scan.
+var quietRecastOfferCreditHeads = [...]string{"Delve"}
+
 // quietRecastFacts prices a face's printed graveyard-recast routes for the
 // Q3a blocker: recastFloor is the minimum mana floor over the routes the
 // graveyard walk prices, and recastOpen marks a route whose cost the bound
@@ -333,6 +347,14 @@ func quietRecastFacts(f *cards.Face, q *quietFaceFacts) {
 	}
 	floor := int32(-1)
 	open := false
+	// An offer-time keyword credit (Delve) lowers the real recast floor below
+	// the printed one, so the route cannot be priced. Read the printed face;
+	// a granted instance is the board grant blocker's.
+	for _, name := range quietRecastOfferCreditHeads {
+		if f.HasKeyword(name) {
+			open = true
+		}
+	}
 	add := func(c Cost) {
 		fl, _, nonMana := quietCostFloor(&c)
 		if nonMana {

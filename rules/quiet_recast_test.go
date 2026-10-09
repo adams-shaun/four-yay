@@ -150,6 +150,12 @@ func TestQuietRecastFlashbackTiming(t *testing.T) {
 		if e.G.Step.IsMain() {
 			t.Fatal("precondition: still at a main step")
 		}
+		// The route is real but timing-gated: outside a main phase the walk
+		// offers no sorcery-speed flashback, so the quiet verdict is not a
+		// missing route.
+		if hasMode(e.legalActions(0), "flashback") {
+			t.Fatalf("control: the walk offers a sorcery-speed flashback outside a main phase: %v", optKinds(e.legalActions(0)))
+		}
 		if got := e.quietBlocker(0); got != qbNone {
 			t.Fatalf("quietBlocker = %s, want %s (a sorcery flashback outside a main phase is quiet)",
 				quietBlockerNames[got], quietBlockerNames[qbNone])
