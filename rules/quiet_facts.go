@@ -363,14 +363,14 @@ func quietManaFacts(f *cards.Face, q *quietFaceFacts) {
 
 // quietAbilityFacts fills abQuiet over the face's non-mana activated
 // abilities. A mana ability is excluded exactly as the ability loop excludes
-// it (cards.IsManaAbilityAPI && !loyalty); a loyalty-marked mana ability IS
+// it (cards.IsManaAbilitySA && !loyalty); a loyalty-marked mana ability IS
 // offered by the loop, so it stays in the summary.
 func quietAbilityFacts(f *cards.Face, q *quietFaceFacts) {
 	for _, ab := range f.Abilities {
 		if ab == nil || ab.Kind != "AB" {
 			continue
 		}
-		if cards.IsManaAbilityAPI(ab.API) && !loyaltyAbilityText(ab) {
+		if cards.IsManaAbilitySA(ab) && !loyaltyAbilityText(ab) {
 			continue
 		}
 		mask := abilityZoneMask(ab)

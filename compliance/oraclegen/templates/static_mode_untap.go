@@ -65,7 +65,7 @@ func untapOtherPlayerItem(reg *cards.Registry, f *cards.Face, name string, req l
 	} else {
 		idx := -1
 		for ai := range f.Abilities {
-			if cards.IsManaAbilityAPI(f.Abilities[ai].API) {
+			if cards.IsManaAbilitySA(f.Abilities[ai]) {
 				idx = ai
 				break
 			}
