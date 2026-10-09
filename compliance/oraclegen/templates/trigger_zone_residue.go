@@ -47,9 +47,9 @@ func residueCauses(reg *cards.Registry, name string, t *cards.Trigger, filter st
 // from the library into p0's graveyard. It refuses a trigger whose body's
 // ChangeType$ spec carries a predicate the filter grammar does not know: the
 // trigger would fire and its body would silently move nothing, so the
-// scenario would compare a no-op against XMage's move. (Hedge Shredder's
-// Card.TriggeredCards was the historical example; it is a registered
-// predicate since commit 8e9f1097c and generates its mill cause.)
+// scenario would compare a no-op against XMage's move. Hedge Shredder's
+// Card.TriggeredCards used to be such a predicate and kept the named skip
+// until 8e9f1097c registered it; it is served now.
 func libraryToGraveyardCauses(reg *cards.Registry, name string, t *cards.Trigger) ([]triggerCause, string, bool) {
 	for _, body := range triggerBodyLines(t) {
 		for _, spec := range changeTypeSpecs(body) {

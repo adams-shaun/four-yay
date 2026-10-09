@@ -30,12 +30,15 @@ func stackedAfterCause(t *testing.T, reg *cards.Registry, sc oraclegen.Scenario,
 
 func TestZoneChangeTriggerRecipes(t *testing.T) {
 	reg := loadGenRegistry(t)
-	for _, tc := range []struct{ name, key, sub, castProbe string }{
-		{"Spirit Mascot", "trigger#0.0", "trigger.leaves-graveyard", "p0:Raise Dead"},
-		{"Ninja Teen", "trigger#0.0", "trigger.ltb-other", "p0:Unsummon"},
-		{"Kaya, Spirits' Justice", "trigger#0.0", "trigger.ltb-other", "p0:Swords to Plowshares"},
-		{"Woodland Champion", "trigger#0.0", "trigger.etb-other", "p0:Sprout"},
-		{"Mister Fantastic, Reed Richards", "trigger#0.0", "trigger.etb-other", "p0:Sprout"},
+	for _, tc := range []struct{ name, key, sub, castProbe, slot string }{
+		{"Spirit Mascot", "trigger#0.0", "trigger.leaves-graveyard", "p0:Raise Dead", "0"},
+		{"Ninja Teen", "trigger#0.0", "trigger.ltb-other", "p0:Unsummon", "0"},
+		{"Kaya, Spirits' Justice", "trigger#0.0", "trigger.ltb-other", "p0:Swords to Plowshares", "0"},
+		{"Woodland Champion", "trigger#0.0", "trigger.etb-other", "p0:Sprout", "0"},
+		{"Mister Fantastic, Reed Richards", "trigger#0.0", "trigger.etb-other", "p0:Sprout", "0"},
+		// The Card.TriggeredCards predicate is a known filter now (8e9f1097c),
+		// so the mill cause is served instead of the library-to-graveyard skip.
+		{"Hedge Shredder", "trigger#0.1", "trigger.zone-change-residue", "p0:Tome Scour", "1"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			it := triggerRequirement(t, reg, tc.name, tc.key, tc.sub)
@@ -50,8 +53,13 @@ func TestZoneChangeTriggerRecipes(t *testing.T) {
 			if !ok || len(res.Fails) != 0 {
 				t.Fatalf("does not play through gorge: ok=%v fails=%v", ok, res.Fails)
 			}
-			if !stackedAfterCause(t, reg, it.Scenario, tc.name, "0") {
-				t.Fatalf("%s trigger slot 0 never reaches the stack", tc.name)
+			// The mill cause queues its per-card triggers behind a
+			// trigger_order ask, so the fire needs the generator's own
+			// detection shapes (a priority checkpoint after the passes);
+			// keywordSlotOnStack tries exactly those.
+			if !stackedAfterCause(t, reg, it.Scenario, tc.name, tc.slot) &&
+				!keywordSlotOnStack(t, reg, it.Scenario, tc.name, tc.slot) {
+				t.Fatalf("%s trigger slot %s never reaches the stack", tc.name, tc.slot)
 			}
 		})
 	}

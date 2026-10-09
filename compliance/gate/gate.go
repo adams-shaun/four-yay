@@ -127,15 +127,89 @@ func HandScenarios(oracleDir string) (map[string]bool, error) {
 // static and attack/block (spec 2026-10-05 section 4). Any other level is
 // not built and reports the one stub problem it always has.
 func Check(reg *cards.Registry, root, set, level string) ([]Problem, error) {
+	return checkLevel(reg, root, set, level, nil)
+}
+
+// SetProblems is one declared set's piece of a CheckDeclared result.
+type SetProblems struct {
+	Set      string
+	Level    string
+	Problems []Problem
+}
+
+// CheckDeclared runs Check over every set in declared, loading the shared
+// tables once for the whole claim instead of once per set. A per-set Check
+// reloads the verdicts (16 MB), XMage's 589 manifests, the hand scenarios
+// and the corpus fold table every time, which was ~90% of a 20-set claim's
+// wall; the checks themselves are byte-identical, set by set (asserted by
+// TestCheckDeclaredMatchesCheckPerSet). Sets come back in set-code order (a
+// map's iteration order never reaches them), each with its own problems in
+// Check's order.
+func CheckDeclared(reg *cards.Registry, root string, declared map[string]string) ([]SetProblems, error) {
+	sh, err := loadShared(reg, root)
+	if err != nil {
+		return nil, err
+	}
+	codes := make([]string, 0, len(declared))
+	for set := range declared {
+		codes = append(codes, set)
+	}
+	sort.Strings(codes)
+	out := make([]SetProblems, 0, len(codes))
+	for _, set := range codes {
+		probs, err := checkLevel(reg, root, set, declared[set], sh)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, SetProblems{Set: set, Level: declared[set], Problems: probs})
+	}
+	return out, nil
+}
+
+func checkLevel(reg *cards.Registry, root, set, level string, sh *sharedTables) ([]Problem, error) {
 	switch level {
 	case "A":
-		probs, _, _, err := checkA(reg, root, set)
+		probs, _, _, err := checkA(reg, root, set, sh)
 		return probs, err
 	case "B":
-		return checkB(reg, root, set)
+		return checkB(reg, root, set, sh)
 	default:
 		return []Problem{{Card: "*", Reason: "level " + level + " has no templates yet"}}, nil
 	}
+}
+
+// sharedTables is the root-wide data every set's scan reads: the verdict
+// rows, the hand-authored oracle scenarios, XMage's name universe (and the
+// oraclegen knowledge of it, installed once), the corpus fold table and the
+// supported-primitive set. loadSet re-reads all of it per set; a bulk run
+// over many sets (CheckDeclared) loads it once and passes it down.
+type sharedTables struct {
+	verdicts map[string]map[string]compliance.VerdictRow
+	hand     map[string]bool
+	sup      map[string]bool
+	folded   map[string]string
+}
+
+func loadShared(reg *cards.Registry, root string) (*sharedTables, error) {
+	xmageNames, err := compliance.LoadXMageNames(filepath.Join(root, "compliance", "manifests"))
+	if err != nil {
+		return nil, err
+	}
+	oraclegen.SetXMageKnown(xmageNames)
+	verdicts, err := compliance.LoadVerdicts(filepath.Join(root, compliance.VerdictDir))
+	if err != nil {
+		return nil, err
+	}
+	hand, err := HandScenarios(filepath.Join(root, "rules", "testdata", "oracle"))
+	if err != nil {
+		return nil, err
+	}
+	return &sharedTables{
+		verdicts: verdicts,
+		hand:     hand,
+		sup:      effects.Supported(),
+		folded:   compliance.FoldedNames(reg),
+	}, nil
 }
 
 // setScan is what a level's card walk needs: the set's printed names, which
@@ -153,24 +227,19 @@ type setScan struct {
 	xmageSpelling map[string]string
 }
 
-// loadSet reads and resolves everything a card walk needs. The returned
+// loadSet reads and resolves everything a card walk needs. sh carries the
+// root-wide tables (nil loads them, the single-set path); the per-set data
+// is the manifest, the printed list and the spelling map. The returned
 // problems are the set-level ones (no printed list); loadSet does not walk
 // cards.
-func loadSet(reg *cards.Registry, root, set string) (*setScan, []Problem, error) {
-	xmageNames, err := compliance.LoadXMageNames(filepath.Join(root, "compliance", "manifests"))
-	if err != nil {
-		return nil, nil, err
+func loadSet(reg *cards.Registry, root, set string, sh *sharedTables) (*setScan, []Problem, error) {
+	if sh == nil {
+		var err error
+		if sh, err = loadShared(reg, root); err != nil {
+			return nil, nil, err
+		}
 	}
-	oraclegen.SetXMageKnown(xmageNames)
 	m, err := compliance.LoadManifest(filepath.Join(root, "compliance", "manifests"), set)
-	if err != nil {
-		return nil, nil, err
-	}
-	verdicts, err := compliance.LoadVerdicts(filepath.Join(root, compliance.VerdictDir))
-	if err != nil {
-		return nil, nil, err
-	}
-	hand, err := HandScenarios(filepath.Join(root, "rules", "testdata", "oracle"))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -213,13 +282,13 @@ func loadSet(reg *cards.Registry, root, set string) (*setScan, []Problem, error)
 		return nil, nil, err
 	}
 	return &setScan{
-		verdicts: verdicts,
-		hand:     hand,
+		verdicts: sh.verdicts,
+		hand:     sh.hand,
 		names:    names,
 		inXMage:  inXMage,
-		sup:      effects.Supported(),
+		sup:      sh.sup,
 		has:      func(n string) bool { _, ok := reg.Lookup(n); return ok },
-		folded:   compliance.FoldedNames(reg),
+		folded:   sh.folded,
 
 		xmageSpelling: xmageSpelling,
 	}, lead, nil
@@ -275,8 +344,8 @@ func rowOK(reg *cards.Registry, it oraclegen.Item, rows map[string]compliance.Ve
 // checkA runs the level-A checks over set and returns the problems, the
 // scan both levels share, and the set of cards that had NO level-A problem
 // (so level B skips them wholesale).
-func checkA(reg *cards.Registry, root, set string) ([]Problem, *setScan, map[string]bool, error) {
-	scan, out, err := loadSet(reg, root, set)
+func checkA(reg *cards.Registry, root, set string, sh *sharedTables) ([]Problem, *setScan, map[string]bool, error) {
+	scan, out, err := loadSet(reg, root, set, sh)
 	if err != nil {
 		return nil, nil, nil, err
 	}

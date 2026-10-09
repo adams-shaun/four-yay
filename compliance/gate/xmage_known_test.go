@@ -17,7 +17,7 @@ func TestXMageKnownInstalledBeforeLevelBGeneration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := loadSet(reg, root, "FIN"); err != nil {
+	if _, _, err := loadSet(reg, root, "FIN", nil); err != nil {
 		t.Fatal(err)
 	}
 	if oraclegen.XMageKnown("1996 World Champion") {
