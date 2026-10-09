@@ -40,6 +40,13 @@ check "gate script exists at scripts/gate_affected.sh" $?
 ( bash -c "source '$GATE'" >/dev/null 2>&1 )
 check "gate script sources cleanly without running the gate (precondition)" $? \
 	"bash -c source '$GATE' exited $?"
+# Sourcing returns at the guard near the top, so a syntax error BELOW that
+# guard never executes during a source and hides from the check above
+# (cli-20261009T114433Z-45f2f307 mrg1: a stray fi survived a green smoke).
+# bash -n parses the whole file instead.
+( bash -n "$GATE" )
+check "gate script parses in full (bash -n catches late syntax errors)" $? \
+	"bash -n '$GATE' exited $?"
 grep -q 'gate_affected_default_build_pkgs' "$GATE"
 check "gate_affected.sh defines gate_affected_default_build_pkgs" $?
 # A caller-controlled environment variable must not skip normal gate work.
