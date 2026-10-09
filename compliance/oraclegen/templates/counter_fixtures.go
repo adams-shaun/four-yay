@@ -49,6 +49,58 @@ func staticCounterGate(st *cards.Static) (kind string, n int32, ok bool) {
 	return "", 0, false
 }
 
+// staticSelfCounterGate returns the counter kind and count a self static's
+// CheckSVar$ X gate needs where SVar:X:Count$CardCounters.<KIND> (Warden of
+// the Inner Sky, Ezio Brash Novice, Hero of Bretagard). ok is false unless the
+// static's Affected$ is the card itself and the compare is GE/GT: a LT/LE
+// gate wants the counters ABSENT, so placing them would falsify it. A missing
+// compare is Forge's implicit GE1.
+func staticSelfCounterGate(f *cards.Face, st *cards.Static) (kind string, n int32, ok bool) {
+	if !strings.EqualFold(strings.TrimSpace(st.ParamStr(cards.PKAffected)), "Card.Self") {
+		return "", 0, false
+	}
+	check := strings.TrimSpace(st.ParamStr(cards.PKCheckSVar))
+	if check == "" {
+		return "", 0, false
+	}
+	body, has := f.SVars[check]
+	if !has {
+		body = check
+	}
+	body = strings.TrimSpace(body)
+	const prefix = "Count$CardCounters."
+	if len(body) < len(prefix) || !strings.EqualFold(body[:len(prefix)], prefix) {
+		return "", 0, false
+	}
+	kind = strings.ToUpper(strings.TrimSpace(body[len(prefix):]))
+	if i := strings.IndexByte(kind, '/'); i >= 0 {
+		kind = kind[:i]
+	}
+	if kind == "" {
+		return "", 0, false
+	}
+	if kind == "ALL" {
+		kind = "P1P1"
+	}
+	cmp := strings.ToUpper(strings.TrimSpace(st.ParamStr(cards.PKSVarCompare)))
+	switch {
+	case cmp == "":
+		n = 1
+	case strings.HasPrefix(cmp, "GE"), strings.HasPrefix(cmp, "GT"):
+		v, err := strconv.Atoi(cmp[2:])
+		if err != nil || v <= 0 {
+			return "", 0, false
+		}
+		n = int32(v)
+		if strings.HasPrefix(cmp, "GT") {
+			n++
+		}
+	default:
+		return "", 0, false
+	}
+	return kind, n, true
+}
+
 // stationGatedSelf reports a CHARGE-gated static on a Spacecraft (the
 // card's station static, the EOE ship cycle) whose cast path cannot reach
 // the gate. Its counters are the fixture's, and the card's own
