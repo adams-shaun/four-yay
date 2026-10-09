@@ -194,6 +194,18 @@ func (r *answerRouting) route(i int) (as []XAnswer, owned bool) {
 	case d.Resume == "dig" && len(d.Picks) == 1 && digBottomName(d.Picks[0]) != "":
 		// XMage's bottom pick is a card selection by name, not gorge's label.
 		return append(as, XAnswer{d.Seat, "choice", digBottomName(d.Picks[0])}), true
+	case d.Resume == "taporuntap" && len(d.Picks) == 1:
+		// TapOrUntap's election is XMage's chooseUse, not a labelled choice:
+		// the pick's option index maps to the boolean (option 0, the
+		// state-changing choice, is yes). The label would be left unused and
+		// the AI would answer instead.
+		return append(as, XAnswer{d.Seat, "choice", tapOrUntapChoice(d)}), true
+	case perPlayerTargetAsk(d) && len(d.Picks) == 0:
+		// A declined mid-resolution per-player target ask: XMage asks one
+		// real target per opponent, so close each with a target skip on the
+		// TARGET queue. The generic declinedChoice arm would emit a
+		// [choice_skip] on the choice queue instead.
+		return perControllerTargetAnswers(d), true
 	case d.Resume == "hidden_pick" && len(d.Picks) == 0 && d.Min == 0 && d.Max > 0:
 		// A declined "you may put it into your hand" hidden pick (Sparring
 		// Dummy's milled land): XMage poses the optional ask on its target
