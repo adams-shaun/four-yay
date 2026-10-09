@@ -110,7 +110,7 @@ func activationsPowerUpItem(reg *cards.Registry, f *cards.Face, name string, req
 		}
 	}
 	countersOf := func(res rules.OracleResult) int32 {
-		p, ok := permByName(res, powerUpProbe)
+		p, ok := permByNameIn(res, powerUpProbe)
 		if !ok {
 			return -1
 		}
@@ -324,7 +324,7 @@ func cantBeSuspectedItem(reg *cards.Registry, f *cards.Face, name string, req le
 		return skip("aura mana: " + why)
 	}
 	keywordsOf := func(res rules.OracleResult) ([]string, bool) {
-		p, ok := permByName(res, suspectHost)
+		p, ok := permByNameIn(res, suspectHost)
 		return p.Keywords, ok
 	}
 	hasKw := func(kws []string, kw string) bool {

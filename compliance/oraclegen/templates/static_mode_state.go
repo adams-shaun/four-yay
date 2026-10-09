@@ -41,8 +41,8 @@ func permCount(res rules.OracleResult, name string) int {
 	return n
 }
 
-// permByName returns one battlefield permanent by name in the last snapshot.
-func permByName(res rules.OracleResult, name string) (rules.OracleSnapPerm, bool) {
+// permByNameIn returns one battlefield permanent by name in the last snapshot.
+func permByNameIn(res rules.OracleResult, name string) (rules.OracleSnapPerm, bool) {
 	if len(res.Snapshots) == 0 {
 		return rules.OracleSnapPerm{}, false
 	}
@@ -166,7 +166,7 @@ func noCleanupDamageItem(reg *cards.Registry, f *cards.Face, name string, req le
 	if !ok || len(cres.Fails) != 0 {
 		return skip(fmt.Sprintf("control does not replay (ok=%v fails=%v)", ok, cres.Fails))
 	}
-	cp, ok := permByName(cres, noCleanupBlocker)
+	cp, ok := permByNameIn(cres, noCleanupBlocker)
 	if !ok || cp.Damage != 0 {
 		return skip(fmt.Sprintf("control damage is not cleared by cleanup (damage %d)", cp.Damage))
 	}
@@ -177,7 +177,7 @@ func noCleanupDamageItem(reg *cards.Registry, f *cards.Face, name string, req le
 	if !ok || len(res.Fails) != 0 {
 		return skip(fmt.Sprintf("observation does not replay (ok=%v fails=%v)", ok, res.Fails))
 	}
-	op, ok := permByName(res, name)
+	op, ok := permByNameIn(res, name)
 	if !ok || op.Damage != 2 {
 		return skip(fmt.Sprintf("the card's damage is not marked across cleanup (damage %d)", op.Damage))
 	}
@@ -368,7 +368,7 @@ func cantPutCounterItem(reg *cards.Registry, f *cards.Face, name string, req lev
 	}
 	probeMana := "WW"
 	countersOf := func(res rules.OracleResult) int32 {
-		p, ok := permByName(res, host)
+		p, ok := permByNameIn(res, host)
 		if !ok {
 			return -1
 		}

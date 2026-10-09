@@ -71,7 +71,7 @@ func cantPreventDamageItem(reg *cards.Registry, f *cards.Face, name string, req 
 		return skip(fmt.Sprintf("control does not replay (ok=%v fails=%v)", ok, cres.Fails))
 	}
 	if !combat {
-		cp, ok := permByName(cres, preventVictim)
+		cp, ok := permByNameIn(cres, preventVictim)
 		if !ok || cp.Damage != 0 {
 			return skip(fmt.Sprintf("control does not show the damage prevented (damage %d)", cp.Damage))
 		}
@@ -86,7 +86,7 @@ func cantPreventDamageItem(reg *cards.Registry, f *cards.Face, name string, req 
 		return skip(fmt.Sprintf("observation does not replay (ok=%v fails=%v)", ok, res.Fails))
 	}
 	if !combat {
-		op, ok := permByName(res, preventVictim)
+		op, ok := permByNameIn(res, preventVictim)
 		if !ok || op.Damage != 2 {
 			return skip(fmt.Sprintf("the damage did not land with the card on the battlefield (damage %d)", op.Damage))
 		}
@@ -233,7 +233,7 @@ func manaConvertAbilityItem(reg *cards.Registry, f *cards.Face, name string, req
 		{Op: "resolve"},
 	}
 	granted := func(res rules.OracleResult) bool {
-		p, ok := permByName(res, manaConvertAbilityProbe)
+		p, ok := permByNameIn(res, manaConvertAbilityProbe)
 		if !ok {
 			return false
 		}
