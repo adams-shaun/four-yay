@@ -208,8 +208,22 @@ func castWithProbes(reg *cards.Registry, f *cards.Face, name, mana string, slots
 							sc, res = yes, res2
 						}
 					}
+					// A declined hidden search or exile-look pick: re-run taking
+					// the first eligible card, so XMage's mandatory
+					// TargetCardInLibrary / TargetCardInExile ask is answered
+					// with a card instead of the skip it rejects.
+					forced := false
+					if search, changed := oraclegen.SearchPicks(sc, res.Decisions); changed {
+						if res2, ok2 := oraclegen.PlaysThrough(reg, search); ok2 {
+							sc, res = search, res2
+							forced = true
+						}
+					}
 					it.Scenario = sc
 					it.XAnswers = oraclegen.XAnswersForScenario(res, sc, oraclegen.ModeNumbers(f), castSteps)
+					if forced {
+						it.XAnswers = oraclegen.RetargetForcedLookPicks(it.XAnswers, res.Decisions)
+					}
 					if len(stackIdx) == 0 {
 						// A stack slot shifts the fixture's slot indices, so the
 						// explicit-skip plan covers plain slot lists only.

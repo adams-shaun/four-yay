@@ -162,7 +162,17 @@ func MayYes(sc Scenario, ds []rules.OracleDecision) (Scenario, bool) { return ma
 
 // SearchPicks re-scripts a declined mandatory hidden library search to take
 // its first eligible card, so gorge and XMage find the same card.
-func SearchPicks(sc Scenario, ds []rules.OracleDecision) (Scenario, bool) { return searchPicks(sc, ds) }
+func SearchPicks(sc Scenario, ds []rules.OracleDecision) (Scenario, bool) {
+	return searchPicks(sc, ds, false)
+}
+
+// SearchPicksFromLook is SearchPicks plus the declined two-option
+// exile/library look ask (the serving template proves the card carries the
+// look): gorge is forced to take the first looked-at card, because XMage
+// poses that ask as a mandatory TargetCardInExile that rejects the skip.
+func SearchPicksFromLook(sc Scenario, ds []rules.OracleDecision) (Scenario, bool) {
+	return searchPicks(sc, ds, true)
+}
 
 // PlaysThrough replays sc and reports whether gorge performed every step
 // and ended with an empty stack.
