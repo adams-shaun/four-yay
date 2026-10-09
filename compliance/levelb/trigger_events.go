@@ -100,7 +100,7 @@ func classifyEventTrigger(t *cards.Trigger) (sub string, ok bool) {
 			return ClassLevelGainedSub, true
 		}
 	}
-	return "", false
+	return classifySacrificeTrigger(t)
 }
 
 // selfCastTrigger reports the narrow self-cast shape that the level-A
