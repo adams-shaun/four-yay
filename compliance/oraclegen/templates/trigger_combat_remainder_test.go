@@ -15,28 +15,35 @@ import (
 
 func TestCombatRemainderTriggerRecipes(t *testing.T) {
 	reg := loadGenRegistry(t)
-	for _, tc := range []struct{ name, key, sub, slot string }{
-		{"Assimilation Aegis", "trigger#0.1", "trigger.attached", "1"},
-		{"Enormous Energy Blade", "trigger#0.0", "trigger.attached", "0"},
-		{"Inchblade Companion", "trigger#0.0", "trigger.attached", "0"},
-		{"Bramble Elemental", "trigger#0.0", "trigger.attached", "0"},
-		{"Brood Keeper", "trigger#0.0", "trigger.attached", "0"},
-		{"Siona, Captain of the Pyleas", "trigger#0.1", "trigger.attached", "1"},
-		{"The Millennium Calendar", "trigger#0.0", "trigger.untap-all", "0"},
-		{"Magmatic Galleon", "trigger#0.1", "trigger.excess-damage", "1"},
-		{"Tomik, Wielder of Law", "trigger#0.0", "trigger.opponent-attacks", "0"},
-		{"Party Dude", "trigger#0.2", "trigger.attacks-opponent", "2"},
-		{"Spider-Mobile", "trigger#0.1", "trigger.blocks-vehicle", "1"},
-		{"Gideon the Oathless", "trigger#0.1", "trigger.ability-activated-opponent", "1"},
-		{"Firebender Ascension", "trigger#0.1", "trigger.ability-triggered", "1"},
-		{"Case File Auditor", "trigger#0.1", "trigger.case-solved", "1"},
+	for _, tc := range []struct{ name, key, sub, slot, faceName string }{
+		{"Assimilation Aegis", "trigger#0.1", "trigger.attached", "1", ""},
+		{"Enormous Energy Blade", "trigger#0.0", "trigger.attached", "0", ""},
+		{"Inchblade Companion", "trigger#0.0", "trigger.attached", "0", ""},
+		{"Bramble Elemental", "trigger#0.0", "trigger.attached", "0", ""},
+		{"Brood Keeper", "trigger#0.0", "trigger.attached", "0", ""},
+		{"Siona, Captain of the Pyleas", "trigger#0.1", "trigger.attached", "1", ""},
+		{"The Millennium Calendar", "trigger#0.0", "trigger.untap-all", "0", ""},
+		{"Magmatic Galleon", "trigger#0.1", "trigger.excess-damage", "1", ""},
+		{"Tomik, Wielder of Law", "trigger#0.0", "trigger.opponent-attacks", "0", ""},
+		{"Party Dude", "trigger#0.2", "trigger.attacks-opponent", "2", ""},
+		{"Spider-Mobile", "trigger#0.1", "trigger.blocks-vehicle", "1", ""},
+		{"Gideon the Oathless", "trigger#0.1", "trigger.ability-activated-opponent", "1", ""},
+		{"Firebender Ascension", "trigger#0.1", "trigger.ability-triggered", "1", ""},
+		{"Case File Auditor", "trigger#0.1", "trigger.case-solved", "1", ""},
+		// Unstable Glyphbridge's back-face trigger, served since
+		// agent-20261009T174731Z-42d5e0f4 read the dotless
+		// `Player.Opponent+Active` clause: the cause is a main1@p1 pass and
+		// p1's own cast. The permanent stands on its back face, so the stack
+		// entry's source is reported under "Sandswirl Wanderglyph"
+		// (rules/oracle_snapshot.go stackSourceRef); the row carries it.
+		{"Unstable Glyphbridge", "trigger#1.0", "trigger.spell-cast-opponent-active", "0", "Sandswirl Wanderglyph"},
 	} {
 		t.Run(tc.name+"/"+tc.key, func(t *testing.T) {
 			it := triggerRequirement(t, reg, tc.name, tc.key, tc.sub)
 			if res, ok := oraclegen.PlaysThrough(reg, it.Scenario); !ok || len(res.Fails) != 0 {
 				t.Fatalf("does not play through gorge: ok=%v fails=%v", ok, res.Fails)
 			}
-			if !combatRemainderOnStack(t, reg, it.Scenario, tc.name, tc.slot) {
+			if !combatRemainderOnStack(t, reg, it.Scenario, tc.name, tc.slot, tc.faceName) {
 				t.Fatalf("%s's trigger never appears on stack: %+v", tc.name, it.Scenario.Steps)
 			}
 		})
@@ -46,8 +53,10 @@ func TestCombatRemainderTriggerRecipes(t *testing.T) {
 // combatRemainderOnStack replays the item with the cause steps (trailing
 // resolves dropped: a resolve op empties the stack, spending the trigger it
 // was meant to expose) and with one pass round appended, and reports whether
-// any snapshot shows the row's own trigger on the stack.
-func combatRemainderOnStack(t *testing.T, reg *cards.Registry, sc oraclegen.Scenario, name, slot string) bool {
+// any snapshot shows the row's own trigger on the stack. extra names are
+// additional source-name prefixes a row's stack entry may report (a back-face
+// source reports under its own face's name).
+func combatRemainderOnStack(t *testing.T, reg *cards.Registry, sc oraclegen.Scenario, name, slot string, extra ...string) bool {
 	t.Helper()
 	cause := sc.Steps
 	for len(cause) > 0 && cause[len(cause)-1].Op == "resolve" {
@@ -58,9 +67,13 @@ func combatRemainderOnStack(t *testing.T, reg *cards.Registry, sc oraclegen.Scen
 		cause,
 		append(append([]oraclegen.Step(nil), cause...), passes...),
 	}
+	wants := append([]string{strings.ToLower(name)}, extra...)
+	for i := range wants {
+		wants[i] = strings.ToLower(wants[i])
+	}
 	for _, steps := range variants {
 		res := runSteps(t, reg, sc, steps)
-		if abilityOnStack(res.Snapshots, []string{strings.ToLower(name)}, slot) {
+		if abilityOnStack(res.Snapshots, wants, slot) {
 			return true
 		}
 	}
@@ -126,9 +139,20 @@ func TestCombatRemainderCauseDetails(t *testing.T) {
 	if len(gideon.Scenario.Setup["p1"].Battlefield) == 0 {
 		t.Fatalf("Gideon has no planeswalker on p1's battlefield: %+v", gideon.Scenario.Setup["p1"])
 	}
-	// Unstable Glyphbridge's back-face trigger needs p1 active before its cast.
-	// (Left a gap: the engine's player-spec grammar fails Player.Opponent+Active
-	// closed, so no cause can fire it.)
+	// Unstable Glyphbridge's back-face trigger is served now
+	// (agent-20261009T174731Z-42d5e0f4 read the dotless
+	// `Player.Opponent+Active` clause): the cause passes to p1's main phase
+	// and p1 casts there -- the opponent casts during its OWN turn, so no
+	// extra pass is needed.
+	glb := triggerRequirement(t, reg, "Unstable Glyphbridge", "trigger#1.0", "trigger.spell-cast-opponent-active")
+	glbPasses := step(glb, "pass_to")
+	if len(glbPasses) != 1 || glbPasses[0].Step != "main1" || glbPasses[0].Active != "p1" {
+		t.Fatalf("Glyphbridge pass_to = %+v, want exactly main1@p1", glbPasses)
+	}
+	glbCasts := step(glb, "cast")
+	if len(glbCasts) != 1 || glbCasts[0].Seat != 1 || !strings.HasPrefix(glbCasts[0].Card, "p1:") {
+		t.Fatalf("Glyphbridge cast = %+v, want one p1 cast", glbCasts)
+	}
 	// The untap cause taps a probe with the tap spell and waits for p0's next
 	// untap step.
 	cal := triggerRequirement(t, reg, "The Millennium Calendar", "trigger#0.0", "trigger.untap-all")

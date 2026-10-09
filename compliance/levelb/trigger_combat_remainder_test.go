@@ -69,6 +69,19 @@ func TestCombatRemainderClassification(t *testing.T) {
 			t.Fatalf("classification = %+v, want the gap trigger.gap:Attached", got)
 		}
 	})
+	// The opponent-active cast shape is served now: agent-20261009T174731Z-
+	// 42d5e0f4 read the dotless `+` clause, and its cast-family cause passes
+	// to p1's main phase and casts there.
+	t.Run("opponent-active cast serves", func(t *testing.T) {
+		f := &cards.Face{
+			Types:    []string{"Artifact"},
+			Triggers: []cards.Trigger{trig("SpellCast", map[string]string{"ValidActivatingPlayer": "Player.Opponent+Active", "ValidCard": "Card"})},
+		}
+		got := Requirements(cardOf(f))
+		if len(got) != 1 || got[0].Sub != "trigger.spell-cast-opponent-active" || got[0].Gap != "" {
+			t.Fatalf("classification = %+v, want one uncovered trigger.spell-cast-opponent-active requirement", got)
+		}
+	})
 	for _, tc := range []struct {
 		name, mode string
 		types      []string
@@ -77,7 +90,6 @@ func TestCombatRemainderClassification(t *testing.T) {
 	}{
 		{"an Aura with no bearer filter (Eriette)", "Attached", creature, map[string]string{"ValidSource": "Aura.YouCtrl"}, "trigger.gap:Attached"},
 		{"a Static attached line", "Attached", equipment, map[string]string{"ValidSource": "Card.Self", "ValidTarget": "Creature", "Static": "True"}, "trigger.gap:Attached"},
-		{"an opponent-active cast", "SpellCast", creature, map[string]string{"ValidActivatingPlayer": "Player.Opponent+Active", "ValidCard": "Card"}, "trigger.gap:SpellCast"},
 		{"an opponent attacks another opponent", "AttackersDeclared", creature, map[string]string{"AttackingPlayer": "Player.Opponent", "AttackedTarget": "Opponent"}, "trigger.gap:AttackersDeclared"},
 		{"combat excess damage", "ExcessDamageAll", creature, map[string]string{"ValidTarget": "Creature.OppCtrl", "CombatDamage": "True"}, "trigger.gap:ExcessDamageAll"},
 		{"a non-Vehicle blocks itself", "Blocks", []string{"Artifact"}, map[string]string{"ValidCard": "Card.Self"}, "trigger.gap:Blocks"},

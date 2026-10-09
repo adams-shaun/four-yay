@@ -15,6 +15,7 @@ func TestCastFamilyClassification(t *testing.T) {
 		{"own spell", "SpellCast", map[string]string{"ValidActivatingPlayer": "You"}, "trigger.spell-cast"},
 		{"unqualified spell", "SpellCast", nil, "trigger.spell-cast"},
 		{"opponent spell", "SpellCast", map[string]string{"ValidActivatingPlayer": "Opponent", "ValidCard": "Card.cmcLE2"}, "trigger.spell-cast-opponent"},
+		{"opponent active cast", "SpellCast", map[string]string{"ValidActivatingPlayer": "Player.Opponent+Active", "ValidCard": "Card"}, "trigger.spell-cast-opponent-active"},
 		{"opponent ownership condition remains a named skip", "SpellCast", map[string]string{"ValidActivatingPlayer": "Opponent", "ValidCard": "Card.YouDontOwn"}, "trigger.spell-cast-opponent"},
 		{"self spell", "SpellCast", map[string]string{"ValidCard": "Card.Self", "Execute": "TrigDraw"}, "trigger.spell-cast-self-cast"},
 		{"own crime", "CommitCrime", map[string]string{"ValidPlayer": "You"}, "trigger.commit-crime"},

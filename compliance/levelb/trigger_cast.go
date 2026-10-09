@@ -32,12 +32,14 @@ func classifyCastTrigger(f *cards.Face, t *cards.Trigger) (sub string, ok bool) 
 				return "trigger.spell-cast-opponent-turn", true
 			}
 			return "trigger.spell-cast", true
+		case "player.opponent+active":
+			// agent-20261009T174731Z-42d5e0f4: "an opponent casts a spell
+			// during their turn" (Unstable Glyphbridge's back face). The
+			// engine's player-spec grammar now reads the dotless `Active`
+			// clause, so its own cast-family cause passes to p1's main
+			// phase and p1 casts there.
+			return "trigger.spell-cast-opponent-active", true
 		case "opponent", "player.opponent", "player.nonactive", "opponent.nonactive":
-			// Player.Opponent+Active ("an opponent casts a spell during
-			// their turn", Unstable Glyphbridge's back face) is NOT here:
-			// the engine's player-spec grammar fails a bare qualifier after
-			// `+` closed, so the matcher cannot fire it; it stays a gap
-			// until that grammar reads it (see the ticket report).
 			return "trigger.spell-cast-opponent", true
 		}
 	case cards.TriggerCommitCrime:
