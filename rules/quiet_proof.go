@@ -321,16 +321,29 @@ func continuousMintsCostStatic(ce *ContinuousEffect) bool {
 }
 
 // quietActiveKWGrantBlocker reports whether an active AddKeyword$ head can
-// open an offer: one of the four expanded keyword heads, or Flash (which
-// makes a non-instant castable at instant speed, a widening the proof's
-// printed-Flash-only classifier would miss).
+// open an offer the proof's printed-face classifiers would miss: one of the
+// four expanded keyword heads, Flash (which makes a non-instant castable at
+// instant speed), or any head in quietCastOpenHeads -- a granted Convoke,
+// Delve, Improvise, Offspring, ... reaches the cast spell through the walk's
+// DERIVED reads (castOfferBase's hasCastConvoke/hasCastImprovise, the
+// blitz/sneak/web-slinging/offspring cost readers), so the per-face castOpen
+// classifier, which reads the printed face, would call the window quiet while
+// the walk offers a cheaper or alternative-timing cast.
 func quietActiveKWGrantBlocker(head string) bool {
 	for _, hd := range grantedKWHeads {
 		if strings.EqualFold(head, hd.S) {
 			return true
 		}
 	}
-	return strings.EqualFold(head, "Flash")
+	if strings.EqualFold(head, "Flash") {
+		return true
+	}
+	for _, h := range quietCastOpenHeads {
+		if strings.EqualFold(head, h) {
+			return true
+		}
+	}
+	return false
 }
 
 // quietManaCeiling returns the seat's mana ceiling, whether it is unbounded

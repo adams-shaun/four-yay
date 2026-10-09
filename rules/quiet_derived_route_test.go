@@ -113,6 +113,50 @@ func TestQuietDerivedHandRouteBlocksGrantedForetell(t *testing.T) {
 	}
 }
 
+// quietConvokeGrantSrc is a battlefield static that grants Convoke to a
+// spell its owner controls as it is cast (the Inspiring Statuary / Chief
+// Engineer shape, without a wasCast predicate so it reaches the hand card
+// under the walk's stack-zone override).
+const quietConvokeGrantSrc = "Name:Quiet Convoke Grant\nTypes:Artifact\n" +
+	"S:Mode$ Continuous | Affected$ Card.YouOwn+nonLand | AffectedZone$ Stack | AddKeyword$ Convoke | Description$ x\n" +
+	"Oracle:x\n"
+
+// TestQuietDerivedGrantedCastOpenKeywordBlocks is the same class in the SPELL
+// classifier: a {5} sorcery in hand with no printed Convoke, granted one by a
+// layer-6 static, is offered by the walk (castOfferBase credits the derived
+// Convoke) while the printed-only castOpen classifier prices it at its {5}
+// floor. The proof must block at the board flag (qbBoardKeyword), not call the
+// window quiet.
+func TestQuietDerivedGrantedCastOpenKeywordBlocks(t *testing.T) {
+	reg := testutil.CorpusRegistry(t)
+	big := card(t, "Name:Quiet Big\nManaCost:5\nTypes:Sorcery\nA:SP$ Draw | NumCards$ 1\nOracle:x\n")
+	scout := card(t, "Name:Quiet Scout\nManaCost:G\nTypes:Creature Scout\nPT:1/1\nOracle:x\n")
+	grant := card(t, quietConvokeGrantSrc)
+	extras := []*cards.Card{grant, big, scout, scout, scout, scout, scout}
+	e := quietBaseWith(t, reg, extras)
+	addZone(t, e, 0, grant, state.ZBattlefield)
+	for i := 0; i < 5; i++ {
+		addZone(t, e, 0, scout, state.ZBattlefield)
+	}
+	id := addHand(t, e, 0, big)
+	// Precondition: the face does not print Convoke, but the derived cast
+	// carries it -- so the printed-only classifier prices the {5} floor.
+	if e.G.Obj(id).Face().HasKeyword("Convoke") {
+		t.Fatal("precondition: Quiet Big prints Convoke")
+	}
+	if !e.hasCastConvoke(id) {
+		t.Fatal("precondition: the layer-6 Convoke grant did not reach the hand card")
+	}
+	if got := e.quietBlocker(0); got != qbBoardKeyword {
+		t.Fatalf("quietBlocker = %s, want %s (the granted castOpen keyword must block)",
+			quietBlockerNames[got], quietBlockerNames[qbBoardKeyword])
+	}
+	e.priorityRound()
+	if !hasCastOption(e.legalActions(0), id) {
+		t.Fatalf("the walk did not offer the granted-convoke cast: %v", optKinds(e.legalActions(0)))
+	}
+}
+
 // hasMode reports whether opts contains a cast option with the given mode.
 func hasMode(opts []decision.Option, mode string) bool {
 	for i := range opts {
