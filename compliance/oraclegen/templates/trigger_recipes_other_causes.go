@@ -138,7 +138,7 @@ func cycledTriggerRecipe(f *cards.Face, name string) ([]triggerCause, string) {
 		if !sa.IsActivated() || !strings.HasPrefix(strings.ToLower(sa.ParamStr(cards.PKKeyword)), "cycling") {
 			continue
 		}
-		pool, gap := activationCostIn(sa.ParamStr(cards.PKCost), "hand")
+		pool, gap := activationCostIn(sa.ParamStr(cards.PKCost), "hand", name)
 		if gap != "" {
 			return nil, "cycling cost gap: " + gap
 		}

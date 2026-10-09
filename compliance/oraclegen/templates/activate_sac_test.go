@@ -119,12 +119,12 @@ func TestActivateSacFixtureAndAnswerShareTheTable(t *testing.T) {
 			t.Fatalf("sacFilterFixture(%q) = (%q, %v), want (%q, true)", tc.cost, got, ok, tc.fixture)
 		}
 		var p0 oraclegen.Seat
-		addActivationCostFixtures(&p0, tc.cost)
+		addActivationCostFixtures(&p0, "", tc.cost)
 		if len(p0.Battlefield) != 1 || p0.Battlefield[0] != tc.fixture {
 			t.Fatalf("addActivationCostFixtures(%q) battlefield = %v, want [%s]", tc.cost, p0.Battlefield, tc.fixture)
 		}
 		answers := make([][]oraclegen.XAnswer, 1)
-		addActivationCostAnswers(answers, 0, tc.cost, nil)
+		addActivationCostAnswers(answers, 0, tc.cost, "", nil)
 		matches := 0
 		for _, answer := range answers[0] {
 			if answer.Kind == "choice" && strings.EqualFold(answer.Value, tc.fixture) {
@@ -148,7 +148,7 @@ func TestActivateSacSelfAndNICKNAME(t *testing.T) {
 			t.Fatalf("sacFilterFixture(%q) returned a fixture for a self-sacrifice", cost)
 		}
 		var p0 oraclegen.Seat
-		addActivationCostFixtures(&p0, cost)
+		addActivationCostFixtures(&p0, "", cost)
 		if len(p0.Battlefield) != 0 {
 			t.Fatalf("addActivationCostFixtures(%q) added %v for a self-sacrifice", cost, p0.Battlefield)
 		}
@@ -168,8 +168,11 @@ func TestActivateSacGapClasses(t *testing.T) {
 		{"Sac<3/Artifact.token+WithDifferentNames/artifact tokens with different names>", "Sac<token>"},
 		{"Sac<1/Permanent.token+namedWood/token named Wood>", "Sac<token>"},
 		{"Sac<1/Blood>", "Sac<unsupported-filter>"},
-		{"Sac<1/Equipment.Attached/an Equipment attached to NICKNAME>", "Sac<attached>"},
-		{"Sac<1/Aura.Attached>", "Sac<attached>"},
+		// An Aura or Equipment attached to the source is served (commit
+		// 07bf9d1b0 places the attached permanent and answers the sacrifice
+		// ask), so neither is a named gap any more.
+		{"Sac<1/Equipment.Attached/an Equipment attached to NICKNAME>", ""},
+		{"Sac<1/Aura.Attached>", ""},
 		// A count above the distinct fixtures the table names.
 		{"Sac<4/Artifact>", "Sac<count>"},
 		{"Sac<7/Creature.Other/other creatures>", "Sac<count>"},

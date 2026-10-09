@@ -69,6 +69,7 @@ import (
 // and ticket agent-20261006T052735Z-5c29adb5 then removes the cast from the
 // game (see the 12468 entry above), so the seed's pin is now empty.
 func TestRoundTenFindingsMirror(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	d, err := LoadDecks(reg)
 	if err != nil {

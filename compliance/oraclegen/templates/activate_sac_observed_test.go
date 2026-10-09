@@ -28,7 +28,7 @@ func TestActivateSacAnswersUseObservedPick(t *testing.T) {
 		PickKinds: []string{"permanent", "sacrifice"},
 	}
 	answers := make([][]oraclegen.XAnswer, 1)
-	addActivationCostAnswers(answers, 0, cost, []rules.OracleDecision{observed})
+	addActivationCostAnswers(answers, 0, cost, "", []rules.OracleDecision{observed})
 	if len(answers[0]) != 1 || answers[0][0].Kind != "choice" || answers[0][0].Value != "Kingpin's Enforcers" {
 		t.Fatalf("XMage answers = %+v, want exactly the observed sacrifice", answers[0])
 	}

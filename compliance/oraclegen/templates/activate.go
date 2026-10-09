@@ -68,11 +68,19 @@ func activateAbility(reg *cards.Registry, f *cards.Face, name string, req levelb
 		return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: "activate xmage text ambiguous"}
 	}
 	zone := activationZone(req.Sub)
-	pool, gap := activationCostIn(sa.ParamStr(cards.PKCost), zone)
+	pool, gap := activationCostIn(sa.ParamStr(cards.PKCost), zone, name, saXMin(sa))
 	if gap != "" {
 		return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: "activate cost gap: " + gap}
 	}
 	slots := oraclegen.AbilitySlotSpecs(f, sa)
+	// TargetsWithSameCreatureType$ (Secret Tunnel's "two target creatures you
+	// control that share a creature type"): the fixture pair must share a
+	// creature type, which the generic creature stand-ins never do. Mark the
+	// slots so candidatesFor serves a matched same-subtype pair.
+	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKTargetsWithSameCreatureType)), "True") {
+		slots = markSameTypePairSlots(slots)
+	}
+	stackTargets := stackTargetRefs(sa, f, name, slots)
 	for _, sl := range slots {
 		// "Target creature that attacked this turn" needs a combat prelude
 		// (attack, then back to a main phase for a sorcery-speed ability)
@@ -88,7 +96,7 @@ func activateAbility(reg *cards.Registry, f *cards.Face, name string, req levelb
 	// a failure is reported as a known restriction rather than the generic
 	// no-fixture reason.
 	restriction, gap := activateRestriction(reg, f, name, sa)
-	it, ok := activateWith(reg, f, name, req, idx, prefix, pool, sa.ParamStr(cards.PKCost), zone, slots, restriction, abilityStackPlanOf(reg, sa, slots))
+	it, ok := activateWith(reg, f, name, req, idx, prefix, pool, sa.ParamStr(cards.PKCost), zone, slots, restriction, stackTargets, abilityStackPlanOf(reg, sa, slots))
 	if !ok {
 		if oraclegen.HasType(f, "Aura") {
 			// An Aura's ability is offered only while it is attached; this
@@ -105,17 +113,67 @@ func activateAbility(reg *cards.Registry, f *cards.Face, name string, req levelb
 	return it, nil
 }
 
+// markSameTypePairSlots marks every slot's filter with sameTypePairMarker for
+// an ability whose TargetsWithSameCreatureType$ demands a matched pair; the
+// marker rides before any '@zone' suffix so the zone extraction stays intact.
+func markSameTypePairSlots(slots []oraclegen.Slot) []oraclegen.Slot {
+	out := make([]oraclegen.Slot, len(slots))
+	for i, s := range slots {
+		if j := strings.IndexByte(s.Filter, '@'); j >= 0 {
+			s.Filter = s.Filter[:j] + "+" + oraclegen.SameTypePairMarker + s.Filter[j:]
+		} else {
+			s.Filter = s.Filter + "+" + oraclegen.SameTypePairMarker
+		}
+		out[i] = s
+	}
+	return out
+}
+
+// stackTargetRefs names the ref the stack slot's precast spell aims at: an
+// ability whose TargetValidTargeting$ gate reads the held spell's own targets
+// (Fugitive Droid's "Counter target spell that targets an artifact or
+// creature you control") is offered only when the precast targets one of our
+// battlefield permanents. Some alternative in the gate must name a YouCtrl
+// Artifact or Creature for the source to satisfy it (it is on the
+// battlefield); any other shape fails closed (nil), keeping the untargeted
+// precast the only fixture.
+func stackTargetRefs(sa *cards.SA, f *cards.Face, name string, slots []oraclegen.Slot) []string {
+	stacked := false
+	for _, sl := range slots {
+		if oraclegen.SlotIsStack(sl.Filter) {
+			stacked = true
+		}
+	}
+	gate := strings.TrimSpace(sa.ParamStr(cards.PKTargetValidTargeting))
+	if !stacked || gate == "" {
+		return nil
+	}
+	for _, alt := range strings.Split(gate, ",") {
+		alt = strings.ToLower(strings.TrimSpace(alt))
+		base := strings.SplitN(alt, ".", 2)[0]
+		has := (base == "artifact" && oraclegen.HasType(f, "Artifact")) ||
+			(base == "creature" && oraclegen.HasType(f, "Creature"))
+		if has && strings.Contains(alt, "youctrl") {
+			return []string{"p0:" + name}
+		}
+	}
+	return nil
+}
+
 // activateWith tries every fixture for the ability's target plan and returns
 // the named level-B item. A restriction names the extra setup the ability's
 // offer gates need; the bare scenario is tried first, then the restricted
 // one. A non-nil plan is the ability-stack target shape (the probe prelude,
 // activate_ability_stack.go), served apart from the ordinary cross product.
-func activateWith(reg *cards.Registry, f *cards.Face, name string, req levelb.Requirement, idx int, prefix, mana, cost, zone string, slots []oraclegen.Slot, restrictions []conditionPrelude, plan *abilityStackPlan) (oraclegen.Item, bool) {
+func activateWith(reg *cards.Registry, f *cards.Face, name string, req levelb.Requirement, idx int, prefix, mana, cost, zone string, slots []oraclegen.Slot, restrictions []conditionPrelude, stackTargets []string, plan *abilityStackPlan) (oraclegen.Item, bool) {
 	if plan != nil {
 		return activateWithAbilityStack(reg, f, name, req, idx, prefix, mana, cost, zone, slots, restrictions, plan)
 	}
 	preludes := withTokenCostPrelude(reg, cost, append([]conditionPrelude{{}}, restrictions...))
-	for _, fx := range oraclegen.Fixtures(reg, slots) {
+	// Stack slots are served here by a prelude cast the scenario holds at
+	// this step's priority; every other template family keeps the plain
+	// fixtures, whose stack slots stay the caller's own precast.
+	for _, fx := range oraclegen.FixturesServingStack(reg, slots, stackTargets...) {
 		for _, pre := range preludes {
 			it, ok := activateWithFixture(reg, f, name, req, idx, prefix, mana, cost, zone, fx, pre, slots, nil)
 			if ok {
@@ -143,10 +201,21 @@ func activateWithFixture(reg *cards.Registry, f *cards.Face, name string, req le
 	default:
 		p0.Battlefield = appendFixtureUnique(p0.Battlefield, name)
 	}
-	addActivationCostFixtures(&p0, cost)
-	addActivationCounterFixtures(&p0, name, cost)
-	if extra := loyaltyHeadroom(f, f.Abilities[idx]); extra > 0 {
-		p0 = oraclegen.WithCounters(p0, name, "LOYALTY", int32(extra))
+	x := activationX(cost, saXMin(f.Abilities[abilityIndex]))
+	addActivationCostFixtures(&p0, name, cost, x)
+	addActivationCounterFixtures(&p0, f, name, cost)
+	etbCostGuardFixtures(&p0, f, cost, x)
+	if need := loyaltySetupCounters(f, f.Abilities[idx], zone); need > 0 {
+		p0 = oraclegen.WithCounters(p0, name, "LOYALTY", int32(need))
+	}
+	if zone == "battlefield" {
+		// A source whose printed toughness is zero or less dies the moment
+		// it is placed (Marketback Walker is a 0/0 whose X +1/+1 entry
+		// counters read X=0 at setup); seed one +1/+1 counter per missing
+		// point of toughness so the activation can be probed at all.
+		if t, ok := printedToughness(f); ok && t <= 0 {
+			p0 = oraclegen.WithCounters(p0, name, "P1P1", int32(1-t))
+		}
 	}
 	p0, restrictSteps := applyActivationPrelude(p0, name, pre)
 	// The fixture's own prelude (a token made, an Aura attached) runs first
@@ -155,9 +224,19 @@ func activateWithFixture(reg *cards.Registry, f *cards.Face, name string, req le
 	// attacking creature you control") has that creature declared attacking
 	// before the activation, which then happens in combat.
 	fxPre, combat := fx.Prelude(), fx.CombatSteps()
-	prelude := make([]oraclegen.Step, 0, len(fxPre)+len(restrictSteps)+len(combat))
+	costAttach := sacAttachSteps(name, cost, zone)
+	sourceAttach := auraSourceAttach(f, name, zone, &p0)
+	prelude := make([]oraclegen.Step, 0, len(fxPre)+len(restrictSteps)+len(costAttach)+len(sourceAttach)+len(combat)+1)
+	if isLoyaltyCost(cost) {
+		// CR 606.3: a loyalty ability needs an empty stack. The setup can
+		// leave the source's own entry trigger pending (Oko, Lorwyn Liege's
+		// transform enters trigger); one resolve step empties it.
+		prelude = append(prelude, oraclegen.Step{Op: "resolve"})
+	}
+	prelude = append(prelude, sourceAttach...)
 	prelude = append(prelude, fxPre...)
 	prelude = append(prelude, restrictSteps...)
+	prelude = append(prelude, costAttach...)
 	if plan != nil {
 		// The ability prelude leaves the probe ability pending on the stack;
 		// the ability under test (the last activate step) targets it.
@@ -174,7 +253,7 @@ func activateWithFixture(reg *cards.Registry, f *cards.Face, name string, req le
 	steps = append(steps, oraclegen.Step{
 		Op: "activate", Seat: 0, Card: "p0:" + name,
 		Mana: mana, Targets: targets, AbilityIndex: &abilityIndex,
-		Answers: activationXAnswers(cost),
+		Answers: activationXAnswers(cost, x),
 	})
 	sc := oraclegen.Scenario{
 		Setup:        map[string]oraclegen.Seat{"p0": p0, "p1": *fx.P1()},
@@ -230,7 +309,7 @@ func activateWithFixture(reg *cards.Registry, f *cards.Face, name string, req le
 	// activation, before any choices made by the resolving ability (such as
 	// the colour of mana it produces).
 	costAnswerStart := len(it.XAnswers[activateStep])
-	addActivationCostAnswers(it.XAnswers, activateStep, cost, res.Decisions)
+	addActivationCostAnswers(it.XAnswers, activateStep, cost, name, res.Decisions, x)
 	costAnswers := append([]oraclegen.XAnswer(nil), it.XAnswers[activateStep][costAnswerStart:]...)
 	it.XAnswers[activateStep] = append(costAnswers, it.XAnswers[activateStep][:costAnswerStart]...)
 	// The hoist above puts the cost picks first; a setup permanent's as-enters
@@ -255,16 +334,18 @@ func activateWithFixture(reg *cards.Registry, f *cards.Face, name string, req le
 	return it, true
 }
 
-// loyaltyHeadroom is how many loyalty counters the source needs at setup
-// beyond its printed loyalty for the ability to be activatable: a loyalty
-// cost can't be paid with too few counters (CR 606.6), so a minus ability
-// above the printed loyalty needs the difference, and an ultimate gated on
-// "N or more loyalty counters among <type>s you control" (Jace, Reality
-// Sculptor's CheckSVar$ Y | SVarCompare$ GE25 over
-// Count$Valid Jace.YouCtrl$CardCounters.LOYALTY) needs N on the source when
-// the source is of that type. Zero for a card without numeric printed
-// loyalty.
-func loyaltyHeadroom(f *cards.Face, sa *cards.SA) int {
+// loyaltySetupCounters is how many loyalty counters the source needs at
+// setup: a planeswalker on the battlefield carries only its printed loyalty
+// (the scenario mints it there; no engine adds counters for it), so the
+// printed count is the floor and a minus ability above it (or an ultimate
+// gated on "N or more loyalty counters among <type>s you control", Jace,
+// Reality Sculptor's CheckSVar$ Y | SVarCompare$ GE25) raises it. A card
+// without a numeric printed loyalty or activated away from the battlefield
+// (a hand/planeswalker channel) needs no counters.
+func loyaltySetupCounters(f *cards.Face, sa *cards.SA, zone string) int {
+	if zone != "battlefield" {
+		return 0
+	}
 	printed, err := strconv.Atoi(strings.TrimSpace(f.Loyalty))
 	if err != nil {
 		return 0
@@ -276,8 +357,68 @@ func loyaltyHeadroom(f *cards.Face, sa *cards.SA) int {
 			need = max(need, n)
 		}
 	}
-	need = max(need, loyaltyGate(f, sa))
-	return max(0, need-printed)
+	// The setup ADDS counters to the placed source, whose placement already
+	// gave it the printed loyalty: only the shortfall over the printed
+	// loyalty is seeded (a gate wants the source topped up to it, CR 606.6).
+	return max(0, max(need, loyaltyGate(f, sa))-printed)
+}
+
+// printedToughness is the face's printed toughness as an integer; ok is false
+// for a face without an integer "P/T" (an "X/X" or "*/*" creature).
+func printedToughness(f *cards.Face) (int, bool) {
+	_, tough, ok := strings.Cut(strings.TrimSpace(f.PT), "/")
+	if !ok {
+		return 0, false
+	}
+	t, err := strconv.Atoi(strings.TrimSpace(tough))
+	if err != nil {
+		return 0, false
+	}
+	return t, true
+}
+
+// isLoyaltyCost reports whether a Cost$ carries a loyalty counter part
+// (AddCounter<N/LOYALTY> or SubCounter<N/LOYALTY>): the ability is a
+// planeswalker's loyalty ability (CR 606.3).
+func isLoyaltyCost(cost string) bool {
+	for _, tok := range costTokens(cost) {
+		if loyaltyCounter(tok) {
+			return true
+		}
+	}
+	return false
+}
+
+// auraSourceAttach brings a battlefield Aura's source on attached, so the
+// Aura's own activated ability (offered only while attached) is offered at
+// the probe. An unattached Aura placed by the setup is swept to the graveyard
+// by the CR 704.5m state-based action before the first priority, so the
+// source enters by a real cast onto a bearer the prelude places instead: the
+// card moves to the hand and the prelude casts it (the same shape
+// enchantedCandidates uses), which attaches it as it enters. An Aura
+// activated from another zone, an unpriceable mana cost, or an ability of a
+// non-Aura adds none.
+func auraSourceAttach(f *cards.Face, name, zone string, p0 *oraclegen.Seat) []oraclegen.Step {
+	if zone != "battlefield" || !oraclegen.HasType(f, "Aura") {
+		return nil
+	}
+	mana, why := oraclegen.PoolFor(f.ManaCost)
+	if why != "" {
+		return nil
+	}
+	const bearer = "Hill Giant"
+	p0.Battlefield = appendFixtureUnique(p0.Battlefield, bearer)
+	for i, n := range p0.Battlefield {
+		if n == name {
+			p0.Battlefield = append(p0.Battlefield[:i], p0.Battlefield[i+1:]...)
+			break
+		}
+	}
+	p0.Hand = appendFixtureUnique(p0.Hand, name)
+	return []oraclegen.Step{
+		{Op: "cast", Seat: 0, Card: "p0:" + name, Mana: mana, Targets: []string{"p0:" + bearer}},
+		{Op: "resolve"},
+	}
 }
 
 // loyaltyGate reads an activation restriction counting loyalty counters
@@ -382,7 +523,8 @@ func bracketPayload(tok string) (string, bool) {
 
 // addActivationCostAnswers scripts XMage's cost selector with the same
 // deterministic fixture objects used by the engine-side payment path.
-func addActivationCostAnswers(answers [][]oraclegen.XAnswer, step int, cost string, decisions []rules.OracleDecision) {
+func addActivationCostAnswers(answers [][]oraclegen.XAnswer, step int, cost, name string, decisions []rules.OracleDecision, x ...int) {
+	xv := activationX(cost, x...)
 	if step < 0 || step >= len(answers) {
 		return
 	}
@@ -400,7 +542,39 @@ func addActivationCostAnswers(answers [][]oraclegen.XAnswer, step int, cost stri
 			}
 			picks = discardCostPlacement(tok)
 		case "ExileFromGrave", "ExileCtrlOrGrave", "CollectEvidence", "Exile":
-			picks = activationCostFixturesX(tok, activationX(cost))
+			picks = activationCostFixturesX(tok, xv)
+			if len(picks) == 0 {
+				if n, ok := namedSelfCount(tok, name, xv); ok {
+					for i := 0; i < n; i++ {
+						picks = append(picks, name)
+					}
+				}
+			}
+		case "Return":
+			// The engine's observed returncost pick is authoritative (a broad
+			// "tapped creature" filter can reach the fixture creature); the
+			// catalogue fixture is the fallback when the ask was answered
+			// before the decisions were recorded.
+			observed := false
+			for _, d := range decisions {
+				if d.Step != step || d.Seat != 0 || d.Kind != "choose_n" {
+					continue
+				}
+				for i, kind := range d.PickKinds {
+					if kind != "returncost" {
+						continue
+					}
+					observed = true
+					if i < len(d.Picks) {
+						picks = append(picks, observedCostPick(d, i))
+					}
+				}
+			}
+			if !observed {
+				if card := returnCreatureFixture(tok); card != "" {
+					picks = []string{card}
+				}
+			}
 		case "Sac":
 			// The engine's observed pick is authoritative. A broad filter can
 			// include the ability's source, so a catalogue fixture is not
@@ -423,8 +597,10 @@ func addActivationCostAnswers(answers [][]oraclegen.XAnswer, step int, cost stri
 			// A self-sacrifice is usually a singleton with no ask. For cases
 			// with no observed sacrifice decision, use the deterministic fixture.
 			if !observed {
-				if cards, ok := sacFilterFixtures(tok); ok {
+				if cards, ok := sacFilterFixtures(tok, xv); ok {
 					picks = cards
+				} else if card, ok := sacAttachedFixture(tok); ok {
+					picks = []string{card}
 				} else if needs, ok := tokenCostNeeds(tok); ok {
 					picks = tokenCostAnswerNames(needs)
 				}
@@ -492,7 +668,8 @@ func isColourName(v string) bool {
 // non-mana cost tokens. These are not choices: the shared runner makes the
 // deterministic legal selection, and XAnswersForScenario records that same
 // choice for XMage.
-func addActivationCostFixtures(p0 *oraclegen.Seat, cost string) {
+func addActivationCostFixtures(p0 *oraclegen.Seat, name, cost string, x ...int) {
+	xv := activationX(cost, x...)
 	for _, tok := range costTokens(cost) {
 		head := tok
 		if i := strings.IndexByte(tok, '<'); i >= 0 {
@@ -507,24 +684,42 @@ func addActivationCostFixtures(p0 *oraclegen.Seat, cost string) {
 				p0.Hand = appendFixtureUnique(p0.Hand, name)
 			}
 		case "ExileFromGrave", "ExileCtrlOrGrave", "CollectEvidence":
-			for _, name := range activationCostFixturesX(tok, activationX(cost)) {
-				p0.Graveyard = appendFixtureUnique(p0.Graveyard, name)
+			if n, ok := namedSelfCount(tok, name, xv); ok {
+				// The filter names the source itself (Say Its Name): the
+				// payment's fodder is n copies of the card, which appendFixtureUnique
+				// would collapse to one.
+				for i := 0; i < n; i++ {
+					p0.Graveyard = append(p0.Graveyard, name)
+				}
+				continue
+			}
+			for _, fixture := range activationCostFixturesX(tok, xv) {
+				p0.Graveyard = appendFixtureUnique(p0.Graveyard, fixture)
 			}
 		case "Exile":
-			for _, name := range activationCostFixturesX(tok, activationX(cost)) {
+			for _, name := range activationCostFixturesX(tok, xv) {
 				p0.Battlefield = appendFixtureUnique(p0.Battlefield, name)
+			}
+		case "Return":
+			if card := returnCreatureFixture(tok); card != "" {
+				p0.Battlefield = appendFixtureUnique(p0.Battlefield, card)
+				p0.Tapped = appendFixtureUnique(p0.Tapped, card)
 			}
 		case "Sac":
 			// The fixture table is the single authority; a self-sacrifice
-			// places nothing (the source is already on the battlefield).
-			if cards, ok := sacFilterFixtures(tok); ok {
+			// places nothing (the source is already on the battlefield). An
+			// attached Aura/Equipment is placed here and attached by
+			// sacAttachSteps in the prelude.
+			if card, ok := sacAttachedFixture(tok); ok {
+				p0.Battlefield = appendFixtureUnique(p0.Battlefield, card)
+			} else if cards, ok := sacFilterFixtures(tok, xv); ok {
 				for _, card := range cards {
 					p0.Battlefield = appendFixtureUnique(p0.Battlefield, card)
 				}
 			}
 		}
 	}
-	addTapXTypeFixtures(p0, cost)
+	addTapXTypeFixtures(p0, cost, xv)
 	keywordCostFixtures(p0, cost)
 }
 
@@ -541,6 +736,16 @@ func loyaltyCounter(tok string) bool {
 	}
 	_, err := strconv.Atoi(fields[0])
 	return err == nil
+}
+
+// saXMin is the ability's XMin<N> floor, the lowest legal announced X (a Sac<X/>
+// or ExileFromGrave<X/> count pays it), 0 when the ability names none.
+func saXMin(sa *cards.SA) int {
+	n, err := strconv.Atoi(strings.TrimSpace(sa.ParamStr(cards.PKXMin)))
+	if err != nil || n < 1 {
+		return 0
+	}
+	return n
 }
 
 // costHead names an offending token for a skip reason, folding a bracketed

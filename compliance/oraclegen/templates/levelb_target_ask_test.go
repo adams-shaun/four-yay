@@ -19,17 +19,22 @@ func answerAt(it oraclegen.Item, i int) []oraclegen.XAnswer {
 // per-opponent "exile up to one target creature that player controls" ask,
 // which the engine records as a grouped KChoose. The generated item must
 // close XMage's target ask with a target skip on the TARGET queue, not the
-// [choice_skip] the generic choose routing used to emit.
+// [choice_skip] the generic choose routing used to emit. The item now leads
+// with the CR 606.3 empty-stack resolve every loyalty setup carries (the
+// source's own entry trigger may be pending); the ask sits on the resolve
+// that follows the activation.
 func TestLevelBPerPlayerTargetAsk(t *testing.T) {
 	it := levelBItem(t, "Kaya, Spirits' Justice", "activate#0.2")
-	if len(it.Scenario.Steps) != 2 || it.Scenario.Steps[0].Op != "activate" || it.Scenario.Steps[1].Op != "resolve" {
-		t.Fatalf("steps = %v, want activate then resolve", it.Scenario.Steps)
+	if len(it.Scenario.Steps) != 3 ||
+		it.Scenario.Steps[0].Op != "resolve" ||
+		it.Scenario.Steps[1].Op != "activate" || it.Scenario.Steps[2].Op != "resolve" {
+		t.Fatalf("steps = %v, want the empty-stack resolve, activate, resolve", it.Scenario.Steps)
 	}
-	cast := it.Scenario.Steps[0]
+	cast := it.Scenario.Steps[1]
 	if strings.Join(cast.Targets, "|") != "p0:Grizzly Bears" {
 		t.Fatalf("precondition: activate targets = %v, want the controller's own creature", cast.Targets)
 	}
-	as := answerAt(it, 1)
+	as := answerAt(it, 2)
 	if len(as) != 1 || as[0].Kind != "target" || as[0].Value != "[target_skip]" {
 		t.Fatalf("resolve answers = %+v, want one target skip on the target queue", as)
 	}

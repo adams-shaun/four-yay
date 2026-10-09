@@ -17,6 +17,7 @@ import (
 // missing corpus fails rather than skips: a declared set cannot be checked
 // without it.
 func TestDeclaredSetsCompliant(t *testing.T) {
+	t.Parallel()
 	root := filepath.Join("..", "..")
 	declared, err := compliance.LoadDeclared(filepath.Join(root, "compliance", "declared.json"))
 	if err != nil {

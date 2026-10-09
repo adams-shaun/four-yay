@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/compliance/oraclegen"
 	"github.com/adams-shaun/gorge/rules"
 )
@@ -46,6 +47,7 @@ func sacSelf(tok string) bool {
 var sacFixtureCards = map[string][]string{
 	"creature":     {"Llanowar Elves", "Grizzly Bears", "Elvish Mystic", "Nessian Asp", "Craw Wurm", "Siege Wurm"},
 	"artifact":     {"Ornithopter", "Sol Ring", "Arcane Signet"},
+	"permanent":    {"Ornithopter", "Sol Ring", "Grizzly Bears"},
 	"land":         {"Forest", "Island", "Mountain", "Swamp", "Plains"},
 	"enchantment":  {"Glorious Anthem", "Honor of the Pure", "Intangible Virtue"},
 	"planeswalker": {"Jace Beleren"},
@@ -66,7 +68,7 @@ var sacTokenBases = map[string]bool{"food": true, "treasure": true, "clue": true
 // self-sacrifice (handled by sacSelf), a token cost, an attached or
 // status-qualified filter, an announced count, a count above the table and
 // any unmodelled filter.
-func sacFilterFixtures(tok string) ([]string, bool) {
+func sacFilterFixtures(tok string, x int) ([]string, bool) {
 	payload, ok := bracketPayload(tok)
 	if !ok {
 		return nil, false
@@ -79,6 +81,12 @@ func sacFilterFixtures(tok string) ([]string, bool) {
 		return nil, false
 	}
 	n, err := strconv.Atoi(strings.TrimSpace(parts[0]))
+	if parts[0] == "X" {
+		// An announced Sac count (Radiant Lotus's Sac<X/Artifact> with its
+		// XMin$ 1) is paid with x artifacts; an X the cost does not announce
+		// (x == 0) stays the announced-count gap.
+		n, err = x, nil
+	}
 	if err != nil || n < 1 {
 		return nil, false
 	}
@@ -95,7 +103,7 @@ func sacFilterFixtures(tok string) ([]string, bool) {
 
 // sacFilterFixture is sacFilterFixtures for a single-permanent cost.
 func sacFilterFixture(tok string) (string, bool) {
-	cards, ok := sacFilterFixtures(tok)
+	cards, ok := sacFilterFixtures(tok, 0)
 	if !ok || len(cards) != 1 {
 		return "", false
 	}
@@ -174,14 +182,149 @@ func sacFilterClause(alt string) ([]string, bool) {
 	return card, ok
 }
 
+// sacAttachedFixture returns the card an "attached" Sac cost sacrifices: an
+// Equipment or Aura attached to the ability's source (Forge's
+// `Sac<1/Equipment.Attached>` on Ronin, Shadow Stalker and
+// `Sac<1/Aura.Attached>` on Faunsbane Troll). The card is placed on p0's
+// battlefield by addActivationCostFixtures and attached to the source by
+// sacAttachSteps. ok is false for any other count, base or qualifier.
+func sacAttachedFixture(tok string) (string, bool) {
+	if !strings.HasPrefix(tok, "Sac<") {
+		return "", false
+	}
+	payload, ok := bracketPayload(tok)
+	if !ok {
+		return "", false
+	}
+	parts := strings.Split(payload, "/")
+	if len(parts) < 2 {
+		return "", false
+	}
+	if n, err := strconv.Atoi(strings.TrimSpace(parts[0])); err != nil || n != 1 {
+		return "", false
+	}
+	for _, alt := range strings.Split(parts[1], ";") {
+		alt = strings.ToLower(strings.TrimSpace(alt))
+		if !strings.Contains(alt, ".attached") {
+			continue
+		}
+		base := alt
+		if i := strings.IndexByte(base, '.'); i >= 0 {
+			base = base[:i]
+		}
+		switch base {
+		case "equipment":
+			return "Bonesplitter", true
+		case "aura":
+			return "Unholy Strength", true
+		}
+	}
+	return "", false
+}
+
+// sacGuardFixture names one more permanent from the Sac cost's own fixture
+// table (the entry sacFilterFixtures does not place) when the count leaves a
+// spare: the ETB guard's fodder (etbCostGuardFixtures). ok is false for a
+// self-sacrifice, an announced count with no spare, or an unsupported filter.
+func sacGuardFixture(tok string, x int) (string, bool) {
+	payload, ok := bracketPayload(tok)
+	if !ok {
+		return "", false
+	}
+	parts := strings.Split(payload, "/")
+	if len(parts) < 2 || sacSelf(tok) {
+		return "", false
+	}
+	n, err := strconv.Atoi(strings.TrimSpace(parts[0]))
+	if parts[0] == "X" {
+		n, err = x, nil
+	}
+	if err != nil || n < 1 {
+		return "", false
+	}
+	for _, alt := range strings.Split(parts[1], ";") {
+		if cards, ok := sacFilterClause(alt); ok && len(cards) > n {
+			return cards[n], true
+		}
+	}
+	return "", false
+}
+
+// etbCostGuardFixtures places one extra permanent from the Sac cost's own
+// fixture table when the source's own ETB trigger may consume the cost's
+// fodder during setup (Bullseye, Death Dealer's "When this enters, you may
+// sacrifice an artifact ...": the runner's setup fallback answers the
+// trigger, the permanent leaves, and the ability's own Sac cost would be
+// unpayable at the activate step). The guard is a name the sac list does not
+// already place, so the observed payment picks stay authoritative.
+func etbCostGuardFixtures(p0 *oraclegen.Seat, f *cards.Face, cost string, x int) {
+	if !hasSelfETBTrigger(f) {
+		return
+	}
+	for _, tok := range costTokens(cost) {
+		head := tok
+		if i := strings.IndexByte(tok, '<'); i >= 0 {
+			head = tok[:i]
+		}
+		if head != "Sac" {
+			continue
+		}
+		if card, ok := sacGuardFixture(tok, x); ok {
+			p0.Battlefield = appendFixtureUnique(p0.Battlefield, card)
+		}
+	}
+}
+
+// hasSelfETBTrigger reports whether the face prints an enters-the-battlefield
+// trigger of its own (Mode$ ChangesZone into the battlefield naming the card
+// itself): the runner's setup drain answers it, so a setup permanent may
+// leave before the activate step.
+func hasSelfETBTrigger(f *cards.Face) bool {
+	for i := range f.Triggers {
+		t := &f.Triggers[i]
+		if t.Mode != "ChangesZone" {
+			continue
+		}
+		if vc := strings.ToUpper(t.ParamStr(cards.PKValidCard)); !strings.Contains(vc, "SELF") {
+			continue
+		}
+		if dest := t.ParamStr(cards.PKDestination); dest != "" && !strings.EqualFold(dest, "Battlefield") {
+			continue
+		}
+		return true
+	}
+	return false
+}
+
+// sacAttachSteps is the prelude that attaches each attached Sac cost's
+// fixture to the source, so the cost's `.Attached` filter matches at
+// activation. The fixture card itself is placed by addActivationCostFixtures;
+// a source not on the battlefield (a channel-style hand ability) has no
+// attached fixture and contributes no step.
+func sacAttachSteps(name, cost, zone string) []oraclegen.Step {
+	if zone != "battlefield" {
+		return nil
+	}
+	var out []oraclegen.Step
+	for _, tok := range costTokens(cost) {
+		if card, ok := sacAttachedFixture(tok); ok {
+			out = append(out, oraclegen.Step{Op: "attach", Seat: 0, Card: "p0:" + card, AttachedTo: "p0:" + name})
+		}
+	}
+	return out
+}
+
 // sacFixtureSupported reports whether a Sac token is cellable (self, a
-// fixture the table names, or a token a maker prelude produces). It is
-// activationCost's admission test.
-func sacFixtureSupported(tok string) bool {
+// fixture the table names, an attached Aura/Equipment, or a token a maker
+// prelude produces). It is activationCost's admission test.
+func sacFixtureSupported(tok string, x int) bool {
 	if sacSelf(tok) || tokenCostSupported(tok) {
 		return true
 	}
-	_, ok := sacFilterFixtures(tok)
+	if _, ok := sacAttachedFixture(tok); ok {
+		return true
+	}
+	_, ok := sacFilterFixtures(tok, x)
 	return ok
 }
 
