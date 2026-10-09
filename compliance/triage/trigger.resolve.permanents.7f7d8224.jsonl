@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"resolve","field":"permanents","diff":"gorge+Weight Room; xmage+$CARD"},"key":"trigger | resolve | permanents | gorge+Weight Room; xmage+$CARD","cards":1}
+{"card":"Moldering Gym","template":"trigger#1.0","status":"diverge","api":"UnlockDoor:ChangeZone","detail":"step 1 (resolve) permanents: gorge \"c0 o0 Weight Room [enchantment room] {G}\", xmage \"c0 o0 Moldering Gym [enchantment room] {G}\""}

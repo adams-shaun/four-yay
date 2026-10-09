@@ -420,6 +420,49 @@ public final class ScenarioReplayDriverContractTest {
                 + "pay/consume/decline, recorded sacrifice pick)");
     }
 
+    /** The split/Room spellings the contract pins, both engines' sides of
+     * one DSK table: gorge spells every card object by its front face and
+     * casts a face by its half's ability name; XMage stores the whole
+     * "A // B" card object and its back-half spell for a face-1 cast. */
+    private static void spellings() {
+        String front = "Dazzling Theater", whole = "Dazzling Theater // Prop Room";
+        check(ScenarioReplay.frontHalf(whole).equals(front), "front half of a split name");
+        check(ScenarioReplay.backHalf(whole).equals("Prop Room"), "back half of a split name");
+        check(ScenarioReplay.frontHalf(front).equals(front) && ScenarioReplay.backHalf(front).equals(front),
+                "a non-split name is its own halves (precondition)");
+
+        // A whole-name cast of a probe Room (not the card under test, so
+        // xmageName is empty) must reach XMage's front-half "Cast <half>"
+        // ability, not the whole name that found no ability.
+        check(ScenarioReplay.castSpellingRule(front, "", whole).equals(front),
+                "probe whole-name cast did not map to the front half");
+        // The card under test keeps its two existing spellings.
+        check(ScenarioReplay.castSpellingRule(front, whole, front).equals(front),
+                "under-test front-name cast lost its spelling");
+        check(ScenarioReplay.castSpellingRule(front, whole, whole).equals(front),
+                "under-test whole-name cast did not map to the front half");
+        // An ordinary name falls through to xmageSpelling (null).
+        check(ScenarioReplay.castSpellingRule("", "", "Grizzly Bears") == null,
+                "an ordinary cast name was consumed by the split rule");
+
+        // Snapshot values: XMage's whole object name for a probe (xmageName
+        // empty) and for the under-test card both read as the front; the
+        // under-test card's back half -- the face-1 cast's spell name --
+        // reads as the front too; ordinary names pass through.
+        check(ScenarioReplay.gorgeSpellingRule(front, "", whole).equals(front),
+                "probe whole object name did not rewrite to the front half");
+        check(ScenarioReplay.gorgeSpellingRule(front, whole, whole).equals(front),
+                "under-test whole object name did not rewrite to the front");
+        check(ScenarioReplay.gorgeSpellingRule(front, whole, "Prop Room").equals(front),
+                "face-1 cast spell name (back half) did not rewrite to the front");
+        check(ScenarioReplay.gorgeSpellingRule(front, whole, "Grizzly Bears").equals("Grizzly Bears"),
+                "an ordinary snapshot name was rewritten");
+        // Precondition: the back half and the front really are distinct names.
+        check(!front.equals("Prop Room"), "halves must differ for the alias to mean anything");
+        System.out.println("PASS split/Room spellings (probe whole-name cast, back-half spell alias, "
+                + "whole object name rewrite, pass-through)");
+    }
+
     public static void main(String[] args) throws Exception {
         attachments();
         zones();
@@ -427,5 +470,6 @@ public final class ScenarioReplayDriverContractTest {
         spree();
         mustAttack();
         bargain();
+        spellings();
     }
 }

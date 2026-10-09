@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"resolve","field":"permanents","diff":"gorge+Hospital Room; xmage+$CARD"},"key":"trigger | resolve | permanents | gorge+Hospital Room; xmage+$CARD","cards":1}
+{"card":"Surgical Suite","template":"trigger#1.0","status":"diverge","api":"UnlockDoor:ChangeZone","detail":"step 1 (resolve) permanents: gorge \"c0 o0 Hospital Room [enchantment room] {W}\", xmage \"c0 o0 Surgical Suite [enchantment room] {W}\""}

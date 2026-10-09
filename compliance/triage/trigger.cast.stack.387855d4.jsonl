@@ -1,2 +1,0 @@
-{"shape":{"template":"trigger","op":"cast","field":"stack","diff":"gorge=[spell:$CARD@p0] xmage=[spell:Defaced Gallery@p0]"},"key":"trigger | cast | stack | gorge=[spell:$CARD@p0] xmage=[spell:Defaced Gallery@p0]","cards":1}
-{"card":"Painter's Studio","template":"trigger#1.0","status":"diverge","api":"UnlockDoor:Dig","detail":"step 0 (cast) stack: gorge \"[spell:Painter's Studio@p0]\", xmage \"[spell:Defaced Gallery@p0]\""}
