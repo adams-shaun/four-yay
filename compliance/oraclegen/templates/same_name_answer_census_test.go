@@ -103,6 +103,17 @@ func sameNameBucketRank(bucket string) int {
 // Unproven, not Unresolved. The item tracks the new scenario one-for-one and
 // disappears if the phase-other recipe hook is reverted.
 //
+// Re-measured once more on the gated combat-legality static land
+// (cli-20261009T031407Z-6fac1771): MKM unproven 0 -> 1. Serving Furtive
+// Courier's gated cant-block-by static (CantBlockBy | ValidAttacker$
+// Card.Self+attacking | CheckSVar$ SaccedThisTurn) generates
+// Furtive Courier/static#0.0, whose gate setup sacrifices an artifact; the
+// card's own attacks trigger then draws and discards, and that discard-mode
+// pick is a rank-derived library card (ref "p0:Wastes#N") offered beside an
+// identical Wastes, so no exact answer exists -- Unproven, not Unresolved.
+// The item tracks the new scenario one-for-one and disappears if the gated
+// static hook in levelb.classifyStatic is reverted.
+//
 // Re-measured once more for cli-20261009T031407Z-cb26eec8 (Level B: observe
 // statics that grant an activated ability): two Aura grants add one Alias item
 // each. Ringing Strike Mastery (TDM) and Friendly Neighborhood (SPM) are cast
@@ -113,7 +124,7 @@ func sameNameBucketRank(bucket string) int {
 // item tracks each new scenario one-for-one and disappears if the
 // granted-activated-ability observation is reverted.
 //
-// Unresolved stayed 0 in every set through all five moves; that is the
+// Unresolved stayed 0 in every set through all six moves; that is the
 // defect measure.
 var wantSameNameCensus = map[string]string{
 	"BIG": `{"alias":0,"copy":0,"unresolved":0,"unproven":1,"items":null}`,
@@ -127,7 +138,7 @@ var wantSameNameCensus = map[string]string{
 	"FRA": `{"alias":0,"copy":0,"unresolved":0,"unproven":2,"items":null}`,
 	"HOB": `{"alias":0,"copy":0,"unresolved":0,"unproven":2,"items":null}`,
 	"LCI": `{"alias":0,"copy":0,"unresolved":0,"unproven":5,"items":null}`,
-	"MKM": `{"alias":3,"copy":0,"unresolved":0,"unproven":0,"items":null}`,
+	"MKM": `{"alias":3,"copy":0,"unresolved":0,"unproven":1,"items":null}`,
 	"MSH": `{"alias":1,"copy":0,"unresolved":0,"unproven":3,"items":null}`,
 	"OTJ": `{"alias":2,"copy":1,"unresolved":0,"unproven":1,"items":null}`,
 	"SOS": `{"alias":0,"copy":0,"unresolved":0,"unproven":5,"items":null}`,
