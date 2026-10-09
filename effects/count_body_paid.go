@@ -40,6 +40,18 @@ func evalCountBodyPaid(h Host, c *Ctx, g *state.Game, head, arg string, depth in
 		if !ok1 || !ok2 {
 			return 0, false, true
 		}
+		// The offer gate's seeded election first, the TimesKicked pattern:
+		// rules' costAmountCtx (the ONE cost-amount context) seeds the
+		// pending cast's CR 601.2b election when the composition prices the
+		// optional-cost cast variant, because at offer time the card sits in
+		// HAND and the pay-time object flag is not yet folded. Without the
+		// seed the reduction read its unpaid branch and the variant was only
+		// ever offered at the unreduced price (Bite Down on Crime). An
+		// unseeded context keeps the object-flag read every resolution-time
+		// carrier depends on.
+		if c.Num.OptionalCostElected {
+			return paid, true, true
+		}
 		if o := g.Obj(c.Source); o != nil && o.OptionalCostPaid {
 			return paid, true, true
 		}

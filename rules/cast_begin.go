@@ -1215,6 +1215,7 @@ const (
 	castModeMayflash
 	castModeEmerged
 	castModeLand
+	castModeOptionalcost
 )
 
 var castModeCodes = state.NewStrCodes(append([]state.StrEntry[castModeCode]{
@@ -1255,6 +1256,12 @@ var castModeCodes = state.NewStrCodes(append([]state.StrEntry[castModeCode]{
 	state.StrEntry[castModeCode]{Key: "mayflash", Val: castModeMayflash},
 	state.StrEntry[castModeCode]{Key: "emerged", Val: castModeEmerged},
 	state.StrEntry[castModeCode]{Key: "land", Val: castModeLand},
+	// The optional additional-cost cast variant (rules/legal_walk_hand.go's
+	// and legal_walk_alt.go's spellScope("optionalcost")). The mode's
+	// PROVENANCE row lives in modeFlagsCodes' separate table; this row is
+	// the dispatch code, so the cost-composition election derives from the
+	// table and not an eighth `== "optionalcost"` literal compare.
+	state.StrEntry[castModeCode]{Key: "optionalcost", Val: castModeOptionalcost},
 }, append(altCastModeEntries(),
 	// The Bargain row's mode word lives in rules/optional_sacrifice.go.
 	state.StrEntry[castModeCode]{Key: optionalSacrifices[optSacBargain].mode, Val: castModeBargained})...)...)

@@ -333,6 +333,22 @@ type NumberInputs struct {
 	// Ctx.Remembered -- never event-encoded; a replay re-derives it by
 	// replaying the same resolution.
 	RememberedCMC int32
+	// OptionalCostElected is the pending cast's CR 601.2b election of its
+	// optional additional cost, seeded by rules' costAmountCtx (the ONE
+	// cost-amount context) when the composition prices the optional-cost
+	// cast variant. The Count$OptionalGenericCostPaid head reads it ahead of
+	// state.Object.OptionalCostPaid because at OFFER time the card sits in
+	// hand and the pay-time flag is not yet folded onto the stack object
+	// (events.Apply's CastInfo carries it only after CR 601.2a's push) --
+	// without the seed every such reduction evaluated its unpaid branch and
+	// the variant was only ever offered at the unreduced price (Bite Down on
+	// Crime's "{2} less to cast if evidence was collected"). Seeding
+	// resolution-scratch like the struct's other fields, never
+	// event-encoded: the election rides the cast option's Mode, which IS in
+	// the log, so a replay re-derives it. Only the optional-cost variant
+	// seeds it; the plain cast, every other cast mode and activated abilities
+	// keep the unpaid object-flag read.
+	OptionalCostElected bool
 	// RememberedCMCBound marks a Ctx whose RememberedCMC IS a real
 	// RememberCounteredCMC$ binding. It is the Count$RememberedNumber head's
 	// verdict, the same shape ChosenNumberBound gives Count$ChosenNumber:

@@ -68,6 +68,25 @@ type costSubject struct {
 	p  state.PlayerID
 	id state.ObjID
 	ab *cards.SA
+	// electedOptional is the composition's CR 601.2b election: true only
+	// when the scope prices the optional-cost cast variant
+	// (spellScope("optionalcost")), so the amount context's
+	// NumberInputs.OptionalCostElected seed makes a Count$OptionalGenericCostPaid
+	// amount read its PAID branch at offer time (the card is still in hand;
+	// the pay-time object flag is not folded until CR 601.2a's push). The
+	// plain cast and every other scope keep the unpaid read.
+	electedOptional bool
+}
+
+// newCostSubject is the ONE constructor of the costSubject a cost-static
+// composition prices with: it folds the scope's optional-cost election in,
+// so the gate verdict and the amount, which share the one amount context,
+// can never disagree about which branch of a Count$OptionalGenericCostPaid
+// amount is live. "optionalcost" is a spell-cast mode only (the offer walks'
+// spellScope), so the castModeCodes row alone names it.
+func newCostSubject(p state.PlayerID, id state.ObjID, scope costScope) costSubject {
+	return costSubject{p: p, id: id, ab: scope.Ab,
+		electedOptional: castModeCodes.Code(scope.Mode) == castModeOptionalcost}
 }
 
 // costAmountCtx is the ONE evaluation context a cost-modifier static's
@@ -99,9 +118,13 @@ func (e *Engine) costAmountCtx(sv staticView, sub costSubject, x int32, targets 
 	}
 	// An Effect-delivered cost static carries its SetChosenNumber$ binding
 	// (chosenNumberBound): the Count$ChosenNumber head reads it rather than
-	// the source object's own logged choice.
+	// the source object's own logged choice. The pending cast's CR 601.2b
+	// optional-cost election rides the same inputs (sub.electedOptional):
+	// the Count$OptionalGenericCostPaid amount head reads its paid branch at
+	// offer time instead of the unpaid object flag the hand card still has.
 	ctx := effects.NewCtxPtr(sv.Source, you, effects.CtxInit{SVars: svars, X: x,
-		Num: effects.NumberInputs{Chosen: sv.ChosenNumber, ChosenBound: sv.chosenNumberBound}, Targets: targets})
+		Num: effects.NumberInputs{Chosen: sv.ChosenNumber, ChosenBound: sv.chosenNumberBound,
+			OptionalCostElected: sub.electedOptional}, Targets: targets})
 	ctx.AffectedObj, ctx.AffectedAbility = sub.id, sub.ab
 	return ctx, svars, true
 }
@@ -290,7 +313,7 @@ func (e *Engine) costModifiersCompose(statics costStaticViews, p state.PlayerID,
 	if potential {
 		amountTargets = e.costAmountTargets(p, id, scope, targets)
 	}
-	sub := costSubject{p: p, id: id, ab: scope.Ab}
+	sub := newCostSubject(p, id, scope)
 	var mods costMods
 	xBound := x != 0
 	// An activated ability's OWN mana-cost ReduceCost$ (Kami of Jealous
