@@ -5,8 +5,8 @@ import (
 )
 
 // TestCostStaticOtherSpellAppendixPartition pins the exact disposition of the
-// brief's 45 "cost static probe not supported" rows: 44 produce a generated
-// scenario and the remaining one is a narrower named skip. Artist's Talent
+// brief's 45 "cost static probe not supported" rows: all 45 produce a
+// generated scenario (no row is a named skip). Artist's Talent
 // moved from the named-skip column to served when the shared Class level-up
 // prelude landed (its ReduceCost static is live from level 2 on), and Samut,
 // the Driving Force when the probe learned to set p0's speed. Bilbo, Doc
@@ -16,8 +16,10 @@ import (
 // front face for `Permanent.AdventureCard`. Inquisitive Glimmer's Unlock
 // static and Geyser Drake's NotPlayerTurn gate moved when the special-action
 // probes learned the Room unlock and the opponent-turn cast, and Doc Aurlock's
-// static#0.1 plotting row moved when the driver learned cast_mode plot. The
-// sibling
+// static#0.1 plotting row moved when the driver learned cast_mode plot.
+// Mutagen Man's token-ability row moved when the token-ability probe
+// (cost_other_spell_token.go) learned to make the token and activate its own
+// face. The sibling
 // TestCostStaticOtherSpellAppendixRows asserts only the aggregate (>= 30); a
 // regression that turned a served row back into a skip, or changed a named
 // skip's reason to the bare form, would still satisfy that aggregate, so this
@@ -69,20 +71,20 @@ func TestCostStaticOtherSpellAppendixPartition(t *testing.T) {
 		"Bilbo, Thief in the Night":      true, // Card.!wasCastFromYourHand, served by a Flashback cast from the graveyard
 		"Doc Aurlock, Grizzled Genius":   true, // static#0.0 by the wasCast arm's cast; static#0.1 is the id entry below
 		"Beluna Grandsquall":             true, // Permanent.AdventureCard, served by an Adventure card's front face
+		"Mutagen Man, Living Ooze":       true, // Artifact.token+YouCtrl Type$ Ability, served by the token-ability probe (cost_other_spell_token.go)
 	}
 	// served is keyed by card name; a card with one served and one skipped
 	// face needs the skipped face listed under skipped, and a second served
 	// row of an already-listed card is keyed by its "<name>/<key>" id.
 	served["Doc Aurlock, Grizzled Genius/static#0.1"] = true // a cast_mode "plot" action at the reduced Plot cost
-	// skipped is keyed by "<name>/<key>" because two cards have a served face
-	// and a skipped face.
-	skipped := map[string]string{
-		"Mutagen Man, Living Ooze/static#0.0": "token ability fixture unavailable (no XMage-proven token ability text)",
-	}
+	// skipped is keyed by "<name>/<key>". No row of the 45 remains a named
+	// skip: Mutagen Man's token-ability static is served by the token probe
+	// (cost_other_spell_token.go).
+	skipped := map[string]string{}
 	// Inquisitive Glimmer holds two of the 45 rows (static#0.0 and
 	// static#0.1, both served) and Doc Aurlock adds a served "<name>/<key>"
-	// id beside its served name, so the map arithmetic is one short: 42
-	// served names + 1 served id + 1 skipped key = 44.
+	// id beside its served name, so the map arithmetic is one short: 43
+	// served names + 1 served id + 0 skipped keys = 44.
 	if len(served)+len(skipped) != 44 {
 		t.Fatalf("precondition: %d served + %d skipped = %d, want 44 (Inquisitive Glimmer carries two served rows and Doc Aurlock a served id of the 45)", len(served), len(skipped), len(served)+len(skipped))
 	}
@@ -134,7 +136,7 @@ func TestCostStaticOtherSpellAppendixPartition(t *testing.T) {
 		}
 		scenarios++
 	}
-	if scenarios != 44 || named != 1 {
-		t.Errorf("partition = %d scenarios + %d named skips, want 44 + 1", scenarios, named)
+	if scenarios != 45 || named != 0 {
+		t.Errorf("partition = %d scenarios + %d named skips, want 45 + 0", scenarios, named)
 	}
 }

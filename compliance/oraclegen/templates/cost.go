@@ -72,6 +72,12 @@ type costProbe struct {
 	// setupAnswers answer an as-enters choice the setup placement itself
 	// poses (Gathering Stone's chosen type), before the first gameplay step.
 	setupAnswers []oraclegen.Answer
+	// tokenAnswers are the XMage choice answers a token-ability probe's
+	// activate step scripts. The token's self-sacrifice cost poses no ask to
+	// observe (the source is the sole candidate), so XMage's own picker
+	// answer ("Food Token") is queued instead; a step that already holds it
+	// is left alone.
+	tokenAnswers []string
 }
 
 func costStatic(reg *cards.Registry, f *cards.Face, name string, req levelb.Requirement) (oraclegen.Item, *oraclegen.Skip) {
