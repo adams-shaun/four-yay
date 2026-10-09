@@ -539,6 +539,19 @@ func (r *oracleRun) build(sc oracleScenario) error {
 			}
 			backFace := setupPlacedBackFace(sc.Setup[fmt.Sprintf("p%d", p)], pl.name)
 			if from := e.G.Obj(id).Zone; from != pl.zone {
+				// A back-face battlefield card enters ON its back face: the
+				// FlipFace rides ahead of the MoveZone (the same sequence a
+				// transformed ChangeZone emits, effects.applyTransformed), so
+				// the entry fold reads the face XMage's addCard places --
+				// a back-face Saga creature enters with its lore counter, a
+				// back-face non-Saga (a transformed Saga's creature, the
+				// crafted Braided Quipu) enters with none and no chapter
+				// trigger. A flip after the entry would leave the FRONT
+				// face's entry grants (The Legend of Kuruk's lore counter)
+				// stranded on a permanent whose face never carried them.
+				if backFace && pl.zone == state.ZBattlefield {
+					e.emit(events.Event{Kind: events.FlipFace, Obj: id, Amount: 1, Text: "Transformed"})
+				}
 				pendingBefore := len(e.pendingTriggers)
 				e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: from, To: pl.zone})
 				if sc.xmageFixture && pl.zone == state.ZBattlefield {
@@ -566,13 +579,19 @@ func (r *oracleRun) build(sc oracleScenario) error {
 					e.orderedTriggers = ordered
 				}
 			}
-			if pl.zone == state.ZBattlefield {
-				// A back-face battlefield card starts transformed: FlipFace's
-				// Amount is the destination face index (1), applied through
-				// events.Apply like every other setup op, so the replay
-				// reconstructs the same face from the log.
-				if backFace {
-					e.emit(events.Event{Kind: events.FlipFace, Obj: id, Amount: 1})
+			if pl.zone == state.ZBattlefield && backFace {
+				// A back-face PLANESWALKER whose entering face prints no
+				// positive loyalty (Forge's "Loyalty: 0" carry-over spelling,
+				// Oko, Lorwyn Liege's Shadowmoor Scion) is not enterable as
+				// printed: a real Oko reaches the back face by transforming,
+				// carrying its loyalty. XMage's addCard places the back face
+				// with the front face's starting loyalty, so the harness
+				// grants that where the entry fold (reading the back face)
+				// granted none; without it the walker sits at 0 loyalty and
+				// the CR 704.5i state-based action removes it before its
+				// first-main-phase trigger can fire.
+				if n := setupBackFaceLoyalty(e.G.Obj(id)); n > 0 {
+					e.emit(events.Event{Kind: events.CounterChange, Obj: id, Counter: "LOYALTY", Amount: n})
 				}
 			}
 			for _, tapped := range sc.Setup[fmt.Sprintf("p%d", p)].Tapped {
