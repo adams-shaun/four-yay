@@ -23,6 +23,10 @@ func TestXMageAbilityPrefixSelectionCorpus(t *testing.T) {
 		{"Jace, the Mind Sculptor", []string{"+2", "0", "-1:", "-12"}},
 		{"Mr. Monopoly, On the Go", []string{"0", "-2", "-4:", "-40"}},
 		{"Murmuring Bosk", []string{"{T}: Add {W}", "{T}: Add {G}."}},
+		// Bloom Tender: XMage's class sets the Vivid ability word the Forge
+		// Oracle line does not print, so the bare "{T}" selector that IS a
+		// prefix of the Oracle line finds nothing in XMage (BloomTender.java).
+		{"Bloom Tender", []string{"<i>Vivid</i> &mdash; {T}"}},
 	} {
 		t.Run(tc.card, func(t *testing.T) {
 			c, ok := reg.Lookup(tc.card)
@@ -52,15 +56,37 @@ func TestXMageAbilityPrefixSelectionCorpus(t *testing.T) {
 				}
 				full = append(full, "{T}: Add {G}.")
 			}
+			// Bloom Tender's precondition: the Oracle line itself carries no
+			// dash header (the word lives only on the XMage ability class),
+			// and XMage's printed line is the Oracle line with the word in
+			// front of it.
+			if tc.card == "Bloom Tender" {
+				if len(full) != 1 || strings.Contains(full[0], "\u2014") {
+					t.Fatalf("precondition: %d Oracle lines, line %q has no dash header", len(full), full)
+				}
+				if len(f.Abilities) != 1 || !f.Abilities[0].IsActivated() {
+					t.Fatal("precondition: exactly one activated IR ability")
+				}
+				full[0] = "<i>Vivid</i> &mdash; " + full[0]
+			}
 			if len(full) != len(tc.want) {
 				t.Fatalf("precondition: %d full lines, want %d", len(full), len(tc.want))
 			}
 			// Prove the short cost is actually ambiguous in this setup.
 			short := "-1"
+			shortMatches := 2
 			if tc.card == "Mr. Monopoly, On the Go" {
 				short = "-4"
 			} else if tc.card == "Murmuring Bosk" {
 				short = "{T}"
+			} else if tc.card == "Bloom Tender" {
+				// The bare "{T}" selector selects NOTHING of XMage's real
+				// text — exactly why the old mapping missed: it was unique
+				// against the Oracle line but not a prefix of XMage's
+				// word-prefixed rule text. The fix must move the selector
+				// onto the word header, not disambiguate the bare cost.
+				short = "{T}"
+				shortMatches = 0
 			}
 			matches := 0
 			for _, line := range full {
@@ -68,8 +94,8 @@ func TestXMageAbilityPrefixSelectionCorpus(t *testing.T) {
 					matches++
 				}
 			}
-			if matches != 2 {
-				t.Fatalf("precondition: %q selects %d lines, want 2", short, matches)
+			if matches != shortMatches {
+				t.Fatalf("precondition: %q selects %d lines, want %d", short, matches, shortMatches)
 			}
 			got, why := oraclegen.XMageAbility(f)
 			if why != "" || len(got) != len(tc.want) {
