@@ -113,7 +113,9 @@ func TestTriggerFilterGapsAreNamed(t *testing.T) {
 	for _, tc := range []struct{ name, key, want string }{
 		{"Namor the Sub-Mariner", "trigger#0.0", "ManaCostPartialBlue"},
 		{"Codie, Ravenous Codex", "trigger#0.0", "prepared"},
-		{"Ares, God of War", "trigger#0.0", "dies victim must be attacking"},
+		// Ares, God of War's attacking-victim row is served by the g17
+		// mid-combat destroy cause (trigger_victim_specials.go); no census
+		// card names an unserved dying-victim qualifier any more.
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			c, ok := reg.Lookup(tc.name)

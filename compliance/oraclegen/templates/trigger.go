@@ -191,6 +191,22 @@ func triggerScenario(f *cards.Face, name string, c triggerCause, req levelb.Requ
 	p0.Graveyard = appendFixtureCounts(p0.Graveyard, c.graveyard)
 	p1.Hand = appendFixtureCounts(p1.Hand, c.opponentHand)
 	p1.Battlefield = appendFixtureCounts(p1.Battlefield, c.opponentBattlefield)
+	oppCounterCards := make([]string, 0, len(c.opponentCounters))
+	for card := range c.opponentCounters {
+		oppCounterCards = append(oppCounterCards, card)
+	}
+	sort.Strings(oppCounterCards)
+	for _, card := range oppCounterCards {
+		kinds := c.opponentCounters[card]
+		counterKinds := make([]string, 0, len(kinds))
+		for kind := range kinds {
+			counterKinds = append(counterKinds, kind)
+		}
+		sort.Strings(counterKinds)
+		for _, kind := range counterKinds {
+			p1 = oraclegen.WithCounters(p1, card, kind, int32(kinds[kind]))
+		}
+	}
 	for _, card := range c.tapped {
 		if card == "__SOURCE__" {
 			card = name
