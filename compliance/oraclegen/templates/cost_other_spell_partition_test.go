@@ -62,16 +62,19 @@ func TestCostStaticOtherSpellAppendixPartition(t *testing.T) {
 		"Artist's Talent":                true, // ClassBand$ 2 ReduceCost, served by the Class-level prelude
 		"Samut, the Driving Force":       true, // Amount$ Count$YourSpeed, served by a setup speed of 2
 		"Bilbo, Thief in the Night":      true, // Card.!wasCastFromYourHand, served by a Flashback cast from the graveyard
-		"Doc Aurlock, Grizzled Genius":   true, // static#0.0 only; the wasCast arm is served by the same cast
+		"Doc Aurlock, Grizzled Genius":   true, // static#0.0 by the wasCast arm's cast; static#0.1 is the id entry below
 		"Beluna Grandsquall":             true, // Permanent.AdventureCard, served by an Adventure card's front face
 	}
+	// served is keyed by card name; a card with one served and one skipped
+	// face needs the skipped face listed under skipped, and a second served
+	// row of an already-listed card is keyed by its "<name>/<key>" id.
+	served["Doc Aurlock, Grizzled Genius/static#0.1"] = true // a cast_mode "plot" action at the reduced Plot cost
 	// skipped is keyed by "<name>/<key>" because two cards have a served face
 	// and a skipped face.
 	skipped := map[string]string{
-		"Inquisitive Glimmer/static#0.1":          "static-ability cost probe unsupported",
-		"Doc Aurlock, Grizzled Genius/static#0.1": "static-ability cost probe unsupported",
-		"Geyser Drake/static#0.0":                 "NotPlayerTurn needs an opponent-turn probe",
-		"Mutagen Man, Living Ooze/static#0.0":     "token fixture unavailable",
+		"Inquisitive Glimmer/static#0.1":      "static-ability cost probe unsupported",
+		"Geyser Drake/static#0.0":             "NotPlayerTurn needs an opponent-turn probe",
+		"Mutagen Man, Living Ooze/static#0.0": "token fixture unavailable",
 	}
 	if len(served)+len(skipped) != 45 {
 		t.Fatalf("precondition: %d served + %d skipped = %d, want 45", len(served), len(skipped), len(served)+len(skipped))
@@ -111,7 +114,7 @@ func TestCostStaticOtherSpellAppendixPartition(t *testing.T) {
 			named++
 			continue
 		}
-		if !served[row.name] {
+		if !served[row.name] && !served[id] {
 			t.Errorf("precondition: %s is neither in served nor skipped", id)
 			continue
 		}
@@ -124,7 +127,7 @@ func TestCostStaticOtherSpellAppendixPartition(t *testing.T) {
 		}
 		scenarios++
 	}
-	if scenarios != 41 || named != 4 {
-		t.Errorf("partition = %d scenarios + %d named skips, want 41 + 4", scenarios, named)
+	if scenarios != 42 || named != 3 {
+		t.Errorf("partition = %d scenarios + %d named skips, want 42 + 3", scenarios, named)
 	}
 }

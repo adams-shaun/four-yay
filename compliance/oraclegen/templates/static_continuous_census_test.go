@@ -44,6 +44,14 @@ import (
 // static through the runner's max_hand_size expectation, and a signed
 // "for each card in your hand" pump through a hand fixture (DFT, FDN and FRA
 // each lose one ability-removal skip; DFT and FDN lose their hand-size skip).
+// Re-pinned by cli-20261009T035714Z-53c693da (levelb-granted-static-
+// replacement-donor), which observes a granted loyalty ability whose cost
+// exceeds the probe's printed loyalty by placing the difference as LOYALTY
+// counters (FRA Avatar of Burgeoning Echoes [-10], Kiora of Salt and Sand
+// [-8]) and a granted loyalty MANA ability through the ordinary ability offer
+// (FRA Way of the Pyromancer "[+1]: Add {R}."), and a GainsAbilitiesOf$ grant
+// through a donor card (Marvin, Murderous Mimic; Thranduil, the Elvenking):
+// FRA loses all three loyalty-grant skips and its served count rises by three.
 // Re-pinned again by agent-20261009T055739Z-b43f3480: a Continuous
 // SetMaxHandSize$ static is observed through the runner's max_hand_size
 // expectation (the literal rows in FDN and DFT leave their hand-size skip),
@@ -68,14 +76,12 @@ var wantStaticContinuousCensus = map[string]map[string]int{
 		"skip:static needs counters on the affected permanent":                                       1,
 	},
 	"FRA": {
-		"served": 30,
-		"skip:static effect not observable on a probe or the card":                                        2,
-		"skip:static grants a loyalty ability that adds mana (its offered label names no text to assert)": 1,
-		"skip:static grants a loyalty ability the probe planeswalkers cannot pay for":                     2,
-		"skip:static grants a static ability (observed only through its own effect)":                      1,
-		"skip:static counts cards exiled with the source":                                                 1,
-		"skip:static grants only keywords outside the compared evergreen set":                             1,
-		"skip:static needs a token (setup places none)":                                                   1,
+		"served": 33,
+		"skip:static effect not observable on a probe or the card":                   2,
+		"skip:static grants a static ability (observed only through its own effect)": 1,
+		"skip:static counts cards exiled with the source":                            1,
+		"skip:static grants only keywords outside the compared evergreen set":        1,
+		"skip:static needs a token (setup places none)":                              1,
 	},
 	// DFT includes the Surveyor cycle's graveyard AddAbility$ grant, whose
 	// engine-gap skip remains pinned separately.

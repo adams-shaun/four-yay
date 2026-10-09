@@ -16,7 +16,12 @@
 //     re-attaches it to its own probe (attachProbe) before the assertion.
 //   - AddAbility$ naming a loyalty ability ("Planeswalkers you control have
 //     '[-2]: ...'"): a planeswalker probe with enough loyalty is offered an
-//     activation labelled with the granted ability's first sentence.
+//     activation labelled with the granted ability's first sentence. A cost
+//     beyond the probe's printed starting loyalty is paid by placing the
+//     difference on the probe as LOYALTY counters at setup (Avatar of
+//     Burgeoning Echoes' [-10]). A loyalty ability that ADDS MANA (Way of the
+//     Pyromancer's "[+1]: Add {R}.") is not a mana ability (CR 605.1a), so it
+//     is offered as an ordinary ability and observed the same way.
 //   - AdjustLandPlays$ (a second land drop): p0 holds two lands, plays one,
 //     and the other is offered as a play. Without the static the control has
 //     no second drop.
@@ -99,13 +104,14 @@ func grantedLoyaltyCost(sa *cards.SA) int {
 }
 
 // grantedLoyaltyAbility is the loyalty ability an AddAbility$ static grants,
-// nil for a loyalty ability that adds mana: its offered option's label carries
-// none of its text (measured: "Add", "Add {R}" and "[+1]" miss it on a
-// planeswalker probe while the control's own abilities answer "+1"), so there
-// is nothing to tell the grant from the probe's printed abilities.
+// nil when the grant is not one. A loyalty ability that ADDS MANA is included:
+// it is not a mana ability (CR 605.1a excludes loyalty abilities from the
+// definition), so the engine offers it as an ordinary ability labelled
+// "<probe>: <ability text>" (Way of the Pyromancer's "[+1]: Add {R}."), and
+// the label's own text tells the grant from the probe's printed abilities.
 func grantedLoyaltyAbility(f *cards.Face, st cards.Static) *cards.SA {
 	sa := cards.ResolveSVar(f.SVars, strings.TrimSpace(st.ParamStr(cards.PKAddAbility)))
-	if sa == nil || sa.Kind != "AB" || grantedLoyaltyCost(sa) < 0 || sa.API == "Mana" {
+	if sa == nil || sa.Kind != "AB" || grantedLoyaltyCost(sa) < 0 {
 		return nil
 	}
 	return sa
@@ -222,15 +228,26 @@ func grantTries(reg *cards.Registry, f *cards.Face, st cards.Static) []offerTry 
 		return []offerTry{t}
 	}
 	if sa := grantedLoyaltyAbility(f, st); sa != nil {
+		need := grantedLoyaltyCost(sa)
 		var tries []offerTry
 		for _, p := range grantPlaneswalkerNames {
 			c, ok := reg.Lookup(p)
 			if !ok || len(c.Faces) == 0 {
 				continue
 			}
-			if loyalty, err := strconv.Atoi(c.Faces[0].Loyalty); err == nil && loyalty >= grantedLoyaltyCost(sa) {
-				tries = append(tries, offerTry{probe: p, kind: "activate", label: grantedLoyaltyLabel(sa), extraBF: []string{p}})
+			loyalty, err := strconv.Atoi(c.Faces[0].Loyalty)
+			if err != nil {
+				continue
 			}
+			t := offerTry{probe: p, kind: "activate", label: grantedLoyaltyLabel(sa), extraBF: []string{p}}
+			if loyalty < need {
+				// The granted cost is more loyalty than the probe prints:
+				// the setup puts the difference on it as LOYALTY counters,
+				// so the activation is payable. The control keeps the
+				// counters, so a match is still the grant's doing.
+				t.probeLoyalty = int32(need - loyalty)
+			}
+			tries = append(tries, t)
 		}
 		return tries
 	}

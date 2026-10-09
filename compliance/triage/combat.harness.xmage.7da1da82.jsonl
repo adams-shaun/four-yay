@@ -1,3 +1,2 @@
-{"shape":{"template":"combat","op":"harness","field":"xmage","diff":"AssertionError: Player PlayerA must have N actions but found N"},"key":"combat | harness | xmage | AssertionError: Player PlayerA must have N actions but found N","cards":2}
-{"card":"Hazoret, Godseeker","template":"combat#0.attack","status":"harness","api":"-","sets":["DFT"],"detail":"xmage: AssertionError: Player PlayerA must have 0 actions but found 2"}
+{"shape":{"template":"combat","op":"harness","field":"xmage","diff":"AssertionError: Player PlayerA must have N actions but found N"},"key":"combat | harness | xmage | AssertionError: Player PlayerA must have N actions but found N","cards":1}
 {"card":"Summon: Bahamut","template":"combat#0.block","status":"harness","api":"-","sets":["FIN"],"detail":"xmage: AssertionError: Player PlayerA must have 0 actions but found 2"}
