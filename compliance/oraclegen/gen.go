@@ -692,12 +692,7 @@ func withHand(s Seat, name string) Seat {
 // settle runs the cast in gorge and returns how many resolve steps empty
 // the stack (at most 4); ok is false when gorge cannot cast with this
 // fixture.
-// SettleDebugFails is a temporary scratch hook: the settle failures of the
-// last settle call.
-var SettleDebugFails []string
-
 func settle(reg *cards.Registry, sc Scenario) (int, rules.OracleResult, bool) {
-	SettleDebugFails = SettleDebugFails[:0]
 	for n := 1; n <= 4; n++ {
 		try := sc
 		try.Steps = append(append([]Step(nil), sc.Steps...), make([]Step, n)...)
@@ -710,7 +705,6 @@ func settle(reg *cards.Registry, sc Scenario) (int, rules.OracleResult, bool) {
 			return 0, res, false
 		}
 		for _, f := range res.Fails {
-			SettleDebugFails = append(SettleDebugFails, sc.Steps[0].Op+" "+f)
 			// The static fixture over-offers targets on purpose; the generator
 			// rewrites each cast step to gorge's actual picks afterwards, and
 			// verifies the rewrite with PlaysThrough. So the runner's

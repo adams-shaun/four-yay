@@ -115,7 +115,6 @@ var wantActivateCensus = map[string]map[string]int{
 		"served:activate.battlefield":             38,
 		"served:activate.mana":                    23,
 		"skip:activate cost gap: SubCounter<...>": 1,
-
 	},
 	"FDN": {
 		"served:activate.battlefield":                             89,
