@@ -241,9 +241,13 @@ func becomesTargetMatches(e Board, t cards.Trigger, source state.ObjID, ev event
 		// this event answers (commitCrimeMatches reads the same field as the
 		// targeting actor). Reality Smasher's "spell an opponent controls"
 		// (Spell.OppCtrl) and Thunderbreak Regent's "spell or ability"
-		// (SpellAbility.OppCtrl) both resolve against that stack object; an
-		// event carrying no targeting object can never match.
-		if ev.Obj == 0 || !e.MatchesSpec(v, ev.Obj, source, e.ControllerOf(source), SpecOpts{}) {
+		// (SpellAbility.OppCtrl) both resolve against that stack object; the
+		// Ability* spellings (Loki, God of Mischief's Ability.YouCtrl) are
+		// ability-shape predicates the object grammar has no base word for
+		// and are answered by becomesTargetSourceMatches alongside the bare
+		// `Activated` token. An event carrying no targeting object can never
+		// match.
+		if !becomesTargetSourceMatches(e, v, ev.Obj, source, e.ControllerOf(source)) {
 			return false
 		}
 	}
@@ -264,6 +268,18 @@ func becomesTargetMatches(e Board, t cards.Trigger, source state.ObjID, ev event
 				}
 				return true
 			}
+		}
+		// A player target is not in ev.IDs: recordChosenTargets (T14-b)
+		// carries it as Amount 1/3 with Player set, the shape
+		// becomesTargetOnceMatches' ValidTarget$ read already answers with
+		// the player-spec grammar. "Player,Permanent" (Loki, God of
+		// Mischief) and the bare "You" (Leovold, Emissary of Trest) spellings
+		// name the player half of their specs there; an object event (Amount
+		// 0/2) never enters this branch, so the object half above keeps the
+		// only say for it.
+		if (ev.Amount == 1 || ev.Amount == 3) &&
+			effects.MatchesPlayerSpecCtx(e.Game(), v, ev.Player, e.ControllerOf(source), e.PlayerSpecCtx(source)) {
+			return true
 		}
 		return false
 	}
@@ -345,15 +361,19 @@ func becomesTargetOnceMatches(e Board, t cards.Trigger, source state.ObjID, ev e
 	return true
 }
 
-// becomesTargetSourceMatches answers a Mode$ BecomesTargetOnce ValidSource$
-// clause over the targeting stack object. Forge's `Activated` predicate is an
-// ability-shape test, not a card filter, so it is answered directly: an
-// activated ability's stack object carries an Ability and is not a stored
-// trigger (the same split counterValidSA makes for R:Event$ Counter). Every
-// other comma alternative -- SpellAbility.OppCtrl, Spell.OppCtrl, a plain
-// object spec -- goes through the ordinary object-filter grammar, the sibling
-// becomesTargetMatches' ValidSource$ read. An absent targeting object fails
-// closed.
+// becomesTargetSourceMatches answers a Mode$ BecomesTarget / BecomesTargetOnce
+// ValidSource$ clause over the targeting stack object. Forge's `Activated`
+// predicate is an ability-shape test, not a card filter, so it is answered
+// directly: an activated ability's stack object carries an Ability and is not a
+// stored trigger (the same split counterValidSA makes for R:Event$ Counter).
+// The `Ability` base (Loki, God of Mischief's `Ability.YouCtrl`) is the same
+// ability-shape test -- the ordinary object-filter grammar has no Ability base
+// word, so without the special case the alternative would fall to a card-type
+// test an ability stack object can never satisfy and fail closed; its dotted
+// qualifiers are answered by abilitySourceQualifiersHold. Every other comma
+// alternative -- SpellAbility.OppCtrl, Spell.OppCtrl, a plain object spec --
+// goes through the ordinary object-filter grammar. An absent targeting object
+// fails closed.
 func becomesTargetSourceMatches(e Board, spec string, stackObj, source state.ObjID, you state.PlayerID) bool {
 	if stackObj == 0 {
 		return false
@@ -373,11 +393,67 @@ func becomesTargetSourceMatches(e Board, spec string, stackObj, source state.Obj
 			}
 			continue
 		}
+		if quals, isAbility := abilitySourceAlt(alt); isAbility {
+			if o.Ability != nil && !isTriggeredObject(e.Game(), o) &&
+				abilitySourceQualifiersHold(quals, o, you) {
+				return true
+			}
+			continue
+		}
 		if e.MatchesSpec(alt, stackObj, source, you, SpecOpts{}) {
 			return true
 		}
 	}
 	return false
+}
+
+// abilitySourceAlt splits Forge's `Ability` ValidSource$ base from its
+// qualifiers: a bare `Ability`, or `Ability.<quals>` with the qualifiers
+// `+`-joined (Ability.YouCtrl; Ability.Land+namedLabyrinth of Skophos+YouCtrl).
+// isAbility is false for every other base word.
+func abilitySourceAlt(alt string) (quals []string, isAbility bool) {
+	rest, ok := strings.CutPrefix(alt, "Ability")
+	if !ok {
+		return nil, false
+	}
+	if rest == "" {
+		return nil, true
+	}
+	if !strings.HasPrefix(rest, ".") {
+		return nil, false
+	}
+	for q := range strings.SplitSeq(rest[1:], "+") {
+		if q = strings.TrimSpace(q); q != "" {
+			quals = append(quals, q)
+		}
+	}
+	return quals, true
+}
+
+// abilitySourceQualifiersHold answers the qualifiers an `Ability` ValidSource$
+// alternative carries. YouCtrl/OppCtrl compare the targeting ability's
+// controller (TriggeredSourceSA's on-stack controller, o.Controller) with the
+// trigger source's controller. Any other qualifier -- the host-card filters
+// (Ability.Land+namedX, Ability.Backup's keyword provenance) and the value
+// comparisons (Ability.numTargets EQ1) -- is unmodelled here and fails closed;
+// the corpus carriers that need them (Skophos Maze Warden, Mirror Shield
+// Hoplite, Agrus Kos, Eternal Soldier) stay unable to fire.
+func abilitySourceQualifiersHold(quals []string, o *state.Object, you state.PlayerID) bool {
+	for _, q := range quals {
+		switch q {
+		case "YouCtrl", "YouControl", "YourControl", "YouControlled":
+			if o.Controller != you {
+				return false
+			}
+		case "OppCtrl", "OpponentControls":
+			if o.Controller == you {
+				return false
+			}
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 // landPlayedMatches implements Mode$ LandPlayed. This fires on the MoveZone
