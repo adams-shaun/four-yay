@@ -231,8 +231,10 @@ func TestStaticContinuousNamedSkips(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	for _, tc := range []struct{ card, key, want string }{
 		{"Agatha's Soul Cauldron", "static#0.1", "counters"},
-		{"Gideon's Memorial", "static#0.0", "token"},
-		{"Firion, Wild Rose Warrior", "static#0.0", "equipped"},
+		// Gideon's Memorial ("token") and Firion ("equipped") left this table
+		// for the served rows with the state fixtures (ticket
+		// cli-20261009T031407Z-8f4b4f49): the token fixture casts the tokens,
+		// the equip fixture attaches Bonesplitter to the Bear.
 	} {
 		_, skip := GenerateB(reg, tc.card, probeRequirement(t, reg, tc.card, tc.key))
 		if skip == nil {
