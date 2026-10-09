@@ -60,7 +60,7 @@ func combatRemainderOnStack(t *testing.T, reg *cards.Registry, sc oraclegen.Scen
 	}
 	for _, steps := range variants {
 		res := runSteps(t, reg, sc, steps)
-		if abilityOnStack(res.Snapshots, name, name, slot) {
+		if abilityOnStack(res.Snapshots, []string{strings.ToLower(name)}, slot) {
 			return true
 		}
 	}

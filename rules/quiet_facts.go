@@ -69,8 +69,22 @@ type quietFaceFacts struct {
 	// Graveyard recast routes a face can open (Flashback, Escape, Unearth,
 	// Disturb, Jump-start, Retrace, Embalm, Eternalize, Scavenge, Encore,
 	// Harmonize, Mayhem, Aftermath) -- any of these is a blocker for that
-	// card in a graveyard.
+	// card in a graveyard. Q3a adds recastFloor/recastOpen to price the route
+	// instead of blocking on the raw head.
 	recastKW bool
+	// recastFloor is the minimum mana floor over the printed graveyard-recast
+	// routes the walk prices (Flashback's keyword cost, Mayhem's substituted
+	// cost, a Warp the face may use from its graveyard); -1 means no printed
+	// graveyard cast route is priced. recastOpen marks a printed route whose
+	// cost the bound cannot price: Escape's exile part, Retrace's and
+	// Jump-start's discard, Harmonize's creature-power reduction, a route
+	// keyword the graveyard walk does not price as a cast (Unearth, Disturb,
+	// Embalm, Eternalize, Scavenge, Encore, Aftermath), a bare parameterless
+	// Mayhem, or a cost-modifier static that could rewrite the recast cost.
+	// The Q3a blocker fires when the recast's timing is open and the route is
+	// open or the floor is affordable.
+	recastFloor int32
+	recastOpen  bool
 	// Exile recast routes a face can open (Warp, Foretell, Plot, Suspend).
 	exileCastKW bool
 
@@ -205,6 +219,7 @@ func computeQuietFaceFacts(f *cards.Face, hasAltCosts bool) quietFaceFacts {
 			}
 		}
 	}
+	quietRecastFacts(f, &q)
 	quietManaFacts(f, &q)
 	quietAbilityFacts(f, &q)
 	return q
@@ -299,6 +314,148 @@ func quietSelfReducePipFloor(f *cards.Face) (int32, bool) {
 		pips += c.Colored[i]
 	}
 	return pips + int32(len(c.Hybrid)), true
+}
+
+// quietRecastOfferCreditHeads are the keyword heads the offer gate credits
+// onto the recast cost through offerCastableUsing itself, independent of the
+// base the caller passes. Delve is the one such head: offerCastableUsing
+// reads hasKeywordH(id, kwhDelve) and subtracts one generic per graveyard card
+// on EVERY cast scope (rules/mana.go), including the flashback/mayhem/warp
+// recasts whose loops pass the raw cost without castOfferBase -- so the
+// printed recast floor is not a lower bound of what the walk can offer.
+// Convoke and Improvise are deliberately absent: their credit is composed by
+// castOfferBase, which those loops do not call, so it does not reach the
+// priced route. A future offer-time credit added to offerCastableUsing must be
+// listed here. A granted Delve is a board-wide blocker via
+// quietActiveKWGrantBlocker's quietCastOpenHeads scan.
+var quietRecastOfferCreditHeads = [...]string{"Delve"}
+
+// quietRecastFacts prices a face's printed graveyard-recast routes for the
+// Q3a blocker: recastFloor is the minimum mana floor over the routes the
+// graveyard walk prices, and recastOpen marks a route whose cost the bound
+// cannot price. It reads only the printed keyword parameters and the face's
+// own statics -- the same compiled reads the walk's graveyard section makes
+// (e.flashbackCost / mayhemCastCost / keywordAltCost / warpGraveyardAllowed),
+// never a Params map at proof time. A granted recast route is not read here:
+// the board grant blocker fails the window closed on any active AddKeyword$
+// recast head, and the per-object extra-route check covers intrinsic keywords
+// and counters.
+func quietRecastFacts(f *cards.Face, q *quietFaceFacts) {
+	if !q.recastKW {
+		q.recastFloor = -1
+		return
+	}
+	floor := int32(-1)
+	open := false
+	// An offer-time keyword credit (Delve) lowers the real recast floor below
+	// the printed one, so the route cannot be priced. Read the printed face;
+	// a granted instance is the board grant blocker's.
+	for _, name := range quietRecastOfferCreditHeads {
+		if f.HasKeyword(name) {
+			open = true
+		}
+	}
+	add := func(c Cost) {
+		fl, _, nonMana := quietCostFloor(&c)
+		if nonMana {
+			open = true
+			return
+		}
+		if floor < 0 || fl < floor {
+			floor = fl
+		}
+	}
+	// A cost-modifier or may-play static the face prints can rewrite the
+	// recast's cost (offerCastable composes them), so the printed route is
+	// unpriced. Board-scoped statics are the board cost blocker's; a
+	// self-scoped one is not, so it is read here.
+	for i := range f.Statics {
+		st := &f.Statics[i]
+		switch st.Mode {
+		case "ReduceCost", "SetCost", "AlternativeCost":
+			open = true
+		default:
+			if quietStaticMayPlay(st) {
+				open = true
+			}
+		}
+	}
+	if f.KeywordLinesHaveHead(kwhFlashback.S, kwhFlashback.ID) {
+		if quietSpellExtrasNonMana(f) {
+			open = true
+		} else {
+			add(ParseCost(quietFlashbackRaw(f)))
+		}
+	}
+	if f.KeywordLinesHaveHead(kwhEscape.S, kwhEscape.ID) {
+		open = true // CR 702.42a: the ExileFromGrave part cannot be bounded.
+	}
+	if f.KeywordLinesHaveHead(kwhRetrace.S, kwhRetrace.ID) {
+		open = true // Discard<1/Land> additional cost.
+	}
+	if f.KeywordLinesHaveHead(kwhJumpStart.S, kwhJumpStart.ID) {
+		open = true // Discard<1/Card> additional cost.
+	}
+	if f.KeywordLinesHaveHead(kwhMayhem.S, kwhMayhem.ID) {
+		if raw, ok := f.KeywordParam("Mayhem"); ok && strings.TrimSpace(raw) != "" {
+			add(ParseCost(raw))
+		} else {
+			open = true // bare K:Mayhem is the land play, not a priced cast
+		}
+	}
+	if f.KeywordLinesHaveHead(kwhHarmonize.S, kwhHarmonize.ID) {
+		open = true // harmonizePayment reduces the generic by creature power.
+	}
+	if f.KeywordLinesHaveHead(kwhWarp.S, kwhWarp.ID) && warpGraveyardAllowed(f) {
+		if c, ok := keywordAltCost(f, "Warp"); ok {
+			add(c)
+		} else {
+			open = true
+		}
+	}
+	// The parameterless/activation heads the graveyard walk does not price as
+	// a cast here (Unearth is the ability loop's; the rest are unimplemented
+	// routes the proof must still fail closed on).
+	for _, name := range quietGraveHeadNames {
+		if hd := kwHeadOf(name); hd.S != "" && f.KeywordLinesHaveHead(hd.S, hd.ID) {
+			open = true
+		}
+	}
+	if open {
+		q.recastOpen = true
+		q.recastFloor = -1
+		return
+	}
+	q.recastFloor = floor
+}
+
+// quietFlashbackRaw is the raw cost string e.flashbackCost parses for the
+// printed face: the K:Flashback cost field, or the card's own mana cost when
+// the keyword is parameterless.
+func quietFlashbackRaw(f *cards.Face) string {
+	if s, ok := f.KeywordCostParam("Flashback"); ok {
+		return s
+	}
+	return f.ManaCost
+}
+
+// quietSpellExtrasNonMana reports whether the face's own SpellAbility Cost$
+// carries a non-mana part. pay.WithSpellAbilityExtras folds those parts onto
+// every recast the graveyard walk offers, so a face with one cannot be priced
+// at its mana floor. The mana part of a Cost$ restates the printed cost and is
+// deliberately ignored, exactly as foldAdditionalCost ignores it.
+func quietSpellExtrasNonMana(f *cards.Face) bool {
+	sa := f.SpellAbility()
+	if sa == nil {
+		return false
+	}
+	sc := strings.TrimSpace(sa.ParamStr(cards.PKCost))
+	if sc == "" {
+		return false
+	}
+	c := ParseCost(sc)
+	_, _, nonMana := quietCostFloor(&c)
+	return nonMana
 }
 
 // quietStaticMayPlay reports whether ONE static line carries any may-play

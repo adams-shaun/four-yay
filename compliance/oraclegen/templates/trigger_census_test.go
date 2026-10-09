@@ -39,6 +39,7 @@ var wantTriggerCensus = map[string]map[string]int{
 		"served:trigger.etb-other":                                    18,
 		"served:trigger.ltb-other":                                    1,
 		"served:trigger.ltb-self":                                     4,
+		"served:trigger.land-played":                                  1, // The Endstone: agent-20261009T160853Z-c3e35453
 		"served:trigger.phase":                                        19,
 		"served:trigger.spell-cast":                                   6,
 		"skip:trigger.attacks: trigger did not fire":                  0,
