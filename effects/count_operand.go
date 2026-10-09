@@ -26,6 +26,13 @@ func applyCountOpOperand(h Host, c *Ctx, n int32, op string, depth int) int32 {
 // verdict to fail closed instead of treating an unknown suffix as their base
 // literal (for example Mathemagics' unsupported Number$2/Pow.X).
 func applyCountOpOperandOK(h Host, c *Ctx, n int32, op string, depth int) (int32, bool) {
+	if op == "Abs" {
+		// The no-operand magnitude suffix (Doran's SVar$Y1/Abs): its operand
+		// set membership here — not just applyCountOp's arithmetic — matters
+		// for the Number$ literal form, which fails closed on an op outside
+		// this helper's verdict.
+		return applyCountOp(n, op), true
+	}
 	for _, prefix := range countOperandOps {
 		operand, ok := strings.CutPrefix(op, prefix)
 		if !ok {
@@ -440,8 +447,11 @@ func applyCountOp(n int32, op string) int32 {
 		v = (v + 2) / 3
 	case op == "Negative":
 		v = -v
-	case strings.HasPrefix(op, "Abs"):
-		// Doran's `SVar$Y1/Abs` over `CardPower/Minus.Z1`: |power-toughness|.
+	case op == "Abs":
+		// Forge's doXMath "abs": the magnitude of the value (Doran,
+		// Besieged by Time's SVar:X1:SVar$Y1/Abs reads the absolute
+		// power-minus-toughness difference its pump sizes). Applied after
+		// the base value in the shared int64 arithmetic, before the clamp.
 		if v < 0 {
 			v = -v
 		}

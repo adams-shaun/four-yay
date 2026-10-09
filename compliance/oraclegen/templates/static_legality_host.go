@@ -96,6 +96,43 @@ func finishHostLegalityItem(reg *cards.Registry, f *cards.Face, name, mode strin
 // non-matching blocker: a Human, a power-2 Bear, a 3/3, a 1/1 Elf, a Wall.
 var filterBlockerProbes = []string{"Elite Vanguard", "Grizzly Bears", "Hill Giant", "Llanowar Elves", defenderProbe}
 
+// filterBlockerSplitProbes are the non-vanilla creature probes the blocker
+// filter search tries AFTER every vanilla pair, so a filter the vanilla
+// probes cannot split (Cynical Loner's Creature.Glimmer, a type the vanilla
+// set does not carry) still finds a matching/non-matching pair and every
+// already-served row keeps its first-passing vanilla pair, and so its
+// scenario bytes. The probe is a real DSK Glimmer card; the expectations, not
+// the probe's own abilities, are what the row asserts.
+var filterBlockerSplitProbes = []string{"Enduring Innocence"}
+
+// cantBlockByAliveLands is the number of Wastes p0's battlefield needs when
+// the attacking card's own P/T is a characteristic-defining count of lands
+// you control (Sandman, Shifting Scoundrel): without a land the card reads
+// 0/0 and dies to state-based actions before the attack step, so no blocker
+// pair is ever reached. Wastes produce no mana and carry no ability, so the
+// fixture contributes nothing else the observation could read. 0 when the
+// face's P/T is printed or the count does not read lands.
+func cantBlockByAliveLands(f *cards.Face) int {
+	if !strings.Contains(f.PT, "*") {
+		return 0
+	}
+	for _, st := range f.Statics {
+		for _, key := range []cards.ParamKey{cards.PKSetPower, cards.PKSetToughness} {
+			name := strings.TrimSpace(st.ParamStr(key))
+			if name == "" {
+				continue
+			}
+			if body, ok := f.SVars[name]; ok {
+				low := strings.ToLower(body)
+				if strings.Contains(low, "count$") && strings.Contains(low, "land") {
+					return 2
+				}
+			}
+		}
+	}
+	return 0
+}
+
 // cantBlockByBlockerFilterItem serves "CARDNAME can't be blocked by
 // <filter>" (CantBlockBy, the card as the attacker, ValidBlocker$ a creature
 // filter). p0 attacks with the card and the large probe; p1 fields a
@@ -122,8 +159,12 @@ func cantBlockByBlockerFilterItem(reg *cards.Registry, f *cards.Face, name strin
 		return staticSkip(name, mode, "requirement slot names no static")
 	}
 	self, spider := cardAt(0, name), cardAt(0, largeAttackerProbe)
-	for _, m := range filterBlockerProbes {
-		for _, n := range filterBlockerProbes {
+	alive := cantBlockByAliveLands(f)
+	probes := make([]string, 0, len(filterBlockerProbes)+len(filterBlockerSplitProbes))
+	probes = append(probes, filterBlockerProbes...)
+	probes = append(probes, filterBlockerSplitProbes...)
+	for _, m := range probes {
+		for _, n := range probes {
 			if m == n || m == name || n == name {
 				continue
 			}
@@ -140,6 +181,16 @@ func cantBlockByBlockerFilterItem(reg *cards.Registry, f *cards.Face, name strin
 			p1 := sc.Setup["p1"]
 			p1.Battlefield = []string{m, n}
 			sc.Setup["p1"] = p1
+			if alive > 0 {
+				// The card's characteristic-defining P/T counts lands you
+				// control; the Wastes keep it alive to attack (measured:
+				// Sandman at 0/0 dies before the attack step).
+				p0 := sc.Setup["p0"]
+				for i := 0; i < alive; i++ {
+					p0.Battlefield = append(p0.Battlefield, "Wastes")
+				}
+				sc.Setup["p0"] = p0
+			}
 			if res, ok := runStatic(reg, sc); !ok || len(res.Fails) != 0 {
 				continue
 			}

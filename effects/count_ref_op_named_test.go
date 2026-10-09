@@ -75,10 +75,11 @@ func TestRefPropertyNumericOperandUnchanged(t *testing.T) {
 	}
 }
 
-// TestCountOpAbs pins the /Abs arm beyond Doran: Psychic Transfer's
-// SVar$Y/Abs over Count$YourLifeTotal/Minus.Z (named operand, both heads
-// modelled) and Profane Transfusion's Count$RememberedNumber/Abs shape.
-func TestCountOpAbs(t *testing.T) {
+// TestCountOpAbsThroughNamedSVarChain pins the /Abs arm beyond Doran:
+// Psychic Transfer's SVar$Y/Abs over Count$YourLifeTotal/Minus.Z (named
+// operand, both heads modelled) and Profane Transfusion's
+// Count$RememberedNumber/Abs shape.
+func TestCountOpAbsThroughNamedSVarChain(t *testing.T) {
 	h := newHost(t, 2)
 	h.g.Players[0].Life = 7
 	h.g.Players[1].Life = 12

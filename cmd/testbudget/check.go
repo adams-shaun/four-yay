@@ -12,8 +12,11 @@ import (
 )
 
 const (
-	defaultWallLimitS  = 60
-	defaultRSSLimitKiB = 2 * 1024 * 1024
+	defaultWallLimitS = 60
+	// 4 GiB per test binary (operator, 2026-10-09; doubled from 2 GiB when the
+	// box went to 120 GiB and the per-test env went to GOMAXPROCS=4
+	// GOMEMLIMIT=3GiB).
+	defaultRSSLimitKiB = 4 * 1024 * 1024
 	// A pinned exception that now measures under staleFraction of the limit
 	// is fixed, and its row must be deleted. The margin keeps a test sitting
 	// on the limit from flapping the batch red.

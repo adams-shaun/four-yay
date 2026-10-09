@@ -46,7 +46,7 @@ func TestStaticNamedKeywordGrant(t *testing.T) {
 		if staticObserved(snap, f, tc.card, st, specs) {
 			t.Errorf("%s: the evergreen vocabulary already observes it, the named opt-in is not exercised", tc.card)
 		}
-		if observed, namedOnly := staticObservedNamed(snap, f, tc.card, st, specs); !observed || !namedOnly {
+		if observed, namedOnly := staticObservedNamed(snap, f, tc.card, st, specs, staticBaseline{}); !observed || !namedOnly {
 			t.Errorf("%s: named observation observed=%v namedOnly=%v, want true/true", tc.card, observed, namedOnly)
 		}
 	}

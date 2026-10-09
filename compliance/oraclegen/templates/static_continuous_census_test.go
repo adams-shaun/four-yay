@@ -52,6 +52,18 @@ import (
 // (FRA Way of the Pyromancer "[+1]: Add {R}."), and a GainsAbilitiesOf$ grant
 // through a donor card (Marvin, Murderous Mimic; Thranduil, the Elvenking):
 // FRA loses all three loyalty-grant skips and its served count rises by three.
+// Re-pinned again by agent-20261009T055739Z-b43f3480: a Continuous
+// SetMaxHandSize$ static is observed through the runner's max_hand_size
+// expectation (the literal rows in FDN and DFT leave their hand-size skip),
+// and an AdjustLandPlays$ grant whose source carries a land-entry trigger
+// resolves it before the second-land assertion (EOE Icetill Explorer leaves
+// the player-rule skip).
+// Re-pinned again by agent-20261009T060626Z-a6d0cf40: the Surveyor cycle's
+// graveyard AddAbility$ grant is served by the off-battlefield arm of the
+// gated-grant observation (the engine offers the granted activation on the
+// card in its zone since cli-3b80d13b1), so DFT loses its four
+// "granted ability in Graveyard is not offered by the engine" skips and its
+// served count rises by four.
 // It fails in both directions.
 var wantStaticContinuousCensus = map[string]map[string]int{
 	"BIG": {
@@ -59,9 +71,8 @@ var wantStaticContinuousCensus = map[string]map[string]int{
 		"skip:static counts cards exiled with the source": 1,
 	},
 	"EOE": {
-		"served": 61,
-		"skip:static changes a player rule (hand size, land plays), not a permanent": 1,
-		"skip:static gated self grant is not offered in the gate-on fixture":         1,
+		"served": 62,
+		"skip:static gated self grant is not offered in the gate-on fixture": 1,
 	},
 	"FDN": {
 		"served": 68,
@@ -71,31 +82,31 @@ var wantStaticContinuousCensus = map[string]map[string]int{
 		"skip:static needs counters on the affected permanent":                                       1,
 	},
 	"FRA": {
-		"served": 33,
+		"served": 34,
 		"skip:static effect not observable on a probe or the card":                   2,
 		"skip:static grants a static ability (observed only through its own effect)": 1,
 		"skip:static counts cards exiled with the source":                            1,
 		"skip:static grants only keywords outside the compared evergreen set":        1,
-		"skip:static needs a token (setup places none)":                              1,
 	},
-	// DFT includes the Surveyor cycle's graveyard AddAbility$ grant, whose
-	// engine-gap skip remains pinned separately.
+	// DFT includes the Surveyor cycle's graveyard AddAbility$ grant, served by
+	// the gated-grant observation's off-battlefield arm (agent-
+	// 20261009T060626Z-a6d0cf40); its four former engine-gap skips are gone.
 	"DFT": {
-		"served": 53,
+		"served": 57,
 		"skip:static amount is a computed count the fixture does not make observable":            1,
 		"skip:static characteristic-defining P/T of a non-creature (the snapshot omits its P/T)": 1,
 		"skip:static effect not observable on a probe or the card":                               2,
 		"skip:static gated self grant is not offered in the gate-on fixture":                     1,
 		"skip:static grants a static ability (observed only through its own effect)":             1,
 		"skip:static grants a replacement effect (needs an event the replacement can change)":    2,
-		"skip:static granted ability in Graveyard is not offered by the engine":                  4,
 	},
 }
 
 // staticCensusSets are the sets TestStaticContinuousCensus pins. It extends
 // the level-A census sets (activateCensusSets) with DFT, whose Surveyor cycle
-// carries the graveyard AddAbility$ grant the engine offers no activation for
-// -- pinning DFT is what gives that named reason its own census key.
+// carries the graveyard AddAbility$ grant (served since
+// agent-20261009T060626Z-a6d0cf40 and cli-3b80d13b1) -- pinning DFT is what
+// keeps the grant's served rows in the census.
 var staticCensusSets = append([]string{"DFT"}, activateCensusSets...)
 
 func TestStaticContinuousCensus(t *testing.T) {

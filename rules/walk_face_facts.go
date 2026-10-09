@@ -321,7 +321,7 @@ func computeWalkFaceFactsMode(f *cards.Face, includeScan bool) walkFaceFacts {
 		if ab.Kind != "AB" {
 			continue
 		}
-		if cards.IsManaAbilityAPI(ab.API) && !loyaltyAbilityText(ab) {
+		if cards.IsManaAbilitySA(ab) && !loyaltyAbilityText(ab) {
 			continue
 		}
 		m := abilityZoneMask(ab)

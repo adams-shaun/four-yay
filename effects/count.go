@@ -372,7 +372,7 @@ func evalCountExprOK(h Host, c *Ctx, expr string, depth int) (int32, bool) {
 	// evalRememberedOK. The /Op suffix is applied the same way Count$ applies
 	// it. An unmodelled head degrades to zero.
 	if body, ok := strings.CutPrefix(expr, "Remembered$"); ok {
-		return evalRememberedOK(h, c, strings.TrimSpace(body))
+		return evalRememberedOK(h, c, strings.TrimSpace(body), depth)
 	}
 	// A <Ref>$<Property> body answers a numeric question about the objects a
 	// target reference names: Targeted$CardPower (Vein Drinker's "deals
@@ -386,7 +386,7 @@ func evalCountExprOK(h Host, c *Ctx, expr string, depth int) (int32, bool) {
 	if body, ok := strings.CutPrefix(expr, "TriggerObjectsCurrentCastSpells$"); ok {
 		return evalTriggerCurrentCastSpellsOK(h, c, body)
 	}
-	if n, ok := evalRefProperty(h, c, expr); ok {
+	if n, ok := evalRefProperty(h, c, expr, depth); ok {
 		return n, true
 	}
 	// A TargetedPlayer$/ThisTargetedPlayer$ body answers a numeric question

@@ -2,6 +2,7 @@ package effects
 
 import (
 	"slices"
+	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/events"
@@ -75,6 +76,10 @@ func changeZoneAllPlayers(h Host, c *Ctx, sa *cards.SA, p *ChangeZoneAllParams) 
 
 const ashiokPayLifeChangeType = "Card.NotDefinedReplacedSimultaneousETB"
 
+// triggeredCardsChangeType is the ChangeType$ spelling of the
+// trigger-Remembered referent effChangeZoneAll resolves from c.Remembered.
+const triggeredCardsChangeType = "Card.TriggeredCards"
+
 func changeZoneAllTypeLimitSpec(spec string) string {
 	if spec == ashiokPayLifeChangeType {
 		return "Card"
@@ -112,6 +117,25 @@ func effChangeZoneAll(h Host, c *Ctx, sa *cards.SA) {
 	}
 	to := cza.Destination
 	spec := changeZoneAllTypeLimitSpec(cza.ChangeType)
+	// ChangeType$ Card.TriggeredCards (Hedge Shredder's "Whenever one or more
+	// land cards are put into your graveyard from your library, put them onto
+	// the battlefield tapped", Toluz, Clever Conductor's exile sweep): the
+	// trigger-Remembered referent names the cards the triggering zone change
+	// captured -- a set the zone-filter grammar cannot bind (the same
+	// unbindable shape clone.go's choice grammar records). It resolves from
+	// the trigger's Remembered half instead of a zone scan, and the sweep's
+	// Origin$ zones still bound it: a remembered object outside them is
+	// simply never visited. The set is snapshotted before any move so the
+	// sweep cannot match the moved cards it creates.
+	triggeredSet := map[state.ObjID]bool(nil)
+	if strings.EqualFold(spec, triggeredCardsChangeType) {
+		triggeredSet = make(map[state.ObjID]bool)
+		for _, t := range c.Remembered {
+			if !t.IsPlayer && t.Obj != 0 {
+				triggeredSet[t.Obj] = true
+			}
+		}
+	}
 	// ChangeNum$ caps the sweep (expert_level_safe's DBOpenSafe writes "All",
 	// bone_dancer's DBChangeZone writes "1"): an omitted value or "All" moves
 	// every matching card -- the behaviour the primitive always had -- while a
@@ -293,7 +317,11 @@ func effChangeZoneAll(h Host, c *Ctx, sa *cards.SA) {
 				// Snapshot the zone exactly like the emit loop does.
 				ids := append([]state.ObjID(nil), g.Zone(z, p)...)
 				for _, id := range ids {
-					if preMatched != nil {
+					if triggeredSet != nil {
+						if !triggeredSet[id] {
+							continue
+						}
+					} else if preMatched != nil {
 						if !preMatched[id] {
 							continue
 						}
@@ -344,9 +372,12 @@ func effChangeZoneAll(h Host, c *Ctx, sa *cards.SA) {
 						break sweep
 					}
 					matched := false
-					if preMatched != nil {
+					switch {
+					case triggeredSet != nil:
+						matched = triggeredSet[id]
+					case preMatched != nil:
 						matched = preMatched[id]
-					} else {
+					default:
 						matched = MatchesSpecCtx(g, spec, id, c.SpecContext(c.Controller))
 					}
 					if matched {

@@ -51,6 +51,9 @@ func zoneProbes(dest string) []string {
 func zoneTriggerRecipe(reg *cards.Registry, name string, t *cards.Trigger, sub string) ([]triggerCause, string) {
 	filter := levelb.ZoneChangeFilter(t)
 	if sub == "trigger.zone-change-residue" {
+		if causes, why, ok := residueCauses(reg, name, t, filter); ok {
+			return causes, why
+		}
 		return nil, zoneChangeSkip(filter, t)
 	}
 	dest := t.ParamStr(cards.PKDestination)

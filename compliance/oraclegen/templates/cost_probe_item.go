@@ -143,6 +143,7 @@ func costProbeItem(reg *cards.Registry, f *cards.Face, name string, req levelb.R
 			settled.Name, settled.CR, settled.Why = it.Name, it.CR, it.Why
 			it.Scenario = settled
 			it.XAnswers = oraclegen.XAnswersForScenario(res2, settled, nil, castSteps)
+			it.XTargetSkips = oraclegen.TargetSkipsFor(oraclegen.SlotSpecs(f), fx, settled, res2.Decisions, castSteps)
 		}
 	}
 	if p.activate != nil {

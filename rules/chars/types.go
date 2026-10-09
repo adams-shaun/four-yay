@@ -197,6 +197,21 @@ func TypesAndAllCreatureTypes(b Board, act []state.ContinuousEffect, id state.Ob
 			}
 			ty = kept
 		}
+		if ce.RemoveLandTypes {
+			// RemoveLandTypes$ (CR 613.1d, the Blood Moon / Zhao static
+			// family) strips every land-type SUBTYPE word from the board's
+			// land-type vocabulary before this effect's AddTypes apply. The
+			// vocabulary is subtypes only, so the Land card type and the
+			// Basic supertype survive the strip.
+			words := b.LandTypeWords()
+			kept := ty[:0]
+			for _, t := range ty {
+				if !slices.ContainsFunc(words, func(w string) bool { return strings.EqualFold(t, w) }) {
+					kept = append(kept, t)
+				}
+			}
+			ty = kept
+		}
 		ty = appendLandTypes(ty, ce.AddTypes, b.LandTypeWords())
 		if ce.AddAllCreatureTypes {
 			ty = appendAllCreatureTypes(ty)

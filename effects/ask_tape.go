@@ -37,6 +37,24 @@ func AskTapeIntent(h Host, d *decision.Decision) (decision.Intent, bool) {
 	return decision.Intent{}, false
 }
 
+// AskTapeOrSuspend is AskTape plus the suspension signal: served is the
+// answer in hand; taken reports that the tape served nothing but the host
+// took the ask as its OWN continuation, so the asking primitive must return
+// WITHOUT applying its deterministic stand-in -- the host will re-enter the
+// chain when the answer is recorded (rules' off-stack mana activation routes
+// a chain's ChooseColor ask into answerNestedChooseColor this way). A host
+// that neither serves nor takes the ask keeps the old stand-in path.
+func AskTapeOrSuspend(h Host, d *decision.Decision) (ans []decision.Option, served, taken bool) {
+	in, ok, posable := tapeAnswer(h, d)
+	if ok {
+		return d.Chosen(in), true, false
+	}
+	if posable && h.Ask(d) {
+		return nil, false, true
+	}
+	return nil, false, false
+}
+
 // tapeAnswer is the tape lookup alone, without AskTapeIntent's unserved
 // observation: for a site that hands an unserved decision to Host.Ask
 // itself (effMana's off-stack colour choice, which the host poses). posable

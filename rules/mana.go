@@ -478,7 +478,7 @@ func (e *Engine) AbilityCosts(p state.PlayerID, id state.ObjID) []string {
 	}
 	var out []string
 	for _, ab := range o.Face().Abilities {
-		if ab.Kind != "AB" || cards.IsManaAbilityAPI(ab.API) {
+		if ab.Kind != "AB" || cards.IsManaAbilitySA(ab) {
 			continue
 		}
 		out = append(out, e.abilityOfferCost(p, id, ab))

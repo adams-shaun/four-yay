@@ -55,11 +55,11 @@ make test lint
 make conformance          # the focused CR conformance audit
 ```
 
-**Test budget (operator, 2026-10-05):** every test fits 2 GB RSS, 2 vCPU and
-1 minute wall; one outside it is a defect to split, never to trim. Agents run
-tests focused and capped, never `go test ./...`, `./compliance/...` or
-`-count=1`:
-`systemd-run --user --scope -q -p MemoryMax=2G -p CPUQuota=200% env GOMAXPROCS=2 GOMEMLIMIT=1536MiB go test -timeout 2m -run X ./pkg`.
+**Test budget (operator, 2026-10-05, doubled 2026-10-09 with the box's DRAM):**
+every test fits 4 GB RSS, 4 vCPU and 1 minute wall; one outside it is a defect
+to split, never to trim. Agents run tests focused and capped, never
+`go test ./...`, `./compliance/...` or `-count=1`:
+`systemd-run --user --scope -q -p MemoryMax=4G -p CPUQuota=400% env GOMAXPROCS=4 GOMEMLIMIT=3GiB go test -timeout 2m -run X ./pkg`.
 The full suite is `scripts/postmerge_batch.sh`'s (once per batch on main;
 red pauses the pipeline and bisects to a CULPRIT). Rules and rationale:
 [invariants.md](docs/agents/invariants.md#workflow).

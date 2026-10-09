@@ -30,6 +30,11 @@ func TestXMageAbilityResolvesCountMismatchShapes(t *testing.T) {
 		// A non-mana cost reads "Equip&mdash;Cost." in XMage (EquipAbility).
 		{"Demonmail Hauberk", map[int]string{0: "Equip&mdash;Sacrifice a creature."}},
 		{"Street Wraith", map[int]string{0: "Cycling&mdash;Pay 2 life."}},
+		// A compound cost is printed mana-first but rendered non-mana-first
+		// (EquipAbility.getRule() appends the mana cost last).
+		{"My Precious", map[int]string{0: "Equip&mdash;Pay 2 life.{2}"}},
+		// The word-led alternate-cost form keeps its printed order.
+		{"Bloodthorn Flail", map[int]string{0: "Equip&mdash;Pay {3} or discard a card."}},
 		{"Hand of Vecna", map[int]string{0: "Equip&mdash;Pay 1 life for each card in your hand.", 1: "Equip {2}"}},
 		{"Shredder's Armor", map[int]string{0: "Equip&mdash;Sacrifice another nonland permanent. Activate only once each turn."}},
 		{"Dark Knight's Greatsword", map[int]string{0: "<i>Chaosbringer</i> &mdash; Equip&mdash;Pay 3 life. Activate only once each turn."}},
@@ -72,7 +77,6 @@ func TestXMageAbilityStaysAmbiguousByDesign(t *testing.T) {
 		"Ion Storm",                  // "Remove a +1/+1 counter or a charge counter"
 		"M'Odo, the Gnarled Oracle",  // Eminence: battlefield and command-zone ABs
 		"Luxior and Shadowspear",     // "Equip creature or planeswalker {3}"
-		"My Precious",                // "Equip—{2}, Pay 2 life.": XMage orders the cost parts itself
 		"Salvation Colossus",         // "Unearth—Pay eight {E}.": no XMage rendering known
 		"Yuriko, the Tiger's Shadow", // "Commander ninjutsu"
 		"Phyrexian Esthetician",      // ability-word keyword ("Oil Scavenge") with no colon line

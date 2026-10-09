@@ -7,6 +7,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/compliance/oraclegen"
 	"github.com/adams-shaun/gorge/effects"
+	"github.com/adams-shaun/gorge/rules"
 )
 
 // conditionPrelude is one deliberately cheap way to make a conditional
@@ -28,6 +29,12 @@ type conditionPrelude struct {
 	// lets the activate and trigger templates label the prelude's activations
 	// for XMage exactly as they label their own.
 	xability []string
+	// activationCost is the Forge cost of a prelude activate step whose
+	// non-mana cost carries a choice (an Exile<1/Creature> exile): XMage asks
+	// it while paying, and scriptPreludeActivationCost lifts the same fixture
+	// picks the standalone activate template scripts. "" on every other
+	// prelude.
+	activationCost string
 	// life is p0's setup life total when nonzero: an activation gated on
 	// "at least N life" (Count$YourLifeTotal against a literal or a
 	// starting-life offset) sets it rather than gaining the life by a cast.
@@ -220,6 +227,11 @@ func conditionPreludes(reg *cards.Registry, params, svars map[string]string) []c
 	if strings.Contains(text, "counters_ge1_m1m1") {
 		add(conditionPrelude{counters: map[string]map[string]int{"__SOURCE__": {"M1M1": 1}}})
 	}
+	if contains("hellbent") {
+		if pre, ok := hellbentPrelude(reg); ok {
+			add(pre)
+		}
+	}
 	if len(out) > 1 {
 		combined := conditionPrelude{}
 		for _, candidate := range out {
@@ -380,6 +392,32 @@ func scriptPreludeSacrifice(xa [][]oraclegen.XAnswer, prelude []oraclegen.Step, 
 				xa[i] = append(xa[i], oraclegen.XAnswer{Seat: st.Seat, Kind: "choice", Value: a.Pick[0]})
 			}
 		}
+	}
+	return xa
+}
+
+// scriptPreludeActivationCost carries a prelude activate step's cost picks to
+// XMage. Gorge's runner answers a cost selector deterministically, but the
+// observed decisions do not script it — the same gap
+// scriptCauseActivationCost covers for a cause step — so a prelude activation
+// whose cost carries a fixture is exported with the same helper the
+// standalone activate template uses. The prelude opens the scenario, so a
+// prelude step index is the scenario step index.
+func scriptPreludeActivationCost(xa [][]oraclegen.XAnswer, prelude []oraclegen.Step, cost string, steps int, decisions []rules.OracleDecision) [][]oraclegen.XAnswer {
+	if cost == "" {
+		return xa
+	}
+	for i, st := range prelude {
+		if i >= steps {
+			break
+		}
+		if st.Op != "activate" {
+			continue
+		}
+		if len(xa) == 0 {
+			xa = make([][]oraclegen.XAnswer, steps)
+		}
+		addActivationCostAnswers(xa, i, cost, decisions)
 	}
 	return xa
 }
