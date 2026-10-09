@@ -202,7 +202,8 @@ func quietCastOpen(f *cards.Face) (castOpenReason, bool) {
 		}
 	}
 	for i := range f.Statics {
-		switch f.Statics[i].Mode {
+		st := &f.Statics[i]
+		switch st.Mode {
 		case "AlternativeCost", "SetCost", "ReduceCost":
 			return coStatic, true
 		}
@@ -210,10 +211,8 @@ func quietCastOpen(f *cards.Face) (castOpenReason, bool) {
 		// is the second source alternativeCosts reads while the card is still
 		// in hand: it may replace the mana cost with a cheaper or free one.
 		// Any of the may-play cost keys is enough; when in doubt, castOpen.
-		for _, k := range quietMayPlayCostKeys {
-			if _, ok := f.Statics[i].Params[k]; ok {
-				return coMayPlayStatic, true
-			}
+		if quietStaticMayPlay(st) {
+			return coMayPlayStatic, true
 		}
 	}
 	return coNone, false
@@ -251,10 +250,8 @@ func quietSelfReducePipFloor(f *cards.Face) (int32, bool) {
 		case "SetCost", "AlternativeCost":
 			return 0, false
 		default:
-			for _, k := range quietMayPlayCostKeys {
-				if _, ok := st.Params[k]; ok {
-					return 0, false
-				}
+			if quietStaticMayPlay(st) {
+				return 0, false
 			}
 		}
 	}
@@ -269,9 +266,20 @@ func quietSelfReducePipFloor(f *cards.Face) (int32, bool) {
 	return pips + int32(len(c.Hybrid)), true
 }
 
-// quietMayPlayCostKeys are the may-play static parameters that can substitute
-// or remove a cast's mana cost.
-var quietMayPlayCostKeys = [...]string{"MayPlay", "MayPlayAltManaCost", "MayPlayWithoutManaCost"}
+// quietStaticMayPlay reports whether ONE static line carries any may-play
+// cost parameter (MayPlay$, MayPlayAltManaCost$, MayPlayWithoutManaCost$) --
+// any of which can substitute or remove a cast's mana cost while the card
+// sits where the face is. It is the quiet-seat proof's direct scan over a
+// face's Statics slice, the same shape mayPlayKinds and mayPlayAltCosts
+// read, so its reads are family-attributed to Continuous.MayPlay like
+// theirs: a MayPlay-carrying static's keys are checked against the family
+// set, and these keys never mask a plain Continuous static's genuinely
+// unread keys.
+func quietStaticMayPlay(st *cards.Static) bool {
+	return st.HasParam(cards.PKMayPlay) ||
+		st.HasParam(cards.PKMayPlayAltManaCost) ||
+		st.HasParam(cards.PKMayPlayWithoutManaCost)
+}
 
 // quietCastOpenHeads are keyword heads whose presence can open a cheaper or
 // substituted HAND cast, so the proof treats the face as unpriced. It follows
