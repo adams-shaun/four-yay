@@ -9,6 +9,11 @@
 //     mana ability, by label, at p0's first priority. The control drops the
 //     source, so the label proves the static's doing; a probe that already
 //     taps for the same mana (a Forest and "Add G") is not a witness for it.
+//   - AddAbility$ naming a non-mana activated ability ("Artifacts you control
+//     have '{2}, Sacrifice this artifact: ...'"): the recipient probe is
+//     offered the activation with the ability's rule text, paying its mana
+//     cost. An Aura's cast attaches it to an opposing permanent, so the try
+//     re-attaches it to its own probe (attachProbe) before the assertion.
 //   - AddAbility$ naming a loyalty ability ("Planeswalkers you control have
 //     '[-2]: ...'"): a planeswalker probe with enough loyalty is offered an
 //     activation labelled with the granted ability's first sentence.
@@ -17,10 +22,9 @@
 //     no second drop.
 //
 // Every other grant shape keeps a named skip (staticGrantGap): a granted
-// activated ability, a trigger, a static ability, abilities
-// gained from another card and an SVar a granted trigger reads. Each needs an
-// observation this file does not build, named in the skip so the census tells
-// the shapes apart.
+// trigger, a static ability, abilities gained from another card and an SVar a
+// granted trigger reads. Each needs an observation this file does not build,
+// named in the skip so the census tells the shapes apart.
 package templates
 
 import (
@@ -28,6 +32,7 @@ import (
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/compliance/oraclegen"
 	"github.com/adams-shaun/gorge/rules/pay"
 )
 
@@ -130,9 +135,33 @@ func grantedLandPlays(st cards.Static) bool {
 	return err == nil && n > 0
 }
 
+// grantedActivatedAbility is the non-mana, non-loyalty activated ability an
+// AddAbility$ static grants to another permanent (the recipient carries it),
+// nil when the grant is not one. A granted activated ability is observed the
+// same way a granted mana ability is: the recipient probe is offered the
+// activation, labelled with the ability's description. Unlike the mana path
+// the offered option carries the ability's rule text (the engine's
+// legal_walk_battlefield.go labels it "<recipient>: <SpellDescription>"), so
+// the scenario must pay the ability's mana cost to be offered at all.
+func grantedActivatedAbility(f *cards.Face, st cards.Static) *cards.SA {
+	name := strings.TrimSpace(st.ParamStr(cards.PKAddAbility))
+	if name == "" || st.ParamStr(cards.PKEffectZone) != "" && !strings.EqualFold(st.ParamStr(cards.PKEffectZone), "Battlefield") {
+		return nil
+	}
+	sa := cards.ResolveSVar(f.SVars, name)
+	if sa == nil || sa.Kind != "AB" || sa.API == "Mana" || grantedLoyaltyCost(sa) >= 0 {
+		return nil
+	}
+	if strings.TrimSpace(sa.ParamStr(cards.PKSpellDescription)) == "" {
+		return nil
+	}
+	return sa
+}
+
 // grantOfferable reports whether grantTries has candidates for the static.
 func grantOfferable(f *cards.Face, st cards.Static) bool {
-	return grantedLandPlays(st) || grantedManaAbility(f, st) != nil || grantedLoyaltyAbility(f, st) != nil
+	return grantedLandPlays(st) || grantedManaAbility(f, st) != nil || grantedLoyaltyAbility(f, st) != nil ||
+		grantedActivatedAbility(f, st) != nil
 }
 
 // grantTries are the candidate scenarios for a granted mana ability (one per
@@ -158,15 +187,53 @@ func grantTries(reg *cards.Registry, f *cards.Face, st cards.Static) []offerTry 
 		return tries
 	}
 	sa := grantedManaAbility(f, st)
+	if sa != nil {
+		label := grantedManaLabel(sa)
+		var tries []offerTry
+		for _, p := range grantProbeNames {
+			tries = append(tries, offerTry{probe: p, kind: "activate", label: label, extraBF: []string{p}})
+		}
+		return tries
+	}
+	sa = grantedActivatedAbility(f, st)
 	if sa == nil {
 		return nil
 	}
-	label := grantedManaLabel(sa)
+	pool, gap := activationCost(sa.ParamStr(cards.PKCost))
+	if gap != "" {
+		return nil
+	}
+	desc := strings.TrimSpace(sa.ParamStr(cards.PKSpellDescription))
+	// An Aura's fixture cast targets an opposing permanent; the grant only
+	// lands on the recipient the Aura is attached to, so the try re-attaches
+	// the Aura to its probe after the cast. An Equipment's base already
+	// attaches it (staticBase), so it needs no re-attach.
+	attach := staticGrantAttached(st) && !oraclegen.HasType(f, "Equipment")
 	var tries []offerTry
 	for _, p := range grantProbeNames {
-		tries = append(tries, offerTry{probe: p, kind: "activate", label: label, extraBF: []string{p}})
+		face := p
+		if c, ok := reg.Lookup(p); ok && len(c.Faces) > 0 {
+			face = c.Faces[0].Name
+		}
+		tries = append(tries, offerTry{
+			probe: p, kind: "activate", label: face + ": " + desc, mana: pool,
+			extraBF: []string{p}, attachProbe: attach,
+		})
 	}
 	return tries
+}
+
+// staticGrantAttached reports whether the grant's Affected$ names the
+// permanent the source is attached to (an Aura's EnchantedBy, an Equipment's
+// EquippedBy/AttachedBy, a Fortification's FortifiedBy): the recipient is only
+// on the battlefield as the source's host.
+func staticGrantAttached(st cards.Static) bool {
+	for _, w := range []string{"EnchantedBy", "EquippedBy", "AttachedBy", "FortifiedBy"} {
+		if strings.Contains(st.ParamStr(cards.PKAffected), w) {
+			return true
+		}
+	}
+	return false
 }
 
 // The named skips for a grant no observation here serves, one per shape.
