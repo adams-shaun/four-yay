@@ -369,7 +369,7 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 						// an AddType$ (Luxior's equipped walker stops being a planeswalker
 						// and becomes a creature) but STANDS ALONE on the devotion gods,
 						// so the emission cannot gate on the AddType family.
-						if st.HasParam(cards.PKAddType) || st.HasParam(cards.PKAddTypes) || st.HasParam(cards.PKAddAllCreatureTypes) || strings.TrimSpace(st.ParamStr(cards.PKRemoveType)) != "" {
+						if st.HasParam(cards.PKAddType) || st.HasParam(cards.PKAddTypes) || st.HasParam(cards.PKAddAllCreatureTypes) || strings.TrimSpace(st.ParamStr(cards.PKRemoveType)) != "" || st.HasParam(cards.PKRemoveLandTypes) {
 							ty := base
 							ty.Layer = LType
 							ty.AddTypes = statList(st, "AddTypes")
@@ -430,8 +430,9 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 							ty.RemoveCardTypes = st.HasParam(cards.PKRemoveCardTypes)
 							ty.RemoveCreatureTypes = st.HasParam(cards.PKRemoveCreatureTypes)
 							ty.RemoveTypes = statList(st, "RemoveType")
+							ty.RemoveLandTypes = st.HasParam(cards.PKRemoveLandTypes)
 							ty.AffectedZone = strings.TrimSpace(st.ParamStr(cards.PKAffectedZone))
-							if len(ty.AddTypes) > 0 || ty.RemoveCardTypes || ty.RemoveCreatureTypes || ty.AddAllCreatureTypes || len(ty.RemoveTypes) > 0 {
+							if len(ty.AddTypes) > 0 || ty.RemoveCardTypes || ty.RemoveCreatureTypes || ty.AddAllCreatureTypes || ty.RemoveLandTypes || len(ty.RemoveTypes) > 0 {
 								out = append(out, ty)
 							}
 						}
@@ -569,13 +570,18 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 						// metadata around it; the Affects spec is evaluated at the gate
 						// with MatchesPlayerSpecFrom, whose own fail-closed rule (an
 						// unhandled qualifier matches nobody) rejects the richer
-						// Affected$ forms. A richer VALUE or rider fails closed here: an
-						// AdjustLandPlays$ Unlimited/Z (Fastbond, an X-driven grant)
-						// must not silently become "one more", and an IsPresent$/
-						// Secondary$ qualifier changes when the grant lives. The explicit
-						// whitelist, rather than a blacklist of currently-known gating
-						// keys, means a newly encountered semantic parameter also fails
-						// closed. Expiry is the ordinary source-leaves rule (CR 611.3b)
+						// Affected$ forms. A richer VALUE or unmodelled rider fails
+						// closed here: an AdjustLandPlays$ Unlimited/Z (Fastbond, an
+						// X-driven grant) must not silently become "one more". The
+						// gate keys (IsPresent$/Condition$/CheckSVar$/ClassBand$) are
+						// allowed because the staticGateHolds check above already
+						// evaluated them, so Thranduil's Company's "as long as you
+						// control another Elf" is an intervening-if, not a rider; a
+						// Secondary$ qualifier or any other semantic parameter still
+						// fails closed. The explicit whitelist, rather than a blacklist
+						// of currently-known gating keys, means a newly encountered
+						// semantic parameter also fails closed. Expiry is the ordinary
+						// source-leaves rule (CR 611.3b)
 						// via active()'s battlefield scan; the turn scoping ("each of
 						// your turns") is the offer gate itself -- a play_land option is
 						// only offered to the active player in a main phase -- and the

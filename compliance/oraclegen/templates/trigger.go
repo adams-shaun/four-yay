@@ -32,7 +32,8 @@ func triggerSubs(sub string) bool {
 		"trigger.loyalty-activated", "trigger.discarded", "trigger.attacks-one-target", classLevelGainedSub,
 		"trigger.spell-cast-opponent", "trigger.spell-cast-self-cast", "trigger.spell-cast-opponent-turn", "trigger.commit-crime", "trigger.ability-activated",
 		levelb.UnlockDoorSub, levelb.FullyUnlockSub, stateSelfCountersSub, levelb.CounterAddedSub,
-		levelb.TurnedFaceUpSub, levelb.TurnedFaceUpOtherSub, levelb.SacrificeSub, levelb.DamageSub:
+		levelb.TurnedFaceUpSub, levelb.TurnedFaceUpOtherSub, levelb.SacrificeSub, levelb.DamageSub,
+		levelb.ManaExpendSub, levelb.TapsForManaSub:
 		return true
 	}
 	return tapCombatSub(sub)
@@ -70,6 +71,11 @@ func triggerFires(reg *cards.Registry, f *cards.Face, name string, req levelb.Re
 	}
 	if req.CoveredByA {
 		return skip("covered by level A")
+	}
+	if req.Sub == levelb.TapsForManaSub {
+		// A triggered mana ability resolves off the stack, so it needs its own
+		// pool-based fire check rather than the abilityOnStack probe below.
+		return manaTapFires(reg, f, name, req)
 	}
 	causes, why, room := roomTriggerCauses(reg, name, req)
 	if !room {
@@ -337,11 +343,41 @@ func triggerServe(reg *cards.Registry, f *cards.Face, name string, req levelb.Re
 			sc, res = yes, res2
 		}
 	}
+	// A declined hidden library search — or, when the served effect chain
+	// looks at an exile/library zone and asks "choose one of them" (Fireglass
+	// Mentor), a declined two-option look pick: re-run taking the first
+	// eligible card, so XMage's mandatory TargetCardInLibrary /
+	// TargetCardInExile ask is answered with a card instead of the skip it
+	// rejects.
+	forced := false
+	eff := servedTriggerEffect(f, req)
+	var search oraclegen.Scenario
+	var changed bool
+	if hasExileLibraryLook(eff) {
+		search, changed = oraclegen.SearchPicksFromLook(sc, res.Decisions)
+	} else {
+		search, changed = oraclegen.SearchPicks(sc, res.Decisions)
+	}
+	if changed {
+		if res2, ok2 := oraclegen.PlaysThrough(reg, search); ok2 {
+			sc, res = search, res2
+			forced = true
+		}
+	}
 	it = oraclegen.NewLevelBItem(name, req.Key, TriggerFires.Version, []string{"603.2"}, sc)
 	it.XAnswers = oraclegen.XAnswersForScenario(res, sc, oraclegen.ModeNumbers(f), castSteps)
+	if forced {
+		it.XAnswers = oraclegen.RetargetForcedLookPicks(it.XAnswers, res.Decisions)
+	}
 	it.XAnswers = scriptPreludeSacrifice(it.XAnswers, c.prelude, len(sc.Steps))
 	it.XAnswers = scriptPreludeActivationCost(it.XAnswers, c.prelude, c.preludeActivationCost, len(sc.Steps), res.Decisions)
 	it.XAnswers = scriptCauseActivationCost(it.XAnswers, c, sc.Steps, res.Decisions)
+	// A "sacrifice a permanent unless you discard a card" decline: XMage
+	// poses the cost's own ask on the target queue (trigger_declines.go).
+	it.XAnswers = scriptSacrificeUnlessDiscardDecline(it.XAnswers, eff, res.Decisions)
+	// A declined one-card pick after the chain's hidden-zone look: XMage
+	// poses it without a chooseUse (trigger_declines.go).
+	it.XAnswers = scriptLookedPickDecline(it.XAnswers, eff, res.Decisions)
 	// Ward is caused by targeting; decline its unless-pay mode so the probe
 	// does not depend on the opponent's ability to pay the ward cost.
 	for _, d := range res.Decisions {

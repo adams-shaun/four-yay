@@ -346,21 +346,94 @@ func tapPaymentAsk(label string) bool {
 // XMage too. The answer is only kept when the replay consumes it (see the
 // caller's PlaysThrough guard), so a search XMage never reaches falls back
 // to the decline pair.
-func searchPicks(sc Scenario, ds []rules.OracleDecision) (Scenario, bool) {
+func searchPicks(sc Scenario, ds []rules.OracleDecision, look bool) (Scenario, bool) {
 	out := sc
 	out.Steps = append([]Step(nil), sc.Steps...)
 	changed := false
-	for _, d := range ds {
-		if d.Step < 0 || d.Step >= len(out.Steps) || d.Options == 0 || d.First == "" ||
-			d.Kind != "choose_n" || d.Resume != "search" || len(d.Picks) != 0 {
+	for i, d := range ds {
+		if d.Step < 0 || d.Step >= len(out.Steps) || d.Options == 0 ||
+			d.Kind != "choose_n" || len(d.Picks) != 0 {
+			continue
+		}
+		pick := ""
+		switch {
+		case d.Resume == "search" && d.First != "":
+			pick = d.First
+		case look && declinedLookPick(d) && !lookedAck(ds, i):
+			// A declined two-option choose-one from an exile/library look
+			// (Fireglass Mentor's "Choose one of them" over the Dig'ed exiled
+			// cards): XMage poses the ask as a mandatory TargetCardInExile
+			// 1..1 that rejects even the skip token ("Wrong skip command
+			// found"), so gorge must take the first looked-at card too. The
+			// rerun's pick is re-scripted onto XMage's target queue by
+			// RetargetForcedLookPicks; the caller's PlaysThrough guard keeps
+			// the rerun only when the replay consumes the answer. The look
+			// flag is the serving template's card-side proof: the same
+			// decision shape on an ask XMage poses as an "up to" makeChoose
+			// agrees with the routing's own skip, and a forced pick there
+			// would move gorge's board for nothing (measured: Speedball, New
+			// Warrior). A look_ack ahead of the ask is the Zimone's
+			// Experiment shape the measured declined pair answers, so it is
+			// excluded here.
+			pick = d.OptionRefs[0]
+		default:
 			continue
 		}
 		st := out.Steps[d.Step]
-		st.Answers = append(append([]Answer(nil), st.Answers...), Answer{Kind: d.GorgeKind, Pick: []string{d.First}})
+		st.Answers = append(append([]Answer(nil), st.Answers...), Answer{Kind: d.GorgeKind, Pick: []string{pick}})
 		out.Steps[d.Step] = st
 		changed = true
 	}
 	return out, changed
+}
+
+// declinedLookPick is the declined shape of the exile/library look chooser:
+// "choose one of them" over two looked-at objects, up to one, nothing
+// picked, option 0's label empty (the options are the looked-at objects).
+func declinedLookPick(d rules.OracleDecision) bool {
+	return d.Resume == "choice" && d.Options == 2 && d.Min == 0 && d.Max == 1 &&
+		len(d.OptionRefs) == 2 && d.First == ""
+}
+
+// lookedAck reports a look_ack by the same seat in decision i's step earlier
+// in the list: the Zimone's Experiment shape whose declined answer is the
+// measured "no" + target_skip pair (answer_routing.go), never a forced pick.
+func lookedAck(ds []rules.OracleDecision, i int) bool {
+	for _, d := range ds[:i] {
+		if d.Resume == "look_ack" && sameAsker(d, ds[i]) {
+			return true
+		}
+	}
+	return false
+}
+
+// RetargetForcedLookPicks rewrites the XMage answers of the forced first-card
+// picks SearchPicks queued for a declined exile/library look (Fireglass
+// Mentor): XMage poses that ask as a mandatory TargetCardInExile on the
+// target queue, so the makeChoose choice form the generic pick path emits
+// would be a wrong-queue answer. The value is the generic target answer's
+// own form (targetPickValue), so a same-named pair stays disambiguated
+// exactly as every target ask is. Only callers that just re-ran a scenario
+// SearchPicks changed call it; a decision list with no forced pick is
+// returned unchanged.
+func RetargetForcedLookPicks(xa [][]XAnswer, ds []rules.OracleDecision) [][]XAnswer {
+	for _, d := range ds {
+		if d.Step < 0 || d.Step >= len(xa) || len(d.Picks) != 1 || d.Picks[0] != "" ||
+			len(d.PickKinds) != 1 || d.PickKinds[0] != "card" ||
+			d.Kind != "choose_n" || d.Resume != "choice" || d.Options != 2 ||
+			d.Min != 0 || d.Max != 1 || len(d.OptionRefs) != 2 || d.First != "" ||
+			len(d.PickRefs) != 1 {
+			continue
+		}
+		choice := disambiguatedObjectChoice(d, 0, oraclediffRefName(d.PickRefs[0]))
+		for i, a := range xa[d.Step] {
+			if a.Seat == d.Seat && a.Kind == "choice" && a.Value == choice {
+				xa[d.Step][i] = XAnswer{d.Seat, "target", targetPickValue(d, 0, oraclediffRefName(d.PickRefs[0]))}
+				break
+			}
+		}
+	}
+	return xa
 }
 
 // playsThrough replays sc exactly and reports whether gorge performed
@@ -1104,25 +1177,7 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSt
 						// cost); a scripted answer would only be an unused leftover.
 						continue
 					case "target":
-						v := label
-						if k < len(d.PickRefs) {
-							v = d.PickRefs[k]
-						}
-						if isSeat(v) {
-							as = append(as, XAnswer{d.Seat, "target", v})
-							continue
-						}
-						// XMage's chooseTarget parses the same copy marker as
-						// makeChoose, so a target among same-named objects needs
-						// the discriminator too. An alias pick keeps its full ref:
-						// the driver's targetName maps a bound ref to its @alias.
-						if p := ClassifySameName(d, k); p.Alias != "" {
-							as = append(as, XAnswer{d.Seat, "target", d.PickRefs[k]})
-							continue
-						}
-						v = oraclediffRefName(v)
-						_, marker := SameNameAmbiguity(d, k)
-						as = append(as, XAnswer{d.Seat, "target", v + marker})
+						as = append(as, XAnswer{d.Seat, "target", targetPickValue(d, k, label)})
 						continue
 					}
 					// The choice queue: makeChoose shows the option's label, which
@@ -2177,6 +2232,28 @@ func disambiguatedObjectChoice(d rules.OracleDecision, k int, label string) stri
 		return p.Alias
 	}
 	return label + p.CopyMarker
+}
+
+// targetPickValue is the target-queue answer for pick k of d: the seat ref
+// as offered, the exact-ref alias when only the ref separates same-named
+// candidates (the driver's targetName maps a bound ref to its @alias), else
+// the object name with the copy marker appended. XMage's chooseTarget parses
+// the same copy marker as makeChoose, so a target among same-named objects
+// needs the discriminator too.
+func targetPickValue(d rules.OracleDecision, k int, label string) string {
+	v := label
+	if k < len(d.PickRefs) {
+		v = d.PickRefs[k]
+	}
+	if isSeat(v) {
+		return v
+	}
+	if p := ClassifySameName(d, k); p.Alias != "" {
+		return d.PickRefs[k]
+	}
+	v = oraclediffRefName(v)
+	_, marker := SameNameAmbiguity(d, k)
+	return v + marker
 }
 
 // oraclediffRefName strips a scenario ref to the object name.

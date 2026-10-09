@@ -52,6 +52,12 @@ import (
 // (FRA Way of the Pyromancer "[+1]: Add {R}."), and a GainsAbilitiesOf$ grant
 // through a donor card (Marvin, Murderous Mimic; Thranduil, the Elvenking):
 // FRA loses all three loyalty-grant skips and its served count rises by three.
+// Re-pinned again by agent-20261009T055739Z-b43f3480: a Continuous
+// SetMaxHandSize$ static is observed through the runner's max_hand_size
+// expectation (the literal rows in FDN and DFT leave their hand-size skip),
+// and an AdjustLandPlays$ grant whose source carries a land-entry trigger
+// resolves it before the second-land assertion (EOE Icetill Explorer leaves
+// the player-rule skip).
 // It fails in both directions.
 var wantStaticContinuousCensus = map[string]map[string]int{
 	"BIG": {
@@ -59,9 +65,8 @@ var wantStaticContinuousCensus = map[string]map[string]int{
 		"skip:static counts cards exiled with the source": 1,
 	},
 	"EOE": {
-		"served": 61,
-		"skip:static changes a player rule (hand size, land plays), not a permanent": 1,
-		"skip:static gated self grant is not offered in the gate-on fixture":         1,
+		"served": 62,
+		"skip:static gated self grant is not offered in the gate-on fixture": 1,
 	},
 	"FDN": {
 		"served": 68,

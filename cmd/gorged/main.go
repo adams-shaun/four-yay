@@ -74,10 +74,15 @@ type config struct {
 	// tables are built with (tableConfigs). Validated at startup by
 	// validateBotPolicyFlags: it must be registered, offered and support both
 	// formats and at least 2 seats, so an omitted-field request can never
-	// reach a policy that then refuses it. NOTE: spec Q4 recommends startup
-	// tables keep policy `bot` and -bot-policy drive only on-demand games;
-	// the code (and TestServeFlagBotPolicyReachesStartupAndOnDemandTables)
-	// has long had a single flag for both. This ticket does not change that.
+	// reach a policy that then refuses it. The flag default is
+	// host.LethalPressurePolicy (2026-10-07): the demo serves commander as
+	// well as constructed tables, and the previous default was picked as a
+	// 1v1-constructed search policy that validateBotPolicyFlags rejects for
+	// lacking the commander format, so gorged would not even listen. NOTE:
+	// spec Q4 recommends startup tables keep policy `bot` and -bot-policy
+	// drive only on-demand games; the code (and
+	// TestServeFlagBotPolicyReachesStartupAndOnDemandTables) has long had a
+	// single flag for both. This ticket does not change that.
 	botPolicy string
 	// botPoliciesRaw is the -bot-policies flag: the comma-separated OFFERED
 	// set -- what GET /api/bot-policies lists and what POST /api/games
@@ -275,7 +280,7 @@ func serveFlags() (*flag.FlagSet, *config) {
 	fs.BoolVar(&c.vsbot, "vsbot", false, "arm the on-demand play-vs-bot flow (landing page seats a human against a bot via POST /api/games)")
 	fs.BoolVar(&c.botAutoPayMana, "bot-auto-mana", true, "have hosted bots and human-seat caretakers cast through offered automatic mana payment plans")
 	fs.BoolVar(&c.autoMana, "auto-mana", true, "enable automatic mana payment plans and controls for human seats (disable with -auto-mana=false for the legacy manual path)")
-	fs.StringVar(&c.botPolicy, "bot-policy", host.BotPolicy, "default hosted bot policy for a vs-bot request that omits bot_policy; must be registered, offered, and support both formats (bot, lethal-pressure, cast-profile)")
+	fs.StringVar(&c.botPolicy, "bot-policy", host.LethalPressurePolicy, "default hosted bot policy for a vs-bot request that omits bot_policy; must be registered, offered, and support both formats (bot, lethal-pressure, cast-profile)")
 	fs.StringVar(&c.botPoliciesRaw, "bot-policies", defaultBotPoliciesRaw, "comma-separated set of bot policies this server OFFERS (the /api/bot-policies listing and accepted POST /api/games names); empty offers every registered entry")
 	fs.IntVar(&c.botSearchSlots, "bot-search-slots", defaultBotSearchSlots(), "maximum concurrent searched bot decisions across the process; decisions queue, never degrade (>= 1; default max(1, GOMAXPROCS/2))")
 	fs.IntVar(&c.botSearchParallelism, "bot-search-parallelism", 1, "goroutines within one searched decision (latency only, never an answer; >= 1)")
