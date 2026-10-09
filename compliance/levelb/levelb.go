@@ -278,7 +278,17 @@ func classifyTrigger(f *cards.Face, t *cards.Trigger) (sub, gap string, covered 
 		return gapMode()
 
 	case cards.TriggerDrawn:
-		if strings.EqualFold(t.ParamStr(cards.PKValidPlayer), "You") || namesYouCtrl(t.ParamStr(cards.PKValidCard)) {
+		vp := strings.ToLower(strings.TrimSpace(t.ParamStr(cards.PKValidPlayer)))
+		vc := t.ParamStr(cards.PKValidCard)
+		if strings.EqualFold(vp, "you") || namesYouCtrl(vc) {
+			return "trigger.drawn", "", false
+		}
+		// An opponent-draws filter (ValidCard$ Card.OppOwn) or an
+		// opponent/player ValidPlayer is served by the other-player cause.
+		if vp == "opponent" || vp == "player" || filterHasToken(vc, "OppOwn") || filterHasToken(vc, "OppCtrl") {
+			return "trigger.drawn-other", "", false
+		}
+		if vp == "" && strings.TrimSpace(vc) == "" {
 			return "trigger.drawn", "", false
 		}
 		return gapMode()
