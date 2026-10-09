@@ -102,3 +102,81 @@ func TestOracleAttackExpectPreSubmit(t *testing.T) {
 			jugAttacking, probeHome, snap.Permanents)
 	}
 }
+
+// TestOracleAttackExpectPostStepStillChecked pins the per-expect split of the
+// attack op's expect handling (agent-20261009T172754Z-e2838eed, review round
+// 1): only the decision-dependent expects (attack_required / can_attack) are
+// evaluated pre-submit; a board read on the same step (here `tapped:true`,
+// true only AFTER the declaration) must still be evaluated on the ordinary
+// post-step path, and a WRONG board read must fail there. Before the fix the
+// whole step's expect set was skipped once marked pre-checked, so the wrong
+// read passed silently.
+func TestOracleAttackExpectPostStepStillChecked(t *testing.T) {
+	reg := testutil.CorpusRegistry(t)
+	trueVal := true
+	base := func(boardExpect oracleExpect) oracleScenario {
+		return oracleScenario{
+			CR:  []string{"508.1d"},
+			Why: "an attack step's board reads stay on the post-step check",
+			Setup: map[string]oracleSeat{
+				"p0": {Battlefield: []string{"Juggernaut", "Savannah Lions"}},
+				"p1": {},
+			},
+			Steps: []oracleStep{
+				{
+					Op: "attack", Seat: 0, Defender: "p1",
+					Attackers: []string{"p0:Juggernaut"},
+					Expect: []oracleExpect{
+						{AttackRequired: &oracleAttackRequired{Attacker: "p0:Juggernaut"}, Want: &trueVal},
+						boardExpect,
+					},
+				},
+				{Op: "pass_to", Seat: 0, Step: "declare-blockers", Decision: "blockers"},
+			},
+		}
+	}
+
+	// Correct board read: the declared attacker is tapped post-step. Zero
+	// fails proves the post-step read is not blocked by the pre-submit split.
+	correct := base(oracleExpect{Card: "p0:Juggernaut", Tapped: &trueVal})
+	if fails, transcript, _ := runOracleScenario(reg, correct); len(fails) != 0 {
+		t.Fatalf("mixed attack step with a correct board read must pass:\n%v\ntranscript:\n%s",
+			fails, strings.Join(transcript, "\n"))
+	}
+
+	// Wrong board read: the probe was never declared, so it stays untapped.
+	// This must fail on the POST-step path -- if the step were skipped
+	// wholesale the wrong read would pass silently (the round-1 regression).
+	wrong := base(oracleExpect{Card: "p0:Savannah Lions", Tapped: &trueVal})
+	fails, transcript, run := runOracleScenario(reg, wrong)
+	if len(fails) == 0 {
+		t.Fatalf("a wrong board read on an attack step was not enforced:\ntranscript:\n%s",
+			strings.Join(transcript, "\n"))
+	}
+	found := false
+	for _, f := range fails {
+		if strings.Contains(f, "after step 0 (attack)") &&
+			strings.Contains(f, "Savannah Lions: tapped=false, want true") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("wrong board read did not fail on the post-step path: %v\ntranscript:\n%s",
+			fails, strings.Join(transcript, "\n"))
+	}
+	// Precondition: the declaration did go in (the step was not aborted
+	// pre-submit), so Juggernaut is tapped attacking at the final checkpoint.
+	if run.e == nil {
+		t.Fatal("harness: no engine after the run")
+	}
+	snap := run.snaps[len(run.snaps)-1]
+	jugAttacking := false
+	for _, p := range snap.Permanents {
+		if p.Ref == "p0:Juggernaut" && p.Tapped && p.Attacking {
+			jugAttacking = true
+		}
+	}
+	if !jugAttacking {
+		t.Fatalf("precondition: declaration did not submit (Juggernaut not tapped attacking): %+v", snap.Permanents)
+	}
+}
