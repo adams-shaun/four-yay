@@ -1,0 +1,3 @@
+{"shape":{"template":"combat","op":"harness","field":"xmage","diff":"IllegalArgumentException: activate step N has no xmage_ability"},"key":"combat | harness | xmage | IllegalArgumentException: activate step N has no xmage_ability","cards":2}
+{"card":"Sleep-Cursed Faerie","template":"combat#0.attack","status":"harness","api":"BecomesTarget:Ward","sets":["WOE"],"detail":"xmage: IllegalArgumentException: activate step 1 has no xmage_ability"}
+{"card":"Sleep-Cursed Faerie","template":"combat#0.block","status":"harness","api":"BecomesTarget:Ward","sets":["WOE"],"detail":"xmage: IllegalArgumentException: activate step 1 has no xmage_ability"}

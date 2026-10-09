@@ -99,6 +99,11 @@ func otherCostProbes(reg *cards.Registry, source *cards.Face, name string, idx i
 	if reason != "" {
 		return nil, reason
 	}
+	if strings.EqualFold(st.Params["ValidSpell"], "Static.Plotting") {
+		// "Plotting cards from your hand costs {N} less": the plot action is
+		// the priced event, so it is its own probe shape (cost_plot_probe.go).
+		return plotCostProbes(reg, name, reduction, base), ""
+	}
 	if ability {
 		return abilityCostProbes(reg, name, st, filter, reduction, base)
 	}
