@@ -9,14 +9,17 @@ import (
 
 // rssExceptionPeaks is the shrink-only inventory. Delete an entry when its
 // test fits the budget; adding or changing a measured peak raises the ratchet.
-var rssExceptionPeaks = map[string]int{
-	"host\tTestHostedEnvSeatsNeverSeeTheLiveEngine": 2107888,
-	"host\tTestHostFeedEqualsRebuildFeed":           2102464,
-}
+// Empty as of 2026-10-09: the operator doubled the budget (2 GiB/2 vCPU ->
+// 4 GiB/4 vCPU, GOMEMLIMIT 1536MiB -> 3GiB) when the box went to 120 GiB, and
+// the two rows the 2 GiB budget pinned (host
+// TestHostedEnvSeatsNeverSeeTheLiveEngine 2107888, host
+// TestHostFeedEqualsRebuildFeed 2102464) fit 4 GiB with room to spare.
+var rssExceptionPeaks = map[string]int{}
 
-// rssBudgetKiB is the 2 GiB per-test budget the gate scopes are sized to
-// (MemoryMax = concurrent binaries x 2 GB).
-const rssBudgetKiB = 2 * 1024 * 1024
+// rssBudgetKiB is the 4 GiB per-test budget the gate scopes are sized to
+// (MemoryMax = concurrent binaries x 4 GB). Doubled from 2 GiB on 2026-10-09
+// with the box's DRAM.
+const rssBudgetKiB = 4 * 1024 * 1024
 
 func TestRSSExceptionsOnlyShrink(t *testing.T) {
 	data, err := os.ReadFile("testdata/rss_exceptions.txt")
