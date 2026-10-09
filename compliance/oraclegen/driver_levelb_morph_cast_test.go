@@ -36,8 +36,17 @@ func TestDriverCastArmMapsMorphFamilySpelling(t *testing.T) {
 			t.Errorf("cast arm guard does not admit %s", mode)
 		}
 	}
-	if !strings.Contains(cast, `throw new IllegalArgumentException("kicked/cast_mode unsupported")`) {
+	// Rejection moved into castModeSupported (the Bargain ticket): the arm
+	// throws for any mode that helper refuses, and the helper must admit the
+	// three face-down modes.
+	if !strings.Contains(cast, `if (!castModeSupported(castMode))`) ||
+		!strings.Contains(cast, `throw new IllegalArgumentException("cast_mode " + castMode + " unsupported")`) {
 		t.Error("cast arm no longer rejects an unsupported cast_mode")
+	}
+	for _, mode := range []string{`"morphed"`, `"megamorphed"`, `"disguised"`} {
+		if !strings.Contains(java, `mode.equals(`+mode+`)`) {
+			t.Errorf("castModeSupported does not admit %s", mode)
+		}
 	}
 
 	// The suffix: both morph and megamorph map to " using Morph"; only

@@ -64,6 +64,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
+import java.util.function.BiPredicate;
 
 /**
  * Replays gorge oracle scenarios (rules/testdata/oracle schema) in XMage and
@@ -109,6 +110,13 @@ public class ScenarioReplay extends CardTestPlayerBase {
     // recorded answers), so an either-or cost ask XMage poses can be answered
     // the way gorge answered it. Empty when the step recorded none.
     private List<String> castCostPicks = new ArrayList<>();
+
+    // Whether the cast step being replayed elected a mode whose cost is a
+    // cast-time optional additional cost (Bargain). XMage asks that cost
+    // through OptionalAdditionalSourceCosts; the ask is answered Yes so the
+    // mode's reduction is in force, and the sacrifice it adds is paid from
+    // this cast's own recorded choose picks.
+    private boolean bargainedCast = false;
 
     /** TestPlayer normally delegates these library decisions directly to its AI,
      * bypassing the scripted target/choice queues. Route them through this player. */
@@ -156,10 +164,17 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 return false;
             }
             if (askedBy(OptionalAdditionalSourceCosts.class, "addOptionalAdditionalCosts")) {
-                if (!getChoices().isEmpty() && getChoices().get(0).equals("No")) {
-                    return super.chooseUse(outcome, message, secondMessage, trueText, falseText, source, game);
+                switch (optionalAdditionalCostAnswer(owner.bargainedCast, getChoices())) {
+                    case PAY:
+                        // The step elected Bargain: pay the cost. This is the
+                        // SAME ask every optional additional cost poses
+                        // (kicker, offspring, waterbend); only the mode differs.
+                        return true;
+                    case CONSUME:
+                        return super.chooseUse(outcome, message, secondMessage, trueText, falseText, source, game);
+                    default:
+                        return false;
                 }
-                return false;
             }
             if (askedBy(OrCost.class, "pay") && !scriptedYesNoNext()) {
                 // The generator scripts the boolean itself when two costs were
@@ -183,11 +198,34 @@ public class ScenarioReplay extends CardTestPlayerBase {
         // stale alias. Other choice values and the target path stay unchanged.
         private Game choiceGame;
 
+        /** Also: the paid additional cost's sacrifice is posed as a target-group
+         * `choose`, which reads XMage's CHOICE queue, not the target queue
+         * (TargetSacrifice.pay -> TargetImpl.choose -> Player.choose ->
+         * makeChoose over getChoices()). Push this cast's recorded pick so
+         * makeChoose consumes it and strict mode records the decision, rather
+         * than letting XMage's AI auto-choose a legal object. */
         @Override
         public boolean choose(Outcome outcome, mage.target.Target target, Ability source, Game game) {
             Game previous = choiceGame;
             choiceGame = game;
             try {
+                if (isSacrificeChoice(target)) {
+                    UUID abilityControllerId = target.getAffectedAbilityControllerId(this.getId());
+                    List<UUID> candidates = new ArrayList<>(target.possibleTargets(abilityControllerId, source, game));
+                    for (String pick : owner.castCostPicks) {
+                        if (getChoices().contains(pick)) {
+                            continue;
+                        }
+                        // Queue only a pick that names a legal sacrifice; an
+                        // unmatched pick is left out, so makeChoose's strict
+                        // "invalid target" failure names it rather than silently
+                        // paying the cost with some other object.
+                        if (costPickChoice(java.util.Collections.singletonList(pick), candidates,
+                                (id, answer) -> hasObjectTargetNameOrAlias(game.getPermanent(id), answer)) != null) {
+                            addChoice(pick);
+                        }
+                    }
+                }
                 return super.choose(outcome, target, source, game);
             } finally {
                 choiceGame = previous;
@@ -437,6 +475,49 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     && target.getTargetName().contains("can be attached to");
         }
 
+        /** A cast-time sacrifice ask: the non-targeting TargetSacrifice a
+         * paid additional cost poses (Bargain, or an OrCost's sacrifice half).
+         * XMage hints it "to sacrifice", which is what the target carries
+         * structurally, not a card name. */
+        static boolean isSacrificeChoice(mage.target.Target target) {
+            return target != null && target.getChooseHint() != null
+                    && target.getChooseHint().startsWith("to sacrifice");
+        }
+
+        /** The decision a cast-time optional additional cost ask gets,
+         * independent of any Game so the contract test can exercise all three
+         * outcomes: a bargained cast PAYs it; otherwise the generator's own
+         * leading "No" is CONSUMED by the caller so strict mode sees it used;
+         * every other ask is DECLINEd (gorge casts for the mana cost only). */
+        enum OptionalCostAnswer { PAY, CONSUME, DECLINE }
+
+        static OptionalCostAnswer optionalAdditionalCostAnswer(boolean bargainedCast, List<String> choices) {
+            if (bargainedCast) {
+                return OptionalCostAnswer.PAY;
+            }
+            if (!choices.isEmpty() && choices.get(0).equals("No")) {
+                return OptionalCostAnswer.CONSUME;
+            }
+            return OptionalCostAnswer.DECLINE;
+        }
+
+        /** The candidate a cost's recorded choose picks name, or null when
+         * none matches. Unlike attachmentChoice there is no automatic pick:
+         * a sacrifice cost is paid only when the scenario named its object,
+         * so a missing pick surfaces as the base's strict unused-command/
+         * no-target error rather than a guess. */
+        static UUID costPickChoice(List<String> picks, List<UUID> candidates,
+                BiPredicate<UUID, String> matches) {
+            for (String pick : picks) {
+                for (UUID id : candidates) {
+                    if (matches.test(id, pick)) {
+                        return id;
+                    }
+                }
+            }
+            return null;
+        }
+
         /** The candidate an XMage attach ask should take, or null when the ask
          * must fall through to the base player. A scripted answer at the queue
          * front is honored first and consumed, so an attachment ask never
@@ -446,7 +527,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
          * that names no candidate is left in place, so the base's strict
          * unused-command check still reports the scenario error. */
         static UUID attachmentChoice(List<String> queue, List<UUID> candidates,
-                java.util.function.BiPredicate<UUID, String> matches) {
+                BiPredicate<UUID, String> matches) {
             if (!queue.isEmpty() && !TestPlayer.TARGET_SKIP.equals(queue.get(0))) {
                 String answer = queue.get(0);
                 for (UUID id : candidates) {
@@ -696,6 +777,12 @@ public class ScenarioReplay extends CardTestPlayerBase {
             skipInitShuffling();
             setStrictChooseMode(strict);
             sc0 = sc;
+            // A cast-mode election is scoped to one scenario: every step's
+            // actions are queued before execute(), so the cast case below
+            // records it during queueing and the asks read it during execute.
+            // Reset here so an earlier scenario's Bargain cannot answer this
+            // one's optional additional costs.
+            bargainedCast = false;
             gorgeName = str(sc, "card");
             xmageName = str(sc, "xmage_name");
             endTurnScenario = hasEndTurnEffect(xmageName.isEmpty() ? gorgeName : xmageName);
@@ -1575,6 +1662,16 @@ public class ScenarioReplay extends CardTestPlayerBase {
         return c != null && c.getAbilities().stream().anyMatch(a -> a instanceof AlternativeSourceCosts);
     }
 
+    /** Whether a cast step's cast_mode is one this driver elects: Bargain,
+     * "optionalcost" and the face-down Disguise/Morph/Megamorph casts are wired, and an absent or empty mode is the ordinary
+     * cast. Any other mode is a scenario the driver cannot replay and must
+     * reject loudly rather than cast at face value. */
+    static boolean castModeSupported(String mode) {
+        return mode == null || mode.isEmpty()
+                || mode.equals("bargained") || mode.equals("optionalcost")
+                || mode.equals("disguised") || mode.equals("morphed") || mode.equals("megamorphed");
+    }
+
     /** The XMage target string for one scenario target ref: its alias when
      * setup bound one, else the stripped, XMage-spelled card name. */
     private String targetName(String ref) {
@@ -2085,22 +2182,31 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     String mana = str(st, "mana");
                     runCode("mana " + mana, turn, phase, p, (info, pl, g) -> addPool(pl, g, mana));
                 }
-                // cast_mode "optionalcost" is a plain cast on this side: XMage poses
-                // the "pay the additional cost?" chooseUse itself, and the yes and the
-                // cost's picks come from xmage_answers. "disguised" casts the card
-                // face down for {3}; XMage selects that cast by suffixing the card
-                // name ("<card> using Disguise", DisguiseTest/CovetedFalconTest).
-                // "morphed"/"megamorphed" are the same face-down cast for the Morph
-                // and Megamorph families; XMage defines no Megamorph cast
-                // spelling, as both set SpellAbilityCastMode.MORPH, so both
-                // suffix " using Morph" (MorphAbility.java:79-88;
-                // MegamorphTest.java:24 casts "Aerie Bowmasters" that way).
-                // Every other cast_mode, and kicked, stay unsupported.
-                String mode = st.has("cast_mode") ? str(st, "cast_mode") : "";
-                boolean faceDown = "morphed".equals(mode) || "megamorphed".equals(mode) || "disguised".equals(mode);
-                if (st.has("kicked") || (st.has("cast_mode") && !"optionalcost".equals(mode) && !faceDown)) {
-                    throw new IllegalArgumentException("kicked/cast_mode unsupported");
+                if (st.has("kicked")) {
+                    throw new IllegalArgumentException("kicked unsupported");
                 }
+                // cast_mode elects a mode whose cost is a cast-time optional
+                // additional cost. Bargain's is wired here: its yes/no ask is
+                // answered from bargainedCast and the sacrifice it adds is
+                // matched against this step's recorded choose picks.
+                // "optionalcost" is a plain cast on this side: XMage poses the
+                // "pay the additional cost?" chooseUse itself, so its yes and
+                // the cost's picks come from xmage_answers. Any other mode
+                // fails loudly rather than being silently dropped (the legacy
+                // whole-rejection this replaces).
+                String castMode = st.has("cast_mode") ? str(st, "cast_mode") : "";
+                if (!castModeSupported(castMode)) {
+                    throw new IllegalArgumentException("cast_mode " + castMode + " unsupported");
+                }
+                bargainedCast = "bargained".equals(castMode);
+                // "disguised" casts the card face down for {3}; XMage selects
+                // that cast by suffixing the card name ("<card> using
+                // Disguise", DisguiseTest/CovetedFalconTest). "morphed" and
+                // "megamorphed" are the same face-down cast for the Morph and
+                // Megamorph families; XMage defines no Megamorph spelling, as
+                // both set SpellAbilityCastMode.MORPH, so both suffix " using
+                // Morph" (MorphAbility.java:79-88; MegamorphTest.java:24).
+                String mode = castMode;
                 if (!sc0.has("xmage_answers")) {
                     answers(st, p);
                 }

@@ -18,12 +18,14 @@ import (
 var CostStatic = Template{ID: "static.cost", Version: 1}
 
 type costProbe struct {
-	spell, mana string
-	battlefield []string
-	graveyard   []string
-	exile       []string
-	hand        []string
-	first       *oraclegen.Step
+	spell, mana         string
+	battlefield         []string
+	opponentBattlefield []string
+	graveyard           []string
+	exile               []string
+	hand                []string
+	first               *oraclegen.Step
+	firstNoResolve      bool
 	// pre are setup-time steps (an attach) run before the probe step.
 	pre []oraclegen.Step
 	// preXAbility is parallel to pre: the XMage rule-text prefix of a prelude
@@ -36,8 +38,20 @@ type costProbe struct {
 	activate *costActivation
 	// targeted offers the probe cast a surplus player target; gorge's own
 	// target decision rewrites it to the exact pick before the item is kept.
-	targeted   bool
+	targeted bool
+	targets  []string
+	// precast is a spell p0 casts and holds priority over, so a probe that
+	// must target a spell on the stack (a counterspell, or a discount whose
+	// ValidTarget$ names Spell.*) has a legal stack target. It is cast with
+	// no pass in between (CR 117.3c), exactly counterSpell's own-priority
+	// shape.
+	precast *precast
+	// castMode elects a cast option by its Mode ("bargained" for Bargain);
+	// answers scripts the mid-cast asks that election poses (the sacrifice).
+	castMode   string
+	answers    []oraclegen.Answer
 	mustReplay bool
+	skipReason string
 	// full is the probe's printed price, set when the probe is a candidate
 	// chosen from the corpus: a candidate gorge pays in full but refuses at the
 	// reduced price is a reduction gorge does not apply, which must surface as a
@@ -51,6 +65,7 @@ func costStatic(reg *cards.Registry, f *cards.Face, name string, req levelb.Requ
 	if err != nil || idx < 0 || idx >= len(f.Statics) {
 		return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: "cost static index " + req.Slot}
 	}
+	st := f.Statics[idx]
 	// Each profile chooses a simple card whose printed cost makes the
 	// reduction visible and supplies only the prerequisites the static needs.
 	var cands []costProbe
@@ -116,7 +131,20 @@ func costStatic(reg *cards.Registry, f *cards.Face, name string, req levelb.Requ
 		}
 	}
 	if len(cands) > 0 && cands[0].mustReplay {
-		return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: "cost static probe not supported: prerequisite fixture unavailable"}
+		reason := cands[0].skipReason
+		if reason == "" {
+			switch {
+			case st.Params["Cost"] != "" && st.ModeKind() == cards.StaticRaiseCost:
+				reason = "raise cost payment " + st.Params["Cost"]
+			case st.Params["ValidTarget"] != "":
+				reason = "target fixture unavailable (" + st.Params["ValidTarget"] + ")"
+			case st.Params["ValidSpell"] != "":
+				reason = "spell fixture unavailable (" + st.Params["ValidSpell"] + ")"
+			default:
+				reason = "reduced-cost cast fixture unavailable"
+			}
+		}
+		return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: "cost static probe not supported: " + reason}
 	}
 	return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: "cost static has no fixture"}
 }
@@ -150,6 +178,9 @@ func parameterCostProbes(reg *cards.Registry, f *cards.Face, name string, idx in
 					break
 				}
 			}
+			if strings.Contains(cost, "BeholdExile<1/Elf>") {
+				p.hand = appendUnique(p.hand, elfBeholdFixture(reg)...)
+			}
 		}
 		// An additional cost the generator cannot pay (Waterbend, Blight,
 		// ChooseCard, a behold type with no fixture) must not become a probe
@@ -160,10 +191,24 @@ func parameterCostProbes(reg *cards.Registry, f *cards.Face, name string, idx in
 	if st.ModeKind() != cards.StaticReduceCost {
 		return nil, "", false
 	}
-	if st.Params["ValidSpell"] != "" {
-		// A spell-kind filter (bargained, kicked) needs an additional-cost
-		// payment, not a board; it keeps its own skip reason.
+	if st.Params["ValidSpell"] != "" && !strings.EqualFold(st.Params["ValidSpell"], "Spell.Bargain") {
 		return nil, "", false
+	}
+	if strings.EqualFold(st.Params["ValidSpell"], "Spell.Bargain") {
+		// Bargain (CR 702.166) is a cast MODE: elect it, then answer the
+		// mid-cast choose that names the artifact to sacrifice. Ornithopter
+		// is a token-free artifact in p0's setup. A bargained counter still
+		// needs a spell on the stack to target (Ice Out).
+		p.battlefield = appendUnique(p.battlefield, "Ornithopter")
+		p.castMode = "bargained"
+		p.answers = append(p.answers, oraclegen.Answer{Kind: "choose", Pick: []string{"Ornithopter"}})
+		if filter := stackTargetFilter(f); filter != "" {
+			pre, reason := costStackPrecast(filter)
+			if reason != "" {
+				return nil, reason, true
+			}
+			p.precast = pre
+		}
 	}
 	// The amount, the count it tallies and every gate come from the static's
 	// own parameters (costConditionProbes); unknown grammars are named gaps.
@@ -172,11 +217,17 @@ func parameterCostProbes(reg *cards.Registry, f *cards.Face, name string, idx in
 		return nil, gap, true
 	}
 	if target := st.Params["ValidTarget"]; target != "" {
-		// SlotSpecs/Fixtures provides the target objects for ValidTarget. Do not
-		// replace those object refs with the player target used by legacy probes.
 		if strings.Contains(target, "tapped") {
 			for i := range probes {
 				probes[i].battlefield = appendUnique(probes[i].battlefield, "Grizzly Bears")
+			}
+		} else {
+			for i := range probes {
+				var targetGap string
+				probes[i], targetGap = costTargetProbe(reg, f, st, probes[i])
+				if targetGap != "" {
+					return nil, targetGap, true
+				}
 			}
 		}
 	}
