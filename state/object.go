@@ -452,6 +452,19 @@ const (
 	// copied Teamwork spell inherits it pending the same separate copy ruling.
 	// Appended after FlagBargained to preserve all bits already in main.
 	FlagTeamworkPaid
+	// FlagPreparedCopy marks a cast that rode CR 722.3c's prepared grant: the
+	// spell is the prepared designation's exile copy reaching the stack (the
+	// copy minted when its PreparedSource permanent became prepared). The
+	// flag is the provenance the Card.prepared filter predicate reads (Codie,
+	// Ravenous Codex's "Whenever you cast a prepared spell"), so the cast of
+	// the exile copy is the only cast it fires on. The source permanent's own
+	// Prepared status cannot serve the predicate: the CR 722.3c fold clears
+	// it as the copy is cast (rules/cast.go's pushCast), before the deferred
+	// SpellCast trigger evaluates the stack object. Conditioned on the cast
+	// itself -- a copy of the prepared copy is PUT on the stack, never cast
+	// (CR 707.10), so it must not inherit the bit. Appended after
+	// FlagTeamworkPaid to preserve all bits already in main.
+	FlagPreparedCopy
 )
 
 // CastProvenanceFlags is the ONE home for the CastFlags bits whose reader
@@ -499,7 +512,11 @@ const (
 // FlagImpending joins the set: both of CR 702.176a's riders are conditioned
 // on the spell having been CAST for its impending cost, so a stack copy -- put
 // on the stack, never cast (CR 707.10) -- must not inherit it.
-const CastProvenanceFlags = FlagMayFlashSac | FlagMayhem | FlagMayPlay | FlagPromisedGift | FlagRebound | FlagBlitzed | FlagAddsCounters | FlagWebSlinged | FlagSneaked | FlagManaColorSpent | FlagImpending | FlagBargained
+// FlagPreparedCopy joins the set: "whenever you cast a prepared spell" is a
+// statement about the cast, and the prepared designation's exile copy is the
+// only object that was CAST with the grant; a copy OF that copy is put on the
+// stack, never cast (CR 707.10), so it must not re-fire Codie's trigger.
+const CastProvenanceFlags = FlagMayFlashSac | FlagMayhem | FlagMayPlay | FlagPromisedGift | FlagRebound | FlagBlitzed | FlagAddsCounters | FlagWebSlinged | FlagSneaked | FlagManaColorSpent | FlagImpending | FlagBargained | FlagPreparedCopy
 
 // ExilesLeavingStack reports whether a cast carrying these flags is a
 // keyword cast whose card is exiled as it leaves the stack, whichever way it

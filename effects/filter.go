@@ -105,6 +105,32 @@ var predicates = map[string]predFn{
 		}
 		return false
 	},
+	// ManaCostPartialBlue is Forge's CardProperty ManaCostPartialBlue: the
+	// printed mana cost contains at least one blue mana symbol. The shared
+	// scanner counts hybrid ({2/U}, {W/U}) and Phyrexian ({U/P}) symbols as
+	// their colour letters, which is both Forge's "partial" semantics and
+	// CR 107.4e/f's rule that a hybrid or Phyrexian symbol is each of its
+	// component colours -- the Oracle text "one or more blue mana symbols
+	// in its mana cost" (Namor the Sub-Mariner, the one corpus carrier).
+	// Only the PRINTED cost is scanned, never rules text. A face-down object
+	// has no mana cost (CR 708.2), so it never matches.
+	"ManaCostPartialBlue": func(_ *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
+		return o != nil && !o.FaceDown && o.Face() != nil &&
+			cards.ManaCostColours(o.Face().ManaCost)&cards.ColourBlue != 0
+	},
+	// singleTarget is Forge's SpellAbility property singleTarget: the spell
+	// on the stack carries exactly ONE chosen target (object or player).
+	// It is the ValidSA$ shape's predicate (Spinerock Tyrant's
+	// `Instant.singleTarget,Sorcery.singleTarget`, and the sibling
+	// `Spell.singleTarget` carriers Captured by the Consulate and
+	// Glimmervoid Basin), evaluated at PutOnStack time when the CR 601.2c
+	// target ask has already recorded the spell's targets on the stack
+	// object. A zero-target cast of an "up to one target" spell does NOT
+	// match -- exactly one target was chosen, not one at most -- and the
+	// predicate fails closed on a nil object.
+	"singleTarget": func(_ *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
+		return o != nil && len(o.Targets) == 1
+	},
 	// DrawnThisTurn is Forge's Card.getDrawnThisTurn (Captain Eberhart's
 	// "spells cast from among cards you drew this turn"): the object's last
 	// Draw is this turn's and it has since moved nowhere but the stack --
@@ -250,6 +276,19 @@ var predicates = map[string]predFn{
 	// maintained by events.AlterAttribute and cleared when the permanent leaves.
 	"IsPrepared": func(_ *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
 		return o.Prepared
+	},
+	// prepared is the CAST provenance of the CR 722.3c prepared-copy grant:
+	// the object is a spell whose cast rode the prepared designation's exile
+	// copy. It reads the FlagPreparedCopy pay-time CastInfo bit, NOT the
+	// source permanent's IsPrepared status -- the CR 722.3c fold clears that
+	// designation as the copy is cast (rules/cast.go's pushCast), before the
+	// deferred SpellCast trigger evaluates the stack object, so the status
+	// read would fail the one cast the mechanic exists to make. The one
+	// corpus filter consumer is Codie, Ravenous Codex's `ValidCard$
+	// Card.prepared`; a stack copy of the prepared copy (never cast,
+	// CR 707.10) does not inherit the bit and must not match.
+	"prepared": func(_ *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
+		return o != nil && o.CastFlags&state.FlagPreparedCopy != 0
 	},
 	// harnessed is the Infinity Stone designation set by AlterAttribute.
 	"harnessed": func(_ *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
