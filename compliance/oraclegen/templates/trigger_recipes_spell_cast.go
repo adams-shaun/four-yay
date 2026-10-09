@@ -17,7 +17,7 @@ var spellCastGE = regexp.MustCompile(`(?i)(?:ManaSpent|cmc)\s*GE\s*(\d+)`)
 // spellCastProbeCauses orders causes from the most constrained shape to a
 // corpus-ordered fallback. Firing, rather than a second copy of Forge's
 // filter grammar, decides whether each candidate is suitable.
-func spellCastProbeCauses(reg *cards.Registry, name string, t *cards.Trigger) []triggerCause {
+func spellCastProbeCauses(reg *cards.Registry, f *cards.Face, name string, t *cards.Trigger) []triggerCause {
 	filter := t.ParamStr(cards.PKValidCard)
 	targets := t.ParamStr(cards.PKTargetsValid)
 	targetProbe := strings.Contains(targets, "Creature") || strings.Contains(targets, "Self") || strings.Contains(t.ParamStr(cards.PKValidTgts), "Creature")
@@ -119,7 +119,11 @@ func spellCastProbeCauses(reg *cards.Registry, name string, t *cards.Trigger) []
 			break
 		}
 	}
-	return out
+	// A provenance-gated trigger (cast from exile, an unowned spell, an
+	// Adventure face) needs its own cause ahead of the ordinary hand probes:
+	// the hand cast never satisfies the predicate, so it would only waste a
+	// fixture pass before the row skipped.
+	return append(spellCastProvenanceCauses(reg, f, name, t), out...)
 }
 
 // filterAcceptedFirst moves the probes gorge's own matcher accepts for the
