@@ -87,10 +87,13 @@ type staticProbePlan struct {
 	dropped []string // filter words whose table probes exceeded the cap
 	attack  bool     // the filter selects attacking or tapped permanents: attack with p0's creatures
 	self    bool     // the card itself must attack: place it, do not cast it
+	// aura attaches an Aura the filter requires ("enchanted", "EnchantedBy")
+	// to the probe, so a static on enchanted creatures is observable.
+	aura bool
 }
 
 func (p staticProbePlan) empty() bool {
-	return len(p.probes) == 0 && !p.attack && !p.self
+	return len(p.probes) == 0 && !p.attack && !p.self && !p.aura
 }
 
 // affectedWords splits an Affected$ filter into its words: the type, subtype,
@@ -116,6 +119,11 @@ func staticPlanFor(affected string) staticProbePlan {
 			plan.attack = true
 		case w == "Self":
 			plan.self = true
+		case w == "enchanted" || w == "EnchantedBy":
+			// A static on enchanted creatures (A Tale for the Ages, Archon of
+			// the Wild Rose): the probe must be enchanted, which the Aura
+			// prelude does.
+			plan.aura = true
 		}
 		for _, row := range staticProbeTable {
 			if row.word != w {

@@ -57,6 +57,23 @@ var StaticApplies = Template{ID: "static", Version: 1}
 // staticProbe is the permanent on both seats a continuous static lands on.
 const staticProbe = "Grizzly Bears"
 
+// staticProbeAura is the inert Aura the enchanted-probe prelude attaches to
+// the probe. Pacifism changes no compared field (P/T, keywords, types,
+// colours), so only the static under test moves the probe.
+const staticProbeAura = "Pacifism"
+
+// addEnchantedProbeAura places the inert Aura on p0's battlefield and attaches
+// it to the probe, so a static on "enchanted creatures you control" (A Tale
+// for the Ages, Archon of the Wild Rose) finds an enchanted probe.
+func addEnchantedProbeAura(base *oraclegen.Item, probe string) {
+	p0 := base.Scenario.Setup["p0"]
+	p0.Battlefield = appendFixtureUnique(p0.Battlefield, staticProbeAura)
+	base.Scenario.Setup["p0"] = p0
+	base.Steps = append(base.Steps, oraclegen.Step{
+		Op: "attach", Seat: 0, Card: "p0:" + staticProbeAura, AttachedTo: "p0:" + probe,
+	})
+}
+
 // staticContinuous builds the scenario serving one static.continuous
 // requirement. It tries Grizzly Bears alone first, so a row the Bear already
 // observes keeps its scenario byte for byte; a row that shows nothing is
@@ -364,6 +381,9 @@ func staticBase(reg *cards.Registry, c *cards.Card, f *cards.Face, name string, 
 			})
 		}
 		base = it
+	}
+	if plan.aura {
+		addEnchantedProbeAura(&base, staticProbe)
 	}
 	if band := classStaticBand(&st); band >= 2 {
 		// A ClassBand$ static is live only from its level on. The card is on

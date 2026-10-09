@@ -174,3 +174,41 @@ func TestStaticFilterLegendaryProbe(t *testing.T) {
 		t.Fatalf("Barktooth Warbeard P/T %s equals printed %s; the legendary pump did not land", probe.PT, pc.Faces[0].PT)
 	}
 }
+
+// TestStaticEnchantedProbe: a static on enchanted creatures you control (A
+// Tale for the Ages' +2/+2, Archon of the Wild Rose's 4/4 flier) was
+// unobservable because the bare probe is not enchanted. The fixture attaches
+// an inert Aura (Pacifism) to the probe, so the static lands. The precondition
+// asserts the Aura is really attached and the probe's printed P/T differs from
+// the observed one.
+func TestStaticEnchantedProbe(t *testing.T) {
+	reg := testutil.CorpusRegistry(t)
+	const probeName = "Grizzly Bears"
+	pc, _ := reg.Lookup(probeName)
+	printed := pc.Faces[0].PT
+	for _, tc := range []struct{ card, key string }{
+		{"A Tale for the Ages", "static#0.0"},
+		{"Archon of the Wild Rose", "static#0.0"},
+	} {
+		tc := tc
+		t.Run(tc.card, func(t *testing.T) {
+			it, final := selfFilterItem(t, reg, tc.card, tc.key)
+			attached := false
+			for _, st := range it.Steps {
+				if st.Op == "attach" && st.AttachedTo == "p0:"+probeName {
+					attached = true
+				}
+			}
+			if !attached {
+				t.Fatalf("%s: no attach step onto the probe: %+v", tc.card, it.Steps)
+			}
+			probe, ok := permNamed(final, probeName)
+			if !ok {
+				t.Fatalf("%s: probe %s is not on the final battlefield", tc.card, probeName)
+			}
+			if probe.PT == printed {
+				t.Fatalf("%s: probe P/T %s equals printed %s; the enchanted gate did not land", tc.card, probe.PT, printed)
+			}
+		})
+	}
+}
