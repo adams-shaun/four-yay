@@ -119,7 +119,7 @@ func spellCastProbeCauses(reg *cards.Registry, f *cards.Face, name string, t *ca
 			break
 		}
 	}
-	// A provenance-gated trigger (cast from exile, an unowned spell, an
+	// A provenance-gated trigger (cast from exile / not from hand, an
 	// Adventure face) needs its own cause ahead of the ordinary hand probes:
 	// the hand cast never satisfies the predicate, so it would only waste a
 	// fixture pass before the row skipped.
