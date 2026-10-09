@@ -107,6 +107,14 @@ type OracleDecision struct {
 	// OptionRefs records game-object identities among the offered options. It
 	// lets downstream answer adapters disambiguate same-named object picks.
 	OptionRefs []string `json:"option_refs,omitempty"`
+	// OptionGroups records the non-empty decision.Option.Group of each offered
+	// option, in option order. Only the engine's target asks set a Group
+	// (rules' askTarget/cast.go and effects' poseTargetsAsk, all
+	// "target-controller-<seat>"), so a recorded group tells a downstream
+	// adapter that a KChoose is really a target ask -- a mid-resolution
+	// TargetsForEachPlayer$ ask (Kaya, Spirits' Justice's exile-each) poses one
+	// XMage target per opponent even though the engine records it as a choose.
+	OptionGroups []string `json:"option_groups,omitempty"`
 	// ObjectPicks records only selected game-object identities, in submission
 	// order. Unlike a snapshot delta, these are the objects the player chose.
 	ObjectPicks []string `json:"object_picks,omitempty"`

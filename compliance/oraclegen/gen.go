@@ -1503,6 +1503,13 @@ func targetDecisionAnswers(r *answerRouting, i int) []XAnswer {
 				as = append(as, XAnswer{d.Seat, "target", ref})
 				continue
 			}
+			if currentFaceTargetRef(d, k) {
+				// The option label names a different object than the ref --
+				// the permanent's current face (a transformed DFC, a face-down
+				// card). The ref's identity alias selects the live object.
+				as = append(as, XAnswer{d.Seat, "target", ref})
+				continue
+			}
 			_, marker := SameNameAmbiguity(d, k)
 			as = append(as, XAnswer{d.Seat, "target", oraclediffRefName(ref) + marker})
 		}

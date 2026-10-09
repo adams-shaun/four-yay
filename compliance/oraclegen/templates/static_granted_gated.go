@@ -41,6 +41,16 @@ func staticGatedGrantedAbilityItem(reg *cards.Registry, c *cards.Card, f *cards.
 		return oraclegen.Item{}, "", false
 	}
 	speedGated := staticGatedOnMaxSpeed(&st)
+	// A speed-gated grant whose static acts off the battlefield (the Surveyor
+	// cycle's graveyard activation) is served with the card placed in that
+	// zone, not on the battlefield where the grant is inert (agent-
+	// 20261009T060626Z-a6d0cf40). Anything the arm does not serve keeps the
+	// battlefield attempt below.
+	if speedGated {
+		if it, why, ok := offBattlefieldGatedGrantItem(reg, f, name, req, st, sa); ok || why != "" {
+			return it, why, ok
+		}
+	}
 	kind, label := "activate", ""
 	desc := strings.TrimSpace(sa.ParamStr(cards.PKSpellDescription))
 	switch {
