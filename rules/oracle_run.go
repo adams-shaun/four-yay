@@ -1344,6 +1344,13 @@ func oracleAnswerManaStage(r *oracleRun, st oracleStep, seat state.PlayerID, id 
 			return nil
 		}
 		want := oracleRequestedManaLabel(st, wantSA, e.G, id)
+		// Two passes: the ability_index match must win over the label match,
+		// which is scanned only when no option carries the requested
+		// ability. One pass over both let option 0's identical label
+		// ("Add G" for Itlimoc's "{T}: Add {G}." vs "{T}: Add {G} for each
+		// creature you control") hijack a step that named the second
+		// ability by index -- the loop reached option 0's label check before
+		// option 1's Ability match.
 		idx, sawMana := -1, false
 		for _, o := range choice.Options {
 			if o.Kind != "mana" {
@@ -1352,10 +1359,17 @@ func oracleAnswerManaStage(r *oracleRun, st oracleStep, seat state.PlayerID, id 
 			sawMana = true
 			if idx < 0 && wantIdx >= 0 && o.Obj == id && o.Ability == wantIdx {
 				idx = o.Index
-				continue
 			}
-			if idx < 0 && want != "" && oracleLabelMatches(o.Label, want) {
-				idx = o.Index
+		}
+		if idx < 0 {
+			for _, o := range choice.Options {
+				if o.Kind != "mana" {
+					continue
+				}
+				if want != "" && oracleLabelMatches(o.Label, want) {
+					idx = o.Index
+					break
+				}
 			}
 		}
 		if !sawMana {
