@@ -107,6 +107,7 @@ func driveUrzasWorkshopGame(t *testing.T, d *Decks, spec GameSpec) []watchedCast
 // cast must activate Workshop's Index-1 ability for more than one mana and
 // must mirror the planner's witness through the executor.
 func TestUrzasWorkshopMetalcraftMirrorsRePin(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	d, err := LoadDecks(reg)
 	if err != nil {

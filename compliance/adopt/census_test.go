@@ -3,6 +3,7 @@ package adopt
 import (
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/adams-shaun/gorge/compliance"
@@ -11,13 +12,28 @@ import (
 
 const root = "../.."
 
+// census memoises Build for the process: five tests (TournamentScoping,
+// CorpusImpact, TicketsAtHead, and the two ratchets) each used to re-pay the
+// 589-manifest parse, the printed-list load and the corpus name fold, and
+// the gate runs this package in the affected phase's $others wave. Build
+// only reads the registry and the committed compliance data, and no method
+// writes the returned Census, so one copy is safe for the parallel tests
+// that share it. Measured 2026-10-09 at 4 vCPU: compliance/adopt 30.0s ->
+// 17.7s wall with the memo plus the parallel corpus tests below.
+var censusMemo struct {
+	sync.Once
+	cs  *Census
+	err error
+}
+
 func census(t *testing.T) *Census {
 	t.Helper()
-	cs, err := Build(testutil.CorpusRegistry(t), root)
-	if err != nil {
-		t.Fatal(err)
+	reg := testutil.CorpusRegistry(t)
+	censusMemo.Do(func() { censusMemo.cs, censusMemo.err = Build(reg, root) })
+	if censusMemo.err != nil {
+		t.Fatal(censusMemo.err)
 	}
-	return cs
+	return censusMemo.cs
 }
 
 func TestConfigIncludes(t *testing.T) {
@@ -48,6 +64,7 @@ func TestConfigIncludes(t *testing.T) {
 // non-tournament primitive, is outside it; a reprinted staple is inside
 // every format.
 func TestTournamentScoping(t *testing.T) {
+	t.Parallel()
 	cs := census(t)
 	for name, why := range map[string]string{
 		"Booster Tutor":       "primitive api:MakeCard", // also promoted in PAL04, so the set rule alone misses it

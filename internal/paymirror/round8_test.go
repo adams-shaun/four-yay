@@ -29,6 +29,7 @@ import (
 //     the other scratch fields. The field no longer exists: the matcher became
 //     a pure read (W5 E3) and the dispatcher reads the clause off the line.
 func TestRoundEightControlFindings(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	d, err := LoadDecks(reg)
 	if err != nil {
