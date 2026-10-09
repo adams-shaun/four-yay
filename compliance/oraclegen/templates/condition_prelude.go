@@ -227,6 +227,11 @@ func conditionPreludes(reg *cards.Registry, params, svars map[string]string) []c
 	if strings.Contains(text, "counters_ge1_m1m1") {
 		add(conditionPrelude{counters: map[string]map[string]int{"__SOURCE__": {"M1M1": 1}}})
 	}
+	if contains("hellbent") {
+		if pre, ok := hellbentPrelude(reg); ok {
+			add(pre)
+		}
+	}
 	if len(out) > 1 {
 		combined := conditionPrelude{}
 		for _, candidate := range out {

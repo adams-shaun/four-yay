@@ -74,6 +74,13 @@ func XMageAbility(f *cards.Face) (map[int]string, string) {
 			full[k] = loyalty + ": " + strings.TrimSpace(full[k][colon+2:])
 			base[k] = loyalty
 		}
+		// A card class that sets an ability word the Oracle line does not
+		// print (Bloom Tender's Vivid) must carry it on BOTH the full line
+		// and the base prefix, or the HasPrefix check below rejects the face.
+		if hdr := xmageAbilityWordHeader(f.Name, full[k]); hdr != "" {
+			full[k] = hdr + full[k]
+			base[k] = hdr + base[k]
+		}
 	}
 	// Ordinal matching excludes line-less intrinsics, but startsWith selection
 	// must include them. Assemble EVERY selectable line before extending any

@@ -96,7 +96,7 @@ func activateAbility(reg *cards.Registry, f *cards.Face, name string, req levelb
 	// a failure is reported as a known restriction rather than the generic
 	// no-fixture reason.
 	restriction, gap := activateRestriction(reg, f, name, sa)
-	it, ok := activateWith(reg, f, name, req, idx, prefix, pool, sa.ParamStr(cards.PKCost), zone, slots, restriction, stackTargets)
+	it, ok := activateWith(reg, f, name, req, idx, prefix, pool, sa.ParamStr(cards.PKCost), zone, slots, restriction, stackTargets, abilityStackPlanOf(reg, sa, slots))
 	if !ok {
 		if oraclegen.HasType(f, "Aura") {
 			// An Aura's ability is offered only while it is attached; this
@@ -162,15 +162,20 @@ func stackTargetRefs(sa *cards.SA, f *cards.Face, name string, slots []oraclegen
 
 // activateWith tries every fixture for the ability's target plan and returns
 // the named level-B item. A restriction names the extra setup the ability's
-// offer gates need; the bare scenario is tried first, then the restricted one.
-func activateWith(reg *cards.Registry, f *cards.Face, name string, req levelb.Requirement, idx int, prefix, mana, cost, zone string, slots []oraclegen.Slot, restrictions []conditionPrelude, stackTargets []string) (oraclegen.Item, bool) {
+// offer gates need; the bare scenario is tried first, then the restricted
+// one. A non-nil plan is the ability-stack target shape (the probe prelude,
+// activate_ability_stack.go), served apart from the ordinary cross product.
+func activateWith(reg *cards.Registry, f *cards.Face, name string, req levelb.Requirement, idx int, prefix, mana, cost, zone string, slots []oraclegen.Slot, restrictions []conditionPrelude, stackTargets []string, plan *abilityStackPlan) (oraclegen.Item, bool) {
+	if plan != nil {
+		return activateWithAbilityStack(reg, f, name, req, idx, prefix, mana, cost, zone, slots, restrictions, plan)
+	}
 	preludes := withTokenCostPrelude(reg, cost, append([]conditionPrelude{{}}, restrictions...))
 	// Stack slots are served here by a prelude cast the scenario holds at
 	// this step's priority; every other template family keeps the plain
 	// fixtures, whose stack slots stay the caller's own precast.
 	for _, fx := range oraclegen.FixturesServingStack(reg, slots, stackTargets...) {
 		for _, pre := range preludes {
-			it, ok := activateWithFixture(reg, f, name, req, idx, prefix, mana, cost, zone, fx, pre, slots)
+			it, ok := activateWithFixture(reg, f, name, req, idx, prefix, mana, cost, zone, fx, pre, slots, nil)
 			if ok {
 				return it, true
 			}
@@ -180,10 +185,14 @@ func activateWith(reg *cards.Registry, f *cards.Face, name string, req levelb.Re
 }
 
 // activateWithFixture builds and settles one fixture with one restriction
-// prelude applied.
-func activateWithFixture(reg *cards.Registry, f *cards.Face, name string, req levelb.Requirement, idx int, prefix, mana, cost, zone string, fx oraclegen.Fixture, pre conditionPrelude, slots []oraclegen.Slot) (oraclegen.Item, bool) {
+// prelude applied. A non-nil plan targets the ability's stack slots at the
+// pending probe ability the plan's prelude leaves on the stack.
+func activateWithFixture(reg *cards.Registry, f *cards.Face, name string, req levelb.Requirement, idx int, prefix, mana, cost, zone string, fx oraclegen.Fixture, pre conditionPrelude, slots []oraclegen.Slot, plan *abilityStackPlan) (oraclegen.Item, bool) {
 	abilityIndex := idx
 	p0 := *fx.P0()
+	if plan != nil {
+		plan.setup(&p0)
+	}
 	switch zone {
 	case "hand":
 		p0.Hand = appendFixtureUnique(p0.Hand, name)
@@ -228,13 +237,22 @@ func activateWithFixture(reg *cards.Registry, f *cards.Face, name string, req le
 	prelude = append(prelude, fxPre...)
 	prelude = append(prelude, restrictSteps...)
 	prelude = append(prelude, costAttach...)
+	if plan != nil {
+		// The ability prelude leaves the probe ability pending on the stack;
+		// the ability under test (the last activate step) targets it.
+		prelude = append(prelude, plan.steps()...)
+	}
 	prelude = append(prelude, combat...)
 	setupBackFace(&p0, name, req)
 	steps := make([]oraclegen.Step, 0, len(prelude)+1)
 	steps = append(steps, prelude...)
+	targets := fx.Targets()
+	if plan != nil {
+		targets = plan.targets
+	}
 	steps = append(steps, oraclegen.Step{
 		Op: "activate", Seat: 0, Card: "p0:" + name,
-		Mana: mana, Targets: fx.Targets(), AbilityIndex: &abilityIndex,
+		Mana: mana, Targets: targets, AbilityIndex: &abilityIndex,
 		Answers: activationXAnswers(cost, x),
 	})
 	sc := oraclegen.Scenario{
