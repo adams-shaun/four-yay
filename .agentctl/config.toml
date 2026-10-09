@@ -336,9 +336,16 @@ env = { GORGE_REWARD_DIR = "/home/sadams/projects/gorge/.ds4/reward" }
 
 [[gates]]
 name = "go build"
+# 2026-10-09 (cli-20261009T114433Z-45f2f307): -p=2 -> -p=4. At 800% quota the
+# run only reached 374% CPU with -p=2; -p=4 lifts it to 577-593% and -p=6 adds
+# nothing (17.1 s vs 16.6 s cold). Measured here, private empty GOCACHE for
+# the cold runs, shared cache for the warm one:
+#   -p=2 GOMAXPROCS=4 cold 25.5 s / warm 12.9 s, 374% CPU
+#   -p=4 GOMAXPROCS=4 cold 16.6 s / warm  3.9 s, 577-593% CPU, 715 MiB RSS
+#   -p=6 GOMAXPROCS=6 cold 17.1 s
 cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=8G", "-p", "CPUQuota=800%", "go", "build", "./..."]
 timeout = 900
-env = { GOMEMLIMIT = "1GiB", GOMAXPROCS = "4", GOFLAGS = "-p=2 -trimpath" }
+env = { GOMEMLIMIT = "1GiB", GOMAXPROCS = "4", GOFLAGS = "-p=4 -trimpath" }
 
 [[gates]]
 # 2026-10-05 (operator): per-ticket validation cut to 1-2 min. The old module
@@ -381,14 +388,24 @@ cmd = ["bash", "-c", "set -o pipefail; if [ -n \"${GORGE_HEAVY_LOCK:-}\" ]; then
 # lane for its whole length and is never paused — with 2 lanes the other lane
 # stays free for a lease meanwhile.
 #
-# gate_affected bounds the test phase to four concurrent test binaries
-# (each invocation uses -p=1); its vet phase is sequential and uses -p=2.
-# Four binaries x 1536MiB stays below the 8G scope with headroom. The
-# measured >2GiB test exceptions are pinned (shrink-only) in
-# internal/testutil/testdata/rss_exceptions.txt; the operator must remeasure
-# both full scopes before enabling these proposed limits.
+# 2026-10-09 (cli-20261009T114433Z-45f2f307): GOMEMLIMIT 1536MiB -> 3GiB with
+# the operator's doubled per-test budget (0d5e1a093 doubled the seat scope's
+# GOMEMLIMIT the same day; this gate env was missed). Measured: a ./rules
+# shard's working set is 1.2-1.9 GiB RSS (serial, GOMEMLIMIT=3GiB), so 1536MiB
+# sits UNDER it and the GC thrash stretched the two-shard rules phase from the
+# 62 s documented 2026-10-08 to 78.8 s under this gate's own scope. The
+# shard lines in scripts/gate_affected.sh override both GOMAXPROCS and
+# GOMEMLIMIT themselves now; this env stays the ceiling for vet, the others
+# set and the two Kr8 runs (others peak ~1.0 GiB at -p=6, Kr8 ~12 s each).
+#
+# gate_affected bounds the test phase to concurrent test binaries bounded by
+# -p (each rules shard and each Kr8/cardfuzz/searchprobe/overshoot invocation
+# uses -p=1; the others set runs -p=6); its vet phase is sequential and uses
+# -p=6. Worst case is three rules shards (~1.9 GiB peak RSS each, serially
+# measured 2026-10-09) + six others (~1.0 GiB total) + the two Kr8 binaries,
+# all inside the 16G scope with headroom.
 timeout = 2100
-env = { GOMEMLIMIT = "1536MiB", GOMAXPROCS = "2", GOGC = "200", GOFLAGS = "-p=2 -trimpath" }
+env = { GOMEMLIMIT = "3GiB", GOMAXPROCS = "2", GOGC = "200", GOFLAGS = "-p=2 -trimpath" }
 
 [[gates]]
 name = "CR conformance"
