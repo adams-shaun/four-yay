@@ -1,0 +1,2 @@
+{"shape":{"template":"static","op":"resolve","field":"p1.graveyard","diff":"gorge+[] xmage+[Grizzly Bears]"},"key":"static | resolve | p1.graveyard | gorge+[] xmage+[Grizzly Bears]","cards":1}
+{"card":"Bolt Bend","template":"static#0.0","status":"diverge","api":"ChangeTargets","sets":["FDN"],"detail":"step 2 (resolve) p1.graveyard: gorge \"[]\", xmage \"[Grizzly Bears]\""}

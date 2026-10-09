@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"resolve","field":"permanents","diff":"gorge+Tunnel of Hate; xmage+$CARD"},"key":"trigger | resolve | permanents | gorge+Tunnel of Hate; xmage+$CARD","cards":1}
+{"card":"Ticket Booth","template":"trigger#1.0","status":"diverge","api":"UnlockDoor:ManifestDread","detail":"step 1 (resolve) permanents: gorge \"c0 o0 Tunnel of Hate [enchantment room] {R}\", xmage \"c0 o0 Ticket Booth [enchantment room] {R}\""}

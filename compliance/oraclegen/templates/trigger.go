@@ -32,7 +32,7 @@ func triggerSubs(sub string) bool {
 		"trigger.loyalty-activated", "trigger.discarded", "trigger.attacks-one-target", classLevelGainedSub,
 		"trigger.spell-cast-opponent", "trigger.spell-cast-self-cast", "trigger.commit-crime", "trigger.ability-activated",
 		levelb.UnlockDoorSub, levelb.FullyUnlockSub, stateSelfCountersSub, levelb.CounterAddedSub,
-		levelb.TurnedFaceUpSub, levelb.TurnedFaceUpOtherSub:
+		levelb.TurnedFaceUpSub, levelb.TurnedFaceUpOtherSub, levelb.SacrificeSub:
 		return true
 	}
 	return tapCombatSub(sub)
@@ -238,7 +238,15 @@ func triggerWithFixture(reg *cards.Registry, f *cards.Face, name string, req lev
 	settled := append(append([]oraclegen.Step(nil), probe...), passes...)
 	checkpoint := append(append([]oraclegen.Step(nil), settled...), oraclegen.Step{Op: "pass_to", Decision: "priority"})
 	ordered := append(append([]oraclegen.Step(nil), probe...), oraclegen.Step{Op: "pass_to", Decision: "priority"})
-	for _, steps := range [][]oraclegen.Step{probe, settled, checkpoint, ordered} {
+	// A destroy spell whose target put a sibling trigger on the stack (a
+	// Valiant "becomes the target" trigger) needs a second pass cycle before
+	// the spell resolves and the dies trigger behind it surfaces. It is a
+	// separate variant so every detection the shorter passes already made is
+	// unchanged; the emitted item's bytes never move (the variant is detection
+	// only).
+	deep := append(append([]oraclegen.Step(nil), probe...), passes...)
+	deep = append(deep, passes...)
+	for _, steps := range [][]oraclegen.Step{probe, settled, checkpoint, ordered, deep} {
 		if _, res, ok := oraclegen.Settle(reg, triggerScenario(f, name, c, req, steps, fx)); ok && abilityOnStack(res.Snapshots, name, f.Name, stackSlot(req)) {
 			fired = true
 			break

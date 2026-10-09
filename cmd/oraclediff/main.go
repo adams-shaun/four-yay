@@ -3,6 +3,9 @@
 //	oraclediff gen  [-cards .cards] [-level A|B] -manifest compliance/manifests/FRA.json -out scenarios.jsonl
 //	oraclediff plan [-cards .cards] -scenarios scenarios.jsonl -xmage-ref REF -cache DIR -replay todo.jsonl -rediff rediff.jsonl
 //	oraclediff diff [-cards .cards] -scenarios scenarios.jsonl [-xmage xmage.jsonl] [-cache DIR] -out verdicts.jsonl
+//	oraclediff adjudicate -scenarios scen.jsonl -forge-diff forge-diff.jsonl
+//	                          -xmage-cache DIR -oracle-ref REF [-driver SHA | -forge-cache DIR]
+//	                          [-verdicts compliance/verdicts] [-d1 C|B] [-mark-review]
 //	oraclediff show [-cards .cards] -scenarios scenarios.jsonl -card NAME
 //	oraclediff triage [-cards .cards] [-apply]
 //	oraclediff refreeze [-cards .cards] [-apply]
@@ -101,6 +104,8 @@ func main() {
 		err = runForgeExport(os.Args[2:])
 	case "forge-diff":
 		err = runForgeDiff(os.Args[2:])
+	case "adjudicate":
+		err = runAdjudicate(os.Args[2:])
 	case "triage":
 		fs := flag.NewFlagSet("triage", flag.ExitOnError)
 		dir := fs.String("cards", ".cards", "corpus dir")
@@ -183,7 +188,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: oraclediff gen|plan|diff|status|rule|triage|refreeze|impact|tickets|show ...")
+	fmt.Fprintln(os.Stderr, "usage: oraclediff gen|plan|diff|forge-export|forge-diff|adjudicate|status|rule|triage|refreeze|impact|tickets|show ...")
 	os.Exit(2)
 }
 

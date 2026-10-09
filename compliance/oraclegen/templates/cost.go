@@ -48,6 +48,10 @@ type costProbe struct {
 	precast *precast
 	// castMode elects a cast option by its Mode ("bargained" for Bargain);
 	// answers scripts the mid-cast asks that election poses (the sacrifice).
+	// castFrom names the zone the probe casts its spell from ("graveyard",
+	// the cast-provenance probe's Flashback cast): the spell is seeded there
+	// and NOT in the hand, and castMode elects that cast's option.
+	castFrom   string
 	castMode   string
 	answers    []oraclegen.Answer
 	mustReplay bool
@@ -210,11 +214,28 @@ func parameterCostProbes(reg *cards.Registry, f *cards.Face, name string, idx in
 			p.precast = pre
 		}
 	}
+	// A probe spell with {X} in its cost is cast at the generator's X
+	// (oraclegen.XValue), the value PoolFor's printed pool assumes, so the
+	// generic mana the reduction removes stays visible in the price.
+	p.answers = append(p.answers, xAnswers(f)...)
 	// The amount, the count it tallies and every gate come from the static's
 	// own parameters (costConditionProbes); unknown grammars are named gaps.
 	probes, reduction, gap := costConditionProbes(reg, f, st, name, p)
 	if gap != "" {
 		return nil, gap, true
+	}
+	// A probe spell whose own target slot draws from the stack (a
+	// counterspell, or a retargeter like Bolt Bend) needs a spell on the
+	// stack before it can be cast at all; cast one first and hold priority
+	// (CR 117.3c), the shape counterSpell and the Bargain counters use.
+	if filter := stackTargetFilter(f); filter != "" {
+		pre, reason := costStackPrecast(filter)
+		if reason != "" {
+			return nil, reason, true
+		}
+		for i := range probes {
+			probes[i].precast = pre
+		}
 	}
 	if target := st.Params["ValidTarget"]; target != "" {
 		if strings.Contains(target, "tapped") {

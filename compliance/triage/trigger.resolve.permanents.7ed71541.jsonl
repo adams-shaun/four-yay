@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"resolve","field":"permanents","diff":"gorge+Cadaver Lab; xmage+$CARD"},"key":"trigger | resolve | permanents | gorge+Cadaver Lab; xmage+$CARD","cards":1}
+{"card":"Defiled Crypt","template":"trigger#1.0","status":"diverge","api":"ChangesZoneAll:Token","detail":"step 1 (resolve) permanents: gorge \"c0 o0 Cadaver Lab [enchantment room] {B}\", xmage \"c0 o0 Defiled Crypt [enchantment room] {B}\""}

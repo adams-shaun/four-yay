@@ -88,14 +88,20 @@ func activationCostIn(cost, zone, name string, xMin ...int) (pool, gap string) {
 			}
 			return "", tapXTypeGapClass(tok)
 		case "AddCounter", "SubCounter":
-			if loyaltyCounter(tok) {
+			if loyaltyCounter(tok) || announcedSourceCounterX(tok) {
 				continue
 			}
 			if _, _, ok := sourceCounterCost(tok); ok {
+				continue
+			}
+			if _, _, _, ok := otherCounterCost(tok); ok {
 				continue
 			}
 		case "RemoveAnyCounter":
 			if _, _, ok := sourceCounterCost(tok); ok {
+				continue
+			}
+			if _, _, _, ok := otherCounterCost(tok); ok {
 				continue
 			}
 		}

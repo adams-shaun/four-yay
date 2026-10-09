@@ -1,6 +1,9 @@
 package rules
 
 import (
+	"strconv"
+	"strings"
+
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/state"
@@ -66,4 +69,35 @@ func setupPlacedBackFace(s oracleSeat, name string) bool {
 		}
 	}
 	return false
+}
+
+// setupBackFaceLoyalty is the starting loyalty a back-face placement of a
+// transforming planeswalker enters with when its ENTERING face prints none:
+// Forge spells the transformed face of an Oko-cycle walker "Loyalty: 0", a
+// carry-over marker for the counters the permanent already held, never a real
+// zero-loyalty entry (that face is reachable only by transforming). The
+// harness grants the front face's printed starting loyalty instead. 0 when the
+// entering face has its own positive loyalty, when either face is not a
+// planeswalker, or when a printed value does not parse (the same fail-closed
+// read events.EntryCounterGrants takes).
+func setupBackFaceLoyalty(o *state.Object) int32 {
+	if o == nil || o.Card == nil || len(o.Card.Faces) < 2 {
+		return 0
+	}
+	back := o.Face()
+	if back == nil || !back.IsPlaneswalker() {
+		return 0
+	}
+	if n, err := strconv.Atoi(strings.TrimSpace(back.Loyalty)); err == nil && n > 0 {
+		return 0
+	}
+	front := o.Card.Faces[0]
+	if front == nil || !front.IsPlaneswalker() {
+		return 0
+	}
+	n, err := strconv.Atoi(strings.TrimSpace(front.Loyalty))
+	if err != nil || n <= 0 {
+		return 0
+	}
+	return int32(n)
 }

@@ -1,2 +1,0 @@
-{"shape":{"template":"trigger","op":"cast","field":"stack","diff":"gorge=[spell:$CARD@p0] xmage=[spell:Elegant Rotunda@p0]"},"key":"trigger | cast | stack | gorge=[spell:$CARD@p0] xmage=[spell:Elegant Rotunda@p0]","cards":1}
-{"card":"Grand Entryway","template":"trigger#1.0","status":"diverge","api":"UnlockDoor:Token","detail":"step 0 (cast) stack: gorge \"[spell:Grand Entryway@p0]\", xmage \"[spell:Elegant Rotunda@p0]\""}

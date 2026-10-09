@@ -28,6 +28,10 @@ const maxSpeed = 4
 // CARDNAME has a shield counter on it").
 var selfCounterGate = regexp.MustCompile(`Card\.Self\+counters_GE([0-9]+)_([A-Za-z0-9]+)`)
 
+// probeCounterGate matches the affected-permanent counter gate word the static
+// probe fixture places counters for (counters_GE1_P1P1).
+var probeCounterGate = regexp.MustCompile(`(?i)counters_GE([0-9]+)_([A-Za-z0-9]+)`)
+
 // staticCounterGate returns the counter kind and count st's own-counter gate
 // needs, or ok=false when st has none.
 func staticCounterGate(st *cards.Static) (kind string, n int32, ok bool) {
@@ -43,6 +47,31 @@ func staticCounterGate(st *cards.Static) (kind string, n int32, ok bool) {
 		return m[2], int32(v), true
 	}
 	return "", 0, false
+}
+
+// stationGatedSelf reports a CHARGE-gated static on a Spacecraft (the
+// card's station static, the EOE ship cycle) whose cast path cannot reach
+// the gate. Its counters are the fixture's, and the card's own
+// enters-the-battlefield trigger is an entry shape the xmageFixture placement
+// drops (setupPlacementDropsTrigger) -- the same silence XMage's addCard has
+// -- so the placed card serves like any other counter-gated card instead of
+// staying on the cast path, where nothing puts the gate counters on it. An
+// ETB that puts counters of ANY kind keeps the cast path (Atmospheric
+// Greenhouse's "put a +1/+1 counter on each creature you control" is the
+// served story its row asserts): the placed path is only for ETBs that could
+// never make the compared fields move.
+func stationGatedSelf(f *cards.Face, st *cards.Static) bool {
+	kind, _, _ := staticCounterGate(st)
+	if !strings.EqualFold(kind, "CHARGE") || !oraclegen.HasType(f, "Spacecraft") {
+		return false
+	}
+	for i := range f.Triggers {
+		body, ok := f.SVars[f.Triggers[i].ParamStr(cards.PKExecute)]
+		if ok && strings.Contains(body, "PutCounter") {
+			return false
+		}
+	}
+	return true
 }
 
 // staticGatedOnMaxSpeed reports whether st applies only at max speed.
@@ -136,7 +165,10 @@ func sourceCounterCost(tok string) (n int32, kind string, ok bool) {
 			return 0, "", false
 		}
 	case "RemoveAnyCounter":
-		if !strings.EqualFold(fields[1], "Any") || len(fields) < 3 || !strings.EqualFold(fields[2], "CARDNAME") {
+		// NICKNAME is the back face's own-name spelling (Ghost-Spider's
+		// RemoveAnyCounter<2/Any/NICKNAME>), the same source anchor CARDNAME is.
+		if !strings.EqualFold(fields[1], "Any") || len(fields) < 3 ||
+			(!strings.EqualFold(fields[2], "CARDNAME") && !strings.EqualFold(fields[2], "NICKNAME")) {
 			return 0, "", false
 		}
 		kind = "M1M1"
@@ -144,6 +176,88 @@ func sourceCounterCost(tok string) (n int32, kind string, ok bool) {
 		return 0, "", false
 	}
 	return int32(v), kind, true
+}
+
+// otherCounterCost parses the counter-removal cost tokens whose counters come
+// off a battlefield permanent the FIXTURE places, not the ability's own
+// source: SubCounter<n/KIND/Creature.YouCtrl/...> (Sunstar Chaplain, Ray
+// Fillet) and RemoveAnyCounter<n/KIND/Artifact> (Iron Spider). The fixture
+// card is the single object matching the filter on p0's battlefield, so the
+// engine's removal stage has one candidate and auto-picks it without posing a
+// removal ask. A wildcard kind ("Any") is not fixture-supported: the kinds the
+// bearer would carry are a choice neither engine's answer can name cheaply.
+func otherCounterCost(tok string) (n int32, kind, fixture string, ok bool) {
+	payload, has := bracketPayload(tok)
+	if !has {
+		return 0, "", "", false
+	}
+	head := strings.TrimSpace(tok[:strings.IndexByte(tok, '<')])
+	if head != "SubCounter" && head != "RemoveAnyCounter" {
+		return 0, "", "", false
+	}
+	fields := strings.Split(payload, "/")
+	if len(fields) < 3 {
+		return 0, "", "", false
+	}
+	v, err := strconv.Atoi(fields[0])
+	if err != nil || v <= 0 {
+		return 0, "", "", false
+	}
+	kind = strings.TrimSpace(fields[1])
+	if kind == "" || strings.EqualFold(kind, "Any") || strings.EqualFold(kind, "LOYALTY") {
+		return 0, "", "", false
+	}
+	switch strings.TrimSpace(fields[2]) {
+	case "Creature.YouCtrl":
+		return int32(v), kind, staticProbe, true
+	case "Artifact":
+		return int32(v), kind, "Sol Ring", true
+	}
+	return 0, "", "", false
+}
+
+// announcedSourceCounterX reports whether tok is an announced SubCounter<X/
+// KIND> or RemoveAnyCounter<X/KIND> part whose counters come off the ability's
+// own source (or its own loyalty) with a fixed kind: the activation announces
+// X = 1 and the fixture seeds one counter of the kind on the source (The
+// Astonishing Ant-Man's SubCounter<X/P1P1>, Chandra, Chill of Compliance's
+// SubCounter<X/LOYALTY>). A third field naming another permanent is not
+// fixture-supported.
+func announcedSourceCounterX(tok string) bool {
+	payload, has := bracketPayload(tok)
+	if !has {
+		return false
+	}
+	head := strings.TrimSpace(tok[:strings.IndexByte(tok, '<')])
+	if head != "SubCounter" && head != "RemoveAnyCounter" {
+		return false
+	}
+	fields := strings.Split(payload, "/")
+	if len(fields) < 2 || strings.TrimSpace(fields[0]) != "X" {
+		return false
+	}
+	if len(fields) >= 3 {
+		t := strings.TrimSpace(fields[2])
+		if !strings.EqualFold(t, "CARDNAME") && !strings.EqualFold(t, "NICKNAME") {
+			return false
+		}
+	}
+	kind := strings.TrimSpace(fields[1])
+	return kind != "" && !strings.EqualFold(kind, "Any")
+}
+
+// announcedSourceCounterXKind is the counter kind announcedSourceCounterX's
+// fixture seeds on the source.
+func announcedSourceCounterXKind(tok string) string {
+	payload, has := bracketPayload(tok)
+	if !has {
+		return ""
+	}
+	fields := strings.Split(payload, "/")
+	if len(fields) < 2 {
+		return ""
+	}
+	return strings.TrimSpace(fields[1])
 }
 
 // addActivationCounterFixtures gives p0's source card the counters its cost
@@ -160,6 +274,15 @@ func addActivationCounterFixtures(p0 *oraclegen.Seat, f *cards.Face, name, cost 
 				continue
 			}
 			*p0 = withSetupCounters(*p0, name, kind, n-covered)
+			continue
+		}
+		if n, kind, fixture, ok := otherCounterCost(tok); ok {
+			p0.Battlefield = appendFixtureUnique(p0.Battlefield, fixture)
+			*p0 = withSetupCounters(*p0, fixture, kind, n)
+			continue
+		}
+		if announcedSourceCounterX(tok) {
+			*p0 = withSetupCounters(*p0, name, announcedSourceCounterXKind(tok), 1)
 		}
 	}
 }

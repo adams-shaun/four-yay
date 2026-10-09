@@ -99,6 +99,15 @@ var activateCensusSets = []string{"BIG", "EOE", "FDN", "FRA"}
 // Lathril, Blade of the Elves' tapXType<10/Elf> is now recognised as a
 // count above the catalogue rather than an unsupported filter (FDN
 // unsupported-filter 1 -> 0, count-above-catalogue 0 -> 1).
+// Re-measured for the setup-counters fixture ticket
+// (cli-20261009T031409Z-a76de35a): counter-removal costs are no longer cost
+// gaps. A SubCounter part whose removal target is a fixture placeable
+// (Creature.YouCtrl, Artifact) is served with the bearer holding the counters
+// (EOE Sunstar Chaplain; FRA had none, its one gap was Chandra's), and an
+// announced SubCounter<X/Kind> part announces X = 1 with one counter seeded on
+// the source (FRA Chandra, Chill of Compliance -X; EOE had none). EOE and FRA
+// battlefield counts rise by one each and both SubCounter<...> gap buckets
+// empty.
 var wantActivateCensus = map[string]map[string]int{
 	"BIG": {
 		// +1 served: Worldwalker Helm's "target artifact token you control"
@@ -109,12 +118,14 @@ var wantActivateCensus = map[string]map[string]int{
 		"skip:activate cost gap: Sac<token>": 1,
 	},
 	"EOE": {
-		// +1 Secluded Starforge activate#0.1: the announced tapXType<X/Artifact>
-		// count is served with one tapped catalogue artifact, the X being the
-		// tap election's own selection (cli-20261009T031408Z-5823e7de).
-		"served:activate.battlefield":             38,
-		"served:activate.mana":                    23,
-		"skip:activate cost gap: SubCounter<...>": 1,
+		// +1 served at the merge of the tapXType ticket and the setup-counter
+		// ticket: Secluded Starforge's announced tapXType<X/Artifact> count
+		// (served with one tapped catalogue artifact, the X the tap election's
+		// own selection) and Sunstar Chaplain's counter-removal cost (its
+		// fixture bearer seeded with the counters) both generate; each side
+		// alone skipped the other's row.
+		"served:activate.battlefield": 39,
+		"served:activate.mana":        23,
 	},
 	"FDN": {
 		"served:activate.battlefield":                             89,
@@ -124,15 +135,16 @@ var wantActivateCensus = map[string]map[string]int{
 		"skip:activate no fixture":                                1,
 	},
 	"FRA": {
-		// +1 served: Gallia, the Merrymaker's "target creature that entered
-		// the battlefield this turn" gets the mid-turn entry candidate
-		// (cli-20261009T031408Z-5823e7de).
-		"served:activate.battlefield":                                      72,
-		"served:activate.graveyard":                                        8,
-		"served:activate.hand":                                             9,
-		"served:activate.mana":                                             27,
-		"skip:activate cost gap: SubCounter<...>":                          1,
-		"skip:activation restriction: SVar (Count$YouScryThisTurn/Plus.Y)": 1,
+		// +1 served at the merge of the ThisTurnEntered ticket and the
+		// setup-counter ticket: Gallia, the Merrymaker's "target creature that
+		// entered the battlefield this turn" (the mid-turn entry candidate) and
+		// Chandra, Chill of Compliance's announced SubCounter cost both
+		// generate; each side alone skipped the other's row.
+		"served:activate.battlefield": 73,
+		"served:activate.graveyard":   8,
+		"served:activate.hand":        9,
+		"served:activate.mana":        27,
+		"skip:activation restriction: SVar (Count$YouScryThisTurn/Plus.Y)":                              1,
 		"skip:activate target gap: attackedThisTurn needs a combat prelude (Creature.attackedThisTurn)": 1,
 	},
 }

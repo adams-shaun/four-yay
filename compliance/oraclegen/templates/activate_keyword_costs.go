@@ -24,10 +24,13 @@ var forageFixtures = []string{"Grizzly Bears", "Wastes", "Sol Ring"}
 
 // activationX is the X every X-bearing activation cost is announced with: the
 // XMin<N> floor when the cost has one, else 1 for the costs whose X also
-// prices a life or waterbend payment (PayLife<X>, Waterbend<X>) or whose X
+// prices a life or waterbend payment (PayLife<X>, Waterbend<X>), whose X
 // counts the payment itself (ExileFromGrave<X/Spec>, which the engine poses
-// the announcement for and a zero X would pay while exiling nothing). It is 0
-// for a plain X cost, which keeps PoolFor's legacy X.
+// the announcement for and a zero X would pay while exiling nothing), whose X
+// prices a tap-for-mana payment (tapXType<X/...>), or that removes counters
+// (an announced SubCounter<X/Kind> / RemoveAnyCounter<X/Kind>, whose X the
+// fixture funds with one counter). It is 0 for a plain X cost, which keeps
+// PoolFor's legacy X. An explicit xMin argument wins over the cost's floor.
 func activationX(cost string, xMin ...int) int {
 	toks := costTokens(cost)
 	for _, n := range xMin {
@@ -41,8 +44,9 @@ func activationX(cost string, xMin ...int) int {
 		}
 	}
 	for _, tok := range toks {
-		if tok == "PayLife<X>" || tok == "Waterbend<X>" || strings.HasPrefix(tok, "ExileFromGrave<X/") ||
-			strings.HasPrefix(tok, "tapXType<X/") {
+		if tok == "PayLife<X>" || tok == "Waterbend<X>" ||
+			strings.HasPrefix(tok, "ExileFromGrave<X/") || strings.HasPrefix(tok, "tapXType<X/") ||
+			announcedSourceCounterX(tok) {
 			return 1
 		}
 	}
@@ -137,15 +141,17 @@ func keywordCostFixtures(p0 *oraclegen.Seat, cost string) {
 }
 
 // announcesX reports whether the engine asks the activator to announce X for
-// this cost: a bare X mana symbol, PayLife<X>, Waterbend<X>, and the
-// announced payment counts Sac<X/Spec> and ExileFromGrave<X/Spec> (the engine
-// poses the announcement; the count is paid, not read). An XMin<N> floor
+// this cost: a bare X mana symbol, PayLife<X>, Waterbend<X>, the announced
+// payment counts Sac<X/Spec> and ExileFromGrave<X/Spec> (the engine poses the
+// announcement; the count is paid, not read), or an announced counter-removal
+// part (SubCounter<X/Kind>, RemoveAnyCounter<X/Kind>). An XMin<N> floor
 // whose X only counts exiled cards (Craft's ExileCtrlOrGrave<X/...>) is read
 // from the cost, never asked.
 func announcesX(cost string) bool {
 	for _, tok := range costTokens(cost) {
 		if tok == "X" || tok == "PayLife<X>" || tok == "Waterbend<X>" ||
-			strings.HasPrefix(tok, "Sac<X/") || strings.HasPrefix(tok, "ExileFromGrave<X/") {
+			strings.HasPrefix(tok, "Sac<X/") || strings.HasPrefix(tok, "ExileFromGrave<X/") ||
+			announcedSourceCounterX(tok) {
 			return true
 		}
 	}
