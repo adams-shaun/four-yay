@@ -213,7 +213,16 @@ fi
 # run inflated ~4.5x by the ~30 concurrent threads the phase starts against
 # the scope's 1600% quota, so the extra parallelism is exactly what a
 # quota-bound phase shares out. GOMEMLIMIT stays the inherited 3GiB
-# (cli-20261009T114433Z-45f2f307).
+# (cli-20261009T114433Z-45f2f307). GC relaxation at these two lines is
+# measured and REJECTED (agent-20261009T195921Z-c0900c9d): standalone
+# (-cpuprofile vehicle) GOGC=off reads 13.2s / 3.09 GiB peak vs GOGC=200's
+# 16.3s / 1.24 GiB (GOGC=400 a wash, 16.1s / 1.96 GiB), but under this
+# phase's shape the worlds pole's on-CPU work GREW 26.4 -> 32.3 cpu-s and
+# its wall got worse (45.4s -> 51.4s), while the unmodified shape itself
+# read 46.1s and 64.9s twenty minutes apart with the shared box's load at
+# 33-40/32: the residual gate wall here is the pole being descheduled by
+# the fleet's box load, which no line-local env knob buys back. Do not
+# re-try GOGC/GOMEMLIMIT tuning at these lines.
 GOMAXPROCS=4 go test -p=1 -run '^TestKr8WorldsInFuzzGames$' ./rules/ & b=$!
 GOMAXPROCS=4 go test -p=1 -run '^TestKr8HeadsCheckpointAll$' ./rules/ & c=$!
 # -p=6: the $others packages are independent test binaries; with -p=1 they
