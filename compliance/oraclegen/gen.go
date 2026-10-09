@@ -170,7 +170,11 @@ type Expect struct {
 	// LookAtLibraryTop is the runner's per-seat "may look at the top card of
 	// their library" assertion (rules oracleExpect.LookAtLibraryTop).
 	LookAtLibraryTop map[string]bool `json:"look_at_library_top,omitempty"`
-	Want             *bool           `json:"want,omitempty"`
+	// MaxHandSize is the runner's per-seat effective CR 514.1 maximum hand
+	// size assertion (rules oracleExpect.MaxHandSize), a Continuous
+	// SetMaxHandSize$ grant no snapshot field carries.
+	MaxHandSize map[string]int `json:"max_hand_size,omitempty"`
+	Want        *bool          `json:"want,omitempty"`
 }
 
 // Answer is a queued answer for gorge's runner (kind = decision kind).

@@ -223,7 +223,10 @@ func staticSVarBodies(f *cards.Face, st cards.Static) []string {
 		if v := st.ParamStr(key); strings.HasPrefix(v, "Count$") {
 			out = append(out, v)
 		} else {
-			visit(v)
+			// A signed pump ("AddPower$ -X", Stingerback Terror, The Last
+			// Ride) names its SVar after the sign, which is not part of the
+			// name.
+			visit(strings.TrimLeft(v, "+-"))
 		}
 	}
 	return out
@@ -245,6 +248,11 @@ func staticBodyFixture(reg *cards.Registry, body string, n int) (staticFixture, 
 	switch {
 	case strings.HasPrefix(lower, "count$validgraveyard "):
 		return staticPresence(filter("Count$ValidGraveyard "), "Graveyard", staticCountFrom(body))
+	case strings.HasPrefix(lower, "count$validhand "):
+		// A count of the cards in hand ("gets -1/-1 for each card in your
+		// hand", Stingerback Terror): the fixture holds that many spare cards
+		// so the count is nonzero.
+		return staticFixture{conditionPrelude: conditionPrelude{hand: oraclegen.Repeat("Wastes", staticCountFrom(body))}}, true
 	case strings.HasPrefix(lower, "count$valid "):
 		return staticPresence(filter("Count$Valid "), "Battlefield", n)
 	case strings.Contains(lower, "hascardsingraveyard"):
