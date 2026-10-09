@@ -287,6 +287,11 @@ type oracleRun struct {
 	snaps      []OracleSnapshot
 	decisions  []OracleDecision
 	noSnapshot bool // runOracleScenarioWith's switch
+	// xmageFixture mirrors sc.xmageFixture: this run replays a GENERATED
+	// compliance scenario, where XMage is the reference engine. The
+	// hand-authored audit fixtures are gorge-internal (no XMage snapshot to
+	// align with) and keep the harness's own fallbacks.
+	xmageFixture bool
 	// spare, when non-nil, is recycled engine storage build hands to the
 	// probe and the scenario's game (RunOracleScenarioJSON's pool).
 	spare *Spare
@@ -1057,6 +1062,40 @@ func (r *oracleRun) answer(d *decision.Decision, why string) error {
 			}
 		}
 	case decision.KTriggerOrder, decision.KArrange:
+		// A generated compliance scenario's setup-drive arrange whose shared
+		// option kind is "graveyard" and whose ask is optional (Min 0, the
+		// shape an upkeep Surveil poses) falls back to the EMPTY choice set:
+		// every looked-at card goes to the graveyard. XMage's unscripted
+		// default does the same (its doSurveil queue holds the cards to send
+		// to the graveyard and delegates to the computer player when the
+		// generator scripts nothing), so choose-all here was the one
+		// divergence the stored verdict rows Broodheart Engine / Essence
+		// Anchor / Morcant's Eyes (activate#0.0) named. Scoped to the
+		// GENERATED scenarios (xmageFixture) — XMage is their reference — and
+		// to the setup drive: at step time gorge's recorded decision is
+		// transcribed into the XMage script by compliance/oraclegen, so
+		// changing the step-time fallback would desync the derived script. An
+		// audit fixture (rules/testdata/oracle) has no XMage snapshot to align
+		// with and its expectations are written for the choose-all fallback
+		// (Ransom Note's cloak audit relies on the setup ETB surveil keeping
+		// the seeded top card on top), so it keeps today's behaviour.
+		if r.xmageFixture && why == "setup" && d.Kind == decision.KArrange &&
+			d.ResumeKind == "arrange" && d.Min == 0 && len(d.Options) > 0 {
+			uniformGraveyard := true
+			for _, o := range d.Options {
+				if arrangeAnswerRecordCodes.Code(string(o.Kind)) != arrangeAnswerRecordGraveyard {
+					uniformGraveyard = false
+					break
+				}
+			}
+			if uniformGraveyard {
+				// Leave choices nil: the Min-first block below turns that
+				// into the empty answer, and the empty pile A sends every
+				// looked-at card to the graveyard via arrangeAnswerRecord's
+				// graveyard arm.
+				break
+			}
+		}
 		for _, o := range d.Options {
 			choices = append(choices, o.Index)
 		}
@@ -1975,7 +2014,7 @@ func runOracleScenarioWith(reg *cards.Registry, sc oracleScenario, noSnapshot bo
 // runOracleScenarioSpare is runOracleScenarioWith building its engines on
 // sp's recycled storage (see oracleRun.spare).
 func runOracleScenarioSpare(reg *cards.Registry, sc oracleScenario, noSnapshot bool, sp *Spare) (fails []string, transcript []string, run *oracleRun) {
-	r := &oracleRun{reg: reg, refs: map[string]state.ObjID{}, exactRefs: map[string]bool{}, noSnapshot: noSnapshot, step: -1, spare: sp}
+	r := &oracleRun{reg: reg, refs: map[string]state.ObjID{}, exactRefs: map[string]bool{}, noSnapshot: noSnapshot, step: -1, spare: sp, xmageFixture: sc.xmageFixture}
 	run = r
 	defer func() {
 		if p := recover(); p != nil {
