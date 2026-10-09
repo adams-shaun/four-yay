@@ -70,6 +70,10 @@ import (
 // and DFT Racers' Scoreboard, each previously the set's lone
 // "grants a static ability" skip; those skip rows leave and each served
 // count rises by one.
+// Re-pinned again by agent-20261009T055718Z-17e92d7b: a Condition$ NotPlayerTurn
+// static (DFT Midnight Mangler) is served by placing the card and advancing the
+// scenario to p1's first main phase, so DFT loses its generic observability
+// skip.
 // It fails in both directions.
 var wantStaticContinuousCensus = map[string]map[string]int{
 	"BIG": {
@@ -97,10 +101,10 @@ var wantStaticContinuousCensus = map[string]map[string]int{
 	// the gated-grant observation's off-battlefield arm (agent-
 	// 20261009T060626Z-a6d0cf40); its four former engine-gap skips are gone.
 	"DFT": {
-		"served": 58,
+		"served": 59,
 		"skip:static amount is a computed count the fixture does not make observable":            1,
 		"skip:static characteristic-defining P/T of a non-creature (the snapshot omits its P/T)": 1,
-		"skip:static effect not observable on a probe or the card":                               2,
+		"skip:static effect not observable on a probe or the card":                               1,
 		"skip:static gated self grant is not offered in the gate-on fixture":                     1,
 		"skip:static grants a replacement effect (needs an event the replacement can change)":    2,
 	},
