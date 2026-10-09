@@ -175,6 +175,11 @@ type ContinuousEffect struct {
 	// RemoveTypes$ at layer 4, before this effect's AddTypes. Unlike
 	// RemoveSubTypes, this can remove a card type or supertype too.
 	RemoveTypes []string
+	// RemoveLandTypes strips every land-type SUBTYPE word (the
+	// b.LandTypeWords() vocabulary) before this effect's AddTypes apply --
+	// CR 613.1d, the Blood Moon / Zhao static family. The Land card type
+	// and the Basic supertype survive.
+	RemoveLandTypes bool
 	// SetCreatureTypes strips only creature subtypes, preserving land and
 	// other subtype words; its replacement types live in AddTypes.
 	SetCreatureTypes bool
