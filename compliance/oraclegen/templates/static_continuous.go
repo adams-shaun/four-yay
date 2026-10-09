@@ -60,21 +60,24 @@ var StaticApplies = Template{ID: "static", Version: 1}
 // staticProbe is the permanent on both seats a continuous static lands on.
 const staticProbe = "Grizzly Bears"
 
-// staticProbeAura is the inert Aura the enchanted-probe prelude attaches to
+// staticProbeAura is the inert Aura the enchanted-probe prelude casts onto
 // the probe. Pacifism changes no compared field (P/T, keywords, types,
 // colours), so only the static under test moves the probe.
 const staticProbeAura = "Pacifism"
 
-// addEnchantedProbeAura places the inert Aura on p0's battlefield and attaches
-// it to the probe, so a static on "enchanted creatures you control" (A Tale
-// for the Ages, Archon of the Wild Rose) finds an enchanted probe.
-func addEnchantedProbeAura(base *oraclegen.Item, probe string) {
+// addEnchantedProbeAura casts the inert Aura onto the probe, so a static on
+// enchanted creatures (A Tale for the Ages, Archon of the Wild Rose) finds an
+// enchanted probe. The Aura is cast, never setup-placed with an attach step:
+// setup cannot place an unattached Aura -- XMage's state-based actions move
+// one to its owner's graveyard at game start, so the attach step's permanent
+// ref finds nothing (driver-batch-20261009T201406Z, Zoetic Glyph).
+func addEnchantedProbeAura(reg *cards.Registry, base *oraclegen.Item, probe string) {
 	p0 := base.Scenario.Setup["p0"]
-	p0.Battlefield = appendFixtureUnique(p0.Battlefield, staticProbeAura)
+	p0.Hand = appendFixtureUnique(p0.Hand, staticProbeAura)
 	base.Scenario.Setup["p0"] = p0
-	base.Steps = append(base.Steps, oraclegen.Step{
-		Op: "attach", Seat: 0, Card: "p0:" + staticProbeAura, AttachedTo: "p0:" + probe,
-	})
+	if st, ok := castProbe(reg, staticProbeAura, "p0:"+probe); ok {
+		base.Steps = append(base.Steps, st, oraclegen.Step{Op: "resolve", Seat: 0})
+	}
 }
 
 // staticContinuous builds the scenario serving one static.continuous
@@ -451,7 +454,7 @@ func staticBase(reg *cards.Registry, c *cards.Card, f *cards.Face, name string, 
 		}
 	}
 	if plan.aura {
-		addEnchantedProbeAura(&base, staticProbe)
+		addEnchantedProbeAura(reg, &base, staticProbe)
 	}
 	if cond != nil && cond.equip != "" {
 		// The fixture's Equipment attaches now: the card is on the
