@@ -123,9 +123,17 @@ var quietCoveredSections = map[string]bool{
 // that init, so it would read the zero value and the rules test binary would
 // never cross-check the proof. Reading derivedMemoVerify at each call keeps
 // the test binary and enginebench-verify (derivedMemoVerifyFlag) both live.
+//
+// The GORGE_QUIET_VERIFY env read is cached at package init: quietStatsEnabled
+// calls this on every posed window (the default build must pay one branch),
+// and no test sets the env after init. derivedMemoVerify and
+// derivedMemoVerifyFlag stay live per call.
 func quietVerifyOn() bool {
-	return derivedMemoVerify || derivedMemoVerifyFlag != "" || os.Getenv("GORGE_QUIET_VERIFY") != ""
+	return derivedMemoVerify || derivedMemoVerifyFlag != "" || quietVerifyEnv
 }
+
+// quietVerifyEnv is the GORGE_QUIET_VERIFY switch, read once at init.
+var quietVerifyEnv = os.Getenv("GORGE_QUIET_VERIFY") != ""
 
 // seatQuiet is quietBlocker(p) == qbNone.
 func (e *Engine) seatQuiet(p state.PlayerID) bool {
