@@ -105,7 +105,11 @@ var wantSetupTypeCensus = map[string][2]int{
 	"FRA": {0, 0},
 	// level-B sets carrying the measured rows.
 	"BLB": {3, 3},
-	"ECL": {6, 6},
+	// ECL is 7 since the Gathering Stone cost-static probe
+	// (agent-20261009T053432Z-677239bd) started generating: its static#0.0
+	// probe places Gathering Stone, whose as-enters type ask the setup
+	// placement still poses, so the scenario joins the class.
+	"ECL": {7, 7},
 	"DFT": {1, 1},
 	"LCI": {3, 3},
 }
