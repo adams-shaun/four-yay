@@ -49,6 +49,12 @@ func spellCastProbeCauses(reg *cards.Registry, f *cards.Face, name string, t *ca
 	if strings.Contains(strings.ToLower(filter), "artifact") {
 		candidates = append([]string{"Mind Stone"}, candidates...)
 	}
+	// A multicolour filter (Card.MultiColor) needs a multicoloured probe:
+	// every default candidate is mono, so no cause could fire.
+	multicolour := strings.Contains(strings.ToLower(filter), "multicolor")
+	if multicolour {
+		candidates = append([]string{multicolourProbe}, candidates...)
+	}
 	if count == 2 {
 		candidates = append([]string{shockProbe}, candidates...)
 	}
@@ -103,6 +109,14 @@ func spellCastProbeCauses(reg *cards.Registry, f *cards.Face, name string, t *ca
 			// type, so the cast was illegal and the trigger never fired.
 			targetPerm, probeTargets = spellCastTriggerTarget(reg, name, t)
 		} else if target := spellProbeTarget(probe, filter, name, t); target != "" {
+			// A multicolour filter's probe spell may need a permanent target
+			// (Terminate destroys a creature): aim it at a placed creature
+			// where the instant/sorcery heuristic would aim the p1 player,
+			// which the spell's own ValidTgts$ refuses.
+			if multicolour && spellProbePlayerTargetBlocked(face) {
+				target = "p0:" + bearsProbe
+				targetPerm = bearsProbe
+			}
 			probeTargets = append(probeTargets, target)
 		}
 		if count == 1 {
@@ -228,6 +242,12 @@ func spellCastTriggerTarget(reg *cards.Registry, source string, t *cards.Trigger
 	return "", []string{"p0:" + source}
 }
 
+// multicolourProbe is the multicoloured instant the Card.MultiColor
+// spell-cast filters cast ({B}{R} Terminate, destroy target creature); the
+// default candidates are all mono, so a multicolour trigger would otherwise
+// never fire.
+const multicolourProbe = "Terminate"
+
 func spellProbeTarget(probe, filter, source string, t *cards.Trigger) string {
 	if strings.Contains(strings.ToLower(t.ParamStr(cards.PKValidSA)), "singletarget") || strings.Contains(strings.ToLower(t.ParamStr(cards.PKValidSAonCard)), "singletarget") {
 		return "p0:" + source
@@ -236,6 +256,26 @@ func spellProbeTarget(probe, filter, source string, t *cards.Trigger) string {
 		return "p1"
 	}
 	return ""
+}
+
+// spellProbePlayerTargetBlocked reports whether the probe spell's own
+// ValidTgts$ accepts no player, so the instant/sorcery heuristic's p1 target
+// is illegal and a permanent target must be bound instead. An empty
+// ValidTgts$ is the engine's default Any, which accepts players.
+func spellProbePlayerTargetBlocked(f *cards.Face) bool {
+	for _, sa := range f.Abilities {
+		if sa.Kind != "SP" {
+			continue
+		}
+		vt := strings.TrimSpace(sa.ParamStr(cards.PKValidTgts))
+		for _, w := range []string{"Any", "Player", "Opponent"} {
+			if vt == "" || strings.Contains(vt, w) {
+				return false
+			}
+		}
+		return true
+	}
+	return false
 }
 
 func spellCastNarrowSkip(t *cards.Trigger) string {
