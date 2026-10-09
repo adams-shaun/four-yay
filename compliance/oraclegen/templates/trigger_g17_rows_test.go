@@ -135,13 +135,6 @@ func TestG17TriggerRowsPreconditions(t *testing.T) {
 	}
 }
 
-func requirementSub(t *testing.T, reg interface {
-	Lookup(string) (interface{}, bool)
-}, name, key string) string {
-	t.Helper()
-	return ""
-}
-
 // g17SlotOnStack replays the item's scenario in the detection step shapes
 // the generator itself accepts (cause steps alone, with a pass round, with a
 // pass round plus a priority checkpoint) and reports whether any snapshot
@@ -169,17 +162,6 @@ func g17SlotOnStack(t *testing.T, reg *cards.Registry, sc oraclegen.Scenario, na
 	return false
 }
 
-func grew(res rules.OracleResult, seat int) int {
-	return lastHandLen(res, seat) - handLen(res, seat, 0)
-}
-
-func handLen(res rules.OracleResult, seat, snap int) int {
-	if snap >= len(res.Snapshots) {
-		return 0
-	}
-	return len(res.Snapshots[snap].Players[seat].Hand)
-}
-
 func lastHand(res rules.OracleResult, seat int) []string {
 	if len(res.Snapshots) == 0 {
 		return nil
@@ -192,13 +174,6 @@ func lastGY(res rules.OracleResult, seat int) []string {
 		return nil
 	}
 	return res.Snapshots[len(res.Snapshots)-1].Players[seat].Graveyard
-}
-
-func lastHandLen(res rules.OracleResult, seat int) int {
-	if len(res.Snapshots) == 0 {
-		return 0
-	}
-	return len(res.Snapshots[len(res.Snapshots)-1].Players[seat].Hand)
 }
 
 func lastLife(res rules.OracleResult, seat int) int32 {
