@@ -49,16 +49,29 @@ func staticCounterGate(st *cards.Static) (kind string, n int32, ok bool) {
 	return "", 0, false
 }
 
-// stationGatedSelf reports a CHARGE-gated static on a Spacecraft: the card's
-// station static (Extinguisher Battleship, the EOE ship cycle). Its counters
-// are the fixture's, and the card's own enters-the-battlefield trigger is an
-// entry shape the xmageFixture placement drops (setupPlacementDropsTrigger) --
-// the same silence XMage's addCard has -- so the placed card serves like any
-// other counter-gated card instead of staying on the cast path, where nothing
-// puts the gate counters on it.
+// stationGatedSelf reports a CHARGE-gated static on a Spacecraft (the
+// card's station static, the EOE ship cycle) whose cast path cannot reach
+// the gate. Its counters are the fixture's, and the card's own
+// enters-the-battlefield trigger is an entry shape the xmageFixture placement
+// drops (setupPlacementDropsTrigger) -- the same silence XMage's addCard has
+// -- so the placed card serves like any other counter-gated card instead of
+// staying on the cast path, where nothing puts the gate counters on it. An
+// ETB that puts counters of ANY kind keeps the cast path (Atmospheric
+// Greenhouse's "put a +1/+1 counter on each creature you control" is the
+// served story its row asserts): the placed path is only for ETBs that could
+// never make the compared fields move.
 func stationGatedSelf(f *cards.Face, st *cards.Static) bool {
 	kind, _, _ := staticCounterGate(st)
-	return strings.EqualFold(kind, "CHARGE") && oraclegen.HasType(f, "Spacecraft")
+	if !strings.EqualFold(kind, "CHARGE") || !oraclegen.HasType(f, "Spacecraft") {
+		return false
+	}
+	for i := range f.Triggers {
+		body, ok := f.SVars[f.Triggers[i].ParamStr(cards.PKExecute)]
+		if ok && strings.Contains(body, "PutCounter") {
+			return false
+		}
+	}
+	return true
 }
 
 // staticGatedOnMaxSpeed reports whether st applies only at max speed.
