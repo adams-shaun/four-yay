@@ -409,7 +409,11 @@ func tapXTypeResolve(tok string, x int) ([]string, string) {
 		case clause == "creature" || clause == "creature.other":
 			choices = append(choices, "Grizzly Bears", "Llanowar Elves", "Nessian Asp", "Colossal Dreadmaw", "Craw Wurm", "Siege Wurm")
 		case clause == "elf" || clause == "elf.other":
-			choices = append(choices, "Llanowar Elves", "Elvish Mystic", "Elvish Visionary")
+			// Ten distinct, no-ETB corpus Elves (Lathril's tapXType<10/Elf>):
+			// the fixture order is the tap order, deterministic.
+			choices = append(choices, "Llanowar Elves", "Elvish Mystic", "Elvish Visionary",
+				"Fyndhorn Elves", "Priest of Titania", "Elvish Archers", "Timberwatch Elf",
+				"Wellwisher", "Wirewood Elf", "Elvish Warrior", "Arbor Elf")
 		case clause == "ally" || clause == "ally.other":
 			choices = append(choices, "Hada Freeblade", "Kazandu Blademaster")
 		case clause == "permanent" || clause == "permanent.other":

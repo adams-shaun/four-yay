@@ -128,11 +128,14 @@ var wantActivateCensus = map[string]map[string]int{
 		"served:activate.mana":        23,
 	},
 	"FDN": {
-		"served:activate.battlefield":                             89,
-		"served:activate.graveyard":                               2,
-		"served:activate.mana":                                    53,
-		"skip:activate cost gap: tapXType<count-above-catalogue>": 1,
-		"skip:activate no fixture":                                1,
+		// +2 served (r5): Lathril's tapXType<10/Elf> after the Elf catalogue
+		// grew to ten corpus Elves (the count-above-catalogue skip empties),
+		// and Zul Ashur's Creature.Zombie+YouOwn@Graveyard target after the
+		// zone candidates learned subtype-qualified card filters (the
+		// no-fixture skip empties).
+		"served:activate.battlefield": 91,
+		"served:activate.graveyard":   2,
+		"served:activate.mana":        53,
 	},
 	"FRA": {
 		// +1 served at the merge of the ThisTurnEntered ticket and the

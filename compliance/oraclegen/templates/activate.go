@@ -73,6 +73,7 @@ func activateAbility(reg *cards.Registry, f *cards.Face, name string, req levelb
 		return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: "activate cost gap: " + gap}
 	}
 	slots := oraclegen.AbilitySlotSpecs(f, sa)
+	stackTargets := stackTargetRefs(sa, f, name, slots)
 	for _, sl := range slots {
 		// "Target creature that attacked this turn" needs a combat prelude
 		// (attack, then back to a main phase for a sorcery-speed ability)
@@ -88,7 +89,7 @@ func activateAbility(reg *cards.Registry, f *cards.Face, name string, req levelb
 	// a failure is reported as a known restriction rather than the generic
 	// no-fixture reason.
 	restriction, gap := activateRestriction(reg, f, name, sa)
-	it, ok := activateWith(reg, f, name, req, idx, prefix, pool, sa.ParamStr(cards.PKCost), zone, slots, restriction)
+	it, ok := activateWith(reg, f, name, req, idx, prefix, pool, sa.ParamStr(cards.PKCost), zone, slots, restriction, stackTargets)
 	if !ok {
 		if oraclegen.HasType(f, "Aura") {
 			// An Aura's ability is offered only while it is attached; this
@@ -105,15 +106,46 @@ func activateAbility(reg *cards.Registry, f *cards.Face, name string, req levelb
 	return it, nil
 }
 
+// stackTargetRefs names the ref the stack slot's precast spell aims at: an
+// ability whose TargetValidTargeting$ gate reads the held spell's own targets
+// (Fugitive Droid's "Counter target spell that targets an artifact or
+// creature you control") is offered only when the precast targets one of our
+// battlefield permanents. Some alternative in the gate must name a YouCtrl
+// Artifact or Creature for the source to satisfy it (it is on the
+// battlefield); any other shape fails closed (nil), keeping the untargeted
+// precast the only fixture.
+func stackTargetRefs(sa *cards.SA, f *cards.Face, name string, slots []oraclegen.Slot) []string {
+	stacked := false
+	for _, sl := range slots {
+		if oraclegen.SlotIsStack(sl.Filter) {
+			stacked = true
+		}
+	}
+	gate := strings.TrimSpace(sa.ParamStr(cards.PKTargetValidTargeting))
+	if !stacked || gate == "" {
+		return nil
+	}
+	for _, alt := range strings.Split(gate, ",") {
+		alt = strings.ToLower(strings.TrimSpace(alt))
+		base := strings.SplitN(alt, ".", 2)[0]
+		has := (base == "artifact" && oraclegen.HasType(f, "Artifact")) ||
+			(base == "creature" && oraclegen.HasType(f, "Creature"))
+		if has && strings.Contains(alt, "youctrl") {
+			return []string{"p0:" + name}
+		}
+	}
+	return nil
+}
+
 // activateWith tries every fixture for the ability's target plan and returns
 // the named level-B item. A restriction names the extra setup the ability's
 // offer gates need; the bare scenario is tried first, then the restricted one.
-func activateWith(reg *cards.Registry, f *cards.Face, name string, req levelb.Requirement, idx int, prefix, mana, cost, zone string, slots []oraclegen.Slot, restrictions []conditionPrelude) (oraclegen.Item, bool) {
+func activateWith(reg *cards.Registry, f *cards.Face, name string, req levelb.Requirement, idx int, prefix, mana, cost, zone string, slots []oraclegen.Slot, restrictions []conditionPrelude, stackTargets []string) (oraclegen.Item, bool) {
 	preludes := withTokenCostPrelude(reg, cost, append([]conditionPrelude{{}}, restrictions...))
 	// Stack slots are served here by a prelude cast the scenario holds at
 	// this step's priority; every other template family keeps the plain
 	// fixtures, whose stack slots stay the caller's own precast.
-	for _, fx := range oraclegen.FixturesServingStack(reg, slots) {
+	for _, fx := range oraclegen.FixturesServingStack(reg, slots, stackTargets...) {
 		for _, pre := range preludes {
 			it, ok := activateWithFixture(reg, f, name, req, idx, prefix, mana, cost, zone, fx, pre, slots)
 			if ok {

@@ -33,8 +33,10 @@ func TestActivateCostTokenShapes(t *testing.T) {
 		{"tapXType<2/Artifact;Creature/artifacts and/or creatures>", "", ""},
 		{"tapXType<3/Creature.Other/other creature>", "", ""},
 		{"tapXType<1/Mount.Other;Vehicle.Other/another Mount or Vehicle>", "", ""},
-		{"tapXType<10/Elf>", "", "tapXType<count-above-catalogue>"},
-		{"tapXType<10/Elf/Elves>", "", "tapXType<count-above-catalogue>"},
+		// Lathril's ten-Elf tap: the catalogue now carries ten distinct
+		// no-ETB corpus Elves (ticket cli-20261009T031408Z-5823e7de r5).
+		{"tapXType<10/Elf>", "", ""},
+		{"tapXType<10/Elf/Elves>", "", ""},
 		{"tapXType<X/Artifact/artifacts>", "", ""},
 		{"2 R Discard<1/NICKNAME>", "", "Discard<...>"}, // NICKNAME is a self-discard only from hand
 		{"1 T Discard<1/Card.Legendary+sharesNameWith Valid Permanent.Legendary+YouCtrl/legendary card>", "", "Discard<...>"},

@@ -394,7 +394,7 @@ type cand struct {
 // cannot see (Elf/Goblin/... .YouCtrl, Villain/Hero in a graveyard, an
 // enchanted creature, a token), and marks a board-history filter
 // (ThisTurnEntered) with a move prelude.
-func candidatesFor(reg *cards.Registry, filter, parentTarget string) []cand {
+func candidatesFor(reg *cards.Registry, filter, parentTarget string, stackTargets ...string) []cand {
 	zone := ""
 	if i := strings.LastIndexByte(filter, '@'); i >= 0 {
 		filter, zone = filter[:i], strings.ToLower(filter[i+1:])
@@ -412,7 +412,7 @@ func candidatesFor(reg *cards.Registry, filter, parentTarget string) []cand {
 			// "target activated or triggered ability you control from a
 			// creature source" reads Card.Creature@Stack) casts a vanilla
 			// creature instead.
-			return stackSpellCandidates(filter)
+			return stackSpellCandidates(filter, stackTargets...)
 		} else {
 			return zoneCandidates(reg, filter, zone)
 		}
@@ -635,11 +635,15 @@ func artifactTokenCandidates() []cand {
 // (or a vanilla creature, for a Card.Creature@Stack filter) and leaves it
 // waiting at the activate step's priority, where the ability under test
 // targets it. Every shape this serves names a spell on the stack; a filter no
-// castable catalogue card matches fails closed (nil).
-func stackSpellCandidates(filter string) []cand {
+// castable catalogue card matches fails closed (nil). A non-empty targets
+// list targets the precast at the ability's own source (the caller's
+// p0:<source> ref): a TargetValidTargeting$ counter (Fugitive Droid) is
+// offered only when the held spell targets one of our permanents, and the
+// source on the battlefield is always one.
+func stackSpellCandidates(filter string, targets ...string) []cand {
 	lower := strings.ToLower(filter)
 	card, mana := "Shock", "R"
-	if base := firstFilterBase(lower); base == "creature" {
+	if base := firstFilterBase(lower); base == "creature" && len(targets) == 0 {
 		card, mana = "Grizzly Bears", "G"
 	} else if base != "instant" && base != "sorcery" && base != "card" && base != "spell" && base != "any" {
 		return nil
@@ -647,10 +651,16 @@ func stackSpellCandidates(filter string) []cand {
 	if strings.Contains(lower, "noncreature") && card == "Grizzly Bears" {
 		card, mana = "Shock", "R"
 	}
+	pre := []Step{{Op: "cast", Seat: 0, Card: "p0:" + card, Mana: mana}}
+	if len(targets) > 0 {
+		// zone "" so place() stages exactly one copy via the prelude cast;
+		// the targeted cast names the ability's own source, which the caller
+		// has already placed.
+		pre[0].Targets = append([]string(nil), targets...)
+	}
 	return []cand{{
 		seat: "p0", card: card,
-		// zone "" so place() stages exactly one copy via the prelude cast.
-		pre: []Step{{Op: "cast", Seat: 0, Card: "p0:" + card, Mana: mana}},
+		pre: pre,
 	}}
 }
 
@@ -937,6 +947,24 @@ func zoneCandidates(reg *cards.Registry, filter, zone string) []cand {
 	case strings.Contains(filter, "OppOwn") || strings.Contains(filter, "OppCtrl"):
 		seats = []string{"p1"}
 	}
+	// A subtype-qualified card filter ("Creature.Zombie+YouOwn@Graveyard",
+	// Zul Ashur's "Select target Zombie creature card in your graveyard"):
+	// the generic zone list names cards the engine's subtype filter never
+	// offers, so find a real card of that subtype instead, exactly like the
+	// battlefield path's creature arm. A subtype the registry has no card
+	// for fails closed (the same shape subtypeBattlefield serves).
+	if base := firstFilterBase(filter); isCardTypeBase(base) && base != "card" && base != "permanent" && base != "any" {
+		if sub, ok := filterSubtypeWord(strings.Split(filter, ",")[0]); ok {
+			if name, found := registrySubtype(reg, sub); found {
+				var out []cand
+				for _, st := range seats {
+					out = append(out, cand{seat: st, zone: zone, card: name})
+				}
+				return out
+			}
+			return nil
+		}
+	}
 	// A board-history qualifier: the card must have entered this turn, which
 	// only a mid-game move produces. Start it in hand and move it in.
 	if strings.Contains(filter, "ThisTurnEntered") {
@@ -1023,18 +1051,19 @@ func filterHasComponent(filter, word string) bool {
 // existed: serveStack=false restores that shape for the cost, counter and
 // trigger paths, whose stack handling must not gain a second prelude.
 func fixtures(reg *cards.Registry, slots []Slot) []fixture {
-	return buildFixtures(reg, slots, false)
+	return buildFixtures(reg, slots, false, nil)
 }
 
 // FixturesServingStack is fixtures with a stack slot served by
 // stackSpellCandidates (a prelude cast that leaves the spell on the stack at
 // the activate step's priority). Only the activate template, which scripts the
-// held priority itself, may ask for it.
-func FixturesServingStack(reg *cards.Registry, slots []SlotSpec) []Fixture {
-	return buildFixtures(reg, slots, true)
+// held priority itself, may ask for it. A non-empty stackTargets list aims
+// that precast at the caller's refs (see stackSpellCandidates).
+func FixturesServingStack(reg *cards.Registry, slots []SlotSpec, stackTargets ...string) []Fixture {
+	return buildFixtures(reg, slots, true, stackTargets)
 }
 
-func buildFixtures(reg *cards.Registry, slots []Slot, serveStack bool) []fixture {
+func buildFixtures(reg *cards.Registry, slots []Slot, serveStack bool, stackTargets []string) []fixture {
 	out := []fixture{{}}
 	var omitted []int
 	for si, s := range slots {
@@ -1052,7 +1081,7 @@ func buildFixtures(reg *cards.Registry, slots []Slot, serveStack bool) []fixture
 		if len(out) > 0 && len(out[0].targets) > 0 {
 			parentTarget = out[0].targets[0]
 		}
-		cs := candidatesFor(reg, s.Filter, parentTarget)
+		cs := candidatesFor(reg, s.Filter, parentTarget, stackTargets...)
 		if len(cs) == 0 {
 			if s.Optional {
 				omitted = append(omitted, si)
