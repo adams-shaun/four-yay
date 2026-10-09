@@ -268,13 +268,21 @@ func activateWithFixture(reg *cards.Registry, f *cards.Face, name string, req le
 	// A hidden library search gorge's fallback declined: re-run taking the
 	// search's first eligible card, so XMage's mandatory TargetCardInLibrary
 	// ask is answered with a card instead of the [target_skip] it rejects.
+	forced := false
 	if search, changed := oraclegen.SearchPicks(sc, res.Decisions); changed {
 		if res2, ok2 := oraclegen.PlaysThrough(reg, search); ok2 {
 			sc, res = search, res2
+			forced = true
 		}
 	}
 	it := oraclegen.NewLevelBItem(name, req.Key, ActivateAbility.Version, []string{"602.2"}, sc)
 	it.XAnswers = oraclegen.XAnswersForScenario(res, sc, oraclegen.ModeNumbers(f), targetSteps)
+	// A forced first-card pick (SearchPicks' re-run of a declined exile-look
+	// ask): XMage poses that ask on its target queue, so the pick's answer is
+	// retargeted from the choice form.
+	if forced {
+		it.XAnswers = oraclegen.RetargetForcedLookPicks(it.XAnswers, res.Decisions)
+	}
 	if len(it.XAnswers) == 0 {
 		it.XAnswers = make([][]oraclegen.XAnswer, len(sc.Steps))
 	}

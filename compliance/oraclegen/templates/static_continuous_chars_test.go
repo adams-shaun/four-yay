@@ -102,7 +102,7 @@ func TestStaticContinuousUnobservedStaysSkipped(t *testing.T) {
 func TestStaticContinuousNamedGaps(t *testing.T) {
 	for _, row := range []struct{ card, key, want string }{
 		{"Lumbering Worldwagon", "static#0.0", "characteristic-defining P/T of a non-creature"},
-		{"Winter, Misanthropic Guide", "static#0.0", "static hand size is not observable"},
+		{"Midnight Oil", "static#0.0", "static hand size is not observable"},
 		{"Sunbird Standard", "static#1.0", "static amount is a computed count"},
 	} {
 		if got := staticSkipReason(t, row.card, row.key); !strings.Contains(got, row.want) {

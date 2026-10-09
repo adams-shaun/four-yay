@@ -13,8 +13,9 @@
 #   --weight N    CPUWeight (default 20 heavy, 60 probe; a gate's is 1000)
 #   --wait S      wait up to S seconds for the broker to allow the class
 #                 (default 0: refuse immediately with exit 3)
-#   --lock PATH   flock path that serialises this class (default: the shared
-#                 repository heavy lock for heavy, none for probe)
+#   --lock PATH   flock path that serialises this class (default: a lane of
+#                 the shared repository heavy pool for heavy, none for probe;
+#                 an explicit PATH becomes the pool's lane 1)
 #   --name NAME   label recorded in the lease and the scope unit
 #
 # The job is told where its pause file is through GORGE_PAUSE_FILE. A job with
@@ -138,28 +139,28 @@ while :; do
 	sleep 10
 done
 
-# 2. Serialise the class ONCE the broker has approved. The lock lives on fd 9
+# 2. Serialise the class ONCE the broker has approved. The lane lives on fd 9
 #    of THIS shell, never of the job (it is launched with 9>&-), so a child
 #    cannot hold it after we die or freeze whoever waits on it (an inherited
 #    tick.lock froze the daemon here on 2026-09-22). It is held on an fd, not
 #    through `flock -o <cmd>`, because the pause supervisor below must RELEASE
 #    it while the job is parked and take it back before the job continues. The
 #    wait draws on what is LEFT of the --wait budget, so `--wait S` stays ONE
-#    budget instead of two S-second waits.
+#    budget instead of two S-second waits. gorge_heavy_acquire picks a free
+#    lane of the heavy pool (lane 1 first), so up to GORGE_HEAVY_LANES leases
+#    can run at once.
 if [ "$CLASS" = heavy ]; then
-	mkdir -p "$(dirname "$LOCK")"
-	exec 9>"$LOCK" || {
-		printf 'heavy.sh: cannot open lock %s\n' "$LOCK" >&2
-		exit 2
-	}
+	# An explicit --lock PATH re-points the whole pool (its lane 1 is PATH).
+	export GORGE_HEAVY_LOCK=$LOCK
 	remaining=$((deadline - $(date +%s)))
 	[ "$remaining" -gt 0 ] || remaining=0
-	flock -w "$remaining" -E 3 9
+	gorge_heavy_acquire -w "$remaining"
 	rc=$?
 	if [ "$rc" != 0 ]; then
-		printf 'heavy.sh: another %s job holds %s\n' "$CLASS" "$LOCK" >&2
+		printf 'heavy.sh: another %s job holds %s (all %s lane(s))\n' "$CLASS" "$GORGE_HEAVY_LOCK" "$GORGE_HEAVY_LANES" >&2
 		exit 3
 	fi
+	LOCK=$GORGE_HEAVY_LANE
 fi
 
 # 3. The lease. The HEAVY lock (fd 9) is held until this shell exits.

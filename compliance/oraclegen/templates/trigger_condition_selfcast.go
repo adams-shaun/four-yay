@@ -68,9 +68,10 @@ func selfTriggerGrants(f *cards.Face, t *cards.Trigger, attr string) bool {
 // selfActivatedAttributePreludes is the setup for an IsPresent$ Card.Self+<attr>
 // gate the source's own activated ability grants (The Mind Stone's "{5}{W},
 // {T}: Harness"): the prelude activates that ability in turn 1's first main
-// phase, before the trigger's own checkpoint. A cost with no choice to answer
-// only (a mana payment and a tap) is served; a cost whose fixtures carry a
-// choice the trigger path does not script is left to the named gap.
+// phase, before the trigger's own checkpoint. A cost with no payable gap is
+// served: its fixtures (the creature an Exile<1/Creature> cost exiles) travel
+// on the prelude's own setup fields and its choices are scripted the way the
+// activate cause path scripts them (the stateTriggerRecipe shape).
 func selfActivatedAttributePreludes(reg *cards.Registry, f *cards.Face, group string) []conditionPrelude {
 	attr := ""
 	for _, w := range affectedWords(group) {
@@ -104,21 +105,27 @@ func selfActivatedAttributePreludes(reg *cards.Registry, f *cards.Face, group st
 		if gap != "" {
 			continue
 		}
-		setup := oraclegen.Seat{}
-		addActivationCostFixtures(&setup, f.Name, cost)
-		if len(setup.Battlefield) != 0 || len(setup.Graveyard) != 0 || len(setup.Hand) != 0 {
-			// The cost's fixtures carry a state the activation answer machinery
-			// scripts through the activate cause path, not through a prelude.
-			continue
-		}
 		prefix, exists := prefixes[i]
 		if !exists {
 			continue
 		}
+		setup := oraclegen.Seat{}
+		addActivationCostFixtures(&setup, f.Name, cost)
+		// A cost fixture must land in a zone the prelude setup carries: the
+		// seat fields addActivationCostFixtures writes (hand, battlefield,
+		// graveyard) are exactly the prelude's own. Anything else keeps the
+		// named gap rather than emitting a scenario that cannot play.
+		if len(setup.Exile) != 0 || len(setup.Library) != 0 || len(setup.BackFace) != 0 {
+			continue
+		}
 		idx := i
 		out = append(out, conditionPrelude{
-			steps:    []oraclegen.Step{{Op: "activate", Seat: 0, Card: "p0:" + f.Name, Mana: mana, AbilityIndex: &idx}},
-			xability: []string{prefix},
+			hand:           append([]string(nil), setup.Hand...),
+			battlefield:    append([]string(nil), setup.Battlefield...),
+			graveyard:      append([]string(nil), setup.Graveyard...),
+			steps:          []oraclegen.Step{{Op: "activate", Seat: 0, Card: "p0:" + f.Name, Mana: mana, AbilityIndex: &idx, Answers: activationXAnswers(cost)}},
+			xability:       []string{prefix},
+			activationCost: cost,
 		})
 	}
 	return out

@@ -33,6 +33,10 @@ type triggerCause struct {
 	// of the table.
 	opponentBattlefield []string
 	activateCost        string // Forge cost of the activate step in steps (Crew/Saddle tap choice); "" when none
+	// preludeActivationCost is the Forge cost of a prelude activate step
+	// whose cost carries a choice (scriptPreludeActivationCost exports its
+	// picks); "" when no prelude activates with such a cost.
+	preludeActivationCost string
 }
 
 // Probe cards, each named with why. Spec hypothesis H4: the probe exists in

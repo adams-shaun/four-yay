@@ -1,14 +1,19 @@
 #!/usr/bin/env bash
-# heavy_lock_smoke.sh — every HEAVY runner contends on ONE lock, and a gate that
-# takes it is not deadlocked by a heavy lease the gate bracket paused.
+# heavy_lock_smoke.sh — every HEAVY runner contends on the same lane pool, and
+# a gate that takes a lane is not deadlocked by a heavy lease the gate bracket
+# paused.
 #
 #   scripts/tests/heavy_lock_smoke.sh
 #
-# Part A resolves each script's DEFAULT lock path (no GORGE_HEAVY_LOCK / LOCK
+# Part A resolves each script's DEFAULT pool base (no GORGE_HEAVY_LOCK / LOCK
 # override) and requires them all to be the one repo path. Part B shows two
-# different scripts really contend on it. Part C is the gate-bracket liveness
-# check: a running lease, `broker.sh gate-begin`, then the gate's own command
-# (`heavy_lock.sh run -w N`) must get the lock inside the wait, not hang.
+# different scripts really contend on a lane. Part C is the gate-bracket
+# liveness check: a running lease, `broker.sh gate-begin`, then the gate's own
+# command (`heavy_lock.sh run -w N`) must get a lane inside the wait, not hang.
+# Parts B–D run the pool with GORGE_HEAVY_LANES=1 so the single-lane contention
+# assertions stay exact; Part E is the 2-lane proof (2026-10-09, DRAM 120G):
+# two heavy leases run at once, a third contender finds every lane held, and
+# killing one lease frees its lane.
 set -uo pipefail
 
 ROOT=$(git rev-parse --show-toplevel)
@@ -26,6 +31,12 @@ check() {
 cleanup() {
 	[ -z "${HPID:-}" ] || kill -KILL "$HPID" 2>/dev/null
 	[ -z "${JOBPID:-}" ] || kill -KILL -- "-$JOBPID" 2>/dev/null
+	for v in LPIDA LPIDB; do
+		[ -z "${!v:-}" ] || kill -KILL "${!v}" 2>/dev/null
+	done
+	for v in PA PB; do
+		[ -z "${!v:-}" ] || kill -KILL -- "-${!v}" 2>/dev/null
+	done
 	rm -rf "$TMP"
 }
 trap cleanup EXIT
@@ -34,8 +45,8 @@ trap cleanup EXIT
 unset GORGE_HEAVY_LOCK LOCK
 want=$("$S/heavy_lock.sh" path)
 case $want in
-*/.ds4/heavy.lock) check "helper path is <repo>/.ds4/heavy.lock" 0 ;;
-*) check "helper path is <repo>/.ds4/heavy.lock" 1 "$want" ;;
+*/.ds4/heavy.lock) check "helper pool base is <repo>/.ds4/heavy.lock" 0 ;;
+*) check "helper pool base is <repo>/.ds4/heavy.lock" 1 "$want" ;;
 esac
 # The path is derived from the shared git common dir, so a sibling WORKTREE
 # resolves to the SAME file (the operator decision: one repo-owned lock, not one
@@ -72,21 +83,22 @@ check "config.toml names no heavy lock path other than the derived <common-dir>/
 ! grep -qF 'git show {base}:scripts/heavy_lock.sh' "$ROOT/.agentctl/config.toml"
 check "config.toml does not extract the branch-only heavy_lock.sh from {base}" $?
 mb=$(git merge-base main HEAD 2>/dev/null || git rev-parse main)
-! git show "$mb":scripts/heavy_lock.sh >/dev/null 2>&1
-check "precondition: the merge-base has no scripts/heavy_lock.sh (so {base} extraction would fail)" $? "mb=$mb"
+git show "$mb":scripts/heavy_lock.sh >/dev/null 2>&1
+check "precondition: the merge-base HAS scripts/heavy_lock.sh (the gate stays inline by policy — the gate reads nothing from the branch — not by necessity)" $? "mb=$mb"
 
 # Run the REAL affected-gate command with {base}=merge-base, not HEAD. Only the
 # inner `systemd-run ... gate_affected` body is stubbed (bwrap cannot run the
 # 8G scope and the full gate is far over a seat's budget); every lock line is
 # the gate's own. A free lock must run the body; a held lock must exit 75.
 gatecmd=$(python3 - "$ROOT/.agentctl/config.toml" "$mb" <<'PY'
-import sys, tomllib
+import re, sys, tomllib
 cfg, mb = sys.argv[1], sys.argv[2]
 for g in tomllib.load(open(cfg, 'rb'))['gates']:
     if g['name'] == 'go test (affected)':
         c = g['cmd'][2]
-        # stub the systemd-run scope + the heavy gate body; keep every lock line
-        c = c.replace('systemd-run --user --scope -q -p MemoryMax=8G -p CPUQuota=1600% ', '')
+        # stub the systemd-run scope + the heavy gate body; keep every lock
+        # line. The scope numbers move (caps x2, 2026-10-09), so strip by shape.
+        c = re.sub(r'systemd-run --user --scope -q -p MemoryMax=\\d+G -p CPUQuota=\\d+% ', '', c)
         c = c.replace('git show {base}:scripts/gate_affected.sh | bash -s {base}', 'echo GATE-BODY-RAN')
         c = c.replace('{base}', mb)
         print(c)
@@ -101,19 +113,24 @@ GORGE_HEAVY_LOCK=$TMP/gate.lock bash -c "$stub" >"$TMP/gatebody.out" 2>&1
 rc=$?
 [ "$rc" = 0 ] && grep -qF 'GATE-BODY-RAN' "$TMP/gatebody.out"
 check "real affected gate command (base=merge-base) takes the lock and runs its body" $? "rc=$rc $(cat "$TMP/gatebody.out")"
-# The same command on a HELD lock must not run the body and must exit 75.
+# The same command on a HELD lane 1 must not run the body and must exit 75.
+# GORGE_HEAVY_LANES=1 keeps this a single-lane assertion (with 2 lanes the
+# free lane 2 would take the command and the rc would be 0).
 flock -o -E 0 "$TMP/gate.lock" -c 'sleep 3' &
 HLPID=$!
 sleep 0.3
-GORGE_HEAVY_LOCK=$TMP/gate.lock bash -c "${stub/1500/1}" >"$TMP/gateheld.out" 2>&1
+GORGE_HEAVY_LANES=1 GORGE_HEAVY_LOCK=$TMP/gate.lock bash -c "${stub/1500/1}" >"$TMP/gateheld.out" 2>&1
 rc=$?
 wait "$HLPID" 2>/dev/null || true
 [ "$rc" = 75 ] && ! grep -qF 'GATE-BODY-RAN' "$TMP/gateheld.out" && grep -qF 'still held' "$TMP/gateheld.out"
 check "real affected gate command exits 75 without running on a held lock" $? "rc=$rc $(cat "$TMP/gateheld.out")"
 
-# ---- B: two different scripts contend on it ----------------------------------
+# ---- B: two different scripts contend on one lane --------------------------------
 export GORGE_ROOT=$ROOT GORGE_REWARD_DIR=$TMP/reward
 export GORGE_HEAVY_LOCK=$TMP/lockfile
+# Parts B-D assert SINGLE-lane semantics (a second lease is refused, run waits
+# on the one held lane); Part E below restores the default 2-lane pool.
+export GORGE_HEAVY_LANES=1
 export HEAVY_START_FLOOR_MB=1 PROBE_START_FLOOR_MB=1 HEAVY_MAX_LEASES=5 LOAD_CEIL_FRAC=100
 export PAUSE_GRACE_S=1 KILL_FLOOR_MB=1
 cat >"$TMP/job.sh" <<'JOB'
@@ -226,6 +243,50 @@ check "a broker-waiting heavy.sh does not hold the lock (gate got it in ${el}s)"
 kill -KILL "$BWID" 2>/dev/null
 for _ in $(seq 100); do kill -0 "$BWID" 2>/dev/null || break; sleep 0.1; done
 rm -f "$TMP/reward/gate-active"
+
+# ---- E: two lanes, so two heavy jobs run at once (2026-10-09, DRAM 120G) ------
+unset GORGE_HEAVY_LANES # back to the default 2-lane pool
+export GORGE_HEAVY_LOCK=$TMP/pool.lock
+TICKS=$TMP/ticksA JOBPIDFILE=$TMP/jobpidA JOBFD=$TMP/jobfdA \
+	"$S/heavy.sh" heavy --name laneA -- "$TMP/job.sh" >"$TMP/leaseA.log" 2>&1 &
+LPIDA=$!
+TICKS=$TMP/ticksB JOBPIDFILE=$TMP/jobpidB JOBFD=$TMP/jobfdB \
+	"$S/heavy.sh" heavy --name laneB -- "$TMP/job.sh" >"$TMP/leaseB.log" 2>&1 &
+LPIDB=$!
+for _ in $(seq 80); do
+	[ -s "$TMP/jobpidA" ] && [ -s "$TMP/jobpidB" ] && break
+	sleep 0.1
+done
+PA=$(cat "$TMP/jobpidA" 2>/dev/null || true)
+PB=$(cat "$TMP/jobpidB" 2>/dev/null || true)
+[ -n "$PA" ] && [ -n "$PB" ]
+check "precondition: two heavy leases started (lanes 1 and 2)" $? "A: $(cat "$TMP/leaseA.log") B: $(cat "$TMP/leaseB.log")"
+a1=$(wc -l <"$TMP/ticksA")
+b1=$(wc -l <"$TMP/ticksB")
+sleep 1.2
+a2=$(wc -l <"$TMP/ticksA")
+b2=$(wc -l <"$TMP/ticksB")
+[ "$a2" -gt "$a1" ] && [ "$b2" -gt "$b1" ]
+check "two heavy leases tick at the same time (2 lanes)" $? "A $a1->$a2 B $b1->$b2"
+"$S/heavy_lock.sh" run -w 0 -- true
+rc=$?
+[ "$rc" = 75 ]
+check "a third contender finds every lane held (rc 75)" $? "rc=$rc"
+"$S/heavy.sh" heavy --wait 0 -- true >"$TMP/third.log" 2>&1
+rc=$?
+[ "$rc" = 3 ] && grep -q 'another heavy job holds' "$TMP/third.log"
+check "a third heavy.sh is refused with exit 3 while both lanes are held" $? "rc=$rc $(cat "$TMP/third.log")"
+kill -KILL "$LPIDA" 2>/dev/null
+kill -KILL -- "-$PA" 2>/dev/null
+freed=0
+for _ in $(seq 60); do
+	if "$S/heavy_lock.sh" run -w 2 -- true 2>/dev/null; then freed=1; break; fi
+	sleep 0.2
+done
+[ "$freed" = 1 ]
+check "killing one lease frees its lane for the next contender" $?
+kill -KILL "$LPIDB" 2>/dev/null
+kill -KILL -- "-$PB" 2>/dev/null
 
 printf '\n%s failure(s)\n' "$fails"
 [ "$fails" = 0 ]
