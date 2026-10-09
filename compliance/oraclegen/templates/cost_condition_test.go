@@ -65,6 +65,15 @@ func TestCostStaticConditionFixtures(t *testing.T) {
 			p0.Speed = 0
 			sc.Setup["p0"] = p0
 		}},
+		{"Lashwhip Predator", "static#0.0", func(t *testing.T, sc oraclegen.Scenario) {
+			if len(sc.Setup["p1"].Battlefield) < 3 {
+				t.Fatalf("precondition: p1 setup %v, want the gate's three fixture creatures", sc.Setup["p1"].Battlefield)
+			}
+		}, func(sc *oraclegen.Scenario) {
+			p1 := sc.Setup["p1"]
+			p1.Battlefield = nil
+			sc.Setup["p1"] = p1
+		}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -94,13 +103,6 @@ func TestCostStaticConditionFixtures(t *testing.T) {
 				t.Fatal("reduced-price cast plays through with the condition fixture stripped")
 			}
 		})
-	}
-
-	// Lashwhip Predator's gate is the opponent's board, which a probe cannot
-	// set up: a named skip, never the bare reason.
-	_, skip := GenerateB(reg, "Lashwhip Predator", costRequirement(t, reg, "Lashwhip Predator", "static#0.0"))
-	if skip == nil || !strings.Contains(skip.Reason, "cost static condition needs opponent board (Creature.OppCtrl)") {
-		t.Fatalf("Lashwhip Predator skip = %+v, want the named opponent-board skip", skip)
 	}
 }
 
