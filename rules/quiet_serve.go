@@ -20,9 +20,12 @@ import (
 // acceptance test (TestLegalWalkDigest), and quietVerifyOn hosts compare
 // every served window with the real walk (§4.1).
 
-// quietOff disables the quiet serve. Since Q2's default flip the serve is ON
-// by default; GORGE_QUIET_SKIP=0 disables it (the prio-memo flag pattern).
-var quietOff = os.Getenv("GORGE_QUIET_SKIP") == "0"
+// quietOff disables the quiet serve. It follows the prio-memo flag pattern
+// inverted: the serve is ON only when GORGE_QUIET_SKIP=1 is set. The Q2
+// default flip is NOT landed: the az-row pair measured the serve net-negative
+// (see the ticket report), so the path stays opt-in until the proof cost falls
+// (Q4). The design's §6 Q2 flip is conditional on the az-row gate passing.
+var quietOff = os.Getenv("GORGE_QUIET_SKIP") != "1"
 
 // quietServed counts the windows priorityOptions served from the proof
 // instead of the walk. Observation only: it never reaches an event, an
