@@ -228,13 +228,17 @@ func TestRequirementsClassificationTable(t *testing.T) {
 			}},
 		},
 		{
-			name: "damage without CombatDamage is a gap",
+			// cli-20261009T031408Z: the damage recipes serve the noncombat
+			// DamageDone shape too (the Shock probe), so it is no longer a
+			// mode gap; only the self-source combat-damage case keeps
+			// trigger.combat-damage.
+			name: "damage without CombatDamage is served",
 			c: cardOf(&cards.Face{Types: []string{"Creature"}, Triggers: []cards.Trigger{
 				trig("DamageDone", notCombatDamage),
 			}}),
 			want: []Requirement{{
 				Key: "trigger#0.0", Family: "trigger", Face: 0, Slot: "0",
-				Sub: "trigger.gap:DamageDone", Gap: "trigger mode DamageDone",
+				Sub: DamageSub,
 			}},
 		},
 		{

@@ -90,6 +90,11 @@ var activateCensusSets = []string{"BIG", "EOE", "FDN", "FRA"}
 // ability lines, so their {T} mana ability is served instead of skipped as
 // "xmage text ambiguous" (EOE mana 17 -> 23, ambiguous 6 -> 0).
 //
+// Re-measured for the solved-Case / scry-history ticket
+// (cli-20261009T031408Z-09f47be1): Proctor of Potential's scry/surveil gate now
+// gets a scry prelude, so FRA graveyard 8 -> 9 and its named restriction gap
+// drops to zero.
+//
 // Re-measured for the activation-cost fixture ticket
 // (cli-20261006T144108Z-00fe26be): a Sac cost naming a token a maker card can
 // produce, and a tapXType total-power/count cost, are served from a prelude
@@ -130,11 +135,10 @@ var wantActivateCensus = map[string]map[string]int{
 	},
 	"FRA": {
 		"served:activate.battlefield": 72,
-		"served:activate.graveyard":   8,
+		"served:activate.graveyard":   9,
 		"served:activate.hand":        9,
 		"served:activate.mana":        27,
 		"skip:activate no fixture":    1,
-		"skip:activation restriction: SVar (Count$YouScryThisTurn/Plus.Y)":                              1,
 		"skip:activate target gap: attackedThisTurn needs a combat prelude (Creature.attackedThisTurn)": 1,
 	},
 }

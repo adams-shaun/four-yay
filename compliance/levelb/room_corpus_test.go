@@ -15,7 +15,7 @@ import (
 func TestRoomFaceOneGapIsLiftedForTheCorpusRooms(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	for _, tc := range []struct{ card, key, sub, gap string }{
-		{"Bottomless Pool // Locker Room", "trigger#1.0", "trigger.gap:DamageDoneOnce", "trigger mode DamageDoneOnce"}, // a mode gap now, no longer the face gap
+		{"Bottomless Pool // Locker Room", "trigger#1.0", levelb.DamageSub, ""}, // served by the damage recipes now, no longer a face or mode gap
 		{"Funeral Room // Awakening Hall", "trigger#1.0", levelb.UnlockDoorSub, ""},
 		{"Bottomless Pool // Locker Room", "trigger#0.0", levelb.UnlockDoorSub, ""},
 	} {

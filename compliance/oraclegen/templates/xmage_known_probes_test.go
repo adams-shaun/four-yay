@@ -58,8 +58,8 @@ func TestHandListedProbesAreKnownToXMage(t *testing.T) {
 	for _, tb := range typedBoardProbes {
 		lists["typedBoardProbes/"+tb.word] = tb.probes
 	}
-	for typ, n := range attackerTypeProbes {
-		lists["attackerTypeProbes/"+typ] = []string{n}
+	for _, n := range attackerTypeProbes {
+		lists["attackerTypeProbes/"+n.word] = []string{n.probe}
 	}
 	for list, probes := range lists {
 		if len(probes) == 0 {
