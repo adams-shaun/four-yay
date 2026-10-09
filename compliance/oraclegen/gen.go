@@ -153,6 +153,16 @@ type Offered struct {
 type CanBlock struct {
 	Blocker  string `json:"blocker"`
 	Attacker string `json:"attacker"`
+	// MaxBlockers asserts the MinMaxBlocker Max$ bound the (blocker,
+	// attacker) pair's option carries; nil asserts no bound.
+	MaxBlockers *int `json:"max_blockers,omitempty"`
+}
+
+// AttackRequired asserts whether Attacker's option at the pending
+// declare-attackers decision carries the MustAttack requirement
+// (rules/oracle_run.go's oracleAttackRequired).
+type AttackRequired struct {
+	Attacker string `json:"attacker"`
 }
 
 // CanAttack asserts whether Attacker is among the attackers the pending
@@ -167,6 +177,9 @@ type Expect struct {
 	Offered        *Offered   `json:"offered,omitempty"`
 	CanBlock       *CanBlock  `json:"can_block,omitempty"`
 	CanAttack      *CanAttack `json:"can_attack,omitempty"`
+	// AttackRequired is the runner's per-attacker MustAttack requirement
+	// assertion (rules oracleExpect.AttackRequired).
+	AttackRequired *AttackRequired `json:"attack_required,omitempty"`
 	// LookAtLibraryTop is the runner's per-seat "may look at the top card of
 	// their library" assertion (rules oracleExpect.LookAtLibraryTop).
 	LookAtLibraryTop map[string]bool `json:"look_at_library_top,omitempty"`
