@@ -569,13 +569,18 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 						// metadata around it; the Affects spec is evaluated at the gate
 						// with MatchesPlayerSpecFrom, whose own fail-closed rule (an
 						// unhandled qualifier matches nobody) rejects the richer
-						// Affected$ forms. A richer VALUE or rider fails closed here: an
-						// AdjustLandPlays$ Unlimited/Z (Fastbond, an X-driven grant)
-						// must not silently become "one more", and an IsPresent$/
-						// Secondary$ qualifier changes when the grant lives. The explicit
-						// whitelist, rather than a blacklist of currently-known gating
-						// keys, means a newly encountered semantic parameter also fails
-						// closed. Expiry is the ordinary source-leaves rule (CR 611.3b)
+						// Affected$ forms. A richer VALUE or unmodelled rider fails
+						// closed here: an AdjustLandPlays$ Unlimited/Z (Fastbond, an
+						// X-driven grant) must not silently become "one more". The
+						// gate keys (IsPresent$/Condition$/CheckSVar$/ClassBand$) are
+						// allowed because the staticGateHolds check above already
+						// evaluated them, so Thranduil's Company's "as long as you
+						// control another Elf" is an intervening-if, not a rider; a
+						// Secondary$ qualifier or any other semantic parameter still
+						// fails closed. The explicit whitelist, rather than a blacklist
+						// of currently-known gating keys, means a newly encountered
+						// semantic parameter also fails closed. Expiry is the ordinary
+						// source-leaves rule (CR 611.3b)
 						// via active()'s battlefield scan; the turn scoping ("each of
 						// your turns") is the offer gate itself -- a play_land option is
 						// only offered to the active player in a main phase -- and the

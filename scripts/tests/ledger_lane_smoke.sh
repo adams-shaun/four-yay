@@ -20,8 +20,8 @@ check "Makefile ledger target has no -count=1" bash -c '! grep -q -- "-count=1" 
 check "Makefile ledger target runs scripts/ledger-lane.sh" grep -q 'scripts/ledger-lane.sh' <<<"$target"
 body=$(grep -v '^#' "$ROOT/scripts/ledger-lane.sh")
 check "ledger-lane.sh has no -count=1" bash -c '! grep -q -- "-count=1" <<<"$1"' _ "$body"
-check "ledger-lane.sh runs under a MemoryMax/CPUQuota scope" grep -q 'MemoryMax=2G -p CPUQuota=200%' <<<"$body"
-check "ledger-lane.sh caps GOMAXPROCS/GOMEMLIMIT" grep -q 'GOMAXPROCS=2 GOMEMLIMIT=1536MiB' <<<"$body"
+check "ledger-lane.sh runs under a MemoryMax/CPUQuota scope" grep -q 'MemoryMax=4G -p CPUQuota=400%' <<<"$body"
+check "ledger-lane.sh caps GOMAXPROCS/GOMEMLIMIT" grep -q 'GOMAXPROCS=4 GOMEMLIMIT=3GiB' <<<"$body"
 
 # Contention: while another process holds the lock, the script gives up with
 # exit 99 and leaves the previous lane file untouched.

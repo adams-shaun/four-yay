@@ -56,12 +56,18 @@ func TestTargetedCardSameNameParity(t *testing.T) {
 
 // TestSharesNameWithReferentNarrowing holds the sharesNameWith referent set to
 // the name-comparison referents the shared resolver actually binds — Targeted,
-// Remembered, RememberedCard and TriggeredCard. sharesTypeArgCodes aliases its
-// ordinals across RememberedCard/RememberedLKI/TriggeredCardLKICopy/Self/
-// Commander/Convoked, so a code-based switch there would silently recognise all
-// six and evaluate a name comparison against a referent the ticket did not
-// cover (Reflector Mage's RememberedLKI, Marvin's Self). Those must stay
-// unrecognised and fail closed under both polarities.
+// Remembered, RememberedCard, TriggeredCard and Self. Self was classified by
+// the Marvin, Murderous Mimic donor ticket (it binds the static's own source,
+// SpecContext.Source), so it is recognised at the census level; with no
+// Source bound it must still fail closed under both polarities.
+// sharesTypeArgCodes aliases its ordinals across
+// RememberedCard/RememberedLKI/TriggeredCardLKICopy/Self/Commander/Convoked,
+// so a code-based switch there would silently recognise all six and evaluate a
+// name comparison against a referent no ticket covered (Reflector Mage's
+// RememberedLKI). sharesNameWithArg reads the distinct-code
+// sharesTypeReferentsCodes table instead, so the referents outside the
+// recognised set — RememberedLKI, Commander, Convoked, TriggeredCardLKICopy —
+// must stay unrecognised and fail closed under both polarities.
 func TestSharesNameWithReferentNarrowing(t *testing.T) {
 	g, ids := board(t)
 	namesakeID := addBattlefieldCard(t, g, "Bear", "Creature Bear")
@@ -70,7 +76,7 @@ func TestSharesNameWithReferentNarrowing(t *testing.T) {
 		t.Fatal("precondition: namesake must be a battlefield permanent")
 	}
 	sc := SpecContext{You: 0, ResolutionTargets: []state.Target{{Obj: ids["myBear"]}}, Resolving: true}
-	for _, ref := range []string{"RememberedLKI", "Self", "Commander", "Convoked", "TriggeredCardLKICopy"} {
+	for _, ref := range []string{"RememberedLKI", "Commander", "Convoked", "TriggeredCardLKICopy"} {
 		spec := "Permanent.sharesNameWith " + ref
 		if got := UnknownPredicates(spec); len(got) == 0 {
 			t.Errorf("UnknownPredicates(%q) = empty; %s must stay an unrecognised referent", spec, ref)
@@ -83,11 +89,19 @@ func TestSharesNameWithReferentNarrowing(t *testing.T) {
 			t.Errorf("%s must fail closed (negated spelling must not widen)", neg)
 		}
 	}
-	// The four supported referents must be recognised.
-	for _, ref := range []string{"Targeted", "Remembered", "RememberedCard", "TriggeredCard"} {
+	// The five supported referents must be recognised. Self binds only
+	// through SpecContext.Source (the Marvin ticket); with the source
+	// unbound the referent is empty and must fail closed under both
+	// polarities, exactly like an unrecognised referent.
+	for _, ref := range []string{"Targeted", "Remembered", "RememberedCard", "TriggeredCard", "Self"} {
 		spec := "Permanent.sharesNameWith " + ref
 		if got := UnknownPredicates(spec); len(got) != 0 {
 			t.Errorf("UnknownPredicates(%q) = %v, want empty", spec, got)
+		}
+	}
+	for _, spec := range []string{"Permanent.sharesNameWith Self", "Permanent.!sharesNameWith Self"} {
+		if MatchesObjectCtx(g, spec, namesake, sc) {
+			t.Errorf("%s with no bound source must fail closed, not match", spec)
 		}
 	}
 }

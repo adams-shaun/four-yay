@@ -1674,13 +1674,15 @@ public class ScenarioReplay extends CardTestPlayerBase {
     }
 
     /** Whether a cast step's cast_mode is one this driver elects: Bargain,
-     * "optionalcost" and the face-down Disguise/Morph/Megamorph casts are wired, and an absent or empty mode is the ordinary
+     * "optionalcost", the face-down Disguise/Morph/Megamorph casts and the "plot" special
+     * action are wired ("plot_cast", the later cast of a plotted card, is not), and an absent or empty mode is the ordinary
      * cast. Any other mode is a scenario the driver cannot replay and must
      * reject loudly rather than cast at face value. */
     static boolean castModeSupported(String mode) {
         return mode == null || mode.isEmpty()
                 || mode.equals("bargained") || mode.equals("optionalcost")
-                || mode.equals("disguised") || mode.equals("morphed") || mode.equals("megamorphed");
+                || mode.equals("disguised") || mode.equals("morphed") || mode.equals("megamorphed")
+                || mode.equals("plot");
     }
 
     /** The XMage target string for one scenario target ref: its alias when
@@ -2263,6 +2265,19 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     throw new IllegalArgumentException("cast_mode " + castMode + " unsupported");
                 }
                 bargainedCast = "bargained".equals(castMode);
+                // "plot" is XMage's Plot special action (PlotAbility is a
+                // SpecialAction: no stack, not a cast), activated from the
+                // hand by its rule text "Plot {cost}" like XMage's own
+                // PlotTest does. The step's mana was added above; a
+                // reduction (Doc Aurlock) is applied by XMage itself.
+                if ("plot".equals(castMode)) {
+                    String plotText = xabilityAt(stepIdx);
+                    if (plotText.isEmpty()) {
+                        throw new IllegalArgumentException("plot step " + stepIdx + " has no xmage_ability");
+                    }
+                    activateAbility(turn, phase, p, plotText);
+                    return;
+                }
                 // "disguised" casts the card face down for {3}; XMage selects
                 // that cast by suffixing the card name ("<card> using
                 // Disguise", DisguiseTest/CovetedFalconTest). "morphed" and

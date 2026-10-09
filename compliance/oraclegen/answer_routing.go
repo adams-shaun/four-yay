@@ -194,6 +194,20 @@ func (r *answerRouting) route(i int) (as []XAnswer, owned bool) {
 	case d.Resume == "dig" && len(d.Picks) == 1 && digBottomName(d.Picks[0]) != "":
 		// XMage's bottom pick is a card selection by name, not gorge's label.
 		return append(as, XAnswer{d.Seat, "choice", digBottomName(d.Picks[0])}), true
+	case d.Resume == "hidden_pick" && len(d.Picks) == 0 && d.Min == 0 && d.Max > 0:
+		// A declined "you may put it into your hand" hidden pick (Sparring
+		// Dummy's milled land): XMage poses the optional ask on its target
+		// queue only, so the skip token declines it there. The declined
+		// pair's "no" boolean has no chooseUse to answer (measured driver
+		// error: "Found wrong choice command").
+		return append(as, XAnswer{d.Seat, "target", "[target_skip]"}), true
+	case d.Kind == "mode" && d.Resume == "play" && len(d.Picks) == 0 && r.lookedFirst(i):
+		// A declined optional Play after a hidden-zone look (Cosmic Cube's
+		// "you may play one of these"): XMage poses the "cast from among
+		// them" ask on the target queue only, so the skip token declines
+		// it. The plain Play carriers (Discover, Cascade) have no look and
+		// stay with the measured chooseUse "no" below.
+		return append(as, XAnswer{d.Seat, "target", "[target_skip]"}), true
 	case declinedChoice(d) && !r.lookedFirst(i):
 		// One makeChoose "up to" ask however many type slots gorge posed; its
 		// own skip token ends it. (A boolean "no" is not an answer to it.)

@@ -91,7 +91,7 @@ mb=$(git merge-base "$base" HEAD)
 global='TestHeads|TestInvariantsUnderSeedFuzz[0-9]*|TestLargeEliminationSweepDoesNotTripLivelockWatcher'
 kr8='TestKr8WorldsInFuzzGames|TestKr8HeadsCheckpointAll'
 # The four are sharded into chunk tests (2026-10-05 per-test budget: 2 GB,
-# 2 vCPU, 1 min each); the suffix patterns skip every chunk.
+# 4 vCPU, 1 min each); the suffix patterns skip every chunk.
 postmerge='TestCloneFidelityShort[0-9A-Za-z]*|TestCostStaticPlannedCastsNeverCostChange[0-9]*|TestChainTargetOfferCensusAgreesWithCastFlow[0-9]*|TestPaymentPlanOnePassMatchesReferenceOverAutoPayGameKernel[0-9A-Za-z]*'
 
 pkgs=$(git diff --name-only "$mb" HEAD | while read -r f; do
