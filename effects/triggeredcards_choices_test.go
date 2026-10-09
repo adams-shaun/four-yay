@@ -187,6 +187,18 @@ func TestTriggeredCardsCopyPermanentChoicesStaysBlocked(t *testing.T) {
 	if h.askCount != 0 {
 		t.Fatalf("askCount = %d, want 0 (a blocked Choices$ must not reach the filter grammar)", h.askCount)
 	}
+	// The handler really ran: effCopyPermanent emits CopyPermanentOf's
+	// SkippedNote before its Blocked early-return. Without this the test would
+	// pass with the whole primitive unregistered.
+	handlerRan := false
+	for _, ev := range h.log {
+		if ev.Kind == events.Note && ev.Text == cp.SkippedNote && cp.SkippedNote != "" {
+			handlerRan = true
+		}
+	}
+	if !handlerRan {
+		t.Fatalf("effCopyPermanent did not run (no SkippedNote %q); log %+v", cp.SkippedNote, h.log)
+	}
 	for i := range h.g.Objs {
 		if h.g.Objs[i].IsToken {
 			t.Fatalf("a blocked CopyPermanent Choices$ minted a token: %+v", h.g.Objs[i].Face())
