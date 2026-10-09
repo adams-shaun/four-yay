@@ -32,7 +32,8 @@ func triggerSubs(sub string) bool {
 		"trigger.loyalty-activated", "trigger.discarded", "trigger.attacks-one-target", classLevelGainedSub,
 		"trigger.spell-cast-opponent", "trigger.spell-cast-self-cast", "trigger.spell-cast-opponent-turn", "trigger.commit-crime", "trigger.ability-activated",
 		levelb.UnlockDoorSub, levelb.FullyUnlockSub, stateSelfCountersSub, levelb.CounterAddedSub,
-		levelb.TurnedFaceUpSub, levelb.TurnedFaceUpOtherSub, levelb.SacrificeSub, levelb.DamageSub:
+		levelb.TurnedFaceUpSub, levelb.TurnedFaceUpOtherSub, levelb.SacrificeSub, levelb.DamageSub,
+		levelb.ManaExpendSub, levelb.TapsForManaSub:
 		return true
 	}
 	return tapCombatSub(sub)
@@ -70,6 +71,11 @@ func triggerFires(reg *cards.Registry, f *cards.Face, name string, req levelb.Re
 	}
 	if req.CoveredByA {
 		return skip("covered by level A")
+	}
+	if req.Sub == levelb.TapsForManaSub {
+		// A triggered mana ability resolves off the stack, so it needs its own
+		// pool-based fire check rather than the abilityOnStack probe below.
+		return manaTapFires(reg, f, name, req)
 	}
 	causes, why, room := roomTriggerCauses(reg, name, req)
 	if !room {
