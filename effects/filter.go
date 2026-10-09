@@ -1290,7 +1290,7 @@ func positiveRecognised(p string) bool {
 	if strings.HasPrefix(p, "greatestCMC_") || strings.HasPrefix(p, "lowestCMC") {
 		return true
 	}
-	if p == "TriggeredNewCard" || p == "TriggeredCard" || strings.HasPrefix(p, "ChosenMode") && len(p) > len("ChosenMode") {
+	if p == "TriggeredNewCard" || p == "TriggeredCard" || p == "TriggeredCards" || strings.HasPrefix(p, "ChosenMode") && len(p) > len("ChosenMode") {
 		return true
 	}
 	// Forge's base-qualified `SharesColorWith <referent>` predicate (C.A.M.P.'s
@@ -1943,14 +1943,25 @@ func matchPositive(g *state.Game, p string, o *state.Object, sc SpecContext) (re
 		// ValidSource$/ValidCard$ gate on a ChooseSource answer (Deflecting
 		// Palm's `Card.ChosenCardStrict,Emblem.ChosenCard`), and every carrier
 		// means exactly that membership; the non-strict spelling stays the
-		// ordinary chosen-list read. An unbound ChosenValid fails closed,
-		// including beneath '!' -- the conservative direction this predicate
-		// family has always taken.
-		if !sc.ChosenValid {
+		// ordinary chosen-list read. A SpecContext with no in-flight choice
+		// (sc.ChosenValid false) falls back to the source object's
+		// EVENT-BACKED chosen list (state.Object.Chosen, the Choose "chosen"
+		// fold) -- the same fallback sharesColorWithChosenMatches and
+		// resolutionChosenCards resolve the chosen set with. Without it, a
+		// trigger-side ValidCard$ ChosenCardStrict carrier (Zenos yae Galvus'
+		// "when the chosen creature leaves the battlefield") matched a
+		// SpecContext that never binds a choice and never fired. The guard
+		// keeps today's fail-closed for a truly choice-less source, and the
+		// negated nonChosenCard form is unchanged for choice-less sources.
+		chosenList := sc.Chosen
+		if !sc.ChosenValid && len(chosenList) == 0 {
+			chosenList = ChosenTargetsFrom(g, sc.Source)
+		}
+		if !sc.ChosenValid && len(chosenList) == 0 {
 			return false, true
 		}
 		chosen := false
-		for _, t := range sc.Chosen {
+		for _, t := range chosenList {
 			if !t.IsPlayer && t.Obj == o.ID {
 				chosen = true
 				break
@@ -2027,6 +2038,23 @@ func matchPositive(g *state.Game, p string, o *state.Object, sc SpecContext) (re
 			return false, false
 		}
 		return o.ID == sc.TriggerCard, true
+	}
+	if p == "TriggeredCards" {
+		// Forge's Card.TriggeredCards set property inside an ordinary filter
+		// spec (Hedge Shredder, Toluz Clever Conductor's ChangeZoneAll
+		// ChangeType$): the candidate is one of the cards the triggering event
+		// batch captured, carried on SpecContext.Remembered -- the same set the
+		// Defined$ TriggeredCards spelling names (definedSpecTriggeredCard).
+		// The ChangesZoneAll trigger mode binds no TriggerCard, so the read is
+		// the Remembered set, never sc.TriggerCard. An empty Remembered is a
+		// RESOLVED no-match (ok=true), matching the Defined$ spelling, not an
+		// unbound-referent fail-closed.
+		for _, t := range sc.Remembered {
+			if !t.IsPlayer && t.Obj == o.ID {
+				return true, true
+			}
+		}
+		return false, true
 	}
 	if p == "blockingTriggeredAttacker" {
 		// Forge's Creature.blockingTriggeredAttacker (She-Hulk,

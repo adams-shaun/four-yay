@@ -112,8 +112,14 @@ func TestSetupCreatureTypeChoiceLeadsSiblingRows(t *testing.T) {
 // Torque, previously the "etb filter ChosenType" skips, now generate
 // scenarios, and those scenarios place the as-enters type permanent (the etb
 // special-filter cause, with the generic probe walk as fallback); measured at
-// 8/8 both with and without chosenTypeETBCauses. The merged tree carries both
-// this and the Cavernous Maw serving above, so ECL pins 8 and LCI pins 4.
+// 8/8 both with and without chosenTypeETBCauses.
+//
+// Gathering Stone's cost-static probe adds one more (ticket
+// agent-20261009T053432Z-677239bd, from main): its static#0.0 row now
+// generates, placing Gathering Stone, whose as-enters type ask the setup
+// placement still poses, so the scenario joins the class. All three movements
+// are disjoint rows, so the merged generator measures ECL at 9/9 with LCI
+// still at 4.
 var wantSetupTypeCensus = map[string][2]int{
 	"BIG": {0, 0},
 	"EOE": {0, 0},
@@ -121,7 +127,7 @@ var wantSetupTypeCensus = map[string][2]int{
 	"FRA": {0, 0},
 	// level-B sets carrying the measured rows.
 	"BLB": {3, 3},
-	"ECL": {8, 8},
+	"ECL": {9, 9},
 	"DFT": {1, 1},
 	"LCI": {4, 4},
 }
