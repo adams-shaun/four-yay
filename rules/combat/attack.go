@@ -317,12 +317,14 @@ func MaxAttackers(b Board) int {
 // the attacked permanent (Tomik's granted "No more than one creature can
 // attack this planeswalker" carries ValidDefender$ Card.Self, which resolves
 // against the granted static's own source -- the planeswalker) is matched
-// against the battle object in the static's spec context. A static that names
-// neither contributes nothing. Multiple restrictions can name one defender;
-// the smallest ceiling binds (CR 508.1c), and validateAttackDeclaration, the
-// option Group cap and the decision's per-Group limit all derive from this
-// one read so the engine's declaration check and the wire's repair rule
-// cannot disagree.
+// against the battle object in the static's spec context. A static with NO
+// ValidDefender$ contributes nothing here: it is the GLOBAL ceiling
+// (Silent Arbiter's "no more than one creature can attack each combat") and
+// stays on the MaxAttackers read, exactly as before the battle parameter
+// existed. Multiple restrictions can name one defender; the smallest ceiling
+// binds (CR 508.1c), and validateAttackDeclaration, the option Group cap and
+// the decision's per-Group limit all derive from this one read so the
+// engine's declaration check and the wire's repair rule cannot disagree.
 func AttackRestrictLimit(b Board, defender state.PlayerID, battle state.ObjID) (int, bool) {
 	limit := 0
 	found := false
@@ -331,10 +333,10 @@ func AttackRestrictLimit(b Board, defender state.PlayerID, battle state.ObjID) (
 			continue
 		}
 		spec := strings.TrimSpace(sv.ParamStr(cards.PKValidDefender))
-		ok := spec == ""
-		if !ok {
-			ok = effects.MatchesPlayerSpecCtx(b.Game(), spec, defender, sv.Controller, b.PlayerSpecCtx(sv.Source))
+		if spec == "" {
+			continue
 		}
+		ok := effects.MatchesPlayerSpecCtx(b.Game(), spec, defender, sv.Controller, b.PlayerSpecCtx(sv.Source))
 		if !ok && battle != 0 {
 			ok = b.MatchesSpec(spec, battle, sv.Source, sv.Controller, nil, nil)
 		}

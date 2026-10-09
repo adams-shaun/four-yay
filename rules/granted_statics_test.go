@@ -8,6 +8,7 @@ package rules
 // probes are freely-authored fixtures per the licensing rule.
 
 import (
+	"fmt"
 	"slices"
 	"testing"
 
@@ -195,5 +196,102 @@ func TestTomikGrantedAttackRestrictCapsAttacksAtThePlaneswalker(t *testing.T) {
 	drainCombatPriority(t, e)
 	if !e.G.Obj(a1).IsAttacking && !e.G.Obj(a2).IsAttacking {
 		t.Fatal("neither attacker was declared after the legal answer")
+	}
+}
+
+// playerCapSrc is a freely-authored enchantment with a PRINTED player-scoped
+// AttackRestrict (the Crawlspace shape at a lower ceiling): it coexists with
+// Tomik's granted battle-scoped one and must not relax it.
+const playerCapSrc = "Name:Player Cap\nTypes:Enchantment\nOracle:x\n" +
+	"S:Mode$ AttackRestrict | MaxAttackers$ 2 | ValidDefender$ You\n"
+
+// TestTomikGrantedAttackRestrictAndPlayerCapBindTogether is the CR 508.1c
+// smallest-ceiling case: the walker carries BOTH Tomik's granted
+// battle-scoped cap (ValidDefender$ Card.Self, MaxAttackers$ 1) and a printed
+// player-scoped cap (ValidDefender$ You, MaxAttackers$ 2). The walker option
+// joins the battle-scoped group at the smaller cap -- the player cap never
+// relaxes the walker cap to 2 -- while the player attacks keep their own
+// player-scoped group untouched by the walker cap.
+func TestTomikGrantedAttackRestrictAndPlayerCapBindTogether(t *testing.T) {
+	t.Parallel()
+	reg := testutil.CorpusRegistry(t)
+	e := combatEngine(t)
+	tomik := onBoardCard(t, e, 1, lookup(t, reg, "Tomik, Orzhov Lawmage"))
+	walker := onBoard(t, e, 1, targetWalkerFixture)
+	capEnchant := onBoard(t, e, 1, playerCapSrc)
+	a1 := onBoardReady(t, e, 0, "Name:Attack Bear\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
+	a2 := onBoardReady(t, e, 0, "Name:Attack Wolf\nTypes:Creature Wolf\nPT:2/2\nOracle:x\n")
+	a3 := onBoardReady(t, e, 0, "Name:Attack Elk\nTypes:Creature Elk\nPT:2/2\nOracle:x\n")
+	a4 := onBoardReady(t, e, 0, "Name:Attack Ox\nTypes:Creature Ox\nPT:2/2\nOracle:x\n")
+	// PRECONDITION: all three seat-1 permanents are on the battlefield under
+	// seat 1, and the printed static's source is the enchantment, so the
+	// player spec below really is a second, independent cap.
+	for _, id := range []state.ObjID{tomik, walker, capEnchant} {
+		if o := e.G.Obj(id); o == nil || o.Zone != state.ZBattlefield || o.Controller != 1 {
+			t.Fatalf("precondition: seat-1 permanent %d is not on seat 1's battlefield: %+v", id, o)
+		}
+	}
+	// The walker pair: BOTH caps fire, the battle-scoped group carries the
+	// smaller ceiling (min(2,1) = 1), not the player cap's 2.
+	group, limit := e.attackRestrictGroup(1, walker)
+	if want := fmt.Sprintf("attack-restrict:%d:%d", 1, walker); group != want || limit != 1 {
+		t.Fatalf("attackRestrictGroup(1, walker) = (%q,%d), want (%q,1): the player cap must not relax the walker cap", group, limit, want)
+	}
+	// The player pair: only the player cap fires, at its own ceiling of 2.
+	if group, limit := e.attackRestrictGroup(1, 0); group != fmt.Sprintf("attack-restrict:%d", 1) || limit != 2 {
+		t.Fatalf("attackRestrictGroup(1, player) = (%q,%d), want (%q,2)", group, limit, fmt.Sprintf("attack-restrict:%d", 1))
+	}
+	e.askAttackers()
+	d := e.Pending()
+	if d == nil || d.Kind != decision.KAttackers {
+		t.Fatalf("expected an attackers decision, got %+v", d)
+	}
+	idx := func(id state.ObjID, battle state.ObjID) int {
+		for _, o := range d.Options {
+			if o.Obj == id && o.Battle == battle {
+				return o.Index
+			}
+		}
+		return -1
+	}
+	iw1, iw2 := idx(a1, walker), idx(a2, walker)
+	ip1, ip2 := idx(a3, 0), idx(a4, 0)
+	if iw1 < 0 || iw2 < 0 || ip1 < 0 || ip2 < 0 {
+		t.Fatalf("the walker and player pairs are not offered: %+v", d.Options)
+	}
+	battleGroup := d.Options[iw1].Group
+	if want := fmt.Sprintf("attack-restrict:%d:%d", 1, walker); battleGroup != want || battleGroup != d.Options[iw2].Group {
+		t.Fatalf("walker options carry groups %q / %q, want one shared %q", battleGroup, d.Options[iw2].Group, want)
+	}
+	playerGroup := d.Options[ip1].Group
+	if want := fmt.Sprintf("attack-restrict:%d", 1); playerGroup != want || playerGroup != d.Options[ip2].Group {
+		t.Fatalf("player options carry groups %q / %q, want one shared %q", playerGroup, d.Options[ip2].Group, want)
+	}
+	if cap := d.GroupCapFor(battleGroup); cap != 1 {
+		t.Fatalf("the walker group cap is %d, want 1 (the smaller ceiling binds)", cap)
+	}
+	if cap := d.GroupCapFor(playerGroup); cap != 2 {
+		t.Fatalf("the player group cap is %d, want 2", cap)
+	}
+	// Four attackers split 2 walker + 2 player: the walker group's cap of 1
+	// rejects the pair even though the player cap alone (2) would allow it...
+	reject := decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{iw1, iw2, ip1, ip2}}
+	if err := e.Submit(reject); err == nil {
+		t.Fatal("two attackers at the walker were accepted alongside the player cap")
+	}
+	if e.Pending() == nil {
+		t.Fatal("the rejected intent consumed the pending decision")
+	}
+	// ...and the mixed split 1 walker + 2 player is legal: the walker attack
+	// does not consume the player group's count.
+	if err := e.Submit(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{iw1, ip1, ip2}}); err != nil {
+		t.Fatalf("one walker attack plus two player attacks was rejected: %v", err)
+	}
+	drainCombatPriority(t, e)
+	if !e.G.Obj(a1).IsAttacking || !e.G.Obj(a3).IsAttacking || !e.G.Obj(a4).IsAttacking {
+		t.Fatal("the legal mixed declaration was not recorded")
+	}
+	if e.G.Obj(a2).IsAttacking {
+		t.Fatal("the second walker attacker was declared despite the cap")
 	}
 }

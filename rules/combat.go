@@ -839,23 +839,37 @@ func (e *Engine) validateAttackDeclarationChosen(d *decision.Decision, in decisi
 
 // attackRestrictGroup marks options at a defender constrained by an active
 // AttackRestrict static, and reports that defender's ceiling. A player-scoped
-// restriction (or a global one) keys its group by the defending player alone,
-// exactly as before; a restriction scoped to the attacked PERMANENT (Tomik's
-// granted ValidDefender$ Card.Self) keys its own group by the battle object,
-// so attacks at that planeswalker are capped without consuming the player's
-// uncapped attackers. Decision.Validate and botpolicy.Clamp share the
-// per-Group cap rule through Decision.GroupLimits, so the bot cannot offer an
-// answer the engine rejects; a ceiling above one (Crawlspace's "no more than
-// two creatures can attack you") rides GroupLimits while the ordinary
-// at-most-one-per-Group rule covers the limit-one shape byte-identically.
+// restriction keys its group by the defending player alone; a restriction
+// scoped to the attacked PERMANENT (Tomik's granted ValidDefender$ Card.Self)
+// keys its own group by the battle object, so attacks at that planeswalker
+// are capped without consuming the player's uncapped attackers. When BOTH
+// scopes name the same defender, both ceilings bind the walker attack: the
+// option joins the battle-scoped group at the SMALLER of the two caps
+// (CR 508.1c, the smallest ceiling binds) -- a player-scoped cap never
+// relaxes the battle-scoped one, and the walker attack leaves the
+// player-scoped count (a planeswalker attack is not an attack on its
+// controller, so the player group counts only the player attacks). Decision
+// .Validate and botpolicy.Clamp share the per-Group cap rule through Decision
+// .GroupLimits, so the bot cannot offer an answer the engine rejects; a
+// ceiling above one (Crawlspace's "no more than two creatures can attack
+// you") rides GroupLimits while the ordinary at-most-one-per-Group rule
+// covers the limit-one shape byte-identically.
 func (e *Engine) attackRestrictGroup(defender state.PlayerID, battle state.ObjID) (string, int) {
-	if limit, ok := combat.AttackRestrictLimit(asBoard(e), defender, 0); ok {
-		return fmt.Sprintf("attack-restrict:%d", defender), limit
-	}
-	if battle != 0 {
-		if limit, ok := combat.AttackRestrictLimit(asBoard(e), defender, battle); ok {
-			return fmt.Sprintf("attack-restrict:%d:%d", defender, battle), limit
+	playerLimit, playerOK := combat.AttackRestrictLimit(asBoard(e), defender, 0)
+	if battle == 0 {
+		if playerOK {
+			return fmt.Sprintf("attack-restrict:%d", defender), playerLimit
 		}
+		return "", 0
+	}
+	battleLimit, battleOK := combat.AttackRestrictLimit(asBoard(e), defender, battle)
+	switch {
+	case playerOK && battleOK:
+		return fmt.Sprintf("attack-restrict:%d:%d", defender, battle), min(playerLimit, battleLimit)
+	case playerOK:
+		return fmt.Sprintf("attack-restrict:%d", defender), playerLimit
+	case battleOK:
+		return fmt.Sprintf("attack-restrict:%d:%d", defender, battle), battleLimit
 	}
 	return "", 0
 }
