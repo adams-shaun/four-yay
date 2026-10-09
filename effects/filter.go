@@ -509,6 +509,26 @@ var predicates = map[string]predFn{
 	"SaddledThisTurn": func(g *state.Game, o *state.Object, _ state.PlayerID, src state.ObjID) bool {
 		return pairedWithSourceThisTurn(g, o, src)
 	},
+	// CrewedBySourceThisTurn is the reverse direction of CrewedThisTurn
+	// (Forge's Vehicle.CrewedBySourceThisTurn): the object was CREWED by the
+	// spec's source this turn -- Balthier and Fran's `Mode$ Attacks |
+	// ValidCard$ Vehicle.CrewedBySourceThisTurn`. SOURCE-RELATIVE the same
+	// way, but read from the source's own pairing (state.Object.CrewedTurn /
+	// CrewedVehicles, folded by events.Apply's Crew case): src paid a Crew
+	// cost this turn and the object is among the Vehicles it crewed. A
+	// missing source or a source that crewed nothing this turn fails closed.
+	"CrewedBySourceThisTurn": func(g *state.Game, o *state.Object, _ state.PlayerID, src state.ObjID) bool {
+		s := g.Obj(src)
+		if s == nil || o == nil || s.CrewedTurn != g.Turn {
+			return false
+		}
+		for _, v := range s.CrewedVehicles {
+			if v == o.ID {
+				return true
+			}
+		}
+		return false
+	},
 	// Permanent is Forge's CardProperty.Permanent (card.isPermanent()): the
 	// printed face is a permanent type, in ANY zone (CR 109.2). This is the
 	// PREDICATE half of the pair; the bare `Permanent` BASE keeps the
