@@ -79,6 +79,7 @@ func TestImpactRanksByTargetFormatOrder(t *testing.T) {
 // cards, a set it unlocks really misses nothing else, and the
 // non-tournament primitives sort after every tournament one.
 func TestCorpusImpact(t *testing.T) {
+	t.Parallel()
 	cs := census(t)
 	rows := cs.Impact()
 	seenNT := false

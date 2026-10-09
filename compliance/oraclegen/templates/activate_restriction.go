@@ -686,6 +686,10 @@ func activationSVarPrelude(reg *cards.Registry, f *cards.Face, check, compare st
 		out = append(out, c)
 	}
 	out = append(out, historyPreludes(reg, f.Name, body, n)...)
+	// The activate-local gate shapes (a legendary combat-damage body, an
+	// artifact-filtered sacrifice count) before the lifeLoss Shock prelude,
+	// which answers a combat-damage body with non-combat spell damage.
+	out = append(out, activateSVarHistoryPreludes(reg, body, n)...)
 	if lifeLossBody(body) {
 		if step, ok := castProbe(reg, "Shock", "p1"); ok {
 			out = append(out, conditionPrelude{hand: []string{"Shock"}, steps: []oraclegen.Step{step, {Op: "resolve"}}})

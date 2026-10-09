@@ -15,11 +15,9 @@ import (
 // ticket for a non-tournament primitive, and no primitive ticket whose
 // cards another primitive ticket already covers (a duplicate fix).
 func TestTicketsAtHead(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
-	cs, err := Build(reg, root)
-	if err != nil {
-		t.Fatal(err)
-	}
+	cs := census(t)
 	ts, notes, err := cs.Tickets(reg, root, TicketOptions{MinCards: 10, AnyIn: cs.Config.Formats[0].Name})
 	if err != nil {
 		t.Fatal(err)

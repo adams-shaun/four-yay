@@ -149,7 +149,11 @@ func (e *Engine) seatQuiet(p state.PlayerID) bool {
 }
 
 // quietBlocker returns the first blocker §2.3 fires for the window, or
-// qbNone. It is a pure read: no event, no mutation, no allocation.
+// qbNone. It is a pure read of game state: no event, no observable mutation,
+// no allocation. It does open a derived-memo scope around its board scans
+// (below) so they take the walk's board-only caches instead of rescanning;
+// that scope only writes cache entries the walk and the serve's nested scope
+// then hit, and verify mode recomputes every reuse.
 func (e *Engine) quietBlocker(p state.PlayerID) quietBlockerID {
 	if e == nil || e.G == nil || e.L == nil || e.compiledText == nil {
 		return qbNoHost
@@ -158,6 +162,25 @@ func (e *Engine) quietBlocker(p state.PlayerID) quietBlockerID {
 	// summary is a handed list and the reader must not run. Fail closed.
 	if e.activeDepth != 0 || e.G.Active >= state.PlayerID(len(e.G.Players)) || p >= state.PlayerID(len(e.G.Players)) {
 		return qbNoHost
+	}
+	// The proof's board scans (activeStatics, collectCostStatics, the board
+	// static walk) take the walk's caches only inside a derived-memo scope
+	// (rules/walkcache.go walkKeyNow). At depth 0 every board static read
+	// misses and rescans the whole board, which made the serve net-negative
+	// on the az row (Q4 ticket report: quietBlocker 9.99 s / 11.49%). Open a
+	// scope around the read when the caller is not already inside one, so the
+	// scans WRITE the board-only cache entries the walk (and the serve's own
+	// nested scope, same generation) then hit. The depth guard keeps a direct
+	// call from a future caller inside another scope from closing it; the
+	// proof never recurses, so keep it that way.
+	if e.derivedMemoDepth == 0 {
+		e.beginDerivedMemo()
+		defer e.endDerivedMemo()
+	}
+	// Precondition diagnostic (quietProofScans): a proof entry with no live
+	// scope would pay the uncached scans the wrap above exists to avoid.
+	if _, ok := e.walkKeyNow(); !ok {
+		quietProofScans.Add(1)
 	}
 	// The mana ceiling is read before the scan; a restricted unit makes it
 	// unprovable.

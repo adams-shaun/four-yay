@@ -16,6 +16,7 @@ import (
 // buckets, and none is the "level not built" stub that Check returned for any
 // level but A before this ticket.
 func TestLevelBProblemsBucketLikeA(t *testing.T) {
+	t.Parallel()
 	root := filepath.Join("..", "..")
 	reg := testutil.CorpusRegistry(t)
 	probs, err := gate.Check(reg, root, "FRA", "B")
@@ -52,6 +53,7 @@ func TestLevelBProblemsBucketLikeA(t *testing.T) {
 // requirement is a face-0 self-ETB trigger) and that passes level A: the
 // covered requirement must add no level-B problem.
 func TestLevelBCoveredByAAddsNoProblem(t *testing.T) {
+	t.Parallel()
 	root := filepath.Join("..", "..")
 	reg := testutil.CorpusRegistry(t)
 	const card = "Craterclaw Colossus"

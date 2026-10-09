@@ -163,7 +163,19 @@ func TestBeginDerivedReadsResumesThePriorityWalk(t *testing.T) {
 			}
 			resumed++
 			for _, id := range e.G.Zone(state.ZBattlefield, d.Player) {
-				if m := e.derivedMemo.at(id); m != nil && m.gen == gen && m.ep == e.derivedMemoAliasFrom {
+				// Count an entry the resumed scope SERVES: keyed at the
+				// walk's log length (the alias pair) and either the walk's
+				// own generation or cross-walk-eligible -- the memo's
+				// earlier-scope arm (an entry an earlier scope computed is
+				// still exact while active() has not rebuilt). Since Q4 the
+				// quiet proof's verify arm opens one more scope between the
+				// walk's stamps and the ask, so the tail carries that
+				// generation and the walk's entries reach the bot's build
+				// through the cross-walk arm instead of the first branch;
+				// verify mode recomputes every such hit either way.
+				if m := e.derivedMemo.at(id); m != nil && m.ep == e.derivedMemoAliasFrom &&
+					(m.gen == gen || (m.seq != 0 && m.seq == e.derivedSeq &&
+						m.ver == e.continuousVersion && m.objs <= len(e.G.Objs))) {
 					_ = e.Derived(id) // served via the alias; verify mode recomputes it
 					hitsServed++
 				}
@@ -235,7 +247,16 @@ func TestBeginDerivedReadsVerifyCatchesDirectWrite(t *testing.T) {
 		d := e.Pending()
 		if d.Kind == decision.KPriority && e.derivedMemoTailLive() {
 			for _, id := range e.G.Zone(state.ZBattlefield, d.Player) {
-				if m := e.derivedMemo.at(id); m == nil || m.gen != e.derivedMemoGen || e.Derived(id).Types == nil {
+				// The resumed scope serves an entry either at the tail's
+				// generation or through the memo's cross-walk arm (an
+				// earlier scope's entry, still exact while active() has not
+				// rebuilt). Since Q4 the quiet proof's verify arm opens one
+				// more scope between the walk's stamps and the ask, so the
+				// walk's entries sit one generation behind the tail; they
+				// are still the walk's derivations (seq == derivedSeq) and
+				// still served.
+				if m := e.derivedMemo.at(id); m == nil || (m.gen != e.derivedMemoGen &&
+					(m.seq == 0 || m.seq != e.derivedSeq)) || e.Derived(id).Types == nil {
 					continue
 				}
 				if !slices.Contains(e.Derived(id).Types, "Creature") {

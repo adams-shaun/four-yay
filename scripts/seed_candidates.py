@@ -329,7 +329,7 @@ message says why a split was not honest.
     if mf and mf.value >= MERGE_FIX_RATE_ALARM:
         out.append(
             cand(
-                f"flow-mergefix-rate-{int(mf.value * 100)}",
+                "flow-mergefix-rate",  # stable id, same rule as steward-gate-wall
                 "flow",
                 f"merge_fix rate is {mf.value:.0%} — sequence the contended briefs",
                 f"""# Nearly every merge is going through merge_fix
@@ -483,11 +483,22 @@ defect row's `status` is `fixed`.
             )
 
     # ---- steward (100x): the recurring tax.
+    #
+    # The candidate id for a recurring alarm must NOT embed the measured
+    # value: the measurement moves on every probe cycle (the gate suite
+    # ranged 125s–770s across one day), and a moving id defeats the seed's
+    # already-filed dedupe, which is keyed by id. The first version embedded
+    # the seconds here and filed ~50 "Gate suite takes NNNs" tickets in one
+    # day -- one per probe -- while the workstream already had live seats.
+    # With a stable id the seed files ONE ticket per alarm episode: the
+    # refresh step keeps an open row's title/body/est_delta current with the
+    # latest measurement, and re-arms a queued row when the measured cost
+    # grows past it (seed-agent.sh).
     gate = latest(rows, "steward", "gate_wall_s")
     if gate and gate.value >= GATE_WALL_ALARM_S:
         out.append(
             cand(
-                f"steward-gate-wall-{int(gate.value)}",
+                "steward-gate-wall",
                 "steward",
                 f"Gate suite takes {gate.value:.0f}s — cut what every future ticket pays",
                 f"""# The gate suite is the tax on every landing
@@ -524,7 +535,7 @@ still does.
     if ctx and ctx.value >= CONTEXT_ALARM_BYTES:
         out.append(
             cand(
-                f"steward-context-{int(ctx.value / 1000)}k",
+                "steward-context",  # stable id, same rule as steward-gate-wall
                 "steward",
                 f"Agent context is {ctx.value / 1000:.0f}KB — every seat pays it every turn",
                 f"""# The agent context has grown past its budget
@@ -613,7 +624,7 @@ change, no renamed exported symbols.
     if ms:
         out.append(
             cand(
-                f"eff-profile-{int(ms.value * 100)}",
+                "eff-profile",  # stable id, same rule as steward-gate-wall
                 "eff",
                 f"Cut the top engine hotspot ({ms.value:.2f} ms/game today)",
                 f"""# Engine throughput is {ms.value:.2f} ms/game
@@ -901,6 +912,11 @@ def selftest() -> int:
               any(i.startswith("correct-defect-lightning-bolt") for i in ids), ids)
         check("a slow gate suite makes a steward candidate", any(i.startswith("steward-gate-wall") for i in ids), ids)
         check("a fat context makes a steward candidate", any(i.startswith("steward-context") for i in ids), ids)
+        check("recurring-alarm candidate ids do not embed the measurement",
+              any(i == "steward-gate-wall" for i in ids)
+              and any(i == "steward-context" for i in ids)
+              and any(i == "eff-profile" for i in ids)
+              and any(i == "flow-mergefix-rate" for i in ids), ids)
         check("the longest function makes a seam candidate",
               any(i.startswith("steward-seam-effects-misc-go-effeffect") for i in ids), ids)
         check("no file-size split candidate is minted any more",
