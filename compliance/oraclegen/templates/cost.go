@@ -51,8 +51,11 @@ type costProbe struct {
 	// castFrom names the zone the probe casts its spell from ("graveyard",
 	// the cast-provenance probe's Flashback cast): the spell is seeded there
 	// and NOT in the hand, and castMode elects that cast's option.
-	castFrom   string
-	castMode   string
+	castFrom string
+	castMode string
+	// plotText is the XMage rule text ("Plot {2}{U}") the cast_mode "plot"
+	// step is activated by; it travels as the step's xmage_ability.
+	plotText   string
 	answers    []oraclegen.Answer
 	mustReplay bool
 	skipReason string
