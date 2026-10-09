@@ -31,7 +31,10 @@ type triggerCause struct {
 	// target, an opponent-comparison gate) the cause needs on the other side
 	// of the table.
 	opponentBattlefield []string
-	activateCost        string // Forge cost of the activate step in steps (Crew/Saddle tap choice); "" when none
+	// opponentCounters puts counters on p1's battlefield cards at setup
+	// (card name -> kind -> count), the p1 side of counters.
+	opponentCounters map[string]map[string]int
+	activateCost     string // Forge cost of the activate step in steps (Crew/Saddle tap choice); "" when none
 }
 
 // Probe cards, each named with why. Spec hypothesis H4: the probe exists in
@@ -97,7 +100,10 @@ func baseTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards
 		return ltbSelfRecipe(reg, f, name, t)
 	case "trigger.dies":
 		if !creature {
-			return nil, "dies needs a creature"
+			// A non-creature permanent dies to the removal spell its type
+			// admits; an Aura is cast on a bearer first (setup cannot place
+			// an unattached Aura) and destroyed on it.
+			return selfDiesNonCreatureCauses(reg, f, name)
 		}
 		for _, p := range destroyProbes {
 			cast(p, "p0:"+name)
@@ -136,7 +142,9 @@ func baseTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards
 		return spellCastProbeCauses(reg, name, t), ""
 	case "trigger.becomes-target":
 		if !creature {
-			return nil, "becomes-target needs a creature"
+			// A non-creature permanent is targeted by the opponent's removal
+			// spell its type admits (the ward ask is declined as ever).
+			return becomesTargetNonCreatureCauses(reg, f, name)
 		}
 		// Keep both controller shapes: YouCtrl target triggers need p0's own
 		// spell, while ward and OppCtrl triggers need p1's spell.
