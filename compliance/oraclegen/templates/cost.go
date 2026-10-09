@@ -48,6 +48,10 @@ type costProbe struct {
 	precast *precast
 	// castMode elects a cast option by its Mode ("bargained" for Bargain);
 	// answers scripts the mid-cast asks that election poses (the sacrifice).
+	// castFrom names the zone the probe casts its spell from ("graveyard",
+	// the cast-provenance probe's Flashback cast): the spell is seeded there
+	// and NOT in the hand, and castMode elects that cast's option.
+	castFrom   string
 	castMode   string
 	answers    []oraclegen.Answer
 	mustReplay bool
