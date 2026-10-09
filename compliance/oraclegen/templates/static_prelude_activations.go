@@ -67,7 +67,7 @@ func crewPrelude(f *cards.Face, name string) (steps []oraclegen.Step, xab []stri
 		if !strings.HasPrefix(tok, "tapXType") {
 			continue
 		}
-		picks, supported := tapXTypeFixtures(tok)
+		picks, supported := tapXTypeFixtures(tok, activationX(cost))
 		if !supported {
 			return nil, nil, nil, "", false
 		}
@@ -105,7 +105,7 @@ func craftPrelude(front *cards.Face, name string) (steps []oraclegen.Step, xab [
 	}
 	sa := front.Abilities[idx]
 	cost = sa.ParamStr(cards.PKCost)
-	pool, gap := activationCostIn(cost, "battlefield")
+	pool, gap := activationCostIn(cost, "battlefield", "")
 	if gap != "" {
 		return nil, nil, nil, "", false
 	}

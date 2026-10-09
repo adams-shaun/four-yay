@@ -229,7 +229,7 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 						// the cost selector is scripted only when the runner
 						// recorded no exile pick.
 						if !exileCostPickObserved(res.Decisions, i) {
-							addActivationCostAnswers(base.XAnswers, i, cond.activationCost, res.Decisions)
+							addActivationCostAnswers(base.XAnswers, i, cond.activationCost, name, res.Decisions)
 						}
 					}
 				}
