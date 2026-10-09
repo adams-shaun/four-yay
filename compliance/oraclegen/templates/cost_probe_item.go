@@ -17,8 +17,6 @@ func costStaticGap(st cards.Static, gap string) string {
 		reason += ": " + gap
 	case strings.EqualFold(st.Params["Type"], "Ability") || (st.Params["ValidSpell"] != "" && !strings.EqualFold(st.Params["ValidSpell"], "Spell.Bargain")):
 		reason += ": activated-ability probe unsupported"
-	case strings.EqualFold(st.Params["ValidSpell"], "Spell.Bargain"):
-		reason += ": Bargain payment fixture unavailable"
 	case strings.EqualFold(st.Params["ValidCard"], "Card.Self"):
 		reason += ": unsupported self-cost shape"
 	}
