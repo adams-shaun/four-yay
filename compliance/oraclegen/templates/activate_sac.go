@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/compliance/oraclegen"
 )
 
@@ -170,6 +171,80 @@ func sacAttachedFixture(tok string) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+// sacGuardFixture names one more permanent from the Sac cost's own fixture
+// table (the entry sacFilterFixtures does not place) when the count leaves a
+// spare: the ETB guard's fodder (etbCostGuardFixtures). ok is false for a
+// self-sacrifice, an announced count with no spare, or an unsupported filter.
+func sacGuardFixture(tok string, x int) (string, bool) {
+	payload, ok := bracketPayload(tok)
+	if !ok {
+		return "", false
+	}
+	parts := strings.Split(payload, "/")
+	if len(parts) < 2 || sacSelf(tok) {
+		return "", false
+	}
+	n, err := strconv.Atoi(strings.TrimSpace(parts[0]))
+	if parts[0] == "X" {
+		n, err = x, nil
+	}
+	if err != nil || n < 1 {
+		return "", false
+	}
+	for _, alt := range strings.Split(parts[1], ";") {
+		if cards, ok := sacFilterClause(alt); ok && len(cards) > n {
+			return cards[n], true
+		}
+	}
+	return "", false
+}
+
+// etbCostGuardFixtures places one extra permanent from the Sac cost's own
+// fixture table when the source's own ETB trigger may consume the cost's
+// fodder during setup (Bullseye, Death Dealer's "When this enters, you may
+// sacrifice an artifact ...": the runner's setup fallback answers the
+// trigger, the permanent leaves, and the ability's own Sac cost would be
+// unpayable at the activate step). The guard is a name the sac list does not
+// already place, so the observed payment picks stay authoritative.
+func etbCostGuardFixtures(p0 *oraclegen.Seat, f *cards.Face, cost string, x int) {
+	if !hasSelfETBTrigger(f) {
+		return
+	}
+	for _, tok := range costTokens(cost) {
+		head := tok
+		if i := strings.IndexByte(tok, '<'); i >= 0 {
+			head = tok[:i]
+		}
+		if head != "Sac" {
+			continue
+		}
+		if card, ok := sacGuardFixture(tok, x); ok {
+			p0.Battlefield = appendFixtureUnique(p0.Battlefield, card)
+		}
+	}
+}
+
+// hasSelfETBTrigger reports whether the face prints an enters-the-battlefield
+// trigger of its own (Mode$ ChangesZone into the battlefield naming the card
+// itself): the runner's setup drain answers it, so a setup permanent may
+// leave before the activate step.
+func hasSelfETBTrigger(f *cards.Face) bool {
+	for i := range f.Triggers {
+		t := &f.Triggers[i]
+		if t.Mode != "ChangesZone" {
+			continue
+		}
+		if vc := strings.ToUpper(t.ParamStr(cards.PKValidCard)); !strings.Contains(vc, "SELF") {
+			continue
+		}
+		if dest := t.ParamStr(cards.PKDestination); dest != "" && !strings.EqualFold(dest, "Battlefield") {
+			continue
+		}
+		return true
+	}
+	return false
 }
 
 // sacAttachSteps is the prelude that attaches each attached Sac cost's

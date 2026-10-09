@@ -172,6 +172,7 @@ func activateWithFixture(reg *cards.Registry, f *cards.Face, name string, req le
 	x := activationX(cost, saXMin(f.Abilities[abilityIndex]))
 	addActivationCostFixtures(&p0, name, cost, x)
 	addActivationCounterFixtures(&p0, f, name, cost)
+	etbCostGuardFixtures(&p0, f, cost, x)
 	if need := loyaltySetupCounters(f, f.Abilities[idx], zone); need > 0 {
 		p0 = oraclegen.WithCounters(p0, name, "LOYALTY", int32(need))
 	}
