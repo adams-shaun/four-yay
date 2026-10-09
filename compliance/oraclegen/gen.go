@@ -1101,6 +1101,12 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSt
 			}
 			as = append(as, XAnswer{d.Seat, "choice", map[bool]string{true: "yes", false: "no"}[yes]})
 		case "choose_n":
+			if routing.manaHoistedPick(i) {
+				// The colour answer was hoisted to the trigger-order span's
+				// queue position (manaHoistSpan); emitting it here too would
+				// double it.
+				continue
+			}
 			if d.Resume == "damage_split" {
 				if routing.ownsSplit(i) {
 					// The shares were emitted at the target ask's own queue
@@ -1242,6 +1248,19 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSt
 				// this step scripts nothing else; shared steps keep the old
 				// inert text form (demoteTriggerOrderSpans).
 				if !triggerOrderNamesDistinct(d) {
+					// A same-source span whose step later asks a mana colour
+					// pick (Ashling, Rimebound's OrTriggeredAbility mana
+					// trigger): the colour dialog fires while the span's inert
+					// rule texts sit at the queue head and pops the first one
+					// -- the text form is unconsumable only while no other
+					// dialog fires. So the colour answer leads the stream and
+					// the span scripts nothing; any later order ask falls to
+					// the replay's fallback player, as the inert form already
+					// let it.
+					if ans, ok := routing.manaHoistSpan(i); ok {
+						as = append(as, ans)
+						break
+					}
 					as = append(as, triggerOrderTextAnswers(d)...)
 					break
 				}
