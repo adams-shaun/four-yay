@@ -744,9 +744,10 @@ func cloneChoiceZone(raw string) (state.Zone, bool) {
 // The battlefield sweep is byte-for-byte the historical one, so every
 // existing Battlefield carrier replays identically. An off-battlefield filter
 // whose head is not resolvable over a plain card object (Kaya Spirits'
-// `Card.TriggeredCards`, a trigger-Remembered referent this grammar cannot
-// bind) matches nothing here, which the caller records as one loud Note and
-// no copy -- the fail-closed landing, never a battlefield fall-through.
+// `Card.TriggeredCards`, a trigger-Remembered referent the grammar now binds
+// but whose ask carries no Remembered) matches nothing here, which the caller
+// records as one loud Note and no copy -- the fail-closed landing, never a
+// battlefield fall-through.
 func cloneChoiceCandidates(h Host, c *Ctx, spec string, zone state.Zone) []state.Target {
 	g := h.Game()
 	filter := spec

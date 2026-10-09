@@ -85,9 +85,10 @@ func TestCloneChoiceZoneUnsupportedFailsClosed(t *testing.T) {
 }
 
 // TestCloneKayaTriggeredCardsPoolFailsClosed pins the deliberate scoping: the
-// `Card.TriggeredCards` filter head rides a trigger-Remembered referent this
-// grammar cannot bind, so Kaya's exiled-card pool matches nothing and the walk
-// records one loud Note and makes no copy -- never a battlefield fall-through.
+// `Card.TriggeredCards` filter head rides a trigger-Remembered referent the
+// grammar now binds, but Kaya's ask carries no Remembered, so its exiled-card
+// pool matches nothing and the walk records one loud Note and makes no copy --
+// never a battlefield fall-through.
 func TestCloneKayaTriggeredCardsPoolFailsClosed(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	kaya, ok := reg.Lookup("Kaya, Spirits' Justice")

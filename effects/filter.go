@@ -1242,7 +1242,7 @@ func positiveRecognised(p string) bool {
 	if strings.HasPrefix(p, "greatestCMC_") || strings.HasPrefix(p, "lowestCMC") {
 		return true
 	}
-	if p == "TriggeredNewCard" || p == "TriggeredCard" || strings.HasPrefix(p, "ChosenMode") && len(p) > len("ChosenMode") {
+	if p == "TriggeredNewCard" || p == "TriggeredCard" || p == "TriggeredCards" || strings.HasPrefix(p, "ChosenMode") && len(p) > len("ChosenMode") {
 		return true
 	}
 	// Forge's base-qualified `SharesColorWith <referent>` predicate (C.A.M.P.'s
@@ -1990,6 +1990,23 @@ func matchPositive(g *state.Game, p string, o *state.Object, sc SpecContext) (re
 			return false, false
 		}
 		return o.ID == sc.TriggerCard, true
+	}
+	if p == "TriggeredCards" {
+		// Forge's Card.TriggeredCards set property inside an ordinary filter
+		// spec (Hedge Shredder, Toluz Clever Conductor's ChangeZoneAll
+		// ChangeType$): the candidate is one of the cards the triggering event
+		// batch captured, carried on SpecContext.Remembered -- the same set the
+		// Defined$ TriggeredCards spelling names (definedSpecTriggeredCard).
+		// The ChangesZoneAll trigger mode binds no TriggerCard, so the read is
+		// the Remembered set, never sc.TriggerCard. An empty Remembered is a
+		// RESOLVED no-match (ok=true), matching the Defined$ spelling, not an
+		// unbound-referent fail-closed.
+		for _, t := range sc.Remembered {
+			if !t.IsPlayer && t.Obj == o.ID {
+				return true, true
+			}
+		}
+		return false, true
 	}
 	if p == "blockingTriggeredAttacker" {
 		// Forge's Creature.blockingTriggeredAttacker (She-Hulk,
