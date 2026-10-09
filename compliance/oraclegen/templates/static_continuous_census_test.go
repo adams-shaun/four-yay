@@ -64,6 +64,11 @@ import (
 // card in its zone since cli-3b80d13b1), so DFT loses its four
 // "granted ability in Graveyard is not offered by the engine" skips and its
 // served count rises by four.
+// Re-pinned again by agent-20261009T055718Z-661990d1: a signed "-X where X is
+// your life total" static on a crewed Vehicle is observed through the crew
+// prelude at a starting life just below the printed power (The Last Ride:
+// crewed 1/1 at life 12), so DFT loses its computed-count skip and its served
+// count rises by one.
 // It fails in both directions.
 var wantStaticContinuousCensus = map[string]map[string]int{
 	"BIG": {
@@ -91,9 +96,11 @@ var wantStaticContinuousCensus = map[string]map[string]int{
 	// DFT includes the Surveyor cycle's graveyard AddAbility$ grant, served by
 	// the gated-grant observation's off-battlefield arm (agent-
 	// 20261009T060626Z-a6d0cf40); its four former engine-gap skips are gone.
+	// The Last Ride's crewed -X/-X life static (agent-
+	// 20261009T055718Z-661990d1) is the computed-count row the crew prelude
+	// serves.
 	"DFT": {
-		"served": 57,
-		"skip:static amount is a computed count the fixture does not make observable":            1,
+		"served": 58,
 		"skip:static characteristic-defining P/T of a non-creature (the snapshot omits its P/T)": 1,
 		"skip:static effect not observable on a probe or the card":                               2,
 		"skip:static gated self grant is not offered in the gate-on fixture":                     1,

@@ -62,6 +62,23 @@ type staticFixture struct {
 	// Case's own "To solve" trigger is a battlefield trigger, so it fires
 	// only at the end step of the turn the Case is cast, CR 719.3a).
 	afterSteps []oraclegen.Step
+	// afterXab is parallel to afterSteps: the XMage rule-text prefix of an
+	// afterStep activate (the crew or Craft prelude's activation), "" on
+	// every other afterStep.
+	afterXab []string
+	// reanswers marks a fixture whose afterSteps ask XMage questions the
+	// cast path's XAnswers do not cover (an activate step's cost): the
+	// serving loop re-derives XAnswers from the full replay and scripts the
+	// activationCost's picks at the fixture's own activate step.
+	reanswers bool
+	// craft places the card by casting its FRONT face (the static under
+	// test sits on the back face a Craft activation transforms into).
+	craft bool
+	// activationCost is the Forge cost of an afterStep activate step whose
+	// non-mana cost carries a choice (a Crew tap, a Craft material exile):
+	// the serving loop scripts XMage's cost selector from the observed
+	// decisions, the same helper the standalone activate template uses.
+	activationCost string
 }
 
 // setupOnly reports whether the fixture needs no steps, so it also fits the
@@ -85,6 +102,14 @@ func (s staticFixture) seats(p0, p1 *oraclegen.Seat) {
 	p0.Graveyard = append(p0.Graveyard, s.graveyard...)
 	p0.Exile = append(p0.Exile, s.exile...)
 	p1.Battlefield = append(p1.Battlefield, s.p1Battlefield...)
+	if s.life > 0 {
+		// The fixture's own life total (a signed "-X where X is your life
+		// total" static must leave the crewed card a positive, non-printed
+		// P/T): p0's starting life, the same setup field the
+		// applyActivationPrelude prelude sets.
+		life := s.life
+		p0.Life = &life
+	}
 	kinds := make([]string, 0, len(s.probeCounters))
 	for kind := range s.probeCounters {
 		kinds = append(kinds, kind)
@@ -118,11 +143,26 @@ func (s staticFixture) merge(o staticFixture) staticFixture {
 	if s.manaExtra == 0 {
 		s.manaExtra = o.manaExtra
 	}
+	if s.life == 0 {
+		s.life = o.life
+	}
 	if s.tokenName == "" {
 		s.tokenName, s.tokenSpec, s.tokenAttackers = o.tokenName, o.tokenSpec, o.tokenAttackers
 	}
 	if len(s.afterSteps) == 0 {
 		s.afterSteps = append(s.afterSteps, o.afterSteps...)
+	}
+	if len(s.afterXab) == 0 {
+		s.afterXab = append(s.afterXab, o.afterXab...)
+	}
+	if o.reanswers {
+		s.reanswers = true
+	}
+	if o.craft {
+		s.craft = true
+	}
+	if s.activationCost == "" {
+		s.activationCost = o.activationCost
 	}
 	for kind, n := range o.probeCounters {
 		if s.probeCounters == nil {
@@ -352,7 +392,11 @@ func staticBodyFixture(reg *cards.Registry, body string, n int) (staticFixture, 
 		// so the count is nonzero.
 		return staticFixture{conditionPrelude: conditionPrelude{hand: oraclegen.Repeat("Wastes", staticCountFrom(body))}}, true
 	case strings.HasPrefix(lower, "count$valid "):
-		return staticPresence(filter("Count$Valid "), "Battlefield", n)
+		flt := filter("Count$Valid ")
+		if fx, ok := staticAttachedCountFixture(reg, flt); ok {
+			return fx, true
+		}
+		return staticPresence(flt, "Battlefield", n)
 	case strings.Contains(lower, "hascardsingraveyard"):
 		return staticFixture{conditionPrelude: conditionPrelude{graveyard: oraclegen.Repeat("Wastes", staticCountFrom(body))}}, true
 	case strings.HasPrefix(lower, "count$yourlifetotal"), strings.HasPrefix(lower, "count$lifeyougainedthisturn"):
@@ -420,7 +464,7 @@ func resolvedCastSteps(reg *cards.Registry, card string) []oraclegen.Step {
 // staticFixtures offers the candidate fixtures for one static, most specific
 // first: the ones derived from the static's own condition, then the phase
 // helper's generic board / graveyard / turn-history ones.
-func staticFixtures(reg *cards.Registry, f *cards.Face, st cards.Static) []staticFixture {
+func staticFixtures(reg *cards.Registry, c *cards.Card, f *cards.Face, name string, st cards.Static) []staticFixture {
 	var parts []staticFixture
 	add := func(s staticFixture, ok bool) {
 		if ok {
@@ -474,6 +518,17 @@ func staticFixtures(reg *cards.Registry, f *cards.Face, st cards.Static) []stati
 	// pool mana, a raid-count attack) run after every existing candidate, so
 	// a row an existing candidate already serves keeps its scenario bytes.
 	out = append(out, staticStateFixtures(reg, f, st)...)
+	// The activate preludes (a crew that makes a Vehicle's P/T print, a
+	// Craft that populates the exile set a back-face CDA counts) run last,
+	// after every existing candidate: they are the only fixtures whose
+	// afterSteps ask XMage questions, so a row an existing candidate serves
+	// keeps its scenario bytes.
+	if fx, ok := staticCrewFixture(reg, f, name, st); ok {
+		out = append(out, fx)
+	}
+	if fx, ok := staticCraftFixture(reg, c, f, name, st); ok {
+		out = append(out, fx)
+	}
 	return staticAvoidProbeCollision(reg, out)
 }
 
