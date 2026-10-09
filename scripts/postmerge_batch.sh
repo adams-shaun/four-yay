@@ -33,11 +33,12 @@ PAUSE=${PAUSE:-$repo/.ds4/orchestrator/pause}
 wt=$repo/.worktrees/postmerge-full
 # postmerge_full runs up to eight test binaries concurrently (-p=8). Keep
 # their aggregate soft heap limit below this scope's hard cap, with per-test
-# runtime settings matching the operator's 2 GiB / 2 vCPU budget. Two host tests
-# measured just over 2 GiB are pinned in the shrink-only exception inventory at
-# internal/testutil/testdata/rss_exceptions.txt; operator full-scope measurement
-# is required before relying on these proposed limits.
-SCOPE=(systemd-run --user --scope -q -p MemoryMax=16G -p CPUQuota=1600% env GOMEMLIMIT=1536MiB GOMAXPROCS=2 GOGC=200 GOFLAGS="-p=2 -trimpath" GORGE_ORACLEGEN_FULL_TARGET_AUDIT=1)
+# runtime settings matching the operator's 4 GiB / 4 vCPU budget (doubled
+# 2026-10-09 from 2 GiB / 2 vCPU with the box's DRAM). The two host tests that
+# pinned the 2 GiB inventory fit 4 GiB, so the shrink-only exception inventory
+# at internal/testutil/testdata/rss_exceptions.txt is empty; the scope's hard
+# cap doubles to 32G so eight binaries at the 4 GiB ceiling still fit it.
+SCOPE=(systemd-run --user --scope -q -p MemoryMax=32G -p CPUQuota=1600% env GOMEMLIMIT=3GiB GOMAXPROCS=4 GOGC=200 GOFLAGS="-p=2 -trimpath" GORGE_ORACLEGEN_FULL_TARGET_AUDIT=1)
 
 say() { echo "$(date '+%F %T') $*" | tee -a "$LOG"; }
 
@@ -74,7 +75,7 @@ if [ "${1:-}" = "--parse-fails" ]; then parse_fails "$2"; exit 0; fi
 # fails_at <sha> <pkg> <regex>: 0 if the tests FAIL at sha, 1 if they pass.
 fails_at() {
   git -C "$wt" switch -q --detach "$1" || return 2
-  ! (cd "$wt" && flock -o "$LOCK" "${SCOPE[@]}" go test -p=4 -run "$3" "$2" >/dev/null 2>&1)
+  ! (cd "$wt" && gorge_heavy_run "${SCOPE[@]}" go test -p=4 -run "$3" "$2" >/dev/null 2>&1)
 }
 
 # bisect <good> <bad> <pkg> <regex>: first first-parent commit in good..bad
@@ -112,7 +113,7 @@ while true; do
       red_fails=""
       say "FULL start ${head:0:9} ($(git rev-list --first-parent --count "$last_green..$head") since last green ${last_green:0:9})"
       s=$(date +%s)
-      if flock -o "$LOCK" "${SCOPE[@]}" scripts/postmerge_full.sh "$wt" "$head" >"$OUT" 2>&1; then
+      if gorge_heavy_run "${SCOPE[@]}" scripts/postmerge_full.sh "$wt" "$head" >"$OUT" 2>&1; then
         last_tested=$head
         if git push -q origin "$head:refs/heads/main"; then
           last_green=$head

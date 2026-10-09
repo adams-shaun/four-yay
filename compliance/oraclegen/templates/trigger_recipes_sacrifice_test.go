@@ -9,9 +9,11 @@ import (
 
 // sacrificeRecipeCases is one real card per sacrifice recipe shape: a creature
 // or permanent sacrificed by Village Rites, an artifact by Deadly Dispute (p0's
-// or, for an OppCtrl filter, p1's), the card's own sacrifice ability, and a
+// or, for an OppCtrl filter, p1's), the card's own sacrifice ability, a
 // Food/Clue/permanent token a maker prelude mints and Deadly Dispute then
-// sacrifices. probe is the card the cause step names.
+// sacrifices, and a self filter on a card with no sacrifice ability, answered
+// with Angelic Purge's sacrifice-a-permanent cost. probe is the card the cause
+// step names.
 var sacrificeRecipeCases = []struct {
 	name, key, probe string
 	seat             int
@@ -37,6 +39,8 @@ var sacrificeRecipeCases = []struct {
 	{"Persuasive Interrogators", "trigger#0.1", "Deadly Dispute", 0},
 	{"Curious Cadaver", "trigger#0.0", "Deadly Dispute", 0},
 	{"The Sackville-Bagginses", "trigger#0.1", "Deadly Dispute", 0},
+	{"Disturbing Mirth", "trigger#0.1", "Angelic Purge", 0},
+	{"Ordeal of Nylea", "trigger#0.1", "Angelic Purge", 0},
 }
 
 // TestSacrificeTriggerRecipesFire serves one real card per sacrifice recipe

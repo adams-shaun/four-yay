@@ -114,11 +114,20 @@ type offerTry struct {
 	// firstPlay is a land p0 plays before the assertion (the extra land drop
 	// is observed on the SECOND land); it is also in extraHand.
 	firstPlay string
+	// resolveFirstPlay resolves whatever the first land's entry put on the
+	// stack before the second land is asserted: a source whose own trigger
+	// fires on a land entering (Thranduil's Company's Landfall) otherwise
+	// holds the stack, and the offer checkpoint is not at sorcery speed.
+	resolveFirstPlay bool
 	// attachProbe re-attaches an Aura source to the probe after its cast
 	// (the fixture's cast target is an opposing permanent): a granted ability
 	// on an EnchantedBy recipient is observed on the probe, so the Aura must
 	// end up attached to it.
 	attachProbe bool
+	// probeLoyalty puts this many LOYALTY counters on the probe at setup, so
+	// a granted loyalty ability whose cost exceeds the probe's printed
+	// starting loyalty (Avatar of Burgeoning Echoes' [-10]) is still payable.
+	probeLoyalty int32
 }
 
 // staticOfferItem serves a play-permission or granted-Flashback static as an
@@ -330,6 +339,9 @@ func offerScenario(f *cards.Face, name string, t offerTry, want bool, base *orac
 	var tail []oraclegen.Step
 	if t.firstPlay != "" {
 		tail = append(tail, oraclegen.Step{Op: "play", Seat: 0, Card: "p0:" + t.firstPlay})
+		if t.resolveFirstPlay {
+			tail = append(tail, oraclegen.Step{Op: "resolve"})
+		}
 	}
 	if t.mana != "" {
 		tail = append(tail, oraclegen.Step{Op: "mana", Seat: 0, Mana: t.mana})
@@ -385,6 +397,9 @@ func offerScenario(f *cards.Face, name string, t offerTry, want bool, base *orac
 	}
 	for _, n := range t.extraGY {
 		p0.Graveyard = appendFixtureUnique(append([]string(nil), p0.Graveyard...), n)
+	}
+	if t.probeLoyalty > 0 {
+		p0 = oraclegen.WithCounters(p0, t.probe, "LOYALTY", t.probeLoyalty)
 	}
 	setup["p0"] = p0
 	sc.Setup = setup

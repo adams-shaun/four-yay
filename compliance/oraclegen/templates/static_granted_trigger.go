@@ -339,6 +339,7 @@ func grantedTriggerWithFixture(reg *cards.Registry, f *cards.Face, name string, 
 	it := oraclegen.NewLevelBItem(name, req.Key, StaticApplies.Version, []string{"611.3", "613"}, sc)
 	it.XAnswers = oraclegen.XAnswersForScenario(res, sc, oraclegen.ModeNumbers(f), castSteps)
 	it.XAnswers = scriptPreludeSacrifice(it.XAnswers, c.prelude, len(sc.Steps))
+	it.XAnswers = scriptPreludeActivationCost(it.XAnswers, c.prelude, c.preludeActivationCost, len(sc.Steps), res.Decisions)
 	it.XAnswers = scriptCauseActivationCost(it.XAnswers, c, sc.Steps, res.Decisions)
 	return it, true
 }

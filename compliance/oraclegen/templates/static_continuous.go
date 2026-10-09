@@ -246,6 +246,11 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 	if it, ok := staticOfferItem(reg, c, f, name, req, st); ok {
 		return it, nil
 	}
+	// A has-all-abilities-of static (GainsAbilitiesOf$) is observed by using a
+	// donor card's activated ability on the recipient (static_granted_donor.go).
+	if it, ok := staticDonorItem(reg, f, name, req, st); ok {
+		return it, nil
+	}
 	if st.HasParam(cards.PKMayLookAt) {
 		if it, ok := lookAtLibraryTopItem(reg, f, name, req); ok {
 			return it, nil

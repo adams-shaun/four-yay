@@ -85,9 +85,14 @@ chmod +x "$BIN/go"
 
 cat >"$BIN/flock" <<'EOF'
 #!/usr/bin/env bash
-# stub flock: consume -o <lockfile>, then run the rest.
-[ "$1" = -o ] && shift 2
-exec "$@"
+# stub flock: the old `flock -o <lockfile> cmd` form consumes -o and runs the
+# rest; the fd form heavy_lock.sh's lane scan now uses (`flock -n 9`) merely
+# probes the fd, and this stub's lanes are always free, so exit 0.
+if [ "$1" = -o ]; then
+	shift 2
+	exec "$@"
+fi
+exit 0
 EOF
 chmod +x "$BIN/flock"
 
