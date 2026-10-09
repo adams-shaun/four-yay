@@ -184,6 +184,11 @@ type Expect struct {
 	// LookAtLibraryTop is the runner's per-seat "may look at the top card of
 	// their library" assertion (rules oracleExpect.LookAtLibraryTop).
 	LookAtLibraryTop map[string]bool `json:"look_at_library_top,omitempty"`
+	// LookAt is the same read over a battlefield object (rules
+	// oracleExpect.LookAt, mayLookAtObject): a Continuous MayLookAt$ grant
+	// over a face-down permanent is hidden information no snapshot field
+	// carries. The key names the seat, the value the object ref.
+	LookAt map[string]string `json:"look_at,omitempty"`
 	// MaxHandSize is the runner's per-seat effective CR 514.1 maximum hand
 	// size assertion (rules oracleExpect.MaxHandSize), a Continuous
 	// SetMaxHandSize$ grant no snapshot field carries.
@@ -275,6 +280,14 @@ type Skip struct {
 
 // mayYes queues, on the step that posed it, an answer taking option 0 for
 // every decision gorge's fallback left empty although it offered options.
+// A payment-tap ask (Convoke/Improvise/Waterbend/Harmonize's "Tap <name>
+// for 1/for <colour>/to waterbend for 1", a creature-mana "instead of
+// paying 1", a Harmonize "reduce by N") is never force-answered: the tap
+// changes which mana the cast spends, and the two engines must agree on the
+// payment, so the injected pick leaves gorge pool mana floating that a
+// pool-paid cast spends (The Wandering Rescuer, Lofty Dreams). The empty
+// fallback answer is kept: both engines then pay the whole cost from the
+// pool.
 func mayYes(sc Scenario, ds []rules.OracleDecision) (Scenario, bool) {
 	out := sc
 	out.Steps = append([]Step(nil), sc.Steps...)
@@ -284,12 +297,39 @@ func mayYes(sc Scenario, ds []rules.OracleDecision) (Scenario, bool) {
 			d.Via == "target" || d.Via == "answer" || (d.GorgeKind != "choose" && d.GorgeKind != "target") {
 			continue
 		}
+		if len(d.Picks) == 0 && tapPaymentAsk(d.First) {
+			continue
+		}
 		st := out.Steps[d.Step]
 		st.Answers = append(append([]Answer(nil), st.Answers...), Answer{Kind: d.GorgeKind, Pick: []string{d.First}})
 		out.Steps[d.Step] = st
 		changed = true
 	}
 	return out, changed
+}
+
+// tapPaymentAsk reports an option label from pay.ConvokeAsk's optional
+// tap-for-payment menu. The family is matched by label because a
+// rules.OracleDecision carries no option kinds when the fallback declined
+// it; every member names the tapped permanent and the contribution. A mana
+// wheel's "Tap <name> for mana" and a mandatory pay ask (Min 1, so gorge's
+// fallback answered it and Picks is non-empty) do not match.
+func tapPaymentAsk(label string) bool {
+	if !strings.HasPrefix(label, "Tap ") {
+		return false
+	}
+	if strings.HasSuffix(label, " for 1") || strings.HasSuffix(label, " instead of paying 1") {
+		return true
+	}
+	if strings.Contains(label, " (reduce by ") {
+		return true
+	}
+	for _, c := range []string{"W", "U", "B", "R", "G"} {
+		if strings.HasSuffix(label, " for "+c) {
+			return true
+		}
+	}
+	return false
 }
 
 // searchPicks queues, on the hidden-library-search step that posed it, an
