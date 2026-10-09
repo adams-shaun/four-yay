@@ -506,9 +506,11 @@ post_gates = "orchestrator.hooks:testheads_policy"
 # builds (measured: 0 cross-worktree hits; 4/5 with -trimpath).
 # 2026-10-06 (operator): compiles get 4 CPUs. ./rules is one 118k-line
 # package and the compiler parallelises it only up to GOMAXPROCS (max 4);
-# at 2 a seat's cold rules compile took ~1 min. Test runs keep the 2-CPU
-# budget through their own capped scope (AGENTS.md test command).
+# at 2 a seat's cold rules compile took ~1 min. Test runs keep their budget
+# through their own capped scope (AGENTS.md test command).
+# 2026-10-09 (operator): GOMEMLIMIT doubles to 3GiB with the per-test budget
+# (4 GiB RSS / 4 vCPU); the seat scope's hard caps already cover it.
 [seats.scope]
 memory_max = "4G"
 cpu_quota = "400%"
-env = { GOMAXPROCS = "4", GOMEMLIMIT = "1536MiB", GOFLAGS = "-p=2 -trimpath" }
+env = { GOMAXPROCS = "4", GOMEMLIMIT = "3GiB", GOFLAGS = "-p=2 -trimpath" }

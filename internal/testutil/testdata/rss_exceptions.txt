@@ -1,5 +1,5 @@
-# Tests whose peak RSS exceeds the 2 GiB per-test budget (2097152 KiB) under
-# GOMEMLIMIT=1536MiB GOMAXPROCS=2, i.e. the limits both gate scopes run with.
+# Tests whose peak RSS exceeds the 4 GiB per-test budget (4194304 KiB) under
+# GOMEMLIMIT=3GiB GOMAXPROCS=4, i.e. the limits both gate scopes run with.
 # SHRINK-ONLY: rows are deleted when the test is fixed, never added. The exact
 # package/test/peak tuples are pinned by rssExceptionPeaks in
 # rss_exceptions_test.go. Each row names its measured peak. Columns: package,
@@ -7,5 +7,8 @@
 # Measured 2026-10-05 with each test binary under
 #   systemd-run --user --scope -p MemoryMax=2G -p CPUQuota=200% \
 #     env GOMAXPROCS=2 GOMEMLIMIT=1536MiB /usr/bin/time -f %M <pkg>.test -test.run '^<Test>$'
-host	TestHostedEnvSeatsNeverSeeTheLiveEngine	2107888
-host	TestHostFeedEqualsRebuildFeed	2102464
+# EMPTY as of 2026-10-09: the operator doubled the budget (2 GiB/2 vCPU ->
+# 4 GiB/4 vCPU, GOMEMLIMIT 1536MiB -> 3GiB) when the box went to 120 GiB, and
+# the two rows the 2 GiB budget pinned (host TestHostedEnvSeatsNeverSeeTheLive
+# Engine 2107888, host TestHostFeedEqualsRebuildFeed 2102464) fit 4 GiB with
+# room to spare, so they were deleted per the shrink-only rule.
