@@ -1,0 +1,2 @@
+{"shape":{"template":"static","op":"harness","field":"xmage","diff":"IllegalArgumentException: unsupported pass pair at step N"},"key":"static | harness | xmage | IllegalArgumentException: unsupported pass pair at step N","cards":1}
+{"card":"Entropic Battlecruiser","template":"static#0.0","status":"harness","api":"-","sets":["EOE"],"detail":"xmage: IllegalArgumentException: unsupported pass pair at step 2"}
