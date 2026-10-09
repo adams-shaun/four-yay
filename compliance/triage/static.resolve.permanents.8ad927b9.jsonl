@@ -1,0 +1,2 @@
+{"shape":{"template":"static","op":"resolve","field":"permanents","diff":"gorge+Porcelain Gallery; xmage+$CARD"},"key":"static | resolve | permanents | gorge+Porcelain Gallery; xmage+$CARD","cards":1}
+{"card":"Dollmaker's Shop","template":"static#1.0","status":"diverge","api":"AttackersDeclaredOneTarget:Token","detail":"step 1 (resolve) permanents: gorge \"c0 o0 Porcelain Gallery [enchantment room] {W}\", xmage \"c0 o0 Dollmaker's Shop [enchantment room] {W}\""}

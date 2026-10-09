@@ -34,7 +34,12 @@ func costProbeItem(reg *cards.Registry, f *cards.Face, name string, req levelb.R
 	p0.Exile = appendUnique(p0.Exile, p.exile...)
 	p0.Hand = append(p0.Hand, p.hand...)
 	if p.activate == nil {
-		if p.opponent {
+		if p.castFrom != "" {
+			// The provenance probe casts from the zone its spell sits in, so
+			// the spell is seeded there and nowhere else: a hand copy would
+			// leave the cast step's ref ambiguous between two objects.
+			p0.Graveyard = appendUnique(p0.Graveyard, p.spell)
+		} else if p.opponent {
 			p1.Hand = appendUnique(p1.Hand, p.spell)
 		} else {
 			p0.Hand = appendUnique(p0.Hand, p.spell)
@@ -58,6 +63,10 @@ func costProbeItem(reg *cards.Registry, f *cards.Face, name string, req levelb.R
 	if p.seat != nil {
 		p.seat(&p0)
 	}
+	// A requirement on an alternate face (Norman Osborn's Green Goblin
+	// ReduceCost) needs the source permanent showing that face: setup places
+	// it on its back face (Seat.BackFace, an emitted FlipFace).
+	setupBackFace(&p0, name, req)
 	sc := oraclegen.Scenario{
 		Setup:        map[string]oraclegen.Seat{"p0": p0, "p1": p1},
 		SetupAnswers: append(oraclegen.OpeningHandAnswers(f), p.setupAnswers...),

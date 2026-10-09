@@ -175,12 +175,12 @@ func TestCostSpellFilterGrammar(t *testing.T) {
 		{bears, "Permanent", true}, {strike, "Permanent", false},
 		{strike, "Instant.cmcGE4", false}, {bears, "Creature.cmcLE2", true},
 	} {
-		if got := spellFilterMatches(tc.face, tc.filter); got != tc.want {
+		if got := spellFilterMatches(nil, tc.face, tc.filter, provNone); got != tc.want {
 			t.Errorf("filter %q on %s = %v, want %v", tc.filter, tc.face.Name, got, tc.want)
 		}
 	}
 	for _, filter := range []string{"Card.!wasCastFromYourHand", "Artifact.token+YouCtrl", "Permanent.AdventureCard"} {
-		if spellFilterSupported(filter) && !strings.Contains(filter, "wasCast") && !strings.Contains(filter, "AdventureCard") {
+		if spellFilterSupported(filter, provNone) && !strings.Contains(filter, "wasCast") && !strings.Contains(filter, "AdventureCard") {
 			t.Errorf("filter %q is accepted but must be a named gap", filter)
 		}
 	}

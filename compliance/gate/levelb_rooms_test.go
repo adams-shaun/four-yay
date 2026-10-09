@@ -17,6 +17,18 @@ import (
 // face, the way checkA does. Before the fix every Room with a committed row
 // reported "no verdict for <whole name>/..." over an existing current row.
 func TestLevelBRoomVerdictsAreLookedUpByFace(t *testing.T) {
+	// pinnedKey names the requirement each card's pinned verdict row settles,
+	// so the no-verdict assertion above reads only those keys.
+	pinnedKey := func(card string) string {
+		switch card {
+		case "Dazzling Theater":
+			return "static#0.0"
+		case "Central Elevator":
+			return "trigger#0.0"
+		default:
+			return "trigger#0.0"
+		}
+	}
 	root := filepath.Join("..", "..")
 	reg := testutil.CorpusRegistry(t)
 	verdicts, err := compliance.LoadVerdicts(filepath.Join(root, compliance.VerdictDir))
@@ -52,10 +64,14 @@ func TestLevelBRoomVerdictsAreLookedUpByFace(t *testing.T) {
 		byCard[p.Card] = append(byCard[p.Card], p.Reason)
 	}
 	// The agreed rows settle their requirement: never a missing-verdict
-	// problem (their other requirements may still skip or diverge).
+	// problem for the requirements this test pins (their other requirements
+	// may still skip, diverge, or be a NEW item whose verdict the host
+	// driver-replay batch owes -- Dazzling Theater/static#1.0 since the
+	// room-door static templates landed).
 	for _, card := range []string{"Bottomless Pool", "Dazzling Theater", "Central Elevator"} {
 		for _, r := range byCard[card] {
-			if strings.HasPrefix(r, "no verdict for") || strings.HasPrefix(r, "verdict is for an older scenario") {
+			if (strings.HasPrefix(r, "no verdict for") || strings.HasPrefix(r, "verdict is for an older scenario")) &&
+				strings.Contains(r, "/"+pinnedKey(card)+"/") {
 				t.Errorf("%s: %q; the committed row settles this requirement", card, r)
 			}
 		}

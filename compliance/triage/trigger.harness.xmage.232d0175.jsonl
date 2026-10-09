@@ -1,3 +1,0 @@
-{"shape":{"template":"trigger","op":"harness","field":"xmage","diff":"IllegalArgumentException: […] Couldn't find a card: Disguise Agent"},"key":"trigger | harness | xmage | IllegalArgumentException: […] Couldn't find a card: Disguise Agent","cards":2}
-{"card":"Case of the Pilfered Proof","template":"trigger#0.0","status":"harness","api":"ChangesZone:PutCounter+TurnFaceUp:PutCounter+Phase:AlterAttribute","sets":["MKM"],"detail":"xmage: IllegalArgumentException: [TEST] Couldn't find a card: Disguise Agent"}
-{"card":"Perimeter Enforcer","template":"trigger#0.0","status":"harness","api":"ChangesZone:Pump+TurnFaceUp:Pump","sets":["MKM"],"detail":"xmage: IllegalArgumentException: [TEST] Couldn't find a card: Disguise Agent"}

@@ -90,6 +90,11 @@ var activateCensusSets = []string{"BIG", "EOE", "FDN", "FRA"}
 // ability lines, so their {T} mana ability is served instead of skipped as
 // "xmage text ambiguous" (EOE mana 17 -> 23, ambiguous 6 -> 0).
 //
+// Re-measured for the solved-Case / scry-history ticket
+// (cli-20261009T031408Z-09f47be1): Proctor of Potential's scry/surveil gate now
+// gets a scry prelude, so FRA graveyard 8 -> 9 and its named restriction gap
+// drops to zero.
+//
 // Re-measured for the activation-cost fixture ticket
 // (cli-20261006T144108Z-00fe26be): a Sac cost naming a token a maker card can
 // produce, and a tapXType total-power/count cost, are served from a prelude
@@ -99,6 +104,15 @@ var activateCensusSets = []string{"BIG", "EOE", "FDN", "FRA"}
 // Lathril, Blade of the Elves' tapXType<10/Elf> is now recognised as a
 // count above the catalogue rather than an unsupported filter (FDN
 // unsupported-filter 1 -> 0, count-above-catalogue 0 -> 1).
+// Re-measured for the setup-counters fixture ticket
+// (cli-20261009T031409Z-a76de35a): counter-removal costs are no longer cost
+// gaps. A SubCounter part whose removal target is a fixture placeable
+// (Creature.YouCtrl, Artifact) is served with the bearer holding the counters
+// (EOE Sunstar Chaplain; FRA had none, its one gap was Chandra's), and an
+// announced SubCounter<X/Kind> part announces X = 1 with one counter seeded on
+// the source (FRA Chandra, Chill of Compliance -X; EOE had none). EOE and FRA
+// battlefield counts rise by one each and both SubCounter<...> gap buckets
+// empty.
 var wantActivateCensus = map[string]map[string]int{
 	"BIG": {
 		"served:activate.battlefield":        11,
@@ -108,10 +122,9 @@ var wantActivateCensus = map[string]map[string]int{
 		"skip:activate no fixture":           1,
 	},
 	"EOE": {
-		"served:activate.battlefield":             37,
-		"served:activate.mana":                    23,
-		"skip:activate cost gap: SubCounter<...>": 1,
-		"skip:activate cost gap: tapXType<X>":     1,
+		"served:activate.battlefield":         38,
+		"served:activate.mana":                23,
+		"skip:activate cost gap: tapXType<X>": 1,
 	},
 	"FDN": {
 		"served:activate.battlefield":                             89,
@@ -121,13 +134,11 @@ var wantActivateCensus = map[string]map[string]int{
 		"skip:activate no fixture":                                1,
 	},
 	"FRA": {
-		"served:activate.battlefield":                                      71,
-		"served:activate.graveyard":                                        8,
-		"served:activate.hand":                                             9,
-		"served:activate.mana":                                             27,
-		"skip:activate cost gap: SubCounter<...>":                          1,
-		"skip:activate no fixture":                                         1,
-		"skip:activation restriction: SVar (Count$YouScryThisTurn/Plus.Y)": 1,
+		"served:activate.battlefield": 72,
+		"served:activate.graveyard":   9,
+		"served:activate.hand":        9,
+		"served:activate.mana":        27,
+		"skip:activate no fixture":    1,
 		"skip:activate target gap: attackedThisTurn needs a combat prelude (Creature.attackedThisTurn)": 1,
 	},
 }
