@@ -73,6 +73,12 @@ import (
 // prelude at a starting life just below the printed power (The Last Ride:
 // crewed 1/1 at life 12), so DFT loses its computed-count skip and its served
 // count rises by one.
+// Re-pinned by agent-20261009T124456Z-3f7d2756 (r2): the engine words the
+// 4a6b5965 landing added (effects/filter_word_game_rider.go) let two fixtures
+// observe for the first time -- the `Creature.attacking Opponent` static
+// (DFT Oviya, Automech Artisan, trample) and the `Card.!dealtCombatDamagetoAny`
+// static (FRA Ruric Thar, Magecrusher, hexproof) -- so each set loses its one
+// remaining generic-observability skip and its served count rises by one.
 // It fails in both directions.
 var wantStaticContinuousCensus = map[string]map[string]int{
 	"BIG": {
@@ -91,8 +97,8 @@ var wantStaticContinuousCensus = map[string]map[string]int{
 		"skip:static needs counters on the affected permanent":                                       1,
 	},
 	"FRA": {
-		"served": 34,
-		"skip:static effect not observable on a probe or the card":                   2,
+		"served": 35,
+		"skip:static effect not observable on a probe or the card":                   1,
 		"skip:static grants a static ability (observed only through its own effect)": 1,
 		"skip:static counts cards exiled with the source":                            1,
 		"skip:static grants only keywords outside the compared evergreen set":        1,
@@ -106,9 +112,8 @@ var wantStaticContinuousCensus = map[string]map[string]int{
 	// 20261009T055718Z-17e92d7b) is the generic-observability row the
 	// advanced-scenario path serves.
 	"DFT": {
-		"served": 59,
+		"served": 60,
 		"skip:static characteristic-defining P/T of a non-creature (the snapshot omits its P/T)": 1,
-		"skip:static effect not observable on a probe or the card":                               1,
 		"skip:static gated self grant is not offered in the gate-on fixture":                     1,
 		"skip:static grants a static ability (observed only through its own effect)":             1,
 		"skip:static grants a replacement effect (needs an event the replacement can change)":    2,
