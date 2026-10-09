@@ -144,7 +144,7 @@ func costGateFixtures(reg *cards.Registry, f *cards.Face, st cards.Static) ([][]
 		if w := costCombatWord(spec); w != "" {
 			return nil, costCombatGap(spec, w)
 		}
-		pres, gap := activationPresentPrelude(reg, spec, st.Params["PresentZone"], st.Params["PresentCompare"])
+		pres, gap := activationPresentPrelude(reg, nil, "", spec, st.Params["PresentZone"], st.Params["PresentCompare"])
 		if len(pres) == 0 && gap != "" {
 			return nil, costGateGap(spec, gap)
 		}
@@ -233,7 +233,7 @@ func costCountPrelude(reg *cards.Registry, f *cards.Face, svar, compare string) 
 		if w := costCombatWord(filter); w != "" {
 			return nil, costCombatGap(filter, w)
 		}
-		if pres, gap := activationPresentPrelude(reg, strings.TrimSpace(filter), zone, compare); len(pres) > 0 {
+		if pres, gap := activationPresentPrelude(reg, nil, "", strings.TrimSpace(filter), zone, compare); len(pres) > 0 {
 			return pres, ""
 		} else if gap != "" {
 			return nil, costGateGap(filter, gap)

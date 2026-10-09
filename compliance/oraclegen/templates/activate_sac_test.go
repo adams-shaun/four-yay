@@ -158,8 +158,11 @@ func TestActivateSacGapClasses(t *testing.T) {
 		{"Sac<3/Artifact.token+WithDifferentNames/artifact tokens with different names>", "Sac<token>"},
 		{"Sac<1/Permanent.token+namedWood/token named Wood>", "Sac<token>"},
 		{"Sac<1/Blood>", "Sac<unsupported-filter>"},
-		{"Sac<1/Equipment.Attached/an Equipment attached to NICKNAME>", "Sac<attached>"},
-		{"Sac<1/Aura.Attached>", "Sac<attached>"},
+		// An Aura or Equipment attached to the source is served (commit
+		// 07bf9d1b0 places the attached permanent and answers the sacrifice
+		// ask), so neither is a named gap any more.
+		{"Sac<1/Equipment.Attached/an Equipment attached to NICKNAME>", ""},
+		{"Sac<1/Aura.Attached>", ""},
 		// A count above the distinct fixtures the table names.
 		{"Sac<4/Artifact>", "Sac<count>"},
 		{"Sac<7/Creature.Other/other creatures>", "Sac<count>"},

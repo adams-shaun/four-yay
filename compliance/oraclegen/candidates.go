@@ -404,6 +404,15 @@ func candidatesFor(reg *cards.Registry, filter, parentTarget string) []cand {
 			// A mixed zone (Stack,Battlefield, or Origin$ Battlefield,Stack)
 			// is served on the battlefield.
 			zone = ""
+		} else if zone == "stack" {
+			// A spell on the stack is placed by a prelude cast (the scenario
+			// casts Shock, which waits un-resolved at the activate step's
+			// priority); the target ref names the same object now on the
+			// stack. A creature spell target (Echo, Perceptive Prodigy's
+			// "target activated or triggered ability you control from a
+			// creature source" reads Card.Creature@Stack) casts a vanilla
+			// creature instead.
+			return stackSpellCandidates(filter)
 		} else {
 			return zoneCandidates(reg, filter, zone)
 		}
@@ -414,7 +423,28 @@ func candidatesFor(reg *cards.Registry, filter, parentTarget string) []cand {
 	mine := strings.Contains(filter, "YouCtrl") || strings.Contains(filter, "YouOwn")
 	if role == roleNone {
 		if strings.Contains(filter, "+token") || strings.Contains(filter, "token+") || base == "token" {
+			if base == "artifact" {
+				return artifactTokenCandidates()
+			}
 			return tokenCandidates(mine)
+		}
+		if filterHasComponent(filter, "ThisTurnEntered") {
+			// A creature that entered the battlefield THIS TURN exists only
+			// mid-turn: the token a prelude cast made entered this turn.
+			return tokenCandidates(true)
+		}
+		if base == "artifact" && strings.Contains(filter, "token") {
+			return artifactTokenCandidates()
+		}
+		// A subtype-qualified creature filter ("Creature.Pirate+YouCtrl",
+		// Pirate Hat's Equip): the generic creature stand-ins would name a
+		// target the engine never offers, so find a real card of the
+		// subtype instead. A qualifier no subtype reads as fails closed,
+		// exactly like the non-card-type path.
+		if base == "creature" {
+			if sub, ok := filterSubtypeWord(alt[0]); ok {
+				return subtypeBattlefield(reg, sub, mine)
+			}
 		}
 		if strings.Contains(filter, "+enchanted") || strings.Contains(filter, "enchanted+") {
 			return enchantedCandidates(mine)
@@ -482,6 +512,16 @@ func candidatesFor(reg *cards.Registry, filter, parentTarget string) []cand {
 		if kind, n, ok := counterDemand(filter); ok {
 			return withRole([]cand{{seat: opp, zone: "battlefield", card: "Grizzly Bears", counterKind: kind, counterN: n}})
 		}
+	}
+	// A combat-role filter over a subtype or a token (Totentanz, Swarm
+	// Piper's "target attacking Rat", Old Hob's "target attacking creature
+	// token"): a real card of the subtype, or the prelude-made token,
+	// declared attacking by the fixture machinery.
+	if role != roleNone && !isCardTypeBase(base) {
+		return withRole(subtypeBattlefield(reg, base, mine))
+	}
+	if role == roleAttacker && (strings.Contains(alt[0], ".token") || strings.Contains(alt[0], "+token") || base == "token") {
+		return withRole(tokenCandidates(true))
 	}
 	creatures := []cand{{seat: opp, zone: "battlefield", card: "Grizzly Bears"}, {seat: opp, zone: "battlefield", card: "Serra Angel"}, {seat: opp, zone: "battlefield", card: "Ornithopter"}, {seat: opp, zone: "battlefield", card: "Llanowar Elves"}, {seat: opp, zone: "battlefield", card: "Hill Giant"}}
 	switch base {
@@ -574,6 +614,84 @@ func subtypeBattlefield(reg *cards.Registry, subtype string, mine bool) []cand {
 
 // tokenCandidates makes a token you control: a prelude casts a token-maker,
 // and the target reference names the created token by subtype.
+// artifactTokenCandidates makes an artifact token you control (Worldwalker
+// Helm's "target artifact token you control", The Mechanist's "target
+// artifact token you control"): a prelude casts Thraben Inspector, whose
+// enters-the-battlefield trigger makes a Clue token, and resolves the stack
+// and the trigger.
+func artifactTokenCandidates() []cand {
+	return []cand{{
+		seat: "p0", zone: "battlefield", card: "Thraben Inspector",
+		ref: "p0:token:Clue",
+		pre: []Step{
+			{Op: "cast", Seat: 0, Card: "p0:Thraben Inspector", Mana: "W"},
+			{Op: "resolve"},
+			{Op: "resolve"},
+		},
+	}}
+}
+
+// stackSpellCandidates puts a spell on the stack: the scenario casts Shock
+// (or a vanilla creature, for a Card.Creature@Stack filter) and leaves it
+// waiting at the activate step's priority, where the ability under test
+// targets it. Every shape this serves names a spell on the stack; a filter no
+// castable catalogue card matches fails closed (nil).
+func stackSpellCandidates(filter string) []cand {
+	lower := strings.ToLower(filter)
+	card, mana := "Shock", "R"
+	if base := firstFilterBase(lower); base == "creature" {
+		card, mana = "Grizzly Bears", "G"
+	} else if base != "instant" && base != "sorcery" && base != "card" && base != "spell" && base != "any" {
+		return nil
+	}
+	if strings.Contains(lower, "noncreature") && card == "Grizzly Bears" {
+		card, mana = "Shock", "R"
+	}
+	return []cand{{
+		seat: "p0", card: card,
+		// zone "" so place() stages exactly one copy via the prelude cast.
+		pre: []Step{{Op: "cast", Seat: 0, Card: "p0:" + card, Mana: mana}},
+	}}
+}
+
+// filterSubtypeWord extracts a filter's subtype qualifier, the first
+// '.'/'+'-separated word of the first alternative that is none of the words
+// the generic candidates already serve (types, colours, controller words,
+// vanilla-carrying predicates). ok is false when no such word remains, so the
+// caller keeps its generic behaviour.
+func filterSubtypeWord(alt string) (string, bool) {
+	for _, part := range strings.FieldsFunc(alt, func(r rune) bool { return r == '.' || r == '+' }) {
+		lower := strings.ToLower(strings.TrimSpace(part))
+		if lower == "" || len(lower) < 3 {
+			continue
+		}
+		if isCardTypeBase(lower) || strings.Contains(lower, "ctrl") || strings.Contains(lower, "own") {
+			continue
+		}
+		switch lower {
+		case "youctrl", "youown", "oppcrtl", "oppctrl", "oppown", "you", "opponent", "opponents",
+			"white", "blue", "black", "red", "green", "colorless", "multicolour",
+			"token", "enchanted", "attacking", "blocking", "tapped", "untapped",
+			"noabilities", "legendary", "thisturnentered", "other", "self", "noncreature", "nonland":
+			continue
+		}
+		if strings.HasPrefix(lower, "non") || strings.HasPrefix(lower, "!") || strings.HasPrefix(lower, "with") ||
+			strings.HasPrefix(lower, "power") || strings.HasPrefix(lower, "toughness") ||
+			strings.HasPrefix(lower, "cmc") || strings.Contains(lower, "_") ||
+			strings.Contains(lower, "ge") && isCounterPredicate(lower) {
+			continue
+		}
+		return lower, true
+	}
+	return "", false
+}
+
+// isCounterPredicate reports a counters_GE<n>_<KIND>-style predicate word,
+// which the generic counterDemand machinery already serves.
+func isCounterPredicate(lower string) bool {
+	return strings.HasPrefix(lower, "counters_ge")
+}
+
 func tokenCandidates(mine bool) []cand {
 	if !mine {
 		// An opponent's token is not needed by any current filter; fail
@@ -725,6 +843,12 @@ func faceHasSubtype(f *cards.Face, subtype string) bool {
 // registry rather than the fixed type list.
 func zoneCandidates(reg *cards.Registry, filter, zone string) []cand {
 	alts := strings.Split(filter, ",")
+	// An Adventure half in the named zone (Edgewall Inn's "target card that's
+	// an Adventure... in your graveyard"): the corpus's plain Adventure
+	// creature, whose graveyard card the AdventureCard filter matches.
+	if filterHasComponent(filter, "AdventureCard") {
+		return []cand{{seat: "p0", zone: zone, card: "Beanstalk Wurm"}}
+	}
 	// A comma alone also separates ordinary type alternatives (e.g.
 	// Creature,Planeswalker in one graveyard). Only an explicit per-alt
 	// zone marker calls for mixed-zone candidate selection.
@@ -862,10 +986,37 @@ func filterHasComponent(filter, word string) bool {
 // fixtures is the cross product of every slot's candidates, capped. An
 // optional slot with no candidate is omitted (and emits no target), so it
 // cannot sink the whole card; a mandatory slot with no candidate returns nil.
+//
+// A stack slot is served by the caller's own precast step (castWith's held
+// priority), not by board candidates, exactly as before stackSpellCandidates
+// existed: serveStack=false restores that shape for the cost, counter and
+// trigger paths, whose stack handling must not gain a second prelude.
 func fixtures(reg *cards.Registry, slots []Slot) []fixture {
+	return buildFixtures(reg, slots, false)
+}
+
+// FixturesServingStack is fixtures with a stack slot served by
+// stackSpellCandidates (a prelude cast that leaves the spell on the stack at
+// the activate step's priority). Only the activate template, which scripts the
+// held priority itself, may ask for it.
+func FixturesServingStack(reg *cards.Registry, slots []SlotSpec) []Fixture {
+	return buildFixtures(reg, slots, true)
+}
+
+func buildFixtures(reg *cards.Registry, slots []Slot, serveStack bool) []fixture {
 	out := []fixture{{}}
 	var omitted []int
 	for si, s := range slots {
+		if !serveStack && SlotIsStack(s.Filter) {
+			// Same outcome the nil candidatesFor used to produce for a stack
+			// zone: a mandatory stack slot sinks the card, an optional one is
+			// omitted.
+			if s.Optional {
+				omitted = append(omitted, si)
+				continue
+			}
+			return nil
+		}
 		parentTarget := ""
 		if len(out) > 0 && len(out[0].targets) > 0 {
 			parentTarget = out[0].targets[0]

@@ -110,7 +110,10 @@ func activateAbility(reg *cards.Registry, f *cards.Face, name string, req levelb
 // offer gates need; the bare scenario is tried first, then the restricted one.
 func activateWith(reg *cards.Registry, f *cards.Face, name string, req levelb.Requirement, idx int, prefix, mana, cost, zone string, slots []oraclegen.Slot, restrictions []conditionPrelude) (oraclegen.Item, bool) {
 	preludes := withTokenCostPrelude(reg, cost, append([]conditionPrelude{{}}, restrictions...))
-	for _, fx := range oraclegen.Fixtures(reg, slots) {
+	// Stack slots are served here by a prelude cast the scenario holds at
+	// this step's priority; every other template family keeps the plain
+	// fixtures, whose stack slots stay the caller's own precast.
+	for _, fx := range oraclegen.FixturesServingStack(reg, slots) {
 		for _, pre := range preludes {
 			it, ok := activateWithFixture(reg, f, name, req, idx, prefix, mana, cost, zone, fx, pre)
 			if ok {
@@ -135,9 +138,18 @@ func activateWithFixture(reg *cards.Registry, f *cards.Face, name string, req le
 		p0.Battlefield = appendFixtureUnique(p0.Battlefield, name)
 	}
 	addActivationCostFixtures(&p0, cost)
-	addActivationCounterFixtures(&p0, name, cost)
-	if extra := loyaltyHeadroom(f, f.Abilities[idx]); extra > 0 {
-		p0 = oraclegen.WithCounters(p0, name, "LOYALTY", int32(extra))
+	addActivationCounterFixtures(&p0, f, name, cost)
+	if need := loyaltySetupCounters(f, f.Abilities[idx], zone); need > 0 {
+		p0 = oraclegen.WithCounters(p0, name, "LOYALTY", int32(need))
+	}
+	if zone == "battlefield" {
+		// A source whose printed toughness is zero or less dies the moment
+		// it is placed (Marketback Walker is a 0/0 whose X +1/+1 entry
+		// counters read X=0 at setup); seed one +1/+1 counter per missing
+		// point of toughness so the activation can be probed at all.
+		if t, ok := printedToughness(f); ok && t <= 0 {
+			p0 = oraclegen.WithCounters(p0, name, "P1P1", int32(1-t))
+		}
 	}
 	p0, restrictSteps := applyActivationPrelude(p0, name, pre)
 	// The fixture's own prelude (a token made, an Aura attached) runs first
@@ -147,7 +159,15 @@ func activateWithFixture(reg *cards.Registry, f *cards.Face, name string, req le
 	// before the activation, which then happens in combat.
 	fxPre, combat := fx.Prelude(), fx.CombatSteps()
 	costAttach := sacAttachSteps(name, cost, zone)
-	prelude := make([]oraclegen.Step, 0, len(fxPre)+len(restrictSteps)+len(costAttach)+len(combat))
+	sourceAttach := auraSourceAttach(f, name, zone, &p0)
+	prelude := make([]oraclegen.Step, 0, len(fxPre)+len(restrictSteps)+len(costAttach)+len(sourceAttach)+len(combat)+1)
+	if isLoyaltyCost(cost) {
+		// CR 606.3: a loyalty ability needs an empty stack. The setup can
+		// leave the source's own entry trigger pending (Oko, Lorwyn Liege's
+		// transform enters trigger); one resolve step empties it.
+		prelude = append(prelude, oraclegen.Step{Op: "resolve"})
+	}
+	prelude = append(prelude, sourceAttach...)
 	prelude = append(prelude, fxPre...)
 	prelude = append(prelude, restrictSteps...)
 	prelude = append(prelude, costAttach...)
@@ -225,16 +245,18 @@ func activateWithFixture(reg *cards.Registry, f *cards.Face, name string, req le
 	return it, true
 }
 
-// loyaltyHeadroom is how many loyalty counters the source needs at setup
-// beyond its printed loyalty for the ability to be activatable: a loyalty
-// cost can't be paid with too few counters (CR 606.6), so a minus ability
-// above the printed loyalty needs the difference, and an ultimate gated on
-// "N or more loyalty counters among <type>s you control" (Jace, Reality
-// Sculptor's CheckSVar$ Y | SVarCompare$ GE25 over
-// Count$Valid Jace.YouCtrl$CardCounters.LOYALTY) needs N on the source when
-// the source is of that type. Zero for a card without numeric printed
-// loyalty.
-func loyaltyHeadroom(f *cards.Face, sa *cards.SA) int {
+// loyaltySetupCounters is how many loyalty counters the source needs at
+// setup: a planeswalker on the battlefield carries only its printed loyalty
+// (the scenario mints it there; no engine adds counters for it), so the
+// printed count is the floor and a minus ability above it (or an ultimate
+// gated on "N or more loyalty counters among <type>s you control", Jace,
+// Reality Sculptor's CheckSVar$ Y | SVarCompare$ GE25) raises it. A card
+// without a numeric printed loyalty or activated away from the battlefield
+// (a hand/planeswalker channel) needs no counters.
+func loyaltySetupCounters(f *cards.Face, sa *cards.SA, zone string) int {
+	if zone != "battlefield" {
+		return 0
+	}
 	printed, err := strconv.Atoi(strings.TrimSpace(f.Loyalty))
 	if err != nil {
 		return 0
@@ -246,8 +268,68 @@ func loyaltyHeadroom(f *cards.Face, sa *cards.SA) int {
 			need = max(need, n)
 		}
 	}
-	need = max(need, loyaltyGate(f, sa))
-	return max(0, need-printed)
+	// The setup ADDS counters to the placed source, whose placement already
+	// gave it the printed loyalty: only the shortfall over the printed
+	// loyalty is seeded (a gate wants the source topped up to it, CR 606.6).
+	return max(0, max(need, loyaltyGate(f, sa))-printed)
+}
+
+// printedToughness is the face's printed toughness as an integer; ok is false
+// for a face without an integer "P/T" (an "X/X" or "*/*" creature).
+func printedToughness(f *cards.Face) (int, bool) {
+	_, tough, ok := strings.Cut(strings.TrimSpace(f.PT), "/")
+	if !ok {
+		return 0, false
+	}
+	t, err := strconv.Atoi(strings.TrimSpace(tough))
+	if err != nil {
+		return 0, false
+	}
+	return t, true
+}
+
+// isLoyaltyCost reports whether a Cost$ carries a loyalty counter part
+// (AddCounter<N/LOYALTY> or SubCounter<N/LOYALTY>): the ability is a
+// planeswalker's loyalty ability (CR 606.3).
+func isLoyaltyCost(cost string) bool {
+	for _, tok := range costTokens(cost) {
+		if loyaltyCounter(tok) {
+			return true
+		}
+	}
+	return false
+}
+
+// auraSourceAttach brings a battlefield Aura's source on attached, so the
+// Aura's own activated ability (offered only while attached) is offered at
+// the probe. An unattached Aura placed by the setup is swept to the graveyard
+// by the CR 704.5m state-based action before the first priority, so the
+// source enters by a real cast onto a bearer the prelude places instead: the
+// card moves to the hand and the prelude casts it (the same shape
+// enchantedCandidates uses), which attaches it as it enters. An Aura
+// activated from another zone, an unpriceable mana cost, or an ability of a
+// non-Aura adds none.
+func auraSourceAttach(f *cards.Face, name, zone string, p0 *oraclegen.Seat) []oraclegen.Step {
+	if zone != "battlefield" || !oraclegen.HasType(f, "Aura") {
+		return nil
+	}
+	mana, why := oraclegen.PoolFor(f.ManaCost)
+	if why != "" {
+		return nil
+	}
+	const bearer = "Hill Giant"
+	p0.Battlefield = appendFixtureUnique(p0.Battlefield, bearer)
+	for i, n := range p0.Battlefield {
+		if n == name {
+			p0.Battlefield = append(p0.Battlefield[:i], p0.Battlefield[i+1:]...)
+			break
+		}
+	}
+	p0.Hand = appendFixtureUnique(p0.Hand, name)
+	return []oraclegen.Step{
+		{Op: "cast", Seat: 0, Card: "p0:" + name, Mana: mana, Targets: []string{"p0:" + bearer}},
+		{Op: "resolve"},
+	}
 }
 
 // loyaltyGate reads an activation restriction counting loyalty counters

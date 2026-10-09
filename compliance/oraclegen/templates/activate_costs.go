@@ -166,6 +166,12 @@ func filterCostFixturesX(tok string, x int) []string {
 			candidates = append(candidates, permanentCostFixtures(clause)...)
 		case strings.HasPrefix(clause, "dinosaur"):
 			candidates = append(candidates, "Colossal Dreadmaw")
+		case strings.Contains(clause, "merfolk"):
+			candidates = append(candidates, "Merfolk Wayfinder")
+		case strings.Contains(clause, "pirate"):
+			candidates = append(candidates, "Kari Zev, Skyship Raider")
+		case strings.Contains(clause, "vampire"):
+			candidates = append(candidates, "Sengir, the Dark Baron")
 		case strings.Contains(clause, "card"):
 			candidates = append(candidates, "Colossal Dreadmaw", "Sol Ring", "Grizzly Bears", "Wastes")
 		case strings.Contains(clause, "artifact"):

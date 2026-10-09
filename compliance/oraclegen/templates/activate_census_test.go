@@ -101,11 +101,12 @@ var activateCensusSets = []string{"BIG", "EOE", "FDN", "FRA"}
 // unsupported-filter 1 -> 0, count-above-catalogue 0 -> 1).
 var wantActivateCensus = map[string]map[string]int{
 	"BIG": {
-		"served:activate.battlefield":        11,
+		// +1 served: Worldwalker Helm's "target artifact token you control"
+		// gets the Thraben Inspector token prelude (cli-20261009T031408Z-5823e7de).
+		"served:activate.battlefield":        12,
 		"served:activate.hand":               2,
 		"served:activate.mana":               4,
 		"skip:activate cost gap: Sac<token>": 1,
-		"skip:activate no fixture":           1,
 	},
 	"EOE": {
 		"served:activate.battlefield":             37,
@@ -121,12 +122,14 @@ var wantActivateCensus = map[string]map[string]int{
 		"skip:activate no fixture":                                1,
 	},
 	"FRA": {
-		"served:activate.battlefield":                                      71,
+		// +1 served: Gallia, the Merrymaker's "target creature that entered
+		// the battlefield this turn" gets the mid-turn entry candidate
+		// (cli-20261009T031408Z-5823e7de).
+		"served:activate.battlefield":                                      72,
 		"served:activate.graveyard":                                        8,
 		"served:activate.hand":                                             9,
 		"served:activate.mana":                                             27,
 		"skip:activate cost gap: SubCounter<...>":                          1,
-		"skip:activate no fixture":                                         1,
 		"skip:activation restriction: SVar (Count$YouScryThisTurn/Plus.Y)": 1,
 		"skip:activate target gap: attackedThisTurn needs a combat prelude (Creature.attackedThisTurn)": 1,
 	},

@@ -45,6 +45,7 @@ func sacSelf(tok string) bool {
 var sacFixtureCards = map[string][]string{
 	"creature":     {"Llanowar Elves", "Grizzly Bears", "Elvish Mystic", "Nessian Asp", "Craw Wurm", "Siege Wurm"},
 	"artifact":     {"Ornithopter", "Sol Ring", "Arcane Signet"},
+	"permanent":    {"Ornithopter", "Sol Ring", "Grizzly Bears"},
 	"land":         {"Forest", "Island", "Mountain", "Swamp", "Plains"},
 	"enchantment":  {"Glorious Anthem", "Honor of the Pure", "Intangible Virtue"},
 	"planeswalker": {"Jace Beleren"},
