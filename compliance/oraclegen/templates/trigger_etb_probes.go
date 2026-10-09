@@ -22,6 +22,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/compliance/levelb"
 	"github.com/adams-shaun/gorge/compliance/oraclegen"
+	"github.com/adams-shaun/gorge/state"
 )
 
 // etbLandProbes are lands to play. The typed basics come first so a filter
@@ -168,6 +169,21 @@ func etbProbeCauses(reg *cards.Registry, name string, t *cards.Trigger) ([]trigg
 	}
 	if c, ok := castCause(reg, name, bearsProbe); ok {
 		out = append(out, c)
+	}
+	// The curated list misses a filter that names a creature subtype or
+	// qualifier it does not carry (a Detective, a tribe the corpus grew after
+	// it was written). Let gorge's own matcher pick a creature probe from the
+	// corpus, exactly as the dies recipe picks a victim: the probe that enters
+	// and fires the trigger is whichever card the filter accepts.
+	if filter != "" {
+		fp := newFilterProbe(filter, state.ZBattlefield)
+		if fp.decided {
+			for _, p := range fp.victimProbes(reg, name, 4) {
+				if c, ok := castCause(reg, name, p); ok {
+					out = append(out, c)
+				}
+			}
+		}
 	}
 	if tokenServed {
 		tokens, _ := tokenCauses(reg, name)
