@@ -110,6 +110,11 @@ func triggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards.Tri
 	if conditionTriggerSub(sub) {
 		causes = append(causes, conditionCauses(reg, f, name, t, sub, causes)...)
 	}
+	// A self-attribute gate the setup-placed source cannot show (prepared
+	// consumed by the turn-1 upkeep firing, a suspect grant dropped with the
+	// setup's ETB) gets a cast-self variant of every cause so far.
+	selfCast := selfCastGateCauses(reg, f, name, t, causes)
+	causes = append(causes, selfCast...)
 	// A ClassBand$ trigger's granted body is live only from its level on, so
 	// every cause first raises the Class to that level. Prepending after the
 	// condition variants keeps the sorcery-speed level-up ahead of any
