@@ -1128,6 +1128,17 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSt
 				// remaining one without an ask), so the final pick is never
 				// consumed and is dropped here.
 				//
+				// The name only steers when the picks' sources are DISTINCT:
+				// two simultaneous triggers off ONE source (Thundertrap
+				// Trainer's ETB and Offspring, both p0:Thundertrap Trainer)
+				// answer with the same name, which XMage cannot tell apart --
+				// there the rule text is the only distinguishing answer, and
+				// it already agrees. So a same-source order keeps the old
+				// inert text form; only a distinct-source order names each
+				// source. (This is also what keeps the level-A cast-resolve
+				// scenarios whose order ask is incidental -- Thundertrap
+				// Trainer, Molten Man -- byte-identical to the frozen verdict.)
+				//
 				// A plain name is also CONSUMABLE by any later makeChoose XMage
 				// poses, unlike the inert rule text: when the step's answers
 				// also script other asks, a leftover name (the ask XMage posed
@@ -1135,6 +1146,10 @@ func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int, castSt
 				// ETB order) derails them. So the name form is kept only when
 				// this step scripts nothing else; shared steps keep the old
 				// inert text form (demoteTriggerOrderSpans).
+				if !triggerOrderNamesDistinct(d) {
+					as = append(as, triggerOrderTextAnswers(d)...)
+					break
+				}
 				n := len(d.Picks)
 				for k := 0; k < n-1; k++ {
 					as = append(as, XAnswer{d.Seat, "choice", triggerOrderChoice(d, k)})
@@ -1722,6 +1737,31 @@ func triggerOrderChoice(d rules.OracleDecision, k int) string {
 		return triggerRule(d.Picks[k])
 	}
 	return ""
+}
+
+// triggerOrderNamesDistinct reports whether the picks' source object NAMES are
+// unique. XMage's chooseTriggeredAbility matches a choice against the source's
+// name, so two simultaneous triggers off one source (Thundertrap Trainer's ETB
+// and Offspring, both "p0:Thundertrap Trainer") would both answer with the same
+// name and cannot be ordered by it; the rule text is the only distinguishing
+// answer there. A pick with no scenario ref falls back to text anyway, so it is
+// skipped here (it cannot collide).
+func triggerOrderNamesDistinct(d rules.OracleDecision) bool {
+	seen := map[string]bool{}
+	for k := range d.Picks {
+		if k >= len(d.PickRefs) || !isScenarioRefShaped(d.PickRefs[k]) {
+			continue
+		}
+		name := oraclediffRefName(d.PickRefs[k])
+		if name == "" {
+			continue
+		}
+		if seen[name] {
+			return false
+		}
+		seen[name] = true
+	}
+	return true
 }
 
 // isScenarioRefShaped reports whether s is a "p<seat>:<name>[#k]" object ref

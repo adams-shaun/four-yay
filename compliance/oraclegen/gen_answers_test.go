@@ -44,15 +44,14 @@ func TestXAnswersQueueRoutingShapes(t *testing.T) {
 		},
 		{
 			// chooseTriggeredAbility matches the ability's rule text (getRule)
-			// or its source object's NAME. Gorge's TriggerDescription$ is
-			// XMage's rule wording only by coincidence, so a step whose only
-			// answers are the order's picks names each pick's source object
-			// instead (the last pick is dropped: XMage pushes it without an
-			// ask). Shared steps keep the inert text form; see
-			// gen_trigger_order_test.go.
-			name: "trigger order alone on its step: source names for chooseTriggeredAbility",
+			// or its source object's NAME. These two picks share one source
+			// (Celebrate the Mountain-king), so a name could not tell them
+			// apart and the rule text is the only distinguishing answer: a
+			// same-source order keeps the inert text form. A distinct-source
+			// order names each source; see gen_trigger_order_test.go.
+			name: "trigger order with one shared source: rule text for chooseTriggeredAbility",
 			d:    rules.OracleDecision{Step: 0, Seat: 1, Kind: "order", GorgeKind: "trigger_order", Options: 2, Picks: []string{"Celebrate the Mountain-king: When this enters, do a thing.", "Celebrate the Mountain-king: When this enters, do another."}, PickRefs: []string{"p1:Celebrate the Mountain-king", "p1:Celebrate the Mountain-king"}, PickIdx: []int{0, 1}, PickKinds: []string{"trigger", "trigger"}},
-			want: []XAnswer{{1, "choice", "Celebrate the Mountain-king"}},
+			want: []XAnswer{{1, "choice", "When this enters, do a thing."}, {1, "choice", "When this enters, do another."}},
 		},
 		{
 			// A card-type pick is makeChoose, not a target, however much its
