@@ -32,6 +32,11 @@ type conditionPrelude struct {
 	// "at least N life" (Count$YourLifeTotal against a literal or a
 	// starting-life offset) sets it rather than gaining the life by a cast.
 	life int32
+	// solvedCase marks a prelude whose steps end with the solve sequence
+	// (pass to the end step, resolve the "To solve" trigger): the phase
+	// recipe also emits the pass_to that waits for the row trigger's own p0
+	// phase, which a plain prelude must not move.
+	solvedCase bool
 }
 
 // conditionPreludes offers condition setup candidates in stable order. It

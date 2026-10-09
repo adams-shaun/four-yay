@@ -25,6 +25,12 @@ func classifyCastTrigger(f *cards.Face, t *cards.Trigger) (sub string, ok bool) 
 		caster := strings.ToLower(t.ParamStr(cards.PKValidActivatingPlayer))
 		switch caster {
 		case "", "player", "you":
+			// OpponentTurn$ True: the cast must happen during an opponent's
+			// turn, which a plain turn-1 cast never satisfies; its own
+			// cast-family cause passes to p1's main phase first.
+			if strings.EqualFold(t.ParamStr(cards.PKOpponentTurn), "True") {
+				return "trigger.spell-cast-opponent-turn", true
+			}
 			return "trigger.spell-cast", true
 		case "opponent", "player.opponent", "player.nonactive", "opponent.nonactive":
 			return "trigger.spell-cast-opponent", true
