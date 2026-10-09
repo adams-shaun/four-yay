@@ -54,7 +54,8 @@ func TestStaticGatedGrantFallsThroughToNamedGap(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	for _, tc := range []struct{ card, key, reason string }{
 		{"Debris Field Crusher", "static#0.0", staticGatedSelfETBCounterReason},
-		{"Dawnsire, Sunstar Dreadnought", "static#0.0", staticGrantTriggerReason},
+		// Dawnsire's trigger grant moved to the granted-trigger observation
+		// (static_granted_trigger_test.go pins its served row).
 		{"Far Fortune, End Boss", "static#0.0", staticGrantReplacementReason},
 	} {
 		t.Run(tc.card, func(t *testing.T) {

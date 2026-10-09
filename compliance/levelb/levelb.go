@@ -168,6 +168,15 @@ func classifyActivate(sa *cards.SA) (sub, gap string) {
 	return "activate.battlefield", ""
 }
 
+// ClassifyTrigger is the exported form of classifyTrigger, for the
+// compliance template that classifies a static's GRANTED trigger body (the
+// same T:-shaped text a printed T: line has) to pick its cause sub-family.
+// It is a pure function of the IR and does not move the requirement set:
+// requirements are classified by classifyTrigger alone.
+func ClassifyTrigger(f *cards.Face, t *cards.Trigger) (sub, gap string, covered bool) {
+	return classifyTrigger(f, t)
+}
+
 // classifyTrigger returns the trigger's sub-family, its gap, and whether the
 // level-A scenario already covers it.
 func classifyTrigger(f *cards.Face, t *cards.Trigger) (sub, gap string, covered bool) {
