@@ -13,6 +13,10 @@ import (
 // make the reduction visible without depending on the corpus-specific maximum.
 const costAffinityCount = 3
 
+// attackerFixture is the attacking/blocking stand-in creature: an ordinary
+// 2/2 with no evasion the combat engine always accepts.
+const attackerFixture = "Grizzly Bears"
+
 // costConditionProbes derives the fixtures an own-spell ReduceCost static needs
 // from the static's own parameters, so its reduction is visible: the count the
 // Amount$ SVar tallies, and every gate the static carries (IsPresent$,
@@ -56,12 +60,14 @@ func costConditionProbes(reg *cards.Registry, f *cards.Face, st cards.Static, na
 	return probes, reduction, ""
 }
 
-// onP0Side keeps the preludes that set up only p0: a costProbe has no opponent
-// hand or battlefield, and a prelude that needs one would leave its gate false.
+// onP0Side keeps the preludes the probe's setup can hold: a costProbe has no
+// opponent hand, but its opponentBattlefield list is real setup (cost.go's
+// costProbe carries it and costProbeItem places it), so a prelude that only
+// puts permanents on p1's battlefield is kept too.
 func onP0Side(cands []conditionPrelude) []conditionPrelude {
 	var kept []conditionPrelude
 	for _, c := range cands {
-		if len(c.opponentHand) == 0 && len(c.opponentBattlefield) == 0 {
+		if len(c.opponentHand) == 0 {
 			kept = append(kept, c)
 		}
 	}
@@ -87,6 +93,7 @@ func costCombatWord(filter string) string {
 func (p costProbe) withPrelude(name string, pre conditionPrelude) costProbe {
 	p.hand = append(append([]string(nil), p.hand...), pre.hand...)
 	p.battlefield = append(append([]string(nil), p.battlefield...), pre.battlefield...)
+	p.opponentBattlefield = append(append([]string(nil), p.opponentBattlefield...), pre.opponentBattlefield...)
 	p.graveyard = append(append([]string(nil), p.graveyard...), pre.graveyard...)
 	p.pre = append(append([]oraclegen.Step(nil), p.pre...), pre.steps...)
 	if len(pre.tapped) > 0 || len(pre.counters) > 0 || pre.life > 0 {
@@ -152,9 +159,14 @@ func costGateFixtures(reg *cards.Registry, f *cards.Face, st cards.Static) ([][]
 		}
 		pres, gap := activationPresentPrelude(reg, nil, "", spec, st.Params["PresentZone"], st.Params["PresentCompare"])
 		if len(pres) == 0 && gap != "" {
-			return nil, costGateGap(spec, gap)
-		}
-		if len(pres) > 0 {
+			// An alternative no p0 setup reaches may name an opponent's
+			// battlefield, which the probe's setup carries.
+			if opp, ok := costOpponentPresentPreludes(reg, spec, st.Params["PresentZone"], st.Params["PresentCompare"]); ok {
+				sources = append(sources, opp)
+			} else {
+				return nil, costGateGap(spec, gap)
+			}
+		} else if len(pres) > 0 {
 			sources = append(sources, pres)
 		}
 	}
@@ -222,6 +234,77 @@ func costCombatGap(filter, word string) string {
 	return "cost static condition needs combat (" + filter + ")"
 }
 
+// costOpponentPresentPreludes builds the candidates a present filter whose
+// alternatives name an opponent-controlled battlefield permanent ask for: the
+// same stand-in cards the shared present helpers pick for the group text,
+// carried on p1's battlefield (conditionPrelude.opponentBattlefield), where
+// the cost probe's setup holds them. ok is false when no alternative names a
+// placeable opponent board permanent.
+func costOpponentPresentPreludes(reg *cards.Registry, spec, zone, compare string) ([]conditionPrelude, bool) {
+	if strings.TrimSpace(zone) == "" {
+		zone = "Battlefield"
+	}
+	if !strings.EqualFold(zone, "Battlefield") {
+		return nil, false
+	}
+	n := staticCountFrom(compare)
+	if n < 1 {
+		n = 1
+	}
+	var out []conditionPrelude
+	for _, group := range strings.Split(spec, ",") {
+		group = strings.TrimSpace(group)
+		if group == "" || !staticOpposing(group) || costCombatWord(group) != "" {
+			continue
+		}
+		pre := conditionPrelude{}
+		if name := creatureForPowerFloor(group); name != "" {
+			pre.opponentBattlefield = oraclegen.Repeat(name, n)
+		} else if fx, ok := staticPresence(group, zone, n); ok && len(fx.p1Battlefield) == n {
+			pre.opponentBattlefield = fx.p1Battlefield
+		} else if fx, ok := activationSubtypePresence(reg, group, zone, n); ok && len(fx.p1Battlefield) == n {
+			pre.opponentBattlefield = fx.p1Battlefield
+		} else {
+			continue
+		}
+		out = append(out, pre)
+	}
+	return out, len(out) > 0
+}
+
+// costAttackPrelude is the combat a count of attacking creatures tallies: the
+// word's side declares its creature attacking the defender, and the probe
+// casts in the declare-attackers priority window while the attack holds. On
+// p1's turn p1 holds priority after the attack, so it passes first (the same
+// shape costTargetProbe's attacking target uses). ok is false for a word no
+// fixture attack can make true.
+//
+// attackerFixture is the attacking stand-in: an ordinary 2/2 with no
+// evasion the combat engine always accepts.
+func costAttackPrelude(word string, count int) (conditionPrelude, bool) {
+	if count < 1 {
+		count = 1
+	}
+	side, defender := 0, "p1"
+	if strings.EqualFold(word, "attackingYou") {
+		side, defender = 1, "p0"
+	} else if !strings.EqualFold(word, "attacking") {
+		return conditionPrelude{}, false
+	}
+	ref := fmt.Sprintf("p%d:%s", side, attackerFixture)
+	pre := conditionPrelude{steps: []oraclegen.Step{
+		{Op: "pass_to", Step: "declare-attackers", Active: fmt.Sprintf("p%d", side)},
+		{Op: "attack", Seat: side, Defender: defender, Attackers: oraclegen.Repeat(ref, count)},
+	}}
+	if side == 0 {
+		pre.battlefield = oraclegen.Repeat(attackerFixture, count)
+	} else {
+		pre.opponentBattlefield = oraclegen.Repeat(attackerFixture, count)
+		pre.steps = append(pre.steps, oraclegen.Step{Op: "pass", Seat: 1})
+	}
+	return pre, true
+}
+
 // costCountPrelude builds the board or graveyard an SVar body counts, at least
 // compare's count. A Count$Valid / Count$ValidGraveyard body goes through the
 // filter-aware present prelude (zone, count, controller, power floor, registry
@@ -249,6 +332,9 @@ func costCountPrelude(reg *cards.Registry, f *cards.Face, svar, compare string) 
 			filter = filter[:i]
 		}
 		if w := costCombatWord(filter); w != "" {
+			if pre, ok := costAttackPrelude(w, staticCountFrom(compare)); ok {
+				return []conditionPrelude{pre}, ""
+			}
 			return nil, costCombatGap(filter, w)
 		}
 		if pres, gap := activationPresentPrelude(reg, nil, "", strings.TrimSpace(filter), zone, compare); len(pres) > 0 {
