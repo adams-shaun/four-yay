@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"resolve","field":"permanents","diff":"gorge+Defaced Gallery; xmage+$CARD"},"key":"trigger | resolve | permanents | gorge+Defaced Gallery; xmage+$CARD","cards":1}
+{"card":"Painter's Studio","template":"trigger#1.0","status":"diverge","api":"UnlockDoor:Dig","detail":"step 1 (resolve) permanents: gorge \"c0 o0 Defaced Gallery [enchantment room] {R}\", xmage \"c0 o0 Painter's Studio [enchantment room] {R}\""}

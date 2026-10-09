@@ -1,2 +1,0 @@
-{"shape":{"template":"trigger","op":"cast","field":"stack","diff":"gorge=[spell:$CARD@p0] xmage=[spell:Ritual Chamber@p0]"},"key":"trigger | cast | stack | gorge=[spell:$CARD@p0] xmage=[spell:Ritual Chamber@p0]","cards":1}
-{"card":"Unholy Annex","template":"trigger#1.0","status":"diverge","api":"Phase:Draw","detail":"step 0 (cast) stack: gorge \"[spell:Unholy Annex@p0]\", xmage \"[spell:Ritual Chamber@p0]\""}
