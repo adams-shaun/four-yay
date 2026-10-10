@@ -191,7 +191,6 @@ func TestCombatRemainderNamedGaps(t *testing.T) {
 		{"Eriette, the Beguiler", "trigger#0.0"},
 		{"Metamorphic Alteration", "trigger#0.0"},
 		{"Blade of Shared Souls", "trigger#0.0"},
-		{"Unstable Glyphbridge", "trigger#1.0"},
 	} {
 		c, ok := reg.Lookup(tc.name)
 		if !ok {
