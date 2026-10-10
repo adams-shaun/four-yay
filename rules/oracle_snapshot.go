@@ -165,6 +165,15 @@ type OracleDecision struct {
 	// its chooseUse only when two or more of its costs can be paid, so the
 	// generator scripts the boolean only for AltPayable >= 2.
 	AltPayable int `json:"alt_payable,omitempty"`
+	// ManaColours is the offered colour set of a mana ask whose XMage side is
+	// an AddManaInAnyCombinationEffect dialog (the engine's Produced$ "Combo
+	// <colours>"): one multi-amount message per colour, in the set's own
+	// order, whatever the unit count — a count-1 restricted set included,
+	// which is the shape XMage's DynamicManaEffect (Produced$ Any) answers
+	// with a plain colour dialog instead (agent 20261009T041408Z cluster C2).
+	// Nil for every other ask, including a produced-Any one, so the
+	// generator's existing routing is untouched.
+	ManaColours []string `json:"mana_colours,omitempty"`
 }
 
 const oracleLibraryTopN = 5
