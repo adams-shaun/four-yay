@@ -130,6 +130,11 @@ type ContinuousEffect struct {
 	// source (for example, Mace of the Valiant's counter count).
 	AddPowerAffected, AddToughnessAffected bool
 	SetPowerExpr, SetToughnessExpr         string
+	// SetPowerAffected and SetToughnessAffected are the 7b setter's
+	// AffectedX marks: Opalescence/March of the Machines set each affected
+	// object's P/T from ITS OWN mana value, so the count anchors on the
+	// recipient rather than the static's source.
+	SetPowerAffected, SetToughnessAffected bool
 	// SetPowerPresent and SetToughnessPresent distinguish an omitted setter
 	// from an explicit zero on a static that sets only one characteristic.
 	SetPowerPresent, SetToughnessPresent bool

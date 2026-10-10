@@ -524,6 +524,8 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 								}
 								set.SetPowerExpr = st.ParamStr(cards.PKSetPower)
 								set.SetToughnessExpr = st.ParamStr(cards.PKSetToughness)
+								set.SetPowerAffected = effects.AffectedXStaticAmount(set.SetPowerExpr)
+								set.SetToughnessAffected = effects.AffectedXStaticAmount(set.SetToughnessExpr)
 								set.SetPowerPresent = st.HasParam(cards.PKSetPower)
 								set.SetToughnessPresent = st.HasParam(cards.PKSetToughness)
 								set.StaticSet = true

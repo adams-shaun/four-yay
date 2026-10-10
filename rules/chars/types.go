@@ -115,107 +115,132 @@ func TypesAndAllCreatureTypes(b Board, act []state.ContinuousEffect, id state.Ob
 	// applies to this object (most objects are untouched by the layer-4
 	// effects in play). Every modification below -- the in-place filters
 	// and the appends -- runs on the owned copy, never on the face's array.
+	// Copy-on-write: the printed list is copied only once an effect actually
+	// applies to this object (most objects are untouched by the layer-4
+	// effects in play). Every modification below -- the in-place filters
+	// and the appends -- runs on the owned copy, never on the face's array.
 	ty := base
 	owned := false
-	for i := range act {
-		ce := &act[i]
-		if ce.Layer != state.LType || !matchesWithTypes(b, ce, id, effects.TypeMatchWords(ty, allCreatureTypes), atStack) {
-			continue
+	lo, hi := typeGroup(act)
+	suppress305 := false
+	for i := lo; i < hi; i++ {
+		if act[i].RemoveLandTypes && len(act[i].AddTypes) > 0 {
+			suppress305 = true
+			break
+		}
+	}
+	applies := func(ce *state.ContinuousEffect, ty []string, all bool) bool {
+		if suppress305 && landTypesSetOnSource(b, act[lo:hi], ce) {
+			return false
+		}
+		if !matchesWithTypes(b, ce, id, effects.TypeMatchWords(ty, all), atStack) {
+			return false
 		}
 		if ce.AffectedZone != "" && !ce.MayPlay {
 			if zones, all, ok := effects.ParseZones(ce.AffectedZone); !ok || (!all && !slices.Contains(zones, zone)) {
-				continue
+				return false
 			}
 		}
+		return true
+	}
+	apply := func(ce *state.ContinuousEffect) {
 		if !owned {
 			ty = append([]string(nil), ty...)
 			owned = true
 		}
-		if ce.RemoveCardTypes {
-			// RemoveCardTypes$ keeps only the SUPERTYPES: a subtype is tied to
-			// its card type (CR 205.2-family), so losing the card type loses
-			// its subtypes, and the flat type list cannot attribute a subtype
-			// word to a surviving type. Both flags together are therefore
-			// "everything but supertypes" -- Darksteel Mutation's oracle.
-			allCreatureTypes = false
-			kept := ty[:0]
-			for _, t := range ty {
-				if IsSupertype(t) {
-					kept = append(kept, t)
-				}
+		ty, allCreatureTypes = applyTypeEffect(b, ce, ty, allCreatureTypes)
+	}
+	if hi-lo < 2 {
+		for i := lo; i < hi; i++ {
+			if ce := &act[i]; applies(ce, ty, allCreatureTypes) {
+				apply(ce)
 			}
-			ty = kept
 		}
-		if ce.RemoveCreatureTypes || ce.RemoveSubTypes || ce.SetCreatureTypes {
-			// The semantic marker follows the same timestamp-ordered type
-			// changes as the materialized list. A later strip invalidates an
-			// earlier all-types grant; a subsequent AddAllCreatureTypes below
-			// can establish it again.
-			allCreatureTypes = false
-			kept := ty[:0]
-			for _, t := range ty {
-				if ce.RemoveSubTypes {
-					if IsCardType(t) || IsSupertype(t) {
-						kept = append(kept, t)
+	} else {
+		// CR 613.8 dependency order within layer 4 (CR 613.7's timestamp
+		// order is only the default). Each step applies the
+		// timestamp-earliest remaining effect that depends on no other
+		// remaining one; a step with no such effect is a dependency cycle,
+		// which CR 613.8b resolves in timestamp order. Dependency is CR
+		// 613.8a's "applying the other would change what it applies to",
+		// simulated against the types-so-far: A's application -- and every
+		// further remaining effect A's application newly lets apply (so
+		// Conspiracy waits on Enchanted Evening through Opalescence) --
+		// changes B's match. Everything scans the timestamp-sorted act
+		// slice, so the order is deterministic.
+		var doneBuf [16]bool
+		done := doneBuf[:0]
+		if n := hi - lo; n <= len(doneBuf) {
+			done = doneBuf[:n]
+		} else {
+			done = make([]bool, n)
+		}
+		var appliedBuf [16]bool
+		applied := appliedBuf[:0]
+		if n := hi - lo; n <= len(appliedBuf) {
+			applied = appliedBuf[:n]
+		} else {
+			applied = make([]bool, n)
+		}
+		var sim []string
+		// reach simulates applying effect j (then the closure of remaining
+		// effects it enables, never skip) to the current list.
+		reach := func(j, skip int) ([]string, bool, bool) {
+			sim = append(sim[:0], ty...)
+			all := allCreatureTypes
+			if !applies(&act[lo+j], sim, all) {
+				return nil, false, false
+			}
+			clear(applied)
+			sim, all = applyTypeEffect(b, &act[lo+j], sim, all)
+			applied[j] = true
+			for grew := true; grew; {
+				grew = false
+				for k := range applied {
+					if applied[k] || done[k] || k == skip {
+						continue
 					}
-				} else if ce.SetCreatureTypes {
-					if !effects.CreatureTypeWords(t) {
-						kept = append(kept, t)
+					if applies(&act[lo+k], sim, all) {
+						sim, all = applyTypeEffect(b, &act[lo+k], sim, all)
+						applied[k] = true
+						grew = true
 					}
-				} else if !IsCreatureSubtype(t) {
-					kept = append(kept, t)
 				}
 			}
-			ty = kept
+			return sim, all, true
 		}
-		if len(ce.RemoveTypes) > 0 {
-			if allCreatureTypes && slices.ContainsFunc(ce.RemoveTypes, func(remove string) bool {
-				return slices.ContainsFunc(ty, func(typ string) bool {
-					return effects.CreatureTypeWords(typ) && strings.EqualFold(typ, remove)
-				})
-			}) {
-				allCreatureTypes = false
-			}
-			kept := ty[:0]
-			for _, t := range ty {
-				if !slices.ContainsFunc(ce.RemoveTypes, func(remove string) bool { return strings.EqualFold(t, remove) }) {
-					kept = append(kept, t)
+		independent := func(i int) bool {
+			base := applies(&act[lo+i], ty, allCreatureTypes)
+			for j := range done {
+				if j == i || done[j] {
+					continue
+				}
+				if after, all, ok := reach(j, i); ok && applies(&act[lo+i], after, all) != base {
+					return false
 				}
 			}
-			ty = kept
+			return true
 		}
-		if ce.RemoveLegendary {
-			// NonLegendary$ True (CR 205.4's supertype): drop only the
-			// Legendary word, leaving every other supertype (Basic, Snow,
-			// World, Ongoing) in place -- distinct from RemoveCardTypes,
-			// which keeps supertypes and drops everything else.
-			kept := ty[:0]
-			for _, t := range ty {
-				if !strings.EqualFold(t, "Legendary") {
-					kept = append(kept, t)
+		for remaining := hi - lo; remaining > 0; remaining-- {
+			picked := -1
+			for i := range done {
+				if !done[i] && independent(i) {
+					picked = i
+					break
 				}
 			}
-			ty = kept
-		}
-		if ce.RemoveLandTypes {
-			// RemoveLandTypes$ (CR 613.1d, the Blood Moon / Zhao static
-			// family) strips every land-type SUBTYPE word from the board's
-			// land-type vocabulary before this effect's AddTypes apply. The
-			// vocabulary is subtypes only, so the Land card type and the
-			// Basic supertype survive the strip.
-			words := b.LandTypeWords()
-			kept := ty[:0]
-			for _, t := range ty {
-				if !slices.ContainsFunc(words, func(w string) bool { return strings.EqualFold(t, w) }) {
-					kept = append(kept, t)
+			if picked < 0 {
+				for i := range done {
+					if !done[i] {
+						picked = i
+						break
+					}
 				}
 			}
-			ty = kept
-		}
-		ty = appendLandTypes(ty, ce.AddTypes, b.LandTypeWords())
-		if ce.AddAllCreatureTypes {
-			ty = appendAllCreatureTypes(ty)
-			allCreatureTypes = true
+			done[picked] = true
+			if ce := &act[lo+picked]; applies(ce, ty, allCreatureTypes) {
+				apply(ce)
+			}
 		}
 	}
 	if !owned && len(ty) == 0 {
@@ -483,4 +508,149 @@ func matchesWithTypes(b Board, ce *state.ContinuousEffect, id state.ObjID, types
 // layer-7 value.
 func matchesWithChars(b Board, ce *state.ContinuousEffect, id state.ObjID, types, keywords []string, atStack state.Zone) bool {
 	return b.Matches(ce, id, types, keywords, atStack, PTBind{})
+}
+
+// typeGroup returns the [lo, hi) range of act's layer-4 effects, contiguous
+// in active()'s (layer, timestamp) sort.
+func typeGroup(act []state.ContinuousEffect) (int, int) {
+	lo := -1
+	for i := range act {
+		if act[i].Layer == state.LType {
+			lo = i
+			break
+		}
+	}
+	if lo < 0 {
+		return 0, 0
+	}
+	hi := lo
+	for hi < len(act) && act[hi].Layer == state.LType {
+		hi++
+	}
+	return lo, hi
+}
+
+// landTypesSetOnSource reports CR 305.7 for a printed static's source: a
+// land whose land subtypes another layer-4 effect SETS (Blood Moon's
+// RemoveLandTypes$ + AddType$ Mountain) loses its rules-text abilities, so
+// its static (Urborg, Tomb of Yawgmoth's Swamp grant) does not exist. CR
+// 613.8a makes the static dependent on the setter, so this holds whatever
+// the timestamps. The setter is matched against the source's PRINTED types
+// (no recursive layer-4 walk of the source); an Effect-created or
+// until-end-of-turn registration is not rules text and is never suppressed.
+func landTypesSetOnSource(b Board, group []state.ContinuousEffect, ce *state.ContinuousEffect) bool {
+	if ce.FromEffect || ce.UntilEOT || ce.RemoveLandTypes {
+		return false
+	}
+	src := b.Game().Obj(ce.Source)
+	if src == nil || src.Zone != state.ZBattlefield || src.FaceDown || src.Face() == nil {
+		return false
+	}
+	printed := src.Face().Types
+	if !slices.ContainsFunc(printed, func(t string) bool { return strings.EqualFold(t, "Land") }) {
+		return false
+	}
+	for i := range group {
+		se := &group[i]
+		if se.Source == ce.Source || !se.RemoveLandTypes || len(se.AddTypes) == 0 {
+			continue
+		}
+		if matchesWithTypes(b, se, ce.Source, printed, 0) {
+			return true
+		}
+	}
+	return false
+}
+
+// applyTypeEffect applies one matching layer-4 effect to the walk's OWNED
+// type list (it filters and appends in place) and its all-creature-types
+// marker.
+func applyTypeEffect(b Board, ce *state.ContinuousEffect, ty []string, allCreatureTypes bool) ([]string, bool) {
+	if ce.RemoveCardTypes {
+		// RemoveCardTypes$ keeps only the SUPERTYPES: a subtype is tied to
+		// its card type (CR 205.2-family), so losing the card type loses
+		// its subtypes, and the flat type list cannot attribute a subtype
+		// word to a surviving type. Both flags together are therefore
+		// "everything but supertypes" -- Darksteel Mutation's oracle.
+		allCreatureTypes = false
+		kept := ty[:0]
+		for _, t := range ty {
+			if IsSupertype(t) {
+				kept = append(kept, t)
+			}
+		}
+		ty = kept
+	}
+	if ce.RemoveCreatureTypes || ce.RemoveSubTypes || ce.SetCreatureTypes {
+		// The semantic marker follows the same timestamp-ordered type
+		// changes as the materialized list. A later strip invalidates an
+		// earlier all-types grant; a subsequent AddAllCreatureTypes below
+		// can establish it again.
+		allCreatureTypes = false
+		kept := ty[:0]
+		for _, t := range ty {
+			if ce.RemoveSubTypes {
+				if IsCardType(t) || IsSupertype(t) {
+					kept = append(kept, t)
+				}
+			} else if ce.SetCreatureTypes {
+				if !effects.CreatureTypeWords(t) {
+					kept = append(kept, t)
+				}
+			} else if !IsCreatureSubtype(t) {
+				kept = append(kept, t)
+			}
+		}
+		ty = kept
+	}
+	if len(ce.RemoveTypes) > 0 {
+		if allCreatureTypes && slices.ContainsFunc(ce.RemoveTypes, func(remove string) bool {
+			return slices.ContainsFunc(ty, func(typ string) bool {
+				return effects.CreatureTypeWords(typ) && strings.EqualFold(typ, remove)
+			})
+		}) {
+			allCreatureTypes = false
+		}
+		kept := ty[:0]
+		for _, t := range ty {
+			if !slices.ContainsFunc(ce.RemoveTypes, func(remove string) bool { return strings.EqualFold(t, remove) }) {
+				kept = append(kept, t)
+			}
+		}
+		ty = kept
+	}
+	if ce.RemoveLegendary {
+		// NonLegendary$ True (CR 205.4's supertype): drop only the
+		// Legendary word, leaving every other supertype (Basic, Snow,
+		// World, Ongoing) in place -- distinct from RemoveCardTypes,
+		// which keeps supertypes and drops everything else.
+		kept := ty[:0]
+		for _, t := range ty {
+			if !strings.EqualFold(t, "Legendary") {
+				kept = append(kept, t)
+			}
+		}
+		ty = kept
+	}
+	if ce.RemoveLandTypes {
+		// RemoveLandTypes$ (CR 613.1d, the Blood Moon / Zhao static
+		// family) strips every land-type SUBTYPE word from the board's
+		// land-type vocabulary before this effect's AddTypes apply. The
+		// vocabulary is subtypes only, so the Land card type and the
+		// Basic supertype survive the strip.
+		words := b.LandTypeWords()
+		kept := ty[:0]
+		for _, t := range ty {
+			if !slices.ContainsFunc(words, func(w string) bool { return strings.EqualFold(t, w) }) {
+				kept = append(kept, t)
+			}
+		}
+		ty = kept
+	}
+	ty = appendLandTypes(ty, ce.AddTypes, b.LandTypeWords())
+	if ce.AddAllCreatureTypes {
+		ty = appendAllCreatureTypes(ty)
+		allCreatureTypes = true
+	}
+	return ty, allCreatureTypes
 }
