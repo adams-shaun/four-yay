@@ -391,6 +391,9 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 	if gap := staticExileWithGap(f, st); gap != "" {
 		return skip(gap)
 	}
+	if gap := staticSetupReplacementGap(f, st); gap != "" {
+		return skip(gap)
+	}
 	if gap := staticConditionGap(f, st); gap != "" {
 		return skip(gap)
 	}
@@ -598,6 +601,12 @@ func staticBase(reg *cards.Registry, c *cards.Card, f *cards.Face, name string, 
 			copy(base.XAbility[len(base.Steps)-len(cond.afterXab):], cond.afterXab)
 		}
 	}
+	if cond != nil && cond.chosenType != "" && !answerChosenType(&base, cond.chosenType) {
+		return base, "chosen type has no as-enters ask to script"
+	}
+	if cond != nil && cond.beholdPick != "" && !answerBeholdCost(&base, name, cond.beholdPick) {
+		return base, "behold cost has no pick to script"
+	}
 	if cond != nil && cond.opponentTurn {
 		// A Condition$ NotPlayerTurn static (Midnight Mangler) is false on
 		// p0's own turn; advance to p1's first main phase so its controller
@@ -643,6 +652,9 @@ func (s staticFixture) baseline() staticBaseline {
 		bl.probePT = s.attachPT
 	case "self":
 		bl.cardPT = s.attachPT
+	}
+	if s.selfPT != ([2]int32{}) {
+		bl.cardPT = s.selfPT
 	}
 	if s.tokenName != "" {
 		bl.tokens = map[string]staticProbeSpec{s.tokenName: s.tokenSpec}

@@ -67,10 +67,19 @@ func manaExpendThreshold(raw string) (int, bool) {
 	return n, true
 }
 
+// manaTapTokenProducer makes the probe token: Argothian Opportunist's enters
+// trigger (TrigToken, TokenScript$ c_a_powerstone) has no choice to answer.
+const (
+	manaTapTokenProducer = "Argothian Opportunist"
+	manaTapTokenScript   = "c_a_powerstone"
+)
+
 // manaTapSubject is the mana source a TapsForMana cause taps: the probe land
 // plus the XMage selector of its mana ability. cardName/selfInHand carry an
 // Aura trigger source, which setup cannot place unattached and so is cast on
-// the probe land first.
+// the probe land first. tokenProbe marks the artifact-token shape: land then
+// names the token PRODUCER, which the prelude casts from hand (the token
+// itself does not exist at setup), and activateCard is the tap target's ref.
 type manaTapSubject struct {
 	land       string
 	label      string
@@ -78,14 +87,31 @@ type manaTapSubject struct {
 	prelude    []oraclegen.Step
 	cardName   string
 	selfInHand bool
+	tokenProbe bool
+	// activateCard is the activate step's tap target when it is not
+	// "p0:"+land (the token ref the prelude creates).
+	activateCard string
+}
+
+// tapRef is the ref of the mana source the cause taps.
+func (s manaTapSubject) tapRef() string {
+	if s.activateCard != "" {
+		return s.activateCard
+	}
+	return "p0:" + s.land
 }
 
 // manaTapSubjects lists the probe sources a TapsForMana cause can tap: a
 // Forest for the common Land/Land.Basic filters, or a Wastes when the trigger
 // restricts Produced$ C. An Aura trigger source is cast onto the probe land
-// first. ok is false for a filter the probe cannot satisfy (an artifact-token
-// source, a non-land permanent), which then skips with a named reason.
+// first, and the artifact-token shape (levelb.ManaTapTokenProbe) casts the
+// token producer first. ok is false for a filter the probes cannot satisfy
+// (a non-land permanent, a token shape with a qualifier), which then skips
+// with a named reason.
 func manaTapSubjects(reg *cards.Registry, f *cards.Face, name string, t *cards.Trigger) []manaTapSubject {
+	if levelb.ManaTapTokenProbe(t) {
+		return manaTapTokenSubject(reg)
+	}
 	land, label := manaTapProbe(t)
 	lf, ok := reg.Lookup(land)
 	if !ok || len(lf.Faces) == 0 {
@@ -111,10 +137,54 @@ func manaTapSubjects(reg *cards.Registry, f *cards.Face, name string, t *cards.T
 	return []manaTapSubject{s}
 }
 
+// manaTapTokenSubject serves the servable artifact-token shape (Roxanne,
+// Starfall Savant's `ValidCard$ Artifact.token`): the probe source is the
+// Powerstone token, whose Add {C} the trigger's reflection mirrors, so the
+// prelude casts the producer, resolves its ETB (which creates the token
+// tapped) and passes to p0's next-turn upkeep, whose untap step makes the
+// token tappable. The XMage selector is the token face's own rule text, not
+// the producer's.
+func manaTapTokenSubject(reg *cards.Registry) []manaTapSubject {
+	tok, ok := reg.Token(manaTapTokenScript)
+	if !ok || len(tok.Faces) == 0 {
+		return nil
+	}
+	tf := tok.Faces[0]
+	prefixes, why := oraclegen.XMageAbility(tf)
+	if why != "" {
+		return nil
+	}
+	prefix, ok := prefixes[0]
+	if !ok {
+		return nil
+	}
+	cast, ok := castProbe(reg, manaTapTokenProducer)
+	if !ok {
+		return nil
+	}
+	return []manaTapSubject{{
+		land:         manaTapTokenProducer,
+		label:        "Add {C}",
+		prefix:       prefix,
+		tokenProbe:   true,
+		activateCard: "p0:token:" + tf.Name,
+		prelude: []oraclegen.Step{
+			cast,
+			{Op: "resolve"},
+			// The token is created tapped; the pass waits out p1's whole
+			// turn so p0's untap step makes it tappable. `upkeep` rather
+			// than `main1`: step+active both still match turn 1's main1.
+			{Op: "pass_to", Seat: 0, Step: "upkeep", Active: "p0"},
+		},
+	}}
+}
+
 // manaTapProbe picks the mana source and its gorge ability label for the
 // trigger's filter: a Wastes for a Produced$ C restriction, a Llanowar Elves
 // for a Creature filter ("whenever you tap a creature for mana"), and a Forest
-// for the common Land/Land.Basic and Card.AttachedBy filters.
+// for the common Land/Land.Basic and Card.AttachedBy filters. The
+// artifact-token shape never reaches it (manaTapSubjects takes the token
+// subject first).
 func manaTapProbe(t *cards.Trigger) (land, label string) {
 	if strings.EqualFold(strings.TrimSpace(t.ParamStr(cards.PKProduced)), "C") {
 		return "Wastes", "Add {C}"
@@ -163,9 +233,15 @@ func manaTapFires(reg *cards.Registry, f *cards.Face, name string, req levelb.Re
 // a later replay failure.
 func manaTapWith(reg *cards.Registry, f *cards.Face, name string, req levelb.Requirement, s manaTapSubject) (it oraclegen.Item, ok, fired bool) {
 	c := triggerCause{
-		battlefield: []string{s.land},
-		prelude:     s.prelude,
-		steps:       []oraclegen.Step{{Op: "activate", Seat: 0, Card: "p0:" + s.land, Ability: s.label}},
+		prelude: s.prelude,
+		steps:   []oraclegen.Step{{Op: "activate", Seat: 0, Card: s.tapRef(), Ability: s.label}},
+	}
+	if s.tokenProbe {
+		// The token does not exist at setup: the producer starts in hand and
+		// its ETB creates the token the activate step taps.
+		c.hand = []string{s.land}
+	} else {
+		c.battlefield = []string{s.land}
 	}
 	if s.selfInHand {
 		c.selfInHand = true
@@ -203,11 +279,23 @@ func manaTapWith(reg *cards.Registry, f *cards.Face, name string, req levelb.Req
 
 // controlTapPool runs the probe tap alone (no trigger source) and returns p0's
 // pool at the activate checkpoint. The trigger fired exactly when the source's
-// pool differs from this.
+// pool differs from this. A token probe's control run replays the subject's
+// prelude, so it also casts the producer and activates the real token; without
+// it the control's tap target would not exist. An Aura subject's prelude is
+// NOT replayed: it casts the trigger source itself, which would put the
+// trigger back into the control run.
 func controlTapPool(reg *cards.Registry, f *cards.Face, s manaTapSubject) (string, bool) {
+	p0 := oraclegen.Seat{Battlefield: []string{s.land}}
+	if s.tokenProbe {
+		p0 = oraclegen.Seat{Hand: []string{s.land}}
+	}
+	steps := []oraclegen.Step{{Op: "activate", Seat: 0, Card: s.tapRef(), Ability: s.label}}
+	if s.tokenProbe {
+		steps = append(append([]oraclegen.Step(nil), s.prelude...), steps...)
+	}
 	ctrl := oraclegen.Scenario{
-		Setup: map[string]oraclegen.Seat{"p0": {Battlefield: []string{s.land}}},
-		Steps: []oraclegen.Step{{Op: "activate", Seat: 0, Card: "p0:" + s.land, Ability: s.label}},
+		Setup: map[string]oraclegen.Seat{"p0": p0},
+		Steps: steps,
 	}
 	oraclegen.Baseline(ctrl.Setup, f)
 	_, res, ok := oraclegen.Settle(reg, ctrl)
