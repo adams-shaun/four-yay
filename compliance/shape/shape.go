@@ -77,6 +77,13 @@ var (
 	bracketRE = regexp.MustCompile(`\[[^\]]*\]`)
 )
 
+// HarnessAskContext opens the failing ask's own Card:/Ability:/Target: lines
+// that cmd/oraclediff appends to a harness Detail (TestPlayer's "Targets list
+// was setup by addTarget ..., but not used"). They name the ask, not the root
+// cause, so Of cuts them off: a shape must stay one signature per message
+// class however many cards raise it.
+const HarnessAskContext = " | Card: "
+
 // Of computes the shape of a diverge or harness verdict row from its Detail
 // (the comparator's first difference, or the harness message). ok is false
 // for a row with no disagreement to shape.
@@ -86,6 +93,7 @@ func Of(r compliance.VerdictRow) (Shape, bool) {
 	}
 	if r.Status == compliance.StatusHarness {
 		engine, msg, _ := strings.Cut(r.Detail, ": ")
+		msg, _, _ = strings.Cut(msg, HarnessAskContext)
 		return Shape{Template: templateFamily(r.Template), Op: "harness", Field: engine, Diff: harnessMsg(msg, r.Card)}, true
 	}
 	m := divergeRE.FindStringSubmatch(r.Detail)
