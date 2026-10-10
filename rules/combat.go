@@ -212,7 +212,7 @@ func (e *Engine) askAttackers() {
 		for range of.charge.phyrexian {
 			label += ", pay a Phyrexian symbol"
 		}
-		group, cap := e.attackRestrictGroup(of.def)
+		group, cap := e.attackRestrictGroup(of.def, of.battle)
 		if group != "" && cap > 1 {
 			groupLimits[group] = cap
 		}
@@ -819,34 +819,59 @@ func (e *Engine) validateAttackDeclarationChosen(d *decision.Decision, in decisi
 	if len(chosen) > maxAllowed {
 		return fmt.Errorf("declared %d attackers, more than the allowed %d", len(chosen), maxAllowed)
 	}
-	counts := make(map[state.PlayerID]int)
+	counts := make(map[string]int)
 	for _, index := range in.Choices {
-		if index >= 0 && index < len(d.Options) {
-			counts[d.Options[index].Player]++
+		if index < 0 || index >= len(d.Options) {
+			continue
 		}
-	}
-	for defender, count := range counts {
-		limit, ok := combat.AttackRestrictLimit(asBoard(e), defender)
-		if ok && count > limit {
-			return fmt.Errorf("declared %d attackers at defender %d, more than the allowed %d", count, defender, limit)
+		o := d.Options[index]
+		group, limit := e.attackRestrictGroup(o.Player, o.Battle)
+		if group == "" {
+			continue
+		}
+		counts[group]++
+		if counts[group] > limit {
+			return fmt.Errorf("declared %d attackers at defender %d, more than the allowed %d", counts[group], o.Player, limit)
 		}
 	}
 	return nil
 }
 
 // attackRestrictGroup marks options at a defender constrained by an active
-// AttackRestrict static, and reports that defender's ceiling. Decision.Validate
-// and botpolicy.Clamp share the per-Group cap rule through
-// Decision.GroupLimits, so the bot cannot offer an answer the engine rejects;
-// a ceiling above one (Crawlspace's "no more than two creatures can attack
-// you") rides GroupLimits while the ordinary at-most-one-per-Group rule covers
-// the limit-one shape byte-identically.
-func (e *Engine) attackRestrictGroup(defender state.PlayerID) (string, int) {
-	limit, ok := combat.AttackRestrictLimit(asBoard(e), defender)
-	if !ok {
+// AttackRestrict static, and reports that defender's ceiling. A player-scoped
+// restriction keys its group by the defending player alone; a restriction
+// scoped to the attacked PERMANENT (Tomik's granted ValidDefender$ Card.Self)
+// keys its own group by the battle object, so attacks at that planeswalker
+// are capped without consuming the player's uncapped attackers. When BOTH
+// scopes name the same defender, both ceilings bind the walker attack: the
+// option joins the battle-scoped group at the SMALLER of the two caps
+// (CR 508.1c, the smallest ceiling binds) -- a player-scoped cap never
+// relaxes the battle-scoped one, and the walker attack leaves the
+// player-scoped count (a planeswalker attack is not an attack on its
+// controller, so the player group counts only the player attacks). Decision
+// .Validate and botpolicy.Clamp share the per-Group cap rule through Decision
+// .GroupLimits, so the bot cannot offer an answer the engine rejects; a
+// ceiling above one (Crawlspace's "no more than two creatures can attack
+// you") rides GroupLimits while the ordinary at-most-one-per-Group rule
+// covers the limit-one shape byte-identically.
+func (e *Engine) attackRestrictGroup(defender state.PlayerID, battle state.ObjID) (string, int) {
+	playerLimit, playerOK := combat.AttackRestrictLimit(asBoard(e), defender, 0)
+	if battle == 0 {
+		if playerOK {
+			return fmt.Sprintf("attack-restrict:%d", defender), playerLimit
+		}
 		return "", 0
 	}
-	return fmt.Sprintf("attack-restrict:%d", defender), limit
+	battleLimit, battleOK := combat.AttackRestrictLimit(asBoard(e), defender, battle)
+	switch {
+	case playerOK && battleOK:
+		return fmt.Sprintf("attack-restrict:%d:%d", defender, battle), min(playerLimit, battleLimit)
+	case playerOK:
+		return fmt.Sprintf("attack-restrict:%d", defender), playerLimit
+	case battleOK:
+		return fmt.Sprintf("attack-restrict:%d:%d", defender, battle), battleLimit
+	}
+	return "", 0
 }
 
 // validateBlockers is the KBlockers whole-declaration legality guard. The
