@@ -441,7 +441,8 @@ func RestrictionTargetMatches(g *state.Game, spec string, defender, controller s
 			continue
 		}
 		if (attacked == 0 && effects.RestrictionPlayerSpecMatches(g, part, defender, controller, source, rememberedPlayers)) ||
-			restrictionPlaneswalkerTargetMatches(g, part, defender, controller, source, rememberedPlayers, attacked) {
+			restrictionPlaneswalkerTargetMatches(g, part, defender, controller, source, rememberedPlayers, attacked) ||
+			restrictionCardTargetMatches(g, part, controller, source, attacked) {
 			return true
 		}
 	}
@@ -492,6 +493,22 @@ func restrictionPlaneswalkerTargetMatches(g *state.Game, spec string, defender, 
 		return true
 	}
 	return false
+}
+
+// restrictionCardTargetMatches reads one Card.<props> entry in a restriction's
+// Target$ list (The Aetherspark: Card.Self+AttachedTo Creature): the attacked
+// permanent must be a face-up battlefield card matching the object spec, with
+// the restriction's source as Self.
+func restrictionCardTargetMatches(g *state.Game, spec string, controller state.PlayerID, source state.ObjID, attacked state.ObjID) bool {
+	base, _, ok := strings.Cut(strings.TrimSpace(spec), ".")
+	if !ok || !strings.EqualFold(strings.TrimSpace(base), "Card") || attacked == 0 {
+		return false
+	}
+	o := g.Obj(attacked)
+	if o == nil || o.Zone != state.ZBattlefield || o.FaceDown {
+		return false
+	}
+	return effects.MatchesSpecFrom(g, spec, attacked, controller, source)
 }
 
 // printedHasType reports whether o's printed face carries the exact type
