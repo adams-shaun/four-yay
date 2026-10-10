@@ -225,11 +225,20 @@ func sameNameBucketRank(bucket string) int {
 // (Disturbing Mirth, Paranormal Analyst), so merged DSK unproven is 36. The
 // auto-merged pin read 35 because both sides pinned 35 before the merge (each
 // held two of the three items); re-pinned to 36 here. Unresolved stayed 0.
+//
+// Re-measured on the G7 static-fixture slice (agent-20261009T085728Z-96fc1b7a):
+// DSK alias 2 -> 3. Serving Chainsaw's rev-counter static redirects its
+// optional ETB target to p1's Grizzly Bears (staticPreserveETBProbe) while p0
+// holds a Grizzly Bears of its own, so the emitted answer is the exact ref
+// "p1:Grizzly Bears" (an Alias, which names that one object). The item tracks
+// the redirect one-for-one: reverting the optional-target redirect in
+// static_observe_self_removal.go re-runs the DSK chunk at alias 2 (verified).
+// Unresolved stayed 0 and no other set moved.
 var wantSameNameCensus = map[string]string{
 	"BIG": `{"alias":0,"copy":0,"unresolved":0,"unproven":1,"items":null}`,
 	"BLB": `{"alias":3,"copy":0,"unresolved":0,"unproven":5,"items":null}`,
 	"DFT": `{"alias":0,"copy":0,"unresolved":0,"unproven":4,"items":null}`,
-	"DSK": `{"alias":2,"copy":0,"unresolved":0,"unproven":36,"items":null}`,
+	"DSK": `{"alias":3,"copy":0,"unresolved":0,"unproven":36,"items":null}`,
 	"ECL": `{"alias":0,"copy":0,"unresolved":0,"unproven":5,"items":null}`,
 	"EOE": `{"alias":3,"copy":0,"unresolved":0,"unproven":2,"items":null}`,
 	"FDN": `{"alias":0,"copy":1,"unresolved":0,"unproven":2,"items":null}`,

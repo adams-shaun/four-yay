@@ -90,6 +90,17 @@ type staticFixture struct {
 	// the serving loop scripts XMage's cost selector from the observed
 	// decisions, the same helper the standalone activate template uses.
 	activationCost string
+	// chosenType scripts the card's as-enters creature-type ask to this type
+	// (staticChosenTypeFixtures), so a static that adds the chosen type adds
+	// one the probe does not already carry.
+	chosenType string
+	// beholdPick scripts the card's own cast's behold-cost pick to this card
+	// (staticBeholdFixtures), so the battlefield probe is not exiled to pay.
+	beholdPick string
+	// selfPT is the +n/+n the fixture's own prelude puts on the card under
+	// test (a +1/+1 counter): the compared card P/T is raised by it, so only
+	// a change the static itself makes is observable.
+	selfPT [2]int32
 }
 
 // setupOnly reports whether the fixture needs no steps, so it also fits the
@@ -205,6 +216,15 @@ func (s staticFixture) merge(o staticFixture) staticFixture {
 	}
 	if s.activationCost == "" {
 		s.activationCost = o.activationCost
+	}
+	if s.chosenType == "" {
+		s.chosenType = o.chosenType
+	}
+	if s.beholdPick == "" {
+		s.beholdPick = o.beholdPick
+	}
+	if s.selfPT == ([2]int32{}) {
+		s.selfPT = o.selfPT
 	}
 	for kind, n := range o.probeCounters {
 		if s.probeCounters == nil {
@@ -597,7 +617,16 @@ func staticFixtures(reg *cards.Registry, c *cards.Card, f *cards.Face, name stri
 		if zone == "" {
 			zone = "Battlefield"
 		}
-		add(staticPresence(present, zone, staticCountFrom(st.ParamStr(cards.PKPresentCompare))))
+		compare := st.ParamStr(cards.PKPresentCompare)
+		if strings.EqualFold(zone, "Library") && strings.EqualFold(compare, "EQ0") {
+			// "As long as there are no cards in your library" (Living
+			// Conundrum): both engines pad each library to 40 only when fewer
+			// than 40 cards are named across the setup zones, so 40 named
+			// cards in the graveyard leave nothing to pad it with.
+			add(staticFixture{conditionPrelude: conditionPrelude{graveyard: oraclegen.Repeat("Wastes", 40)}}, true)
+		} else {
+			add(staticPresence(present, zone, staticCountFrom(compare)))
+		}
 	}
 	n := staticCountFrom(st.ParamStr(cards.PKSVarCompare))
 	for _, body := range staticSVarBodies(f, st) {
@@ -634,6 +663,10 @@ func staticFixtures(reg *cards.Registry, c *cards.Card, f *cards.Face, name stri
 	// The exiled-with fixtures (the source's own graveyard-to-exile ability)
 	// run after every existing candidate for the same reason.
 	out = append(out, staticExileFixtures(reg, f, st, st.ParamStr(cards.PKAffected))...)
+	out = append(out, staticChosenTypeFixtures(f, st)...)
+	out = append(out, staticStealFixtures(reg, st)...)
+	out = append(out, staticBeholdFixtures(f)...)
+	out = append(out, staticCountersAddedFixtures(reg, f, st)...)
 	// A fixture that puts a copy of the card under test on the battlefield
 	// (a named-permanents count such as Phoenix Fleet Airship's eight copies)
 	// cannot also CAST it: the two share a name, so the cast step's "pN:Name"
@@ -712,6 +745,11 @@ func staticConditionGap(f *cards.Face, st cards.Static) string {
 		return "counts attackers declared this turn"
 	case has("maxspeed"):
 		return "needs max speed (setup has no speed knob)"
+	case has("attackedthisturn"):
+		// The object predicate is absent from the filter grammar (only
+		// attackedThisCombat exists), so a Card.Self+attackedThisTurn gate
+		// fails closed and stays false after the source attacks.
+		return "gate reads the attackedThisTurn filter predicate, which the engine does not evaluate"
 	}
 	return ""
 }
