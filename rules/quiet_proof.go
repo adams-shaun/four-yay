@@ -898,7 +898,7 @@ func abQuietBlocked(e *Engine, p state.PlayerID, aq *abQuietZone, o *state.Objec
 	if aq.hasTap && !o.Tapped && (unbounded || aq.floorTap <= ceiling) && (!aq.sorcTap || sorceryOpen) {
 		return true
 	}
-	for i := uint8(0); i < aq.nGroups; i++ {
+	for i := range aq.groups {
 		g := &aq.groups[i]
 		if g.tap && o.Tapped {
 			continue

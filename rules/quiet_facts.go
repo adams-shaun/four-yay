@@ -66,8 +66,15 @@ type abQuietZone struct {
 	// and part list. Overflow (more abilities than quietMaxGroups, or more
 	// parts than quietMaxParts) sets nonMana -- the ability then blocks
 	// unconditionally, the same over-approximation as before Q3b.
-	groups  [quietMaxGroups]quietBoundedAbility
-	nGroups uint8
+	//
+	// It is SPARSE: only the present groups are stored, because a quietPart
+	// embeds a 16-byte string and a dense [quietZones][quietMaxGroups] array
+	// would grow walkFaceFacts ~5x past its committed memory-shape bound
+	// (TestWalkFaceFactsAltCostSidecarIsSparse) for EVERY face, part-carrying
+	// or not. The overwhelming majority of faces carry no bounded part, so
+	// they allocate nothing here; len(groups) is the group count. The same
+	// sparse-sidecar discipline as walkFaceFacts.altCosts.
+	groups []quietBoundedAbility
 }
 
 // quietMaxGroups and quietMaxParts bound the per-zone part storage. Three
@@ -668,14 +675,13 @@ func quietAbilityFacts(f *cards.Face, q *quietFaceFacts) {
 				continue
 			}
 			// A priceable part-carrying ability: one group, its own floor.
-			if aq.nGroups >= quietMaxGroups || len(parts) > quietMaxParts {
+			if len(aq.groups) >= quietMaxGroups || len(parts) > quietMaxParts {
 				aq.nonMana = true
 				continue
 			}
-			g := &aq.groups[aq.nGroups]
-			g.tap, g.sorc, g.floor, g.nParts = tap, sorc, floor, uint8(len(parts))
+			g := quietBoundedAbility{tap: tap, sorc: sorc, floor: floor, nParts: uint8(len(parts))}
 			copy(g.parts[:len(parts)], parts)
-			aq.nGroups++
+			aq.groups = append(aq.groups, g)
 		}
 	}
 }

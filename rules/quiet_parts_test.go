@@ -43,7 +43,7 @@ func quietGroupWithPart(t *testing.T, e *Engine, o *state.Object, kind quietPart
 	if aq.nonMana {
 		t.Fatal("precondition: the ability summary is nonMana; the Q3b bound did not price the cost")
 	}
-	for i := uint8(0); i < aq.nGroups; i++ {
+	for i := range aq.groups {
 		g := &aq.groups[i]
 		for j := uint8(0); j < g.nParts; j++ {
 			if g.parts[j].kind == kind {
