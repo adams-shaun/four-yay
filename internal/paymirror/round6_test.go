@@ -125,6 +125,7 @@ func round6Game(t *testing.T, d *Decks, spec GameSpec) []*Report {
 // live in paymirror.go (gainedMember/answerManaAsks) for the next game that
 // shows the shape.
 func TestRoundSixGainedMemberSeed3589(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	d, err := LoadDecks(reg)
 	if err != nil {

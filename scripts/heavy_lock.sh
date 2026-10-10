@@ -7,10 +7,17 @@
 # scripts/sb-gauntlet.sh, scripts/m1b-distill.sh, the agentctl "go test
 # (affected)" gate, scripts/driver_replay_batch.sh. (`make ledger` has its own
 # lock, scripts/ledger-lane.sh.) Seats stay unlocked (they are capped
-# separately). The pool has GORGE_HEAVY_LANES lanes (default 2, raised from a
+# separately). The pool has GORGE_HEAVY_LANES lanes (default 3, raised from a
 # single lock when the box went from 64 to 120 GiB, so a per-ticket gate and
 # the post-merge suite — or a suite and a heavy lease — can run at the same
-# time). Lane 1 IS the old single lock file, so a caller from a base that
+# time; 2026-10-09 cli-20261009T224425Z-a610bfaf raised 2 -> 3: the batch
+# cadence runs the full suite back to back with ~60 s gaps (each holding a
+# lane 235-452 s), so a second heavy job (driver_replay_batch, another seat's
+# gate) already made both lanes busy and the per-ticket gate paid its wait
+# inside its own gate wall — the measured gate_wall_s pole was the WAIT, not
+# the gate's test work: 3 of 5 gate runs on 2026-10-09 16:14-16:50 spent
+# 245-330 s waiting for a lane before 20-125 s of work). Lane 1 IS the old
+# single lock file, so a caller from a base that
 # predates the lanes (an in-flight branch's own copy of a runner) still
 # contends with every lane-1 holder exactly as before; only lane 2 is new.
 # The base path is <main checkout>/.ds4/heavy.lock, derived from the shared
@@ -56,7 +63,7 @@
 # heavy.sh leases YIELD their lane while a broker gate bracket has them
 # parked (flock -u 9 on the lane fd), so a gate that takes a lane is never
 # waiting on a job the bracket itself froze.
-GORGE_HEAVY_LANES=${GORGE_HEAVY_LANES:-2}
+GORGE_HEAVY_LANES=${GORGE_HEAVY_LANES:-3}
 if [ -z "${GORGE_HEAVY_LOCK:-}" ]; then
 	_hl_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 	_hl_common=$(git -C "$_hl_dir" rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || _hl_common=$_hl_dir/../.git

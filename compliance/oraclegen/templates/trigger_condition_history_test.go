@@ -4,7 +4,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/adams-shaun/gorge/compliance/levelb"
 	"github.com/adams-shaun/gorge/compliance/oraclegen"
 )
 
@@ -71,35 +70,24 @@ func TestTriggerConditionHistoryPreludes(t *testing.T) {
 			// GE2: two spells, never the same name twice.
 			castsDistinct(t, sc, 2, "Grizzly Bears", "Llanowar Elves", "Shock", "Lightning Bolt", "Divination")
 		}},
+		{"Tunnel Tipster", "trigger#0.0", func(t *testing.T, sc oraclegen.Scenario) {
+			// "if a face-down creature entered the battlefield under your
+			// control this turn": the cause face-down casts a Disguise probe
+			// for {3}; the entry itself is the face-down permanent.
+			castsFaceDown(t, sc, "Bolrac-Clan Basher", "disguised")
+		}},
+		{"Spider-Man 2099", "trigger#0.0", func(t *testing.T, sc oraclegen.Scenario) {
+			// "if you've ... cast a spell this turn from anywhere other than
+			// your hand": the probe's own static grants a cast from exile.
+			if len(sc.Setup["p0"].Exile) == 0 {
+				t.Fatal("precondition: no card in exile for a cast-from-exile cause")
+			}
+			castsDistinct(t, sc, 1, "Misthollow Griffin", "Eternal Scourge")
+		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			it := triggerItem(t, reg, tc.name, tc.key)
 			tc.want(t, it.Scenario)
-		})
-	}
-	for _, tc := range []struct{ name, key, want string }{
-		{"Tunnel Tipster", "trigger#0.0", "face-down entry has no cause"},
-		{"Spider-Man 2099", "trigger#0.0", "cast not from hand has no cause"},
-	} {
-		t.Run("skip "+tc.name, func(t *testing.T) {
-			card, ok := reg.Lookup(tc.name)
-			if !ok {
-				t.Fatalf("precondition: %s not in the corpus", tc.name)
-			}
-			for _, req := range levelb.Requirements(card) {
-				if req.Family != "trigger" || req.Key != tc.key {
-					continue
-				}
-				it, skip := GenerateB(reg, tc.name, req)
-				if skip == nil {
-					t.Fatalf("%s %s was served (%s), want a skip", tc.name, tc.key, it.ID)
-				}
-				if !strings.Contains(skip.Reason, "turn history") || !strings.Contains(skip.Reason, tc.want) {
-					t.Fatalf("skip = %q, want turn history / %q", skip.Reason, tc.want)
-				}
-				return
-			}
-			t.Fatalf("precondition: %s has no requirement %s", tc.name, tc.key)
 		})
 	}
 }
@@ -129,6 +117,22 @@ func castsDistinct(t *testing.T, sc oraclegen.Scenario, n int, pool ...string) {
 	}
 }
 
+// castsFaceDown asserts the scenario face-down casts card for {3} with mode
+// (a morph/disguise cast), the cause a face-down entry count reads.
+func castsFaceDown(t *testing.T, sc oraclegen.Scenario, card, mode string) {
+	t.Helper()
+	for _, st := range sc.Steps {
+		if st.Op != "cast" || st.Card != "p0:"+card {
+			continue
+		}
+		if st.CastMode != mode || st.Mana != faceDownCastPool {
+			t.Fatalf("cast %s mode=%q mana=%q, want %q for %q", card, st.CastMode, st.Mana, mode, faceDownCastPool)
+		}
+		return
+	}
+	t.Fatalf("scenario does not face-down cast %s: %+v", card, sc.Steps)
+}
+
 // TestHistoryPreludeDistinctNames: n events never repeat a probe name, the
 // opponent's creatures are the victims of an OppCtrl head, and a pool too short
 // for n yields no candidate instead of a repeated name.
@@ -150,7 +154,22 @@ func TestHistoryPreludeDistinctNames(t *testing.T) {
 	if got := historyPreludes(reg, "Source", "Count$ThisTurnEntered_Exile_Card.!token", 3); len(got) != 0 {
 		t.Fatalf("three exiles from a two-spell pool: %+v", got)
 	}
-	if got := historyPreludes(reg, "Source", "Count$ThisTurnEntered_Battlefield_Creature.faceDown+YouCtrl", 1); len(got) != 0 {
-		t.Fatalf("face-down entry offered %+v, want no candidate", got)
+	faceDown := historyPreludes(reg, "Source", "Count$ThisTurnEntered_Battlefield_Creature.faceDown+YouCtrl", 1)
+	if len(faceDown) != 1 {
+		t.Fatalf("face-down entry offered %+v, want one candidate", faceDown)
 	}
+	if !preludeFaceDownCast(faceDown[0]) {
+		t.Fatalf("face-down candidate is not a face-down cast: %+v", faceDown[0])
+	}
+}
+
+// preludeFaceDownCast reports a prelude whose steps face-down cast a probe for
+// {3} (the cause a face-down entry count reads).
+func preludeFaceDownCast(p conditionPrelude) bool {
+	for _, st := range p.steps {
+		if st.Op == "cast" && st.CastMode != "" && st.Mana == faceDownCastPool {
+			return true
+		}
+	}
+	return false
 }

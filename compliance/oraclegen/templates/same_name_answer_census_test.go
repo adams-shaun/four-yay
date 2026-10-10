@@ -147,8 +147,16 @@ func sameNameBucketRank(bucket string) int {
 // granted-trigger side alone reproduces 3/2 with exactly these five items, so
 // the move is the granted-trigger serving, not the merge.
 //
-// Re-measured for the declined-object-pick routing (c5ccc3049, this branch's
-// ticket agent-20261009T041343Z-30c2d145 round 2): BLB unproven 4 -> 5.
+// Re-measured for cli-20261009T031408Z-5823e7de (Level B activate fixtures):
+// DSK unproven 33 -> 34. Serving Say Its Name's activate#0.1 (a level-B
+// activate row) generates the new scenario DSK Say Its Name/activate#0.1/v1,
+// whose two same-name picks are rank-derived library refs ("p0:Say Its
+// Name#2"/"#3", the cards the ability exiles by name), so no exact answer
+// exists -- Unproven, not Unresolved. The item tracks the new scenario
+// one-for-one and disappears if that activate serving is reverted.
+//
+// Re-measured for the declined-object-pick routing (c5ccc3049, main's ticket
+// agent-20261009T041343Z-30c2d145 round 2): BLB unproven 4 -> 5.
 // That change routes Fireglass Mentor/trigger#0.0's declined two-option exile
 // look ask onto XMage's mandatory TargetCardInExile 1..1 pose: the serving
 // trigger template forces the rerun so gorge picks the first exiled card too,
@@ -175,6 +183,11 @@ func sameNameBucketRank(bucket string) int {
 // rank-derived library card (ref "p0:Wastes#N"), so no exact answer exists --
 // Unproven, not Unresolved. The item tracks the new scenario one-for-one:
 // measured DSK 34 -> 33 with the external-self-sacrifice cause reverted.
+// Both paragraphs are from either side of the same merge base: the branch's
+// Say Its Name activate serving and main's Disturbing Mirth sacrifice cause
+// each add one DSK item, and the merged tree carries both (pins re-measured
+// on the merged tree below). Merged DSK unproven is therefore 34 -> 35, not
+// the 34 either side alone measured.
 //
 // Unresolved stayed 0 in every set through all moves; that is the
 // defect measure.
@@ -191,11 +204,32 @@ func sameNameBucketRank(bucket string) int {
 // moved: the other keyword-action causes (explore, plot, saddle, collect
 // evidence, discover, gift, forage, elemental bend) generate items whose
 // picks are exact aliases or need no same-name discrimination.
+//
+// Re-measured on the level-B indirect SVar attack gate (review of
+// agent-20261009T035714Z-15384ed6, commit ae737b73c): DFT unproven 3 -> 4.
+// Serving Fearless Swashbuckler trigger#0.0 ("if a Pirate and a Vehicle
+// attacked this combat", CheckSVar$ X = SVar$Y/Plus.Z) generates one new
+// scenario: the Kitesail Corsair and the crewed Veloheart Bike attack, the
+// trigger draws three then discards two, and the deterministic discard mode
+// answers name the two hand Wastes (refs "p0:Wastes#24"/"p0:Wastes#36",
+// rank-derived hand cards over three same-name options). No exact answer
+// exists, so ClassifySameName marks them Unanswerable: Unproven, not
+// Unresolved. The item tracks the new scenario one-for-one and disappears if
+// trigger_condition_indirect.go is reverted (verified: the six changed files
+// reverted to main's versions re-run the DFT chunk at unproven 3, probe at
+// .ds4/scratch/vr3-census-rev.log). MKM (Tunnel Tipster) and SPM (Spider-Man
+// 2099) stayed at their pins. Unresolved stayed 0.
+//
+// Re-measured on the merge of this branch with that keyword-action land: the
+// merged tree carries the branch's Say Its Name item AND both main items
+// (Disturbing Mirth, Paranormal Analyst), so merged DSK unproven is 36. The
+// auto-merged pin read 35 because both sides pinned 35 before the merge (each
+// held two of the three items); re-pinned to 36 here. Unresolved stayed 0.
 var wantSameNameCensus = map[string]string{
 	"BIG": `{"alias":0,"copy":0,"unresolved":0,"unproven":1,"items":null}`,
 	"BLB": `{"alias":3,"copy":0,"unresolved":0,"unproven":5,"items":null}`,
-	"DFT": `{"alias":0,"copy":0,"unresolved":0,"unproven":3,"items":null}`,
-	"DSK": `{"alias":2,"copy":0,"unresolved":0,"unproven":35,"items":null}`,
+	"DFT": `{"alias":0,"copy":0,"unresolved":0,"unproven":4,"items":null}`,
+	"DSK": `{"alias":2,"copy":0,"unresolved":0,"unproven":36,"items":null}`,
 	"ECL": `{"alias":0,"copy":0,"unresolved":0,"unproven":5,"items":null}`,
 	"EOE": `{"alias":3,"copy":0,"unresolved":0,"unproven":2,"items":null}`,
 	"FDN": `{"alias":0,"copy":1,"unresolved":0,"unproven":2,"items":null}`,

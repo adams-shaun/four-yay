@@ -1,6 +1,7 @@
 package effects
 
 import (
+	"math/bits"
 	"strings"
 
 	"github.com/adams-shaun/gorge/state"
@@ -59,6 +60,16 @@ func evalRefProperty(h Host, c *Ctx, expr string, depth int) (int32, bool) {
 	g := h.Game()
 	var n int32
 	triggerObjectTypes := map[string]bool{}
+	// The Colors distinct-set property over a reference's objects (task
+	// levelb-static-count-attachments): `ExiledWith$Colors` (Sunbird Effigy's
+	// characteristic-defining P/T) counts the DISTINCT colours among the
+	// referenced cards, the same distinct-set read
+	// evalCountBody's Count$Valid <spec>$Colors makes over zone matches
+	// (Shimmercreep's Vivid). The fold is a bitmask read only through
+	// OnesCount8, so no order ever reaches an event or a view; the CDA
+	// overwrite arm ColorMaskOf already routes, so an exiled card whose
+	// printed face carries a SetColor$ CDA contributes that colour.
+	var colorsSeen ColorMask
 	// The Different* distinct-set property family over a reference's objects
 	// (task diffcount1): `Remembered$DifferentCardManaCost` (Azor's Gateway,
 	// Sanctum of the Sun settling X, Atemsis All-Seeing). The set is read
@@ -210,6 +221,8 @@ func evalRefProperty(h Host, c *Ctx, expr string, depth int) (int32, bool) {
 			} else {
 				n += o.Counter(strings.TrimPrefix(prop, "CardCounters."))
 			}
+		case prop == "Colors":
+			colorsSeen |= ColorMaskOf(o)
 		case prop == "Amount":
 			// The count of referenced objects themselves (SVar:X:ExiledWith$Amount,
 			// the same "how many" the Remembered$Amount head answers for the
@@ -308,6 +321,9 @@ func evalRefProperty(h Host, c *Ctx, expr string, depth int) (int32, bool) {
 	}
 	if (ref == "TriggerObjectsCards" || ref == "TriggerRemembered") && prop == "CardTypes" {
 		n = int32(len(triggerObjectTypes))
+	}
+	if prop == "Colors" {
+		n = int32(bits.OnesCount8(uint8(colorsSeen)))
 	}
 	if diffKind != diffNone {
 		if seenDiffNames != nil {

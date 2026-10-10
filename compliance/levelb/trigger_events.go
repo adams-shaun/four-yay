@@ -36,6 +36,9 @@ func classifyEventTrigger(t *cards.Trigger) (sub string, ok bool) {
 	if sub, ok := classifyTurnFaceUpTrigger(t); ok {
 		return sub, true
 	}
+	if sub, ok := classifyCrewedTrigger(t); ok {
+		return sub, true
+	}
 	switch t.ModeKind() {
 	case cards.TriggerChangesZone, cards.TriggerChangesZoneAll:
 		// Any non-self Battlefield->Graveyard trigger, whichever side, type
@@ -114,6 +117,39 @@ func classifyEventTrigger(t *cards.Trigger) (sub string, ok bool) {
 			return "", false
 		}
 		return "trigger.searched-library", true
+	case cards.TriggerTransformed:
+		// "Whenever this permanent transforms into CARDNAME": a self-transform
+		// body (ValidCard$ Card.Self). The cause is the card's own Phase
+		// transform enabler on its front face, whose payment or auto SetState
+		// flips it and fires every face's Transformed trigger. A watcher's
+		// transformed-object filter (Cult of the Waxing Moon) stays a gap.
+		if namesSelf(t.ParamStr(cards.PKValidCard)) {
+			return "trigger.transformed", true
+		}
+	case cards.TriggerCycled:
+		// "When you cycle this card": the cause activates the card's own
+		// cycling ability from its hand, whose cost discard is the engine's
+		// tagged cycle event (rules/trigmatch/cards.go cycledMatches).
+		if namesSelf(t.ParamStr(cards.PKValidCard)) {
+			return "trigger.cycled", true
+		}
+	case cards.TriggerLandPlayed:
+		// "Whenever you play a land" without an origin qualifier: the cause is
+		// p0's own land drop. An origin-scoped shape (Gwen Stacy's from-exile,
+		// Shadow of the Goblin's not-from-hand) and a not-owned land (Shadow's
+		// ValidCard$ ...+YouDontOwn) stay gaps: the plain play cause plays a
+		// p0-owned land from its hand, and a Static$ LandPlayed trigger never
+		// reaches the stack to be observed.
+		// p0's own land drop from its hand plays an ordinary land of yours,
+		// so the ValidCard filter must accept any such land: empty, a bare
+		// `Land`, or `Land.YouCtrl` only. A filter that narrows the land
+		// (Shanid's `Land.Legendary+YouCtrl`) or a not-owned one names a
+		// land the plain play cause cannot supply and stays a gap.
+		origin := t.ParamStr(cards.PKOrigin)
+		if (strings.TrimSpace(origin) == "" || strings.EqualFold(origin, "Hand")) &&
+			landPlayedFilterBare(t.ParamStr(cards.PKValidCard)) {
+			return "trigger.land-played", true
+		}
 	case cards.TriggerDiscarded:
 		if namesSelf(t.ParamStr(cards.PKValidCard)) || discardByController(t) {
 			return "trigger.discarded", true
@@ -219,6 +255,19 @@ func discardedOpponentSub(t *cards.Trigger) (string, bool) {
 		return "", false
 	}
 	return "trigger.discarded-opponent", true
+}
+
+// landPlayedFilterBare reports whether a LandPlayed trigger's ValidCard
+// filter accepts any land its controller plays from hand: empty, a bare
+// `Land`, or `Land.YouCtrl` only. A filter that narrows the land (Shanid's
+// `Land.Legendary+YouCtrl`) or a not-owned one names a land the plain hand
+// land drop cannot supply, so it stays a gap.
+func landPlayedFilterBare(filter string) bool {
+	switch strings.ToLower(strings.TrimSpace(filter)) {
+	case "", "land", "land.youctrl":
+		return true
+	}
+	return false
 }
 
 // selfCastTrigger reports the narrow self-cast shape that the level-A

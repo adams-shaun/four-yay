@@ -703,22 +703,38 @@ func maxBlockersItem(reg *cards.Registry, f *cards.Face, name string, req levelb
 // mustAttackItem serves MustAttack on the host (CARDNAME attacks each combat
 // if able): the card's attacker option carries the requirement the plain
 // probe beside it lacks, and the probe-only control shows Required is not
-// blanket.
+// blanket. The gated scenario DECLARES the required card -- the shape the
+// four cards' agreeing combat#0.attack rows prove both engines agree on
+// (XMage's checkAttackRequirements force-declares a must-attack creature at
+// declare-attackers entry, so a checkpoint on the pending decision showed it
+// tapped attacking where gorge had it undeclared) -- and reads the
+// requirement off the PENDING attackers decision pre-submit, before the
+// declaration goes in. The trailing pass_to stops at the declare-blockers
+// checkpoint, where both engines show the required attacker tapped attacking
+// and the probe undeclared.
 func mustAttackItem(reg *cards.Registry, f *cards.Face, name string, req levelb.Requirement) (oraclegen.Item, *oraclegen.Skip) {
 	const mode = "MustAttack"
 	if name == smallAttackerProbe {
 		return staticSkip(name, mode, "no creature card distinct from the probe")
 	}
 	self, probe := cardAt(0, name), cardAt(0, smallAttackerProbe)
-	sc := gatedScenario(f, name, req, gateSide{}, []string{smallAttackerProbe}, []oraclegen.Step{{
-		Op: "pass_to", Seat: 0, Step: "declare-attackers", Decision: "attackers",
-		Expect: []oraclegen.Expect{
-			canAttackExpect(self, true),
-			canAttackExpect(probe, true),
-			attackRequiredExpect(self, true),
-			attackRequiredExpect(probe, false),
+	sc := gatedScenario(f, name, req, gateSide{}, []string{smallAttackerProbe}, []oraclegen.Step{
+		{
+			Op: "attack", Seat: 0, Defender: "p1",
+			// Only the required card is declared, so the XMage side keeps
+			// the all-must-attack skip path its driver already proved for
+			// these cards' combat#0.attack rows; the probe stays undeclared
+			// and is asserted through its expects.
+			Attackers: []string{self},
+			Expect: []oraclegen.Expect{
+				canAttackExpect(self, true),
+				canAttackExpect(probe, true),
+				attackRequiredExpect(self, true),
+				attackRequiredExpect(probe, false),
+			},
 		},
-	}})
+		{Op: "pass_to", Seat: 0, Step: "declare-blockers", Decision: "blockers"},
+	})
 	res, ok := runStatic(reg, sc)
 	if !ok || len(res.Fails) != 0 {
 		return staticSkip(name, mode, "the requirement does not hold: "+joinFails(res.Fails))

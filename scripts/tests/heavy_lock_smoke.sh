@@ -11,9 +11,11 @@
 # liveness check: a running lease, `broker.sh gate-begin`, then the gate's own
 # command (`heavy_lock.sh run -w N`) must get a lane inside the wait, not hang.
 # Parts B–D run the pool with GORGE_HEAVY_LANES=1 so the single-lane contention
-# assertions stay exact; Part E is the 2-lane proof (2026-10-09, DRAM 120G):
-# two heavy leases run at once, a third contender finds every lane held, and
-# killing one lease frees its lane.
+# assertions stay exact; Part E is the 2-lane proof (2026-10-09, DRAM 120G),
+# pinned to GORGE_HEAVY_LANES=2 so it survives the pool moving to 3 lanes
+# later the same day; Part F is the 3-lane proof (cli-20261009T224425Z-
+# a610bfaf): the DEFAULT pool runs three heavy leases at once and a fourth
+# contender finds every lane held.
 set -uo pipefail
 
 ROOT=$(git rev-parse --show-toplevel)
@@ -31,11 +33,14 @@ check() {
 cleanup() {
 	[ -z "${HPID:-}" ] || kill -KILL "$HPID" 2>/dev/null
 	[ -z "${JOBPID:-}" ] || kill -KILL -- "-$JOBPID" 2>/dev/null
-	for v in LPIDA LPIDB; do
+	for v in LPIDA LPIDB LPIDC LPIDD LPIDE; do
 		[ -z "${!v:-}" ] || kill -KILL "${!v}" 2>/dev/null
 	done
-	for v in PA PB; do
+	for v in PA PB PC PD PE; do
 		[ -z "${!v:-}" ] || kill -KILL -- "-${!v}" 2>/dev/null
+	done
+	for v in FJ1 FJ2 FJ3; do
+		[ -z "${!v:-}" ] || kill -KILL "${!v}" 2>/dev/null
 	done
 	rm -rf "$TMP"
 }
@@ -245,7 +250,9 @@ for _ in $(seq 100); do kill -0 "$BWID" 2>/dev/null || break; sleep 0.1; done
 rm -f "$TMP/reward/gate-active"
 
 # ---- E: two lanes, so two heavy jobs run at once (2026-10-09, DRAM 120G) ------
-unset GORGE_HEAVY_LANES # back to the default 2-lane pool
+# Pinned to 2: the default pool moved to 3 lanes the same day
+# (cli-20261009T224425Z-a610bfaf); Part F asserts the 3-lane default.
+export GORGE_HEAVY_LANES=2
 export GORGE_HEAVY_LOCK=$TMP/pool.lock
 TICKS=$TMP/ticksA JOBPIDFILE=$TMP/jobpidA JOBFD=$TMP/jobfdA \
 	"$S/heavy.sh" heavy --name laneA -- "$TMP/job.sh" >"$TMP/leaseA.log" 2>&1 &
@@ -287,6 +294,56 @@ done
 check "killing one lease frees its lane for the next contender" $?
 kill -KILL "$LPIDB" 2>/dev/null
 kill -KILL -- "-$PB" 2>/dev/null
+
+# ---- F: the DEFAULT pool is 3 lanes (cli-20261009T224425Z-a610bfaf) -----------
+# Three heavy leases tick at once on the pool as configured, and a fourth
+# contender finds every lane held. The leases are the part-E shape (heavy.sh
+# through the broker), so this also exercises the broker cap that must move
+# with the lane count (broker.sh HEAVY_MAX_LEASES): the part-B exports above
+# set HEAVY_MAX_LEASES=5, so the broker is not the binding constraint here --
+# the pool width is.
+unset GORGE_HEAVY_LANES # the default pool: 3 lanes since 2026-10-09
+export GORGE_HEAVY_LOCK=$TMP/pool3.lock
+LPIDC=; LPIDD=; LPIDE=; FJ1=; FJ2=; FJ3=
+for n in 1 2 3; do
+	TICKS=$TMP/ticksF$n JOBPIDFILE=$TMP/jpF$n JOBFD=$TMP/jfdF$n \
+		"$S/heavy.sh" heavy --name laneF$n -- "$TMP/job.sh" >"$TMP/leaseF$n.log" 2>&1 &
+	case $n in
+	1) LPIDC=$! ;;
+	2) LPIDD=$! ;;
+	3) LPIDE=$! ;;
+	esac
+done
+for _ in $(seq 80); do
+	[ -s "$TMP/jpF1" ] && [ -s "$TMP/jpF2" ] && [ -s "$TMP/jpF3" ] && break
+	sleep 0.1
+done
+FJ1=$(cat "$TMP/jpF1" 2>/dev/null || true)
+FJ2=$(cat "$TMP/jpF2" 2>/dev/null || true)
+FJ3=$(cat "$TMP/jpF3" 2>/dev/null || true)
+[ -n "$FJ1" ] && [ -n "$FJ2" ] && [ -n "$FJ3" ]
+check "precondition: three default-pool heavy leases started (lanes 1, 2 and 3)" $? \
+	"1: $(tail -1 "$TMP/leaseF1.log") 2: $(tail -1 "$TMP/leaseF2.log") 3: $(tail -1 "$TMP/leaseF3.log")"
+f1a=$(wc -l <"$TMP/ticksF1"); f2a=$(wc -l <"$TMP/ticksF2"); f3a=$(wc -l <"$TMP/ticksF3")
+sleep 1.2
+f1b=$(wc -l <"$TMP/ticksF1"); f2b=$(wc -l <"$TMP/ticksF2"); f3b=$(wc -l <"$TMP/ticksF3")
+[ "$f1b" -gt "$f1a" ] && [ "$f2b" -gt "$f2a" ] && [ "$f3b" -gt "$f3a" ]
+check "three heavy leases tick at the same time (3-lane default pool)" $? \
+	"1 $f1a->$f1b 2 $f2a->$f2b 3 $f3a->$f3b"
+"$S/heavy_lock.sh" run -w 0 -- true
+rc=$?
+[ "$rc" = 75 ]
+check "a fourth contender finds every lane of the 3-lane pool held (rc 75)" $? "rc=$rc"
+for v in LPIDC LPIDD LPIDE FJ1 FJ2 FJ3; do
+	[ -z "${!v:-}" ] || kill -KILL "${!v}" 2>/dev/null
+done
+freed=0
+for _ in $(seq 60); do
+	if "$S/heavy_lock.sh" run -w 2 -- true 2>/dev/null; then freed=1; break; fi
+	sleep 0.2
+done
+[ "$freed" = 1 ]
+check "killing the leases frees a lane of the 3-lane pool" $?
 
 printf '\n%s failure(s)\n' "$fails"
 [ "$fails" = 0 ]

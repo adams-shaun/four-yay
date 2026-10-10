@@ -211,10 +211,15 @@ func TestStaticSourceCounterEquipment(t *testing.T) {
 
 // TestStaticEnchantedProbe: a static on enchanted creatures you control (A
 // Tale for the Ages' +2/+2, Archon of the Wild Rose's 4/4 flier) was
-// unobservable because the bare probe is not enchanted. The fixture attaches
-// an inert Aura (Pacifism) to the probe, so the static lands. The precondition
-// asserts the Aura is really attached and the probe's printed P/T differs from
-// the observed one.
+// unobservable because the bare probe is not enchanted. The fixture casts an
+// inert Aura (Pacifism) onto the probe, so the static lands. It must be CAST,
+// never setup-placed with an attach step: XMage's state-based actions move an
+// unattached Aura to its owner's graveyard at game start, so a setup-placed
+// Pacifism is off the battlefield when the attach step runs (the driver
+// error that regressed Zoetic Glyph/static#0.0, driver-batch-20261009T201406Z).
+// The precondition asserts the Aura is in p0's hand with a cast step onto the
+// probe and NOT in the setup battlefield, and the probe's printed P/T differs
+// from the observed one.
 func TestStaticEnchantedProbe(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	const probeName = "Grizzly Bears"
@@ -227,14 +232,18 @@ func TestStaticEnchantedProbe(t *testing.T) {
 		tc := tc
 		t.Run(tc.card, func(t *testing.T) {
 			it, final := selfFilterItem(t, reg, tc.card, tc.key)
-			attached := false
+			inBF := slices.Contains(it.Setup["p0"].Battlefield, "Pacifism")
+			if inBF {
+				t.Fatalf("%s: Pacifism is setup-placed on the battlefield, where XMage's SBA unattaches it: %v", tc.card, it.Setup["p0"].Battlefield)
+			}
+			cast := false
 			for _, st := range it.Steps {
-				if st.Op == "attach" && st.AttachedTo == "p0:"+probeName {
-					attached = true
+				if st.Op == "cast" && st.Card == "p0:Pacifism" && slices.Contains(st.Targets, "p0:"+probeName) {
+					cast = true
 				}
 			}
-			if !attached {
-				t.Fatalf("%s: no attach step onto the probe: %+v", tc.card, it.Steps)
+			if !cast {
+				t.Fatalf("%s: no cast step of Pacifism onto the probe: %+v", tc.card, it.Steps)
 			}
 			probe, ok := permNamedSnap(final, probeName)
 			if !ok {

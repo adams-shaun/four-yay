@@ -141,7 +141,7 @@ func TestActivateSelfZoneCostsStayGapsElsewhere(t *testing.T) {
 		{"4 B ExileFromGrave<1/Land.Other>", "graveyard", ""},
 	}
 	for _, tc := range cases {
-		pool, gap := activationCostIn(tc.cost, tc.zone)
+		pool, gap := activationCostIn(tc.cost, tc.zone, "")
 		if gap != tc.wantGap || (gap == "" && pool == "") {
 			t.Errorf("activationCostIn(%q, %q) = (%q, %q), want a pool and gap %q", tc.cost, tc.zone, pool, gap, tc.wantGap)
 		}

@@ -141,7 +141,7 @@ func craftExileCause(reg *cards.Registry, name string) (triggerCause, bool) {
 		if !sa.IsActivated() || !strings.HasPrefix(strings.ToLower(sa.Params["KeywordLine"]), "craft") {
 			continue
 		}
-		mana, gap := activationCostIn(sa.ParamStr(cards.PKCost), "battlefield")
+		mana, gap := activationCostIn(sa.ParamStr(cards.PKCost), "battlefield", craftProbe)
 		if gap != "" {
 			continue
 		}
@@ -185,7 +185,7 @@ func opponentArtifactAbilityCause(reg *cards.Registry, probe string) (triggerCau
 		if !sa.IsActivated() || strings.EqualFold(sa.API, "Mana") || sa.ParamStr(cards.PKValidTgts) != "" {
 			continue
 		}
-		mana, gap := activationCostIn(sa.ParamStr(cards.PKCost), "battlefield")
+		mana, gap := activationCostIn(sa.ParamStr(cards.PKCost), "battlefield", probe)
 		if gap != "" {
 			continue
 		}
@@ -200,7 +200,9 @@ func opponentArtifactAbilityCause(reg *cards.Registry, probe string) (triggerCau
 				{Op: "pass_to", Step: "main1", Active: "p1"},
 				{Op: "activate", Seat: 1, Card: "p1:" + probe, Mana: mana, AbilityIndex: &idx},
 			},
-			xability: []string{prefix},
+			// Parallel to steps: the pass_to carries no rule text, the
+			// activate its own.
+			xability: []string{"", prefix},
 		}, true
 	}
 	return triggerCause{}, false

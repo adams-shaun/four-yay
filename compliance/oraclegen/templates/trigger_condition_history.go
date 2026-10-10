@@ -130,10 +130,14 @@ func deathHistory(reg *cards.Registry, src, lower string, n int) []conditionPrel
 }
 
 // enterHistory casts n distinct creatures of the head's type. A face-down
-// entry has no cause (a morph or disguise cast), so it yields none and the
-// skip namer names it.
+// entry's cause is a face-down cast of a Disguise probe (the cast itself puts
+// the face-down creature onto the battlefield under p0's control; no turn-up
+// step). A body no probe can serve yields none and the skip namer names it.
 func enterHistory(reg *cards.Registry, src, lower string, n int) []conditionPrelude {
 	if strings.Contains(lower, "facedown") {
+		if pre, ok := faceDownEnterPrelude(reg); ok {
+			return []conditionPrelude{pre}
+		}
 		return nil
 	}
 	var out []conditionPrelude
@@ -203,10 +207,12 @@ func leftGraveyardHistory(reg *cards.Registry, src, lower string, n int) []condi
 }
 
 // castHistory casts n distinct spells of the head's kind. A cast from
-// anywhere but hand has no cause here, so it yields none.
+// anywhere but hand is served by a probe whose own static grants a cast from
+// exile (Misthollow Griffin), which the engine's provenance reader sees as
+// !wasCastFromYourHand.
 func castHistory(reg *cards.Registry, src, lower string, n int) []conditionPrelude {
 	if strings.Contains(lower, "wascastfrom") {
-		return nil
+		return notFromHandCastPrelude(reg)
 	}
 	pool := historyMixedSpells
 	switch {
@@ -299,6 +305,43 @@ func lifeHistory(reg *cards.Registry, src, lower string, n int) []conditionPrelu
 		out = append(out, conditionPrelude{hand: []string{"Angel's Mercy", "Shock"}, steps: append(steps, loss...)})
 	}
 	return out
+}
+
+// faceDownEnterPrelude face-down casts a Disguise probe for {3}: the cast
+// itself puts a face-down creature onto the battlefield under p0's control,
+// the entry a ThisTurnEntered_Battlefield_Creature.faceDown count reads. No
+// turn-up step is emitted; the gate counts the entry, not a turned-up face.
+func faceDownEnterPrelude(reg *cards.Registry) (conditionPrelude, bool) {
+	for _, probe := range turnedFaceUpDisguiseProbes {
+		card, ok := reg.Lookup(probe)
+		if !ok || len(card.Faces) == 0 {
+			continue
+		}
+		if _, ok := card.Faces[0].KeywordParam("Disguise"); !ok {
+			continue
+		}
+		return conditionPrelude{
+			hand: []string{probe},
+			steps: []oraclegen.Step{
+				{Op: "cast", Seat: 0, Card: "p0:" + probe, Mana: faceDownCastPool, CastMode: "disguised"},
+				{Op: "resolve"},
+			},
+		}, true
+	}
+	return conditionPrelude{}, false
+}
+
+// notFromHandCastPrelude casts a probe whose own static grants a cast from
+// exile (Misthollow Griffin, Eternal Scourge): the engine's cast-provenance
+// reader records the cast as !wasCastFromYourHand, the "cast from anywhere
+// other than your hand" half of the gate. The probe's own static is the cast
+// permission; no land-play cause is built.
+func notFromHandCastPrelude(reg *cards.Registry) []conditionPrelude {
+	c, ok := spellCastFromExileCause(reg, "")
+	if !ok {
+		return nil
+	}
+	return []conditionPrelude{{exile: c.exile, hand: c.hand, steps: c.steps}}
 }
 
 // historyNamedGap names a turn-history head no prelude can build: the cause

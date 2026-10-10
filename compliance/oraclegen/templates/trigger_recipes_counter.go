@@ -180,7 +180,7 @@ func proliferateActivationCause(reg *cards.Registry, name string, n int) (trigge
 			if zone := sa.ParamStr(cards.PKActivationZone); zone != "" && !strings.EqualFold(zone, "Battlefield") {
 				continue
 			}
-			mana, gap := activationCostIn(sa.ParamStr(cards.PKCost), "battlefield")
+			mana, gap := activationCostIn(sa.ParamStr(cards.PKCost), "battlefield", "")
 			if gap != "" {
 				continue
 			}

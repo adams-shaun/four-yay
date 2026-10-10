@@ -180,7 +180,7 @@ func collectEvidenceCause(reg *cards.Registry, name string) (triggerCause, bool)
 			continue
 		}
 		cost := sa.ParamStr(cards.PKCost)
-		mana, gap := activationCostIn(cost, "battlefield")
+		mana, gap := activationCostIn(cost, "battlefield", probe)
 		if gap != "" {
 			continue
 		}
@@ -190,7 +190,7 @@ func collectEvidenceCause(reg *cards.Registry, name string) (triggerCause, bool)
 		}
 		idx := i
 		setup := oraclegen.Seat{}
-		addActivationCostFixtures(&setup, cost)
+		addActivationCostFixtures(&setup, probe, cost)
 		activate := oraclegen.Step{Op: "activate", Seat: 0, Card: "p0:" + probe, Mana: mana, AbilityIndex: &idx, Answers: activationXAnswers(cost)}
 		return triggerCause{
 			battlefield:  append([]string{probe}, setup.Battlefield...),
@@ -248,7 +248,7 @@ func saddleCause(f *cards.Face, name string) (triggerCause, bool) {
 			continue
 		}
 		cost := sa.ParamStr(cards.PKCost)
-		mana, gap := activationCostIn(cost, "battlefield")
+		mana, gap := activationCostIn(cost, "battlefield", name)
 		if gap != "" {
 			continue
 		}
@@ -258,7 +258,7 @@ func saddleCause(f *cards.Face, name string) (triggerCause, bool) {
 		}
 		idx := i
 		setup := oraclegen.Seat{}
-		addActivationCostFixtures(&setup, cost)
+		addActivationCostFixtures(&setup, name, cost)
 		activate := oraclegen.Step{Op: "activate", Seat: 0, Card: "p0:" + name, Mana: mana, AbilityIndex: &idx, Answers: activationXAnswers(cost)}
 		return triggerCause{
 			battlefield:  append([]string(nil), setup.Battlefield...),

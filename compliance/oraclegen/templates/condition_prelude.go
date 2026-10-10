@@ -18,8 +18,10 @@ type conditionPrelude struct {
 	battlefield []string
 	tapped      []string
 	graveyard   []string
-	counters    map[string]map[string]int
-	steps       []oraclegen.Step
+	// exile is probe cards added to p0's exile (a cast-from-exile cause).
+	exile    []string
+	counters map[string]map[string]int
+	steps    []oraclegen.Step
 	// opponent* are p1's setup, which only a trigger gate that compares the
 	// opponent's hand or lands with p0's offers.
 	opponentHand        []string
@@ -417,7 +419,7 @@ func scriptPreludeActivationCost(xa [][]oraclegen.XAnswer, prelude []oraclegen.S
 		if len(xa) == 0 {
 			xa = make([][]oraclegen.XAnswer, steps)
 		}
-		addActivationCostAnswers(xa, i, cost, decisions)
+		addActivationCostAnswers(xa, i, cost, "", decisions)
 	}
 	return xa
 }
