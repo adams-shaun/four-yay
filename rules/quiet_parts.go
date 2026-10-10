@@ -2,6 +2,7 @@ package rules
 
 import (
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -111,7 +112,7 @@ func (e *Engine) quietCountZone(p state.PlayerID, zone state.Zone, part *quietPa
 		if part.exclSelf && src != nil && id == src.ID {
 			continue
 		}
-		if !quietObjectMatchesMask(o, zone, part) {
+		if !quietObjectMatchesMask(o, zone, part, e.layer4Types) {
 			continue
 		}
 		n++
@@ -121,14 +122,28 @@ func (e *Engine) quietCountZone(p state.PlayerID, zone state.Zone, part *quietPa
 
 // quietObjectMatchesMask is quietSpecMask's match test against one object.
 // A battlefield permanent's characteristics are its current face's (CR
-// 712.2), so only o.Face() is read there. A card in a hidden zone (hand,
-// graveyard) is tested against ANY face, which over-counts the double-faced
-// shapes and stays sound.
-func quietObjectMatchesMask(o *state.Object, zone state.Zone, part *quietPart) bool {
+// 712.2), so only o.Face() is read there -- EXCEPT an object the layer-4
+// derived-type table carries. That table (e.layer4Types, the same one every
+// filter match the payment gates run reads, ctx_new.go) lists exactly the
+// battlefield objects whose current types differ from the printed face: an
+// animated land, a face-down permanent (CR 708.5), a bestowed or reconfigured
+// card, a type-granting or type-stripping static's targets. The printed mask
+// is neither a superset nor a subset of such an object's real types, so the
+// part cannot judge it cheaply; it counts as a candidate (the
+// over-approximating direction, and string-free: no word is compared). A
+// card in a hidden zone (hand, graveyard) is tested against ANY face, which
+// over-counts the double-faced shapes and stays sound; the table holds
+// battlefield objects only, which the gates read off the printed face too.
+func quietObjectMatchesMask(o *state.Object, zone state.Zone, part *quietPart, derived []effects.ObjectTypes) bool {
 	if part.incl == 0 && part.excl == 0 {
 		return true
 	}
 	if zone == state.ZBattlefield {
+		for i := range derived {
+			if derived[i].ID == o.ID {
+				return true
+			}
+		}
 		return quietFaceMatchesMask(o.Face(), part)
 	}
 	card := o.Card
