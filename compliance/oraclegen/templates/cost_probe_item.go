@@ -191,5 +191,21 @@ func costProbeItem(reg *cards.Registry, f *cards.Face, name string, req levelb.R
 			it.XAbility[i] = p.plotText
 		}
 	}
+	if p.castMode == optionalCostCastMode {
+		// The optional-cost cast poses XMage's "pay it?" chooseUse ahead of
+		// the cost's own picks; gorge's cast_mode step answers it
+		// implicitly, so the derived stream needs the yes lead
+		// (static_optional_cost.go's lead) — no gorge ask carries it.
+		if len(it.XAnswers) < len(it.Steps) {
+			grown := make([][]oraclegen.XAnswer, len(it.Steps))
+			copy(grown, it.XAnswers)
+			it.XAnswers = grown
+		}
+		for i, s := range it.Steps {
+			if s.Op == "cast" && s.CastMode == optionalCostCastMode {
+				it.XAnswers[i] = append([]oraclegen.XAnswer{{Seat: 0, Kind: "choice", Value: "yes"}}, it.XAnswers[i]...)
+			}
+		}
+	}
 	return it
 }

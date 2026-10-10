@@ -126,9 +126,6 @@ func costAmountFixture(reg *cards.Registry, f *cards.Face, st cards.Static) (int
 	if reduction, pres, gap, ok := costPowerAmountFixture(reg, f, amount); ok {
 		return reduction, pres, gap
 	}
-	if gap := costOptionalGenericPaidGap(f, amount); gap != "" {
-		return 0, nil, gap
-	}
 	reduction, compare := 1, "GE1"
 	if strings.HasPrefix(st.Params["KeywordLine"], "Affinity:") {
 		reduction, compare = costAffinityCount, fmt.Sprintf("GE%d", costAffinityCount)

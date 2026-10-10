@@ -58,6 +58,9 @@ import (
 // and an AdjustLandPlays$ grant whose source carries a land-entry trigger
 // resolves it before the second-land assertion (EOE Icetill Explorer leaves
 // the player-rule skip).
+// Re-pinned by the G7 engine-gap merge (6e4f59c17: the attacking
+// <PlayerSpec> rider and dealtDamagetoAny words): one DFT and one FRA
+// generic-observability skip become served.
 // Re-pinned again by agent-20261009T060626Z-a6d0cf40: the Surveyor cycle's
 // graveyard AddAbility$ grant is served by the off-battlefield arm of the
 // gated-grant observation (the engine offers the granted activation on the
@@ -68,6 +71,11 @@ import (
 // static (DFT Midnight Mangler) is served by placing the card and advancing the
 // scenario to p1's first main phase, so DFT loses its generic observability
 // skip.
+// Re-pinned again by agent-20261009T055718Z-661990d1: a signed "-X where X is
+// your life total" static on a crewed Vehicle is observed through the crew
+// prelude at a starting life just below the printed power (The Last Ride:
+// crewed 1/1 at life 12), so DFT loses its computed-count skip and its served
+// count rises by one.
 // Re-pinned by agent-20261009T153027Z-bc3dacf9: the exiled-with fixture family
 // serves BIG Territory Forge by running the source's own ETB exile, and names
 // the measured engine gaps for the rows it cannot serve (FRA Null Summoner:
@@ -90,8 +98,8 @@ var wantStaticContinuousCensus = map[string]map[string]int{
 		"skip:static needs counters on the affected permanent":                                       1,
 	},
 	"FRA": {
-		"served": 34,
-		"skip:static effect not observable on a probe or the card":                                                                 2,
+		"served": 35,
+		"skip:static effect not observable on a probe or the card":                                                                 1,
 		"skip:static grants a static ability (observed only through its own effect)":                                               1,
 		"skip:static an opponent-owned exiled card is not offered (the engine's may-play walk covers only the caster's own cards)": 1,
 		"skip:static grants only keywords outside the compared evergreen set":                                                      1,
@@ -99,11 +107,14 @@ var wantStaticContinuousCensus = map[string]map[string]int{
 	// DFT includes the Surveyor cycle's graveyard AddAbility$ grant, served by
 	// the gated-grant observation's off-battlefield arm (agent-
 	// 20261009T060626Z-a6d0cf40); its four former engine-gap skips are gone.
+	// The Last Ride's crewed -X/-X life static (agent-
+	// 20261009T055718Z-661990d1) is the computed-count row the crew prelude
+	// serves, and Midnight Mangler's Condition$ NotPlayerTurn static (agent-
+	// 20261009T055718Z-17e92d7b) is the generic-observability row the
+	// advanced-scenario path serves.
 	"DFT": {
-		"served": 58,
-		"skip:static amount is a computed count the fixture does not make observable":            1,
+		"served": 60,
 		"skip:static characteristic-defining P/T of a non-creature (the snapshot omits its P/T)": 1,
-		"skip:static effect not observable on a probe or the card":                               1,
 		"skip:static gated self grant is not offered in the gate-on fixture":                     1,
 		"skip:static grants a static ability (observed only through its own effect)":             1,
 		"skip:static grants a replacement effect (needs an event the replacement can change)":    2,

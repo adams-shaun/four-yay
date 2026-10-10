@@ -246,6 +246,16 @@ func parameterCostProbes(reg *cards.Registry, f *cards.Face, name string, idx in
 		}
 		return probes, "", true
 	}
+	// The election itself is the amount (Count$OptionalGenericCostPaid over
+	// an OptionalCost part): the cast MODE carries it, so the probe is the
+	// optional-cost variant at the exact reduced price, with the cost's own
+	// fixture in the setup.
+	if probes, gap, handled := optionalGenericPaidProbes(reg, f, st, name, p, base); handled {
+		if len(probes) == 0 {
+			return nil, gap, true
+		}
+		return probes, "", true
+	}
 	probes, reduction, gap := costConditionProbes(reg, f, st, name, p)
 	if gap != "" {
 		return nil, gap, true

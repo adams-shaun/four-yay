@@ -97,6 +97,28 @@ rules_shard_run_patterns() {
     | rules_shard_patterns_from_list
 }
 
+# Pack one package's test names into nb groups balanced by test count, one
+# alternation regex per group on stdout. Unlike the character buckets above,
+# the unit here is a single test, so a package's own chunked census tests
+# (TestSameNameAnswerCensusChunk00..NN share one first character) spread
+# across the groups. Any surprise (empty list, an empty group) exits nonzero
+# and the caller falls back to running the package whole, so a malformed
+# listing can never silently drop a test.
+test_name_packs_from_list() {
+  local nb=${1:?usage: test_name_packs_from_list <nb>}
+  awk -v nb="$nb" '
+    { name[NR] = $0 }
+    END {
+      if (NR == 0) exit 1
+      for (i = 1; i <= NR; i++) {
+        b = 1
+        for (j = 2; j <= nb; j++) if (l[j] < l[b]) b = j
+        g[b] = g[b] (g[b] == "" ? "" : "|") name[i]; l[b] += 1
+      }
+      for (j = 1; j <= nb; j++) if (g[j] == "") exit 1
+      for (j = 1; j <= nb; j++) print "^(" g[j] ")$"
+    }'
+}
 # The four compliance/oraclegen/templates shard selectors (tpl=1 in the gate
 # body), one per line: three anchored -run patterns plus the -skip remainder.
 # The remainder is the ANCHORED union of the other three, so h4 runs exactly
@@ -186,6 +208,50 @@ if git diff --name-only "$mb" HEAD | /usr/bin/grep -v -E '_test\.go$' | /usr/bin
 fi
 echo "gate_affected: rules + $(echo $others)$( [ "$tpl" = 1 ] && echo ' + oraclegen/templates shards' )$([ $traj = 1 ] && echo ' + cardfuzz findings')"
 
+# Heavy $others packages. Measured 2026-10-09 (this worktree, the gate's own
+# concurrent phase re-run with -json after `go clean -testcache`): each of
+# these runs whole inside ONE test binary and its slowest tests are serial, so
+# the phase's wall is the slowest single package's wall:
+#   compliance/oraclegen/templates 166.8s (TestSameNameAnswerCensusChunk00 27.7s)
+#   compliance/adopt                101.1s (TestLevelBRatchet 51.1s serial)
+#   compliance/gate                 88.9s  (TestDeclaredSetsCompliant 26.8s serial)
+#   internal/paymirror              89.1s  (TestRoundTenFindingsMirror 31.6s serial)
+#   effects                         76.2s  (TestCompiledFilterMatchesTextualOracle 29.2s serial)
+#   cmd/repro                       55.4s  (TestReproEmitTestIntoRulesCompilesAndFailsOnTODO 26.4s)
+# Each is split by test name into three packs run as concurrent `go test`
+# processes -- the ./rules shard mechanism, applied per package. The pack
+# invocations are deterministic (same -run regex, same flags, every gate: the
+# regex derives from the package's own test list, which only changes when the
+# binary does), so the go test result cache does the freshness check for
+# free: a package whose binary is unchanged cache-hits all three packs
+# (~1s), and a package whose binary changed re-executes them. A heavy
+# package is NEVER put back in the batch: the result cache is keyed per
+# invocation (measured: the same -run/-skip rerun cache-hits, a whole-package
+# run after pack runs does not), so a fresh package's batch line would pay
+# the full package again to repopulate a differently-keyed entry.
+heavy='^\./compliance/adopt$|^\./compliance/gate$|^\./internal/paymirror$|^\./cmd/repro$|^\./effects$|^\./compliance/oraclegen/templates$'
+heavy_pkgs=$(printf '%s\n' $others | /usr/bin/grep -E "$heavy" || true)
+heavy_bins=
+build_pids=
+if [ -n "$heavy_pkgs" ]; then
+  WORK=$(mktemp -d "${TMPDIR:-/tmp}/gate-shards.XXXXXX")
+  # A sourced run (scripts/tests/gate_affected_smoke.sh) returns at the guard
+  # above and never reaches this body, so the trap is body-local.
+  trap 'rm -rf "$WORK"' EXIT
+  : > "$WORK/bins"
+  for p in $heavy_pkgs; do
+    # Build each heavy package's test binary ONCE, into the build cache: the
+    # three packs below are separate `go test` processes and a process does
+    # not see a compile another one is still running, so they would otherwise
+    # each compile and link the same test variant themselves (the same effect
+    # the ./rules build-once removes; measured there as 112 s -> 38 s for
+    # three concurrent runs).
+    GOMAXPROCS=6 go test -c -o /dev/null "$p" & build_pids="$build_pids $!"
+    printf '%s\n' "$p" >>"$WORK/bins"
+  done
+  heavy_bins=$(cat "$WORK/bins")
+fi
+
 # Gate wall is the longest chain, so the phases below overlap everything that
 # does not depend on another phase (measured on the 2026-10-06 gate logs: for
 # a ticket that moves engine code the `$others` packages summed to ~115 s of
@@ -222,6 +288,9 @@ GOMAXPROCS=6 go test -c -o /dev/null ./rules/ & w=$!
 rc=0
 wait "$v" || rc=1
 wait "$w" || rc=1
+# The heavy packages' test binaries (built above, concurrently with vet
+# and the rules build) must be complete before the shard pool starts.
+for pid in $build_pids; do wait "$pid" || rc=1; done
 [ "$rc" = 0 ] || exit 1
 
 # The main ./rules run is the longest single test job in the gate and it does
@@ -275,7 +344,75 @@ GOMAXPROCS=4 GOMEMLIMIT=3GiB go test -p=1 -run '^TestKr8HeadsCheckpointAll$' ./r
 # serially, no test above ~2 GiB and internal/testutil/testdata/
 # rss_exceptions.txt is EMPTY): ~10 GiB against the scope's 16 GiB
 # MemoryMax, and most $others binaries are far smaller.
-GOMAXPROCS=6 go test -p=6 -skip "^($global)$" $others & d=$!
+# The batch keeps the non-heavy packages only. The heavy packages run as
+# their own sharded packs below (fresh ones cache-hit there; see the heavy
+# block above for why a whole-package batch line would instead pay the full
+# package again).
+batch=$(printf '%s\n' $others | /usr/bin/grep -v -E "$heavy" || true)
+d=
+if [ -n "$(printf '%s' $batch)" ]; then
+  GOMAXPROCS=6 go test -p=6 -skip "^($global)$" $batch & d=$!
+fi
+# The heavy packages' shard pool. The packs are `go test` runs (not raw
+# binary runs) so they keep writing the result cache: the gate after this one
+# cache-hits the same deterministic invocations. Each pack is GOMAXPROCS=2
+# GOMEMLIMIT=1536MiB, and the pool admits at most six packs at a time,
+# refilling as they finish, so the pack binaries share the 16 GiB scope with
+# the four rules shards, the Kr8 pair and the batch. The function runs in a
+# subshell so the slot count reads only the pool's own job table, never the
+# gate's other background jobs.
+heavy_shard_pool() (
+  local running=0 bad=0 i=0 kind p pat
+  dispatch_heavy_shard() {
+    IFS=$'\t' read -r kind p pat <<<"$1"
+    if [ "$kind" = whole ]; then
+      GOMAXPROCS=2 GOMEMLIMIT=1536MiB go test -p=1 -skip "^($global)$" "$p"
+    else
+      GOMAXPROCS=2 GOMEMLIMIT=1536MiB go test -p=1 -run "$pat" -skip "^($global)$" "$p"
+    fi
+  }
+  local jobs=("$@")
+  for job in "${jobs[@]}"; do
+    ( dispatch_heavy_shard "$job" ) >"$WORK/hshard-$i.log" 2>&1 &
+    i=$((i + 1))
+    running=$((running + 1))
+    while [ "$running" -ge 6 ]; do
+      wait -n || bad=1
+      running=$((running - 1))
+    done
+  done
+  while [ "$running" -gt 0 ]; do
+    wait -n || bad=1
+    running=$((running - 1))
+  done
+  # Every pack's verdict line goes to the gate's own output (a fresh package
+  # reads "ok ... (cached)" here), and a failed pack's full log follows so
+  # the failure is visible even though the per-pack logs are trap-cleaned.
+  cat "$WORK"/hshard-*.log | /usr/bin/grep -E '^(ok|FAIL|--- FAIL|panic)' || true
+  if [ "$bad" = 1 ]; then
+    /usr/bin/grep -l -E 'FAIL|panic' "$WORK"/hshard-*.log | while read -r f; do
+      echo "gate_affected: failed heavy pack log $f:"
+      cat "$f"
+    done || true
+  fi
+  return "$bad"
+)
+heavy_jobs=()
+hp=
+if [ -n "$heavy_bins" ]; then
+  while read -r p; do
+    [ -n "${p:-}" ] || continue
+    pats=$(go test -list '.*' "$p" 2>/dev/null | /usr/bin/grep '^Test' | test_name_packs_from_list 3 || true)
+    if [ -n "$pats" ]; then
+      while IFS= read -r pat; do heavy_jobs+=("shard	$p	$pat"); done <<<"$pats"
+    else
+      heavy_jobs+=("whole	$p	")
+    fi
+  done <<<"$heavy_bins"
+fi
+if [ "${#heavy_jobs[@]}" -gt 0 ]; then
+  heavy_shard_pool "${heavy_jobs[@]}" & hp=$!
+fi
 # Event-text changes (any new or reworded event) move the committed
 # overshoot capture and the searchprobe digests; e2e19ebae and 5fa9f31a both
 # broke them unseen by this gate on 2026-10-05. Both checks are seconds, so
@@ -283,7 +420,7 @@ GOMAXPROCS=6 go test -p=6 -skip "^($global)$" $others & d=$!
 # finish first.
 go test -p=1 ./internal/searchprobe/ & e=$!
 go test -p=1 -run '^TestCommittedOvershootCaptureReplaysToTheParkedAsk$' ./host/ & f=$!
-pids="$a1 $a2 $a3 $a4 $b $c $d $e $f"
+pids="$a1 $a2 $a3 $a4 $b $c $d $e $f${hp:+ $hp}"
 # The four templates shards (tpl=1, extracted above): three named -run
 # patterns plus the -skip remainder, read one per line from
 # templates_shard_patterns. Each stays under the operator's 1-minute

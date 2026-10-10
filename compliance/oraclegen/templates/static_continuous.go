@@ -60,21 +60,24 @@ var StaticApplies = Template{ID: "static", Version: 1}
 // staticProbe is the permanent on both seats a continuous static lands on.
 const staticProbe = "Grizzly Bears"
 
-// staticProbeAura is the inert Aura the enchanted-probe prelude attaches to
+// staticProbeAura is the inert Aura the enchanted-probe prelude casts onto
 // the probe. Pacifism changes no compared field (P/T, keywords, types,
 // colours), so only the static under test moves the probe.
 const staticProbeAura = "Pacifism"
 
-// addEnchantedProbeAura places the inert Aura on p0's battlefield and attaches
-// it to the probe, so a static on "enchanted creatures you control" (A Tale
-// for the Ages, Archon of the Wild Rose) finds an enchanted probe.
-func addEnchantedProbeAura(base *oraclegen.Item, probe string) {
+// addEnchantedProbeAura casts the inert Aura onto the probe, so a static on
+// enchanted creatures (A Tale for the Ages, Archon of the Wild Rose) finds an
+// enchanted probe. The Aura is cast, never setup-placed with an attach step:
+// setup cannot place an unattached Aura -- XMage's state-based actions move
+// one to its owner's graveyard at game start, so the attach step's permanent
+// ref finds nothing (driver-batch-20261009T201406Z, Zoetic Glyph).
+func addEnchantedProbeAura(reg *cards.Registry, base *oraclegen.Item, probe string) {
 	p0 := base.Scenario.Setup["p0"]
-	p0.Battlefield = appendFixtureUnique(p0.Battlefield, staticProbeAura)
+	p0.Hand = appendFixtureUnique(p0.Hand, staticProbeAura)
 	base.Scenario.Setup["p0"] = p0
-	base.Steps = append(base.Steps, oraclegen.Step{
-		Op: "attach", Seat: 0, Card: "p0:" + staticProbeAura, AttachedTo: "p0:" + probe,
-	})
+	if st, ok := castProbe(reg, staticProbeAura, "p0:"+probe); ok {
+		base.Steps = append(base.Steps, st, oraclegen.Step{Op: "resolve", Seat: 0})
+	}
 }
 
 // staticContinuous builds the scenario serving one static.continuous
@@ -194,7 +197,7 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 	// A condition or count the bare scenario leaves false or zero: retry each
 	// candidate fixture with each probe plan. This runs only after every bare
 	// scenario failed, so a row the bare scenarios serve keeps its bytes.
-	for _, cond := range staticFixtures(reg, f, st) {
+	for _, cond := range staticFixtures(reg, c, f, name, st) {
 		for _, plan := range plans {
 			base, why := staticBase(reg, c, f, name, req, plan, &cond)
 			if why != "" {
@@ -203,6 +206,33 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 			res, err := rules.RunOracleScenarioJSON(reg, base.Raw())
 			if err != nil || len(res.Fails) != 0 || len(res.Snapshots) == 0 {
 				continue
+			}
+			// A fixture whose afterSteps ask XMage questions (an activate
+			// step's cost) re-derives XAnswers from the full replay: the cast
+			// path's own XAnswers cover only the steps it replayed. The cast
+			// steps are named in the map so their own targets are not
+			// scripted a second time, and the activation's cost selector is
+			// scripted from the runner's observed picks at the step the
+			// fixture's activation runs.
+			if cond.reanswers {
+				base.XAnswers = oraclegen.XAnswersForScenario(res, base.Scenario,
+					oraclegen.ModeNumbers(f), castStepIndices(base.Scenario.Steps))
+				if cond.activationCost != "" {
+					for i := len(base.Scenario.Steps) - len(cond.afterSteps); i < len(base.Scenario.Steps); i++ {
+						if i < 0 || i >= len(base.Scenario.Steps) || base.Scenario.Steps[i].Op != "activate" {
+							continue
+						}
+						// The generic derivation already scripts an observed
+						// material exile pick; the catalogue fixture appended
+						// beside it would be an unused second answer on the
+						// same target ask (XMage consumes the queue FIFO), so
+						// the cost selector is scripted only when the runner
+						// recorded no exile pick.
+						if !exileCostPickObserved(res.Decisions, i) {
+							addActivationCostAnswers(base.XAnswers, i, cond.activationCost, name, res.Decisions)
+						}
+					}
+				}
 			}
 			bl := cond.baseline()
 			if it, ok := served(base, res, plan, false, bl); ok {
@@ -360,6 +390,35 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 	return skip("effect not observable on a probe or the card")
 }
 
+// castStepIndices is the set of steps that are casts: XAnswersForScenario's
+// castSteps argument, so a cast step's own targets are not scripted a second
+// time on a re-derived answer stream.
+func castStepIndices(steps []oraclegen.Step) map[int]bool {
+	out := map[int]bool{}
+	for i, st := range steps {
+		if st.Op == "cast" {
+			out[i] = true
+		}
+	}
+	return out
+}
+
+// exileCostPickObserved reports whether the replay recorded a material exile
+// cost pick (a choose_n whose pick kind is "exilecost") at step: the cost
+// selector whose observed pick the generic XAnswers derivation already
+// scripts.
+func exileCostPickObserved(ds []rules.OracleDecision, step int) bool {
+	for _, d := range ds {
+		if d.Step != step || d.Seat != 0 || d.Kind != "choose_n" {
+			continue
+		}
+		if hasPickKind(d, "exilecost") {
+			return true
+		}
+	}
+	return false
+}
+
 // staticBase builds the unobserved scenario for one probe plan; why is a skip
 // reason when no scenario exists. The zero plan is the original template:
 // Grizzly Bears on both seats. A static gated on its own counters is placed
@@ -377,6 +436,28 @@ func staticBase(reg *cards.Registry, c *cards.Card, f *cards.Face, name string, 
 		// setup-placed door (CR 709.5). The face named by its own face name
 		// is the door the runner binds to room_alt.
 		return roomDoorCastBase(reg, c, f, name, req, probes)
+	case cond != nil && cond.craft:
+		// The static under test sits on the back face a Craft activation
+		// transforms into, so the card is not placed on it: the front face
+		// is cast here and the fixture's afterSteps run the Craft activation,
+		// which returns the card transformed with the exile set populated.
+		if len(c.Faces) == 0 {
+			return base, "craft fixture needs a front face"
+		}
+		front := c.Faces[0]
+		mana, why := oraclegen.PoolFor(front.ManaCost)
+		if why != "" {
+			return base, why
+		}
+		var setup func(*oraclegen.Fixture)
+		if cond != nil {
+			setup = cond.apply
+		}
+		it, sk := castResolveWith(reg, front, name, mana, probes, setup)
+		if sk != nil {
+			return base, sk.Reason
+		}
+		base = it
 	case selfGated && !staticSelfETB(f):
 		// A static gated on its own counters through CheckSVar$ X with
 		// SVar:X:Count$CardCounters.<KIND> (Warden of the Inner Sky): the
@@ -457,7 +538,7 @@ func staticBase(reg *cards.Registry, c *cards.Card, f *cards.Face, name string, 
 		}
 	}
 	if plan.aura {
-		addEnchantedProbeAura(&base, staticProbe)
+		addEnchantedProbeAura(reg, &base, staticProbe)
 	}
 	if cond != nil && cond.equip != "" {
 		// The fixture's Equipment attaches now: the card is on the
@@ -498,8 +579,14 @@ func staticBase(reg *cards.Registry, c *cards.Card, f *cards.Face, name string, 
 	if cond != nil && len(cond.afterSteps) > 0 {
 		// The card is on the battlefield by now (cast, played or placed), so
 		// a battlefield trigger of its own (the solved-Case "To solve"
-		// sequence) can run and resolve before the final checkpoint.
+		// sequence) can run and resolve before the final checkpoint, and an
+		// activation the fixture's own prelude drives (the crew, the Craft)
+		// carries the ability's XMage rule-text prefix.
 		base.Steps = append(base.Steps, cond.afterSteps...)
+		if len(cond.afterXab) > 0 {
+			base.XAbility = growXAbility(base.XAbility, len(base.Steps))
+			copy(base.XAbility[len(base.Steps)-len(cond.afterXab):], cond.afterXab)
+		}
 	}
 	if cond != nil && cond.opponentTurn {
 		// A Condition$ NotPlayerTurn static (Midnight Mangler) is false on

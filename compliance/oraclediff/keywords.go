@@ -56,6 +56,10 @@ var evergreenKeywords = map[string]bool{
 // level-b section 2.3). It is the evergreen set plus the named-ability
 // keywords a permanent can carry, which are compared by NAME only: gorge's
 // "Ward:PayLife<2>" and XMage's "ward&mdash;Pay 2 life." both fold to "ward".
+// Flash is a plain word whose name both engines spell identically after
+// case-folding (gorge "Flash", XMage "flash"); it is deliberately kept OUT of
+// evergreenKeywords — widening the default CompareKeywords surface is a
+// comparator-surface decision, not this opt-in's.
 // A quality-parameterised keyword never folds onto its base (Tam's
 // "Hexproof:CardColors" is not "hexproof"), so hexproof-from and protection
 // stay outside both sets.
@@ -65,6 +69,7 @@ var namedKeywords = map[string]bool{
 	"wither":      true,
 	"persist":     true,
 	"firebending": true,
+	"flash":       true,
 }
 
 // foldKeyword normalizes a keyword name for comparison: trim, collapse

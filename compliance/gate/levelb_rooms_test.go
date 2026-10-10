@@ -17,6 +17,7 @@ import (
 // face, the way checkA does. Before the fix every Room with a committed row
 // reported "no verdict for <whole name>/..." over an existing current row.
 func TestLevelBRoomVerdictsAreLookedUpByFace(t *testing.T) {
+	t.Parallel()
 	// pinnedKey names the requirement each card's pinned verdict row settles,
 	// so the no-verdict assertion above reads only those keys.
 	pinnedKey := func(card string) string {

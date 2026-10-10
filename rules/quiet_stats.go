@@ -29,6 +29,11 @@ var (
 	quietProofNs        atomic.Uint64
 	quietWalkNs         atomic.Uint64
 	quietMismatches     atomic.Uint64
+	// quietProofScans counts proof entries that found NO live derived-memo
+	// scope (walkKeyNow reported !ok) and so would pay uncached board scans.
+	// Observation only: it never reaches an event, an option, a view or a
+	// log. Zero on every window once quietBlocker opens its own scope (Q4).
+	quietProofScans atomic.Uint64
 )
 
 // QuietStatsSnapshot is a consistent-enough read of the quiet counters for
