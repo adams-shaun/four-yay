@@ -54,7 +54,7 @@ func (e *Engine) goadedBy(o *state.Object, p state.PlayerID) bool {
 func (e *Engine) maxAttackers() int { return combat.MaxAttackers(asBoard(e)) }
 
 func (e *Engine) attackRestrictLimit(defender state.PlayerID) (int, bool) {
-	return combat.AttackRestrictLimit(asBoard(e), defender)
+	return combat.AttackRestrictLimit(asBoard(e), defender, 0)
 }
 
 func (e *Engine) validateMinMaxBlockers(attacker state.ObjID, n int, defender state.PlayerID) error {

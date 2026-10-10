@@ -36,12 +36,12 @@ func abilityStackProbeCard(t *testing.T, it oraclegen.Item, levelBIdx int) (prob
 // assertAbilityStackItem checks the shared shape of a generated
 // ability-on-stack activate item and replays it clean on gorge.
 // TestActivateAbilityStackActivatedProbe covers the four ACTIVATED-probe
-// rows: Gogo (FIN) and Peter Parker's Camera (SPM) here, Echo and Scientist
-// Supreme of A.I.M. (MSH) withheld until the engine offers a
-// source-type-qualified ability target (see the report's engine finding).
+// rows: Gogo (FIN) and Peter Parker's Camera (SPM) with the plain `Card`
+// filter, Echo and Scientist Supreme of A.I.M. (MSH) with a card-type filter
+// judged against the pending ability's source (Card.Creature / Artifact).
 func TestActivateAbilityStackActivatedProbe(t *testing.T) {
 	reg := loadGenRegistry(t)
-	for _, name := range []string{"Gogo, Master of Mimicry", "Peter Parker's Camera"} {
+	for _, name := range []string{"Gogo, Master of Mimicry", "Peter Parker's Camera", "Echo, Perceptive Prodigy", "Scientist Supreme of A.I.M."} {
 		t.Run(name, func(t *testing.T) {
 			it, _ := activateRequirement(t, reg, name, "activate#0.0")
 			// Precondition: the ability under test really targets an

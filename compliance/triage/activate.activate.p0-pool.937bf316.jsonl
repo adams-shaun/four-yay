@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"activate","field":"p0.pool","diff":"gorge= xmage=CC"},"key":"activate | activate | p0.pool | gorge= xmage=CC","cards":1}
+{"card":"Gogo, Master of Mimicry","template":"activate#0.0","status":"diverge","api":"-","sets":["FIN"],"detail":"step 1 (activate) p0.pool: gorge \"\", xmage \"CC\""}

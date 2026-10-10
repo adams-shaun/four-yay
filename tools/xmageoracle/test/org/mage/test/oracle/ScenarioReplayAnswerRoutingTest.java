@@ -154,6 +154,18 @@ public final class ScenarioReplayAnswerRoutingTest {
         m.invoke(d, as);
     }
 
+    /** Calls the driver's setup-answer queueing on a scenario whose first
+     * xmage_answers entry is the given array (the pre-build setup queue). */
+    private static void queueSetup(RecordingDriver d, JsonArray first) throws Exception {
+        JsonObject sc = new JsonObject();
+        JsonArray xans = new JsonArray();
+        xans.add(first);
+        sc.add("xmage_answers", xans);
+        Method m = ScenarioReplay.class.getDeclaredMethod("queueSetupChoices", JsonObject.class);
+        m.setAccessible(true);
+        m.invoke(d, sc);
+    }
+
     public static void main(String[] args) throws Exception {
         // Twin Bolt: a lone recipient of TargetAnyTargetAmount(2). The inline
         // $target= form leaves "selected 1 of 2", so the cast is queued with
@@ -265,5 +277,20 @@ public final class ScenarioReplayAnswerRoutingTest {
         scripted(joined, answers("choice", "@p0:Wastes#27^@p0:Wastes#39"));
         equal(List.of("@p0:Wastes#27^@p0:Wastes#39"), field(field(joined, "playerA"), "choices"));
         System.out.println("PASS joined same-name multi-pick choice binds per segment with a live game (Wastes)");
+
+        // The setup-drive answers (xmage_answers[0]) are queued before build():
+        // a numeric mode reaches the mode queue, a yes/no setup_choice is a
+        // boolean chooseUse, a label setup_choice is a labelled choice, and a
+        // setup_target is a target skip. The step-time scripted() must not
+        // re-enqueue any setup answer at step 0 (it skips the setup_* kinds).
+        RecordingDriver setup = driver();
+        queueSetup(setup, answers("setup_choice", "yes", "setup_mode", "2",
+                "setup_choice", "Bear", "setup_target", "[target_skip]"));
+        equal(List.of("A:choice:true", "A:mode:2", "A:target:[target_skip]"), setup.queues);
+        equal(List.of("Bear"), field(field(setup, "playerA"), "choices"));
+        scripted(setup, answers("setup_mode", "3", "setup_choice", "yes", "setup_target", "[target_skip]"));
+        equal(List.of("A:choice:true", "A:mode:2", "A:target:[target_skip]"), setup.queues);
+        equal(List.of("Bear"), field(field(setup, "playerA"), "choices"));
+        System.out.println("PASS setup-drive mode/boolean/label/target answers queue before build and are not re-enqueued");
     }
 }

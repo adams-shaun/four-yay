@@ -46,6 +46,12 @@ type ManaCostActivation struct {
 	// separate).
 	UntapPart int
 	Untaps    []state.ObjID
+	// Evidence is the graveyard cards a CollectEvidence<N> part exiles
+	// (Cryptex). EvidenceAsked marks the election posed and its answer
+	// awaiting validation; EvidenceDone marks it settled.
+	Evidence      []state.ObjID
+	EvidenceAsked bool
+	EvidenceDone  bool
 	// Interactive records whether the caller could pose asks. A caller that
 	// cannot (the attack-cost tap window, direct-resolve tests) settles the
 	// announced SubCounter, Forage and untapYType parts with deterministic

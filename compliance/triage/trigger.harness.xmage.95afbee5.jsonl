@@ -1,2 +1,0 @@
-{"shape":{"template":"trigger","op":"harness","field":"xmage","diff":"AssertionError: PlayerA - Targets list was setup by addTarget with […], but not used"},"key":"trigger | harness | xmage | AssertionError: PlayerA - Targets list was setup by addTarget with […], but not used","cards":1}
-{"card":"Seifer Almasy","template":"trigger#0.1","status":"harness","api":"Attacks:Pump+DamageDone:Play","sets":["FIN"],"detail":"xmage: AssertionError: PlayerA - Targets list was setup by addTarget with [Shock], but not used"}

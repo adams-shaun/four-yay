@@ -53,14 +53,17 @@ var wantCensus = map[string]map[string]int{
 		// main (f6fd28f37) classified the combat-only CantPreventDamage static
 		// out of its gap; this branch (agent-20261009T160853Z-c3e35453) serves
 		// The Endstone's plain hand land drop as trigger.land-played.
-		"activate.battlefield":              39,
-		"activate.mana":                     23,
-		"combat.attack":                     49,
-		"combat.block":                      49,
-		"covered-by-A":                      76,
-		"static.can-attack-defender-gated":  1,
-		"static.cant-block-by-gated":        1,
-		"static.combat":                     1,
+		"activate.battlefield":             39,
+		"activate.mana":                    23,
+		"combat.attack":                    49,
+		"combat.block":                     49,
+		"covered-by-A":                     76,
+		"static.can-attack-defender-gated": 1,
+		"static.cant-block-by-gated":       1,
+		// Meltstrider's Resolve's enchanted-creature MinMaxBlocker moved out
+		// of static.combat when the bearer-scoped sub-family classified it
+		// (cli-20261009T041714Z-d0f325e1); static.combat is now empty in EOE.
+		"static.max-blockers-bearer":        1,
 		"static.combat-damage-toughness":    1,
 		"static.continuous":                 63,
 		"static.cost":                       9,

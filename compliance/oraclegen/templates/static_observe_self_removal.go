@@ -61,25 +61,33 @@ func staticPreserveETBProbe(reg *cards.Registry, f *cards.Face, name string, req
 	if target == nil || target.Step < 0 || target.Step >= len(base.Steps) {
 		return oraclegen.Item{}, false
 	}
-	sc := base.Scenario
-	sc.Steps = append([]oraclegen.Step(nil), base.Steps...)
-	answer := oraclegen.Answer{Kind: "target"}
-	if target.Min > 0 {
-		answer.Pick = []string{"p1:" + staticProbe}
-	}
-	sc.Steps[target.Step].Answers = []oraclegen.Answer{answer}
-	trial := oraclegen.Item{Scenario: sc}
-	checked, err := rules.RunOracleScenarioJSON(reg, trial.Raw())
-	if err != nil || len(checked.Fails) != 0 || len(checked.Snapshots) == 0 {
-		return oraclegen.Item{}, false
+	// A required target is redirected to p1's probe. An optional one is
+	// declined first (the answer an earlier version of this path always
+	// gave, so a row it served keeps its bytes); when declining leaves the
+	// static unobserved because the static counts the creatures the ETB
+	// kills (Chainsaw's rev counters), the same redirect is tried.
+	answers := []oraclegen.Answer{{Kind: "target", Pick: []string{"p1:" + staticProbe}}}
+	if target.Min <= 0 {
+		answers = append([]oraclegen.Answer{{Kind: "target"}}, answers...)
 	}
 	probes := staticProbeSpecs(reg, []string{staticProbe})
-	if !staticObserved(checked.Snapshots[len(checked.Snapshots)-1], f, name, st, probes) {
-		return oraclegen.Item{}, false
+	for _, answer := range answers {
+		sc := base.Scenario
+		sc.Steps = append([]oraclegen.Step(nil), base.Steps...)
+		sc.Steps[target.Step].Answers = []oraclegen.Answer{answer}
+		trial := oraclegen.Item{Scenario: sc}
+		checked, err := rules.RunOracleScenarioJSON(reg, trial.Raw())
+		if err != nil || len(checked.Fails) != 0 || len(checked.Snapshots) == 0 {
+			continue
+		}
+		if !staticObserved(checked.Snapshots[len(checked.Snapshots)-1], f, name, st, probes) {
+			continue
+		}
+		it := oraclegen.NewLevelBItem(name, req.Key, StaticApplies.Version, []string{"611.3", "613"}, sc)
+		it.XAnswers = oraclegen.XAnswersForScenario(checked, sc, oraclegen.ModeNumbers(f), nil)
+		it.Ignore = base.Ignore
+		it.XAbility = base.XAbility
+		return it, true
 	}
-	it := oraclegen.NewLevelBItem(name, req.Key, StaticApplies.Version, []string{"611.3", "613"}, sc)
-	it.XAnswers = oraclegen.XAnswersForScenario(checked, sc, oraclegen.ModeNumbers(f), nil)
-	it.Ignore = base.Ignore
-	it.XAbility = base.XAbility
-	return it, true
+	return oraclegen.Item{}, false
 }

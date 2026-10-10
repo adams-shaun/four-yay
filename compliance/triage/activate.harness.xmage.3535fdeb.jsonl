@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Found wrong choice command (invalid target or miss skip command):"},"key":"activate | harness | xmage | AssertionError: Found wrong choice command (invalid target or miss skip command):","cards":1}
-{"card":"Intruding Soulrager","template":"activate#0.0","status":"harness","api":"-","sets":["DSK"],"detail":"xmage: AssertionError: Found wrong choice command (invalid target or miss skip command):"}

@@ -24,14 +24,19 @@ import (
 //     are the entry shapes ("when this enters, ..."; "whenever one or more
 //     creatures enter"). Both are XMage-addCard-silent and are dropped.
 //   - A Saga's synthesized chapter ability (pendingTrigger.Chapter) is dropped
-//   - A Saga's synthesized chapter ability (pendingTrigger.Chapter) is dropped
-//     only for a back-face placement (backFaceChapter): XMage's transformed
-//     permanent carries the back face, which has no Saga ability, so no lore
-//     counter and no chapter I. A front-face Saga placed with addCard DOES
-//     enter with its lore counter and fire chapter I there (Summon: Anima's
-//     life loss, Summon: Titan's mill, Summon: Knights of Round's tokens, and
-//     Summon: Leviathan bouncing Grizzly Bears before the setup checkpoint),
-//     so it stays queued.
+//     only for a back-face placement whose ENTERING face is not itself a Saga
+//     (backFaceChapter, computed by setupBackFaceDropsChapter): XMage's
+//     transformed permanent then carries a face with no Saga ability, so no
+//     lore counter and no chapter I (a transformed Saga's creature; the entry
+//     fold queues nothing there, so the drop only guards it). A Saga placed
+//     with addCard DOES enter with its lore counter and fire chapter I there,
+//     so it stays queued -- a front-face Saga (Summon: Anima's life loss,
+//     Summon: Titan's mill, Summon: Knights of Round's tokens, and Summon:
+//     Leviathan bouncing Grizzly Bears before the setup checkpoint) and a
+//     back-face Saga creature alike (Jecht's Braska's Final Aeon discarding
+//     and drawing, Joshua's Phoenix, Warden of Fire dealing 2 and gaining 2:
+//     XMage's setup snapshots hold lore 2 and the chapter I effect already
+//     resolved).
 //   - Everything else stays. In particular a planeswalker's entry loyalty
 //     counters are emitted as CounterChanges inside the same entry fold, so a
 //     CounterAdded / CounterAddedOnce / CounterAddedAll trigger on a permanent
@@ -58,6 +63,19 @@ func setupPlacementDropsTrigger(t cards.Trigger, backFaceChapter bool) bool {
 		return true
 	}
 	return false
+}
+
+// setupBackFaceDropsChapter reports whether the chapter trigger a back-face
+// battlefield placement queued must be dropped: the card is placed on its back
+// face and that entering face (o.Face(), read after the FlipFace that rides
+// ahead of the MoveZone) is not a Saga. A back-face Saga creature keeps its
+// chapter I -- XMage's addCard resolves it from the entry lore counter.
+func setupBackFaceDropsChapter(o *state.Object, backFace bool) bool {
+	if !backFace || o == nil {
+		return false
+	}
+	n, _ := cards.SagaChapters(o.Face())
+	return n == 0
 }
 
 // setupPlacedBackFace reports whether the seat's setup places the named

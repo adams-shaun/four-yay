@@ -68,9 +68,15 @@ func askManaChoice(h Host, c *Ctx, sa *cards.SA, produced string) (string, bool,
 	if allocation {
 		min, max = int(amount), int(amount)
 	}
+	// A Defined$ recipient makes the colour choice (Warring Triad's "target
+	// player adds one mana of any color"); a targeted ability with no
+	// Defined$ keeps the activator choosing (Radiant Lotus: "Choose a color.
+	// Target player adds ..." -- Chooser$ You).
 	chooser := c.Controller
-	if recipients := ManaRecipients(h, c, sa); len(recipients) == 1 {
-		chooser = recipients[0]
+	if ManaOf(sa).HasDefined {
+		if recipients := ManaRecipients(h, c, sa); len(recipients) == 1 {
+			chooser = recipients[0]
+		}
 	}
 	d := &decision.Decision{Player: chooser, Kind: decision.KChoose, Min: min, Max: max,
 		Source: c.Source, ResumeKind: "mana_color", ResumeSA: sa,
@@ -507,9 +513,11 @@ func eachColorAmongExiledWith(h Host, c *Ctx) string {
 // selector names that object's controller (PlayerOf). A Defined$ that resolves
 // to nobody adds nothing, as in Forge (SpellAbilityEffect.getDefinedPlayers has
 // no activator fallback): Valleymaker's Defined$ ChosenPlayer must not hand the
-// mana to its controller when no player was chosen.
+// mana to its controller when no player was chosen. An ability with ValidTgts$
+// and no Defined$ adds to its chosen target (getDefinedPlayersOrTargeted:
+// Radiant Lotus's "target player adds three mana ...").
 func ManaRecipients(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
-	if !ManaOf(sa).HasDefined {
+	if !ManaOf(sa).HasDefined && !TargetsOf(sa).Targeted() {
 		return []state.PlayerID{c.Controller}
 	}
 	// definedPlayers applies Forge's getDefinedPlayers rule: a remembered CARD

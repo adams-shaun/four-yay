@@ -99,9 +99,6 @@ var knownUnsupportedCreatureMana = map[string]string{
 	"Immortus, Master of Eternity|A0": "dynamic: Amount$ X is cards drawn this turn (zero)",
 	"Kydele, Chosen of Kruphix|A0":    "dynamic: Amount$ X is cards drawn this turn (zero)",
 	"Hazel of the Rootbloom|A0":       "dynamic: Amount$ X is the number of tokens tapped (zero)",
-	// Adds its mana to a TARGETED player, not to seat 0, so no seat-0 ManaAdd
-	// is observed by the census; the ability itself is offered and resolves.
-	"The Warring Triad|A0": "add_to_target: Defined$ Targeted + ValidTgts$ Player; mana goes to the targeted player",
 	// Produced$ token the symbol grammar cannot read (fail-closed, loud Note).
 	"Sunbird Standard|A0": "empty_set: the audit board has no cards exiled with the source, so EachColorAmong_ExiledWith is a no-op; the non-empty case is proven by each_color_among_exiled_with_test.go",
 }
@@ -116,7 +113,10 @@ func creatureManaItems(kind, key string, c *cards.Card) []censusItem {
 			continue
 		}
 		for ai, a := range f.Abilities {
-			if a.Kind != "AB" || !cards.IsManaAbilityAPI(a.API) {
+			// A Mana-API ability that requires a target is not a mana ability
+			// (CR 605.1a): The Warring Triad and Jetfire take the ordinary
+			// stack path, covered by mana_target_gate_test.go.
+			if a.Kind != "AB" || !cards.IsManaAbilityAPI(a.API) || !cards.IsManaAbilitySA(a) {
 				continue
 			}
 			family := "activated"
