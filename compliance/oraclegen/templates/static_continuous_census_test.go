@@ -76,11 +76,15 @@ import (
 // prelude at a starting life just below the printed power (The Last Ride:
 // crewed 1/1 at life 12), so DFT loses its computed-count skip and its served
 // count rises by one.
+// Re-pinned by agent-20261009T153027Z-bc3dacf9: the exiled-with fixture family
+// serves BIG Territory Forge by running the source's own ETB exile, and names
+// the measured engine gaps for the rows it cannot serve (FRA Null Summoner:
+// the engine's may-play walk covers only the caster's own cards), so BIG's
+// served count rises by one and FRA's exiled skip becomes the named reason.
 // It fails in both directions.
 var wantStaticContinuousCensus = map[string]map[string]int{
 	"BIG": {
-		"served": 2,
-		"skip:static counts cards exiled with the source": 1,
+		"served": 3,
 	},
 	"EOE": {
 		"served": 62,
@@ -95,10 +99,10 @@ var wantStaticContinuousCensus = map[string]map[string]int{
 	},
 	"FRA": {
 		"served": 35,
-		"skip:static effect not observable on a probe or the card":                   1,
-		"skip:static grants a static ability (observed only through its own effect)": 1,
-		"skip:static counts cards exiled with the source":                            1,
-		"skip:static grants only keywords outside the compared evergreen set":        1,
+		"skip:static effect not observable on a probe or the card":                                                                 1,
+		"skip:static grants a static ability (observed only through its own effect)":                                               1,
+		"skip:static an opponent-owned exiled card is not offered (the engine's may-play walk covers only the caster's own cards)": 1,
+		"skip:static grants only keywords outside the compared evergreen set":                                                      1,
 	},
 	// DFT includes the Surveyor cycle's graveyard AddAbility$ grant, served by
 	// the gated-grant observation's off-battlefield arm (agent-

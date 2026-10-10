@@ -55,7 +55,9 @@ func TestCombatRemainderClassification(t *testing.T) {
 			t.Fatalf("classification = %+v, want one uncovered trigger.opponent-attacks requirement", got)
 		}
 	})
-	// Shapes with no cause the recipes can build stay named gaps.
+	// An attached trigger whose effect targets TriggeredTarget (Blade of
+	// Shared Souls) is servable now that the filter predicate resolves
+	// against the trigger context the push-time ask binds.
 	t.Run("an attached effect targeting TriggeredTarget", func(t *testing.T) {
 		f := &cards.Face{
 			Types: []string{"Artifact", "Equipment"},
@@ -65,8 +67,8 @@ func TestCombatRemainderClassification(t *testing.T) {
 			})},
 		}
 		got := Requirements(cardOf(f))
-		if len(got) != 1 || got[0].Sub != "trigger.gap:Attached" || got[0].Gap == "" {
-			t.Fatalf("classification = %+v, want the gap trigger.gap:Attached", got)
+		if len(got) != 1 || got[0].Sub != "trigger.attached" || got[0].Gap != "" {
+			t.Fatalf("classification = %+v, want one uncovered trigger.attached requirement", got)
 		}
 	})
 	// The opponent-active cast shape is served now: agent-20261009T174731Z-

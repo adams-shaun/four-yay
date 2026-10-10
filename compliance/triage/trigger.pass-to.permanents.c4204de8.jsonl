@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"pass_to","field":"permanents","diff":"gorge+$CARD; xmage+$CARD"},"key":"trigger | pass_to | permanents | gorge+$CARD; xmage+$CARD","cards":1}
+{"card":"Contested Game Ball","template":"trigger#0.0","status":"diverge","api":"DamageDoneOnce:GainControl","sets":["LCI"],"detail":"step 1 (pass_to) permanents: gorge \"c0 o0 Contested Game Ball [artifact] {}\", xmage \"c1 o0 Contested Game Ball [artifact] {}\""}

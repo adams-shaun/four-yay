@@ -69,6 +69,12 @@ func staticDonorItem(reg *cards.Registry, f *cards.Face, name string, req levelb
 			}
 		}
 	}
+	// An exile donor must be exiled by the source's own move: the setup
+	// placement above carries no association, so the engine's
+	// Card.ExiledWithSource filter excludes it (static_fixture_exile.go).
+	if it, ok := staticExileDonorItem(reg, f, name, req, st); ok {
+		return it, true
+	}
 	return oraclegen.Item{}, false
 }
 

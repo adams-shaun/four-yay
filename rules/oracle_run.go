@@ -767,6 +767,24 @@ func (r *oracleRun) build(sc oracleScenario) error {
 	return harnessf("setup never reached turn %d main1", turn)
 }
 
+// manaAskColours reads a mana ask's offered colour set, in option order: the
+// options are laid out unit-major, so the first unit's ManaSymbols are the
+// set exactly as XMage's AddManaInAnyCombinationEffect lists its messages.
+func manaAskColours(d *decision.Decision) []string {
+	if d.Max <= 0 {
+		return nil
+	}
+	set := len(d.Options) / d.Max
+	if set <= 0 || set > len(d.Options) {
+		return nil
+	}
+	out := make([]string, 0, set)
+	for k := 0; k < set; k++ {
+		out = append(out, d.Options[k].ManaSymbol)
+	}
+	return out
+}
+
 func pickPass(d *decision.Decision) int {
 	for _, o := range d.Options {
 		if o.Kind == "pass" {
@@ -805,6 +823,17 @@ func (r *oracleRun) submit(d *decision.Decision, choices []int, why string) erro
 		if d.Kind == decision.KTarget && d.ResumeSA != nil {
 			od.Divided = effects.DividedTotal(d.ResumeSA)
 		}
+		if d.Kind == decision.KChoose && d.ResumeKind == "mana_color" && d.ResumeSA != nil {
+			// A Produced$ "Combo <colours>" ask is XMage's
+			// AddManaInAnyCombinationEffect at every unit count: one
+			// multi-amount message per offered colour, in the set's order.
+			// A produced-Any ask is DynamicManaEffect's colour dialog at one
+			// unit and a WUBRG multi-amount above it, so it stays unmarked
+			// and the generator's existing routing answers it unchanged.
+			if _, ok := effects.ComboColours(effects.ManaOf(d.ResumeSA).Produced); ok {
+				od.ManaColours = manaAskColours(d)
+			}
+		}
 		if len(d.Options) > 0 {
 			od.First = d.Options[0].Label
 			if d.Options[0].Kind == "altaddcost" {
@@ -818,6 +847,12 @@ func (r *oracleRun) submit(d *decision.Decision, choices []int, why string) erro
 			if option.Group != "" {
 				od.OptionGroups = append(od.OptionGroups, option.Group)
 			}
+			if d.Kind == decision.KArrange {
+				od.ArrangeLabels = append(od.ArrangeLabels, option.Label)
+			}
+		}
+		if d.Kind == decision.KArrange {
+			od.ArrangeKind = arrangeSharedKind(d)
 		}
 		for _, c := range choices {
 			if c < 0 || c >= len(d.Options) {
@@ -852,6 +887,21 @@ func (r *oracleRun) submit(d *decision.Decision, choices []int, why string) erro
 		r.decisions[recorded].UnposedSlots = chain.unposed(r.e.trigSub)
 	}
 	return nil
+}
+
+// arrangeSharedKind is the option Kind every option of a KArrange shares (its
+// destination, ruling J5), or "" for an empty or disagreeing option list.
+func arrangeSharedKind(d *decision.Decision) string {
+	if len(d.Options) == 0 {
+		return ""
+	}
+	kind := d.Options[0].Kind
+	for _, o := range d.Options {
+		if o.Kind != kind {
+			return ""
+		}
+	}
+	return kind
 }
 
 // altPayableCount counts the options of the pending AlternateAdditionalCost
@@ -1100,51 +1150,38 @@ func (r *oracleRun) answer(d *decision.Decision, why string) error {
 			}
 		}
 	case decision.KTriggerOrder, decision.KArrange:
-		// A generated compliance scenario's setup-drive arrange whose shared
-		// option kind is "graveyard" and whose ask is optional (Min 0, the
-		// shape an upkeep Surveil poses) falls back to the EMPTY choice set:
-		// every looked-at card goes to the graveyard. XMage's unscripted
-		// default does the same (its doSurveil queue holds the cards to send
-		// to the graveyard and delegates to the computer player when the
-		// generator scripts nothing), so choose-all here was the one
-		// divergence the stored verdict rows Broodheart Engine / Essence
-		// Anchor / Morcant's Eyes (activate#0.0) named. Scoped to the
-		// GENERATED scenarios (xmageFixture) — XMage is their reference — and
-		// to the setup drive: at step time gorge's recorded decision is
-		// transcribed into the XMage script by compliance/oraclegen, so
-		// changing the step-time fallback would desync the derived script. An
-		// audit fixture (rules/testdata/oracle) has no XMage snapshot to align
-		// with and its expectations are written for the choose-all fallback
-		// (Ransom Note's cloak audit relies on the setup ETB surveil keeping
-		// the seeded top card on top), so it keeps today's behaviour.
+		// A generated compliance scenario's arrange whose shared option kind
+		// is "graveyard" and whose ask is optional (Min 0, the shape an upkeep
+		// Surveil poses) falls back to the EMPTY choice set: every looked-at
+		// card goes to the graveyard. Scoped to the GENERATED scenarios
+		// (xmageFixture) -- XMage is their reference. An audit fixture
+		// (rules/testdata/oracle) has no XMage snapshot to align with and its
+		// expectations are written for the choose-all fallback (Ransom Note's
+		// cloak audit relies on the setup ETB surveil keeping the seeded top
+		// card on top), so it keeps today's behaviour.
 		//
-		// The empty-set answer is further scoped to scenarios that do NOT
-		// later stop at the upkeep step (revisitsUpkeep). The two level-B
-		// templates that pose the setup ask disagree about XMage's unscripted
-		// direction, and only the scenario shape tells them apart: the
-		// trigger#0.x template walks turn 1's upkeep with a pass_to, so its
-		// setup drive has already resolved the same upkeep trigger XMage's
-		// driver later does, and the stored reference KEEPS the looked-at card
-		// on top at the setup checkpoint (gorge's pre-D1 choose-all agreed
-		// there); the activate/cast templates never revisit the phase, and
-		// their stored reference graveyards the setup ask (the D1 rows). With
-		// one rule the empty-set answer is one checkpoint early for the
-		// trigger family -- gorge graveyards at setup while XMage graveyards
-		// only by the resolve checkpoint -- so a scenario that revisits the
-		// upkeep keeps the card on top. Census of every generated scenario in
-		// the six affected manifests (BLB, DFT, FRA, ECL, TDM, SOS) that poses
-		// the setup shape: exactly the six Phase:Surveil trigger#0.0 rows
-		// (diverge, revisitsUpkeep true) and three activate#0.0 rows (agree,
-		// false); no other item poses it, so the shape alone separates them.
-		if r.xmageFixture && why == "setup" && !r.revisitsUpkeep && d.Kind == decision.KArrange &&
+		// WHICH ask takes the empty set depends on the scenario shape
+		// (revisitsUpkeep), because the stored XMage references of the two
+		// level-B templates disagree and only the shape tells them apart:
+		//   - the activate/cast templates never revisit the phase; their
+		//     reference graveyards the SETUP ask (the D1 rows Broodheart
+		//     Engine / Essence Anchor / Morcant's Eyes activate#0.0), so the
+		//     setup drive answers empty and a step-time ask keeps the
+		//     choose-all fallback;
+		//   - the trigger#0.x template walks turn 1's upkeep with a pass_to,
+		//     so its setup drive resolves the same upkeep trigger once and the
+		//     reference KEEPS the looked-at card on top at the setup
+		//     checkpoint; the SECOND resolution, at the pass_to upkeep's
+		//     resolve step, is the one the cached reference graveyarded (the
+		//     six stored trigger#0.0 rows read `step 1 (resolve)
+		//     p0.graveyard: gorge "[]", xmage "[Wastes]"`). So the setup ask
+		//     keeps the card on top and the step-time ask answers empty.
+		// The recorded empty answer is transcribed by compliance/oraclegen
+		// into one name selection per looked-at card, which pins XMage to the
+		// same outcome (see its arrange arm).
+		if r.xmageFixture && (why == "setup") != r.revisitsUpkeep && d.Kind == decision.KArrange &&
 			d.ResumeKind == "arrange" && d.Min == 0 && len(d.Options) > 0 {
-			uniformGraveyard := true
-			for _, o := range d.Options {
-				if arrangeAnswerRecordCodes.Code(string(o.Kind)) != arrangeAnswerRecordGraveyard {
-					uniformGraveyard = false
-					break
-				}
-			}
+			uniformGraveyard := arrangeAnswerRecordCodes.Code(arrangeSharedKind(d)) == arrangeAnswerRecordGraveyard
 			if uniformGraveyard {
 				// Leave choices nil: the Min-first block below turns that
 				// into the empty answer, and the empty pile A sends every

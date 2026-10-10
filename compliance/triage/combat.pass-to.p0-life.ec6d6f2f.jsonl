@@ -1,0 +1,2 @@
+{"shape":{"template":"combat","op":"pass_to","field":"p0.life","diff":"gorge-xmage=-2"},"key":"combat | pass_to | p0.life | gorge-xmage=-2","cards":1}
+{"card":"Jennifer Walters","template":"combat#1.attack","status":"diverge","api":"-","sets":["MSH"],"detail":"step 2 (pass_to) p0.life: gorge \"18\", xmage \"20\""}
