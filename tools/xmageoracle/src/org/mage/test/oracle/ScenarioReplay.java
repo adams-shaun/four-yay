@@ -1122,6 +1122,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
         frontCounts.clear();
         setupBattlefield.clear();
         setupNames.clear();
+        placedNames.clear();
         backFaceNames.clear();
         enterWithCountersApplied.clear();
         String format = str(sc, "format");
@@ -1188,7 +1189,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     boolean placed = false;
                     for (Permanent perm : g.getBattlefield().getAllPermanents()) {
                         // A back-face-staged permanent is still named by its front (setupNames).
-                        if (!pl.getId().equals(perm.getControllerId()) || !setupNames.getOrDefault(perm.getId(), perm.getName()).equals(name)) {
+                        if (!pl.getId().equals(perm.getControllerId()) || !setupName(perm).equals(name)) {
                             continue;
                         }
                         if (enterWithCountersApplied.contains(perm.getId())) {
@@ -1283,6 +1284,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 // name), including staged back faces, so the entry-history
                 // normalizer ages exactly these, never a genuine turn-1 entry.
                 setupBattlefield.merge(p.getId() + "|" + xmageName, 1, Integer::sum);
+                recordPlacedName(placedNames, getBattlefieldCards(p), xmageSpelling(n));
             }
         }
         return ns.size();
@@ -1359,20 +1361,8 @@ public class ScenarioReplay extends CardTestPlayerBase {
             }
             for (Card c : pl.getLibrary().getCards(g)) objs.add(c);
             for (mage.MageObject o : objs) {
-                String xmageCardName = setupNames.getOrDefault(o.getId(), o.getName());
-                int k = counts.merge(xmageCardName, 1, Integer::sum);
-                String xmageRef = "p" + i + ":" + xmageCardName + (k > 1 ? "#" + k : "");
-                String scenarioCardName = !xmageName.isEmpty() && xmageCardName.equals(xmageName)
-                        ? gorgeName : xmageCardName;
-                int scenarioOccurrence = scenarioCounts.merge(scenarioCardName, 1, Integer::sum);
-                String scenarioRef = "p" + i + ":" + scenarioCardName
-                        + (scenarioOccurrence > 1 ? "#" + scenarioOccurrence : "");
-                // A split/Room object also gets its front-half ref bound (see
-                // frontHalfScenarioRef); the occurrence counts follow the same
-                // rule the whole name uses.
-                int frontOccurrence = registerFrontOccurrence(frontCounts, i, xmageCardName);
-                registerObjectAliases(i, xmageCardName, xmageRef, scenarioRef,
-                        frontOccurrence, o.getId(), refAlias, (ref, objId) -> {
+                bindSetupObject(i, setupName(o), gorgeName, xmageName, counts, scenarioCounts,
+                        frontCounts, o.getId(), refAlias, (ref, objId) -> {
                             for (int j = 0; j < 2; j++) {
                                 try {
                                     seat(j).addAlias(ref, objId);
@@ -1488,7 +1478,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
             }
             for (Card c : pl.getLibrary().getCards(currentGame)) objs.add(c);
             for (mage.MageObject o : objs) {
-                if (!setupNames.getOrDefault(o.getId(), o.getName()).equals(name)) {
+                if (!setupName(o).equals(name)) {
                     continue;
                 }
                 if (++seen == wanted) {
@@ -1815,7 +1805,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
         int seen = 0;
         for (Permanent perm : g.getBattlefield().getAllPermanents()) {
             if (perm.getControllerId().equals(seat(seatIndex).getId())
-                    && setupNames.getOrDefault(perm.getId(), perm.getName()).equals(name)) {
+                    && setupName(perm).equals(name)) {
                 if (++seen == wanted) {
                     return perm;
                 }
@@ -1858,6 +1848,10 @@ public class ScenarioReplay extends CardTestPlayerBase {
     // Seeded setup permanents keyed "controllerId|xmageName" -> count (build()).
     private final java.util.Map<String, Integer> setupBattlefield = new java.util.HashMap<>();
     private final Map<UUID, String> setupNames = new HashMap<>();
+    // The name each setup battlefield placement was dealt under, by the id its
+    // permanent will carry. Read only when XMage's live name is empty (see
+    // setupObjectName); setupNames stays the staged back faces' map.
+    private final Map<UUID, String> placedNames = new HashMap<>();
     private final Map<String, String> backFaceNames = new HashMap<>();
     // Setup counters already applied WITH the placement (build(), through the
     // enter-with-counters map): applySetupState skips these permanents, since
@@ -1905,6 +1899,59 @@ public class ScenarioReplay extends CardTestPlayerBase {
             return null;
         }
         return "p" + seat + ":" + frontHalf(xmageCardName) + (occurrence > 1 ? "#" + occurrence : "");
+    }
+
+    /** The name a setup object is spelled by in scenario refs. A staged back
+     * face keeps its front (setupNames); an object XMage still names uses
+     * that name; an object XMage names "" falls back to the name setup dealt
+     * it under. A Room permanent with both doors locked has no name (CR
+     * 709.5: it has neither half's name, and RoomCharacteristicsEffect
+     * strips both), and a setup-placed Room is always both-locked, so its
+     * live name alone would leave every ref to it unbound. */
+    static String setupObjectName(Map<UUID, String> setupNames, Map<UUID, String> placedNames,
+            UUID id, String liveName) {
+        String staged = setupNames.get(id);
+        if (staged != null) {
+            return staged;
+        }
+        if (liveName.isEmpty()) {
+            return placedNames.getOrDefault(id, liveName);
+        }
+        return liveName;
+    }
+
+    private String setupName(mage.MageObject o) {
+        return setupObjectName(setupNames, placedNames, o.getId(), o.getName());
+    }
+
+    /** Records the card setup just dealt to the battlefield (the last
+     * placement) under the id its permanent will carry. A DFC half staged by
+     * stageBackFace is already in setupNames, which wins. */
+    static void recordPlacedName(Map<UUID, String> placedNames, List<PutToBattlefieldInfo> placements,
+            String name) {
+        placedNames.put(placements.get(placements.size() - 1).getMainCard().getId(), name);
+    }
+
+    /** Binds one setup object's refs during registerAliases: counts the
+     * whole name (xmageCardName) and its scenario spelling per seat, then
+     * hands the refs to registerObjectAliases. Static so the driver tests
+     * can drive the whole ref computation without a game. */
+    static void bindSetupObject(int seat, String xmageCardName, String gorgeName, String xmageName,
+            Map<String, Integer> counts, Map<String, Integer> scenarioCounts,
+            Map<String, Integer> frontCounts, UUID id, Map<String, String> refAlias, AliasBinder bind) {
+        int k = counts.merge(xmageCardName, 1, Integer::sum);
+        String xmageRef = "p" + seat + ":" + xmageCardName + (k > 1 ? "#" + k : "");
+        String scenarioCardName = !xmageName.isEmpty() && xmageCardName.equals(xmageName)
+                ? gorgeName : xmageCardName;
+        int scenarioOccurrence = scenarioCounts.merge(scenarioCardName, 1, Integer::sum);
+        String scenarioRef = "p" + seat + ":" + scenarioCardName
+                + (scenarioOccurrence > 1 ? "#" + scenarioOccurrence : "");
+        // A split/Room object also gets its front-half ref bound (see
+        // frontHalfScenarioRef); the occurrence counts follow the same rule
+        // the whole name uses.
+        int frontOccurrence = registerFrontOccurrence(frontCounts, seat, xmageCardName);
+        registerObjectAliases(seat, xmageCardName, xmageRef, scenarioRef, frontOccurrence, id,
+                refAlias, bind);
     }
 
     /** One alias binding shared by both seats, duplicates swallowed: the
