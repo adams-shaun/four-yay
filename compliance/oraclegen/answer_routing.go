@@ -214,6 +214,48 @@ func digBottomName(label string) string {
 	return ""
 }
 
+// digExileComplement is the card name a Dig take must script for the
+// second-destination-is-exile family (Ashiok, Wicked Manipulator; Karn, Scion
+// of Urza), else "". XMage's Dig dialog for that shape selects the card to
+// EXILE, the opposite of gorge's pick (the card to hand), so the scripted
+// answer must be the OTHER offered option. The family is the Dig take whose
+// pick is a plain card name over exactly two offered objects with a one-card
+// take (DigNum$ 2 / ChangeNum$ 1); the complement is computed from the
+// decision alone, since the offered option list holds both names and gorge's
+// pick is the one to hand. The decision carries no destination, so the family
+// is recognised by this shape -- the only shape a Standard-set Dig take
+// produces for it (measured over the 20 level-B sets, Ashiok is the sole
+// real-name two-option one-card take). The bottom-label form (digBottomName)
+// is a different XMage dialog and measures AGREE, so it is excluded here and
+// owned by its own case.
+func digExileComplement(d rules.OracleDecision) string {
+	if d.Resume != "dig" || d.Options != 2 || d.Min != 1 || d.Max != 1 ||
+		len(d.Picks) != 1 || len(d.OptionRefs) != 2 || digBottomName(d.Picks[0]) != "" {
+		return ""
+	}
+	pick := d.Picks[0]
+	complement := ""
+	matched := false
+	for _, ref := range d.OptionRefs {
+		name := oraclediffRefName(ref)
+		if name == pick {
+			matched = true
+			continue
+		}
+		if complement != "" && complement != name {
+			// Two distinct non-pick names: the offer is ambiguous, so the
+			// complement cannot be computed. Leave the decision to the generic
+			// choice path rather than guess.
+			return ""
+		}
+		complement = name
+	}
+	if !matched || complement == "" {
+		return ""
+	}
+	return complement
+}
+
 // declinedChoice is a generic effect ask ("choose up to N") gorge answered
 // with nothing.
 func declinedChoice(d rules.OracleDecision) bool {
@@ -275,6 +317,11 @@ func (r *answerRouting) route(i int) (as []XAnswer, owned bool) {
 	case d.Resume == "dig" && len(d.Picks) == 1 && digBottomName(d.Picks[0]) != "":
 		// XMage's bottom pick is a card selection by name, not gorge's label.
 		return append(as, XAnswer{d.Seat, "choice", digBottomName(d.Picks[0])}), true
+	case digExileComplement(d) != "":
+		// XMage's Dig dialog for the exile-second-destination family selects
+		// the card to EXILE, the opposite of gorge's pick (the card to hand),
+		// so the scripted answer is the other offered option.
+		return append(as, XAnswer{d.Seat, "choice", digExileComplement(d)}), true
 	case d.Resume == "taporuntap" && len(d.Picks) == 1:
 		// TapOrUntap's election is XMage's chooseUse, not a labelled choice:
 		// the pick's option index maps to the boolean (option 0, the

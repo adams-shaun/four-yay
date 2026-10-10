@@ -877,12 +877,9 @@ func attackedAttachedItem(reg *cards.Registry, f *cards.Face, name string, req l
 	}
 	sc := build(false, false)
 	if res, ok := runStatic(reg, sc); ok && failsName(res.Fails, "can attack = true, want false") {
-		// Measured: the control offers the attack on the planeswalker and the
-		// attached board still does. combat.RestrictionTargetMatches
-		// (rules/combat/restrictions.go) reads Target$ as player specs and
-		// Planeswalker.<spec> only, so Card.Self+AttachedTo Creature never
-		// matches and the restriction never binds. An engine change, not a
-		// template one: the row stays a recognized, precisely named skip.
+		// Defensive: combat.RestrictionTargetMatches reads the Card.<props>
+		// clause, so this only fires if that read regresses; the row then
+		// falls back to a recognized, precisely named skip.
 		return staticSkip(name, mode, "engine gap: Target$ Card.Self+AttachedTo Creature is not read by combat.RestrictionTargetMatches, so the attached planeswalker is still offered as a defender")
 	}
 	return finishLegalityItem(reg, f, name, mode, req, sc, []string{"508.1b", "506.3"})

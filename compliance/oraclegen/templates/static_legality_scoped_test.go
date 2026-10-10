@@ -203,13 +203,11 @@ func TestScopedLegalityRowsAreObserved(t *testing.T) {
 	}
 }
 
-// TestAetherSparkAttackedAttachedIsAnEngineGapSkip pins the one recognized
-// row the engine does not enforce: the planeswalker Equipment's Target$ names
-// itself plus AttachedTo, which combat.RestrictionTargetMatches does not
-// read, so the attached card is still offered as a defender. The item is a
-// precisely-named skip, not a vacuous pass; when the engine reads the Target$
-// the skip disappears and this test names the row to pin.
-func TestAetherSparkAttackedAttachedIsAnEngineGapSkip(t *testing.T) {
+// TestAetherSparkAttackedAttachedIsServed pins the planeswalker Equipment's
+// row as served: combat.RestrictionTargetMatches reads the Target$ naming
+// itself plus AttachedTo, so the attached card is no longer offered as a
+// defender and the generator emits the item instead of an engine-gap skip.
+func TestAetherSparkAttackedAttachedIsServed(t *testing.T) {
 	reg := loadGenRegistry(t)
 	c, ok := reg.Lookup("The Aetherspark")
 	if !ok {
@@ -224,9 +222,12 @@ func TestAetherSparkAttackedAttachedIsAnEngineGapSkip(t *testing.T) {
 		if r.Sub != "static.cant-be-attacked-attached" || r.Gap != "" {
 			t.Fatalf("classified %q gap %q, want static.cant-be-attacked-attached with no gap", r.Sub, r.Gap)
 		}
-		_, skip := GenerateB(reg, "The Aetherspark", r)
-		if skip == nil || !strings.Contains(skip.Reason, "engine gap: Target$ Card.Self+AttachedTo Creature") {
-			t.Fatalf("want the named engine-gap skip, got %+v", skip)
+		item, skip := GenerateB(reg, "The Aetherspark", r)
+		if skip != nil {
+			t.Fatalf("want the served row, got skip %+v", skip)
+		}
+		if item.Card != "The Aetherspark" {
+			t.Fatalf("served item for %q, want The Aetherspark", item.Card)
 		}
 	}
 	if !found {
