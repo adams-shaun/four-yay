@@ -50,7 +50,7 @@ func classLevelPrelude(f *cards.Face, name string, level int) (steps []oraclegen
 			return nil, nil, false
 		}
 		cost := f.Abilities[idx].ParamStr(cards.PKCost)
-		pool, gap := activationCostIn(cost, "battlefield")
+		pool, gap := activationCostIn(cost, "battlefield", "")
 		if gap != "" {
 			return nil, nil, false
 		}

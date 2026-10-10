@@ -38,19 +38,20 @@ SCORE=$STATE/scoreboard.jsonl
 
 # Floors in MiB of AVAILABLE memory (not free: page cache is reclaimable).
 # The box had ~58 GiB until 2026-10-09, when the operator doubled DRAM to
-# 120 GiB; with the heavy pool now at GORGE_HEAVY_LANES=2 lanes the worst
-# concurrent heavy footprint is two 16 GiB-class jobs or a 16 GiB job plus a
-# 6-8 GiB lease, so the START floor rises only to 20 GiB. A gate's test
+# 120 GiB; with the heavy pool now at GORGE_HEAVY_LANES=3 lanes the worst
+# concurrent heavy footprint is three 16 GiB-class jobs, so the START floor
+# rises to 28 GiB (2026-10-09 cli-20261009T224425Z-a610bfaf: one more
+# 16 GiB-class slot on top of the 2-lane 20 GiB floor). A gate's test
 # binaries have peaked near 8 GiB, and two OOMs here (2026-09-27) came from a
 # heavy job holding memory while a gate started, so heavy still needs a wide
 # margin to START and a narrow one to be KILLED.
-HEAVY_START_FLOOR_MB=${HEAVY_START_FLOOR_MB:-20480}
+HEAVY_START_FLOOR_MB=${HEAVY_START_FLOOR_MB:-28672}
 PROBE_START_FLOOR_MB=${PROBE_START_FLOOR_MB:-10240}
 KILL_FLOOR_MB=${KILL_FLOOR_MB:-3072}
 PAUSE_GRACE_S=${PAUSE_GRACE_S:-60}
-# 2 = GORGE_HEAVY_LANES: each concurrent lease holds its own lane
+# 3 = GORGE_HEAVY_LANES: each concurrent lease holds its own lane
 # (scripts/heavy_lock.sh), so the cap and the lane count must move together.
-HEAVY_MAX_LEASES=${HEAVY_MAX_LEASES:-2}
+HEAVY_MAX_LEASES=${HEAVY_MAX_LEASES:-3}
 PROBE_MAX_LEASES=${PROBE_MAX_LEASES:-1}
 # Load ceiling as a fraction of the core count; a box already saturated by
 # seats and gates does not get a heavy job on top.

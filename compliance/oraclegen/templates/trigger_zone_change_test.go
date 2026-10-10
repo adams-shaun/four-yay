@@ -21,7 +21,7 @@ func stackedAfterCause(t *testing.T, reg *cards.Registry, sc oraclegen.Scenario,
 	passes := []oraclegen.Step{{Op: "pass", Seat: 0}, {Op: "pass", Seat: 1}}
 	for _, try := range [][]oraclegen.Step{steps, append(append([]oraclegen.Step(nil), steps...), passes...)} {
 		sc.Steps = try
-		if _, res, ok := oraclegen.Settle(reg, sc); ok && abilityOnStack(res.Snapshots, name, name, slot) {
+		if _, res, ok := oraclegen.Settle(reg, sc); ok && abilityOnStack(res.Snapshots, stackSourceWants(reg, name, wantsFace(t, reg, name)), slot) {
 			return true
 		}
 	}
@@ -97,6 +97,10 @@ func TestZoneChangeResiduesHaveNamedSkips(t *testing.T) {
 	reg := loadGenRegistry(t)
 	for _, tc := range []struct{ name, key, want string }{
 		{"Zenos yae Galvus", "trigger#0.1", "trigger no recipe: zone-change filter ChosenCardStrict"},
+		// Hedge Shredder left this table when main implemented
+		// ChangeType$ Card.TriggeredCards (merge ec0a97a7d): its
+		// library-to-graveyard row is served now, asserted by
+		// TestHedgeShredderResidueIsServed.
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			c, ok := reg.Lookup(tc.name)
@@ -227,4 +231,15 @@ func TestTokenChangesZoneFilterGetsItsTokenMaker(t *testing.T) {
 	if why != "" || len(causes) != 1 || causes[0].steps[0].Card != "p0:Sprout" {
 		t.Fatalf("causes=%+v why=%q, want one Sprout cause", causes, why)
 	}
+}
+
+// wantsFace looks name up for stackSourceWants; the two shared helpers here
+// predate the wants form of abilityOnStack.
+func wantsFace(t *testing.T, reg *cards.Registry, name string) *cards.Face {
+	t.Helper()
+	c, ok := reg.Lookup(name)
+	if !ok {
+		t.Fatalf("%s not in the corpus", name)
+	}
+	return c.Faces[0]
 }

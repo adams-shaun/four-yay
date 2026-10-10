@@ -86,24 +86,28 @@ func TestStaticContinuousTypeChange(t *testing.T) {
 
 // TestStaticContinuousUnobservedStaysSkipped: a conditional self static the
 // fixture leaves false (Living Conundrum needs an empty library) shows no
-// change, and a CDA-marked static on a card that prints a plain P/T is not a
-// characteristic-defining P/T (Colossal Rattlewurm). Neither is served.
+// change, and a keyword-grant static outside both vocabularies still skips
+// (Teval, Arbiter of Virtue grants Delve; agent-20261009T153027Z-7c702026
+// served Colossal Rattlewurm's Flash grant by adding "flash" to the named
+// vocabulary, so it is no longer in this skip set).
 func TestStaticContinuousUnobservedStaysSkipped(t *testing.T) {
 	if got, want := staticSkipReason(t, "Living Conundrum", "static#0.0"), "static effect not observable on a probe or the card"; got != want {
 		t.Fatalf("Living Conundrum skip = %q, want %q", got, want)
 	}
-	if got := staticSkipReason(t, "Colossal Rattlewurm", "static#0.0"); !strings.Contains(got, "keywords outside the compared evergreen set") {
-		t.Fatalf("Colossal Rattlewurm skip = %q, want the keyword gap", got)
+	if got := staticSkipReason(t, "Teval, Arbiter of Virtue", "static#0.0"); !strings.Contains(got, "keywords outside the compared evergreen set") {
+		t.Fatalf("Teval, Arbiter of Virtue skip = %q, want the keyword gap", got)
 	}
 }
 
 // TestStaticContinuousNamedGaps: the shapes the widened observation still
-// cannot reach carry their own reason rather than the generic one.
+// cannot reach carry their own reason rather than the generic one. Sunbird
+// Standard's Effigy face left this table with
+// levelb-static-count-attachments (agent-20261009T055718Z-661990d1): its
+// ExiledWith$Colors CDA is served by the Craft prelude.
 func TestStaticContinuousNamedGaps(t *testing.T) {
 	for _, row := range []struct{ card, key, want string }{
 		{"Lumbering Worldwagon", "static#0.0", "characteristic-defining P/T of a non-creature"},
 		{"Midnight Oil", "static#0.0", "static hand size is not observable"},
-		{"Sunbird Standard", "static#1.0", "static amount is a computed count"},
 	} {
 		if got := staticSkipReason(t, row.card, row.key); !strings.Contains(got, row.want) {
 			t.Errorf("%s %s skip = %q, want it to contain %q", row.card, row.key, got, row.want)

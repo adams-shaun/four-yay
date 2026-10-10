@@ -197,6 +197,7 @@ func applyPrelude(base triggerCause, p conditionPrelude) triggerCause {
 	c.battlefield = dropRedundantSetup(base.steps, c.battlefield)
 	c.tapped = append(append([]string(nil), base.tapped...), p.tapped...)
 	c.graveyard = append(append([]string(nil), base.graveyard...), p.graveyard...)
+	c.exile = append(append([]string(nil), base.exile...), p.exile...)
 	c.opponentHand = append(append([]string(nil), base.opponentHand...), p.opponentHand...)
 	c.opponentBattlefield = append(append([]string(nil), base.opponentBattlefield...), p.opponentBattlefield...)
 	c.counters = mergeCounters(base.counters, p.counters)
@@ -418,5 +419,8 @@ func attackShape(reg *cards.Registry, f *cards.Face, name string, t *cards.Trigg
 		changed = true
 	}
 	c.steps[at].Attackers = atk
+	if indirectAttackSVar(reg, f, t, c) {
+		changed = true
+	}
 	return changed
 }

@@ -13,7 +13,7 @@ import (
 // whitelist. pool is the mana part's pool letters (PoolFor), or "" for a
 // cost with no mana. gap names the offending token with its payload folded.
 func activationCost(cost string) (pool, gap string) {
-	return activationCostIn(cost, "battlefield")
+	return activationCostIn(cost, "battlefield", "")
 }
 
 // activationCostIn is activationCost for a source activated from zone
@@ -22,9 +22,9 @@ func activationCost(cost string) (pool, gap string) {
 // payable only from the hand, ExileFromGrave<1/CARDNAME> (or one other
 // Creature.Other card) only from the graveyard. Anywhere else they stay a
 // named cost gap.
-func activationCostIn(cost, zone string) (pool, gap string) {
+func activationCostIn(cost, zone, name string, xMin ...int) (pool, gap string) {
 	var mana []string
-	x := activationX(cost)
+	x := activationX(cost, xMin...)
 	for _, tok := range costTokens(cost) {
 		if m, ok := keywordCostMana(tok, x); ok {
 			if m != "" {
@@ -44,7 +44,7 @@ func activationCostIn(cost, zone string) (pool, gap string) {
 				continue
 			}
 		case "Sac":
-			if sacFixtureSupported(tok) {
+			if sacFixtureSupported(tok, x) {
 				continue
 			}
 			return "", sacGapClass(tok)
@@ -61,7 +61,9 @@ func activationCostIn(cost, zone string) (pool, gap string) {
 				if zone == "graveyard" {
 					continue
 				}
-			} else if graveyardCreatureCost(tok) || graveyardCostFixtures(tok) != nil {
+			} else if graveyardCreatureCost(tok) || len(filterCostFixturesX(tok, x)) > 0 {
+				continue
+			} else if n, selfNamed := namedSelfCount(tok, name, x); selfNamed && n > 0 {
 				continue
 			}
 		case "ExileCtrlOrGrave":
@@ -77,11 +79,11 @@ func activationCostIn(cost, zone string) (pool, gap string) {
 				continue
 			}
 		case "Return":
-			if selfZoneCost(tok) {
+			if selfZoneCost(tok) || returnCreatureFixture(tok) != "" {
 				continue
 			}
 		case "tapXType":
-			if tapXTypeFixtureSupported(tok) || tokenCostSupported(tok) {
+			if tapXTypeFixtureSupported(tok, x) || tokenCostSupported(tok) {
 				continue
 			}
 			return "", tapXTypeGapClass(tok)
@@ -172,6 +174,12 @@ func filterCostFixturesX(tok string, x int) []string {
 			candidates = append(candidates, permanentCostFixtures(clause)...)
 		case strings.HasPrefix(clause, "dinosaur"):
 			candidates = append(candidates, "Colossal Dreadmaw")
+		case strings.Contains(clause, "merfolk"):
+			candidates = append(candidates, "Merfolk Wayfinder")
+		case strings.Contains(clause, "pirate"):
+			candidates = append(candidates, "Kari Zev, Skyship Raider")
+		case strings.Contains(clause, "vampire"):
+			candidates = append(candidates, "Sengir, the Dark Baron")
 		case strings.Contains(clause, "card"):
 			candidates = append(candidates, "Colossal Dreadmaw", "Sol Ring", "Grizzly Bears", "Wastes")
 		case strings.Contains(clause, "artifact"):
@@ -211,6 +219,57 @@ func graveyardCostFixtures(tok string) []string {
 	return filterCostFixtures(tok)
 }
 
+// returnCreatureFixture names the tapped catalogue creature that pays a
+// Return<1/Creature.tapped> cost (Urban Retreat's "Return a tapped creature
+// you control to its owner's hand"); "" when the shape is unsupported.
+func returnCreatureFixture(tok string) string {
+	payload, ok := bracketPayload(tok)
+	if !ok {
+		return ""
+	}
+	parts := strings.Split(payload, "/")
+	if len(parts) < 2 || strings.TrimSpace(parts[0]) != "1" {
+		return ""
+	}
+	switch strings.ToLower(strings.TrimSpace(parts[1])) {
+	case "creature.tapped", "creature.youctrl.tapped", "creature.other.tapped":
+		return "Grizzly Bears"
+	}
+	return ""
+}
+
+// namedSelfCount reports n when an ExileFromGrave token's filter names the
+// source card itself ("...+namedCARDNAME", Say Its Name's second exile
+// count): the payment's fixtures are copies of the source in the graveyard,
+// which no catalogue stand-in can serve. n is the token count or the
+// announced X.
+func namedSelfCount(tok, name string, x int) (int, bool) {
+	if name == "" {
+		return 0, false
+	}
+	payload, ok := bracketPayload(tok)
+	if !ok {
+		return 0, false
+	}
+	parts := strings.Split(payload, "/")
+	if len(parts) < 2 {
+		return 0, false
+	}
+	n := 0
+	if parts[0] == "X" {
+		n = x
+	} else {
+		n, _ = strconv.Atoi(parts[0])
+	}
+	if n < 1 {
+		return 0, false
+	}
+	if !strings.Contains(strings.ToLower(parts[1]), "named"+strings.ToLower(name)) {
+		return 0, false
+	}
+	return n, true
+}
+
 func exileCreatureCostFixtures(tok string) []string {
 	payload, ok := bracketPayload(tok)
 	if !ok {
@@ -241,7 +300,9 @@ func activationCostFixturesX(tok string, x int) []string {
 		if graveyardCreatureCost(tok) {
 			return []string{"Grizzly Bears"}
 		}
-		return graveyardCostFixtures(tok)
+		// The `<X/filter>` grave-exile count (Winter, Cursed Rider's
+		// ExileFromGrave<X/Artifact>) reads the announced X: x grave fixtures.
+		return filterCostFixturesX(tok, x)
 	case "CollectEvidence":
 		return evidenceCostFixtures(tok)
 	case "Exile":
@@ -278,8 +339,8 @@ func evidenceCostFixtures(tok string) []string {
 }
 
 // tapXTypeFixtures returns the catalogue permanents that pay a tapXType cost.
-func tapXTypeFixtures(tok string) ([]string, bool) {
-	picks, gap := tapXTypeResolve(tok)
+func tapXTypeFixtures(tok string, x int) ([]string, bool) {
+	picks, gap := tapXTypeResolve(tok, x)
 	return picks, gap == ""
 }
 
@@ -291,7 +352,11 @@ var tapXTypePowers = map[string]int{"Grizzly Bears": 2, "Llanowar Elves": 1, "Ne
 // the gap class naming why no catalogue permanent pays the cost. The payload
 // is `count/filter[/description]`; the Forge description is display text and
 // is dropped, so a described filter reads exactly as an undescribed one.
-func tapXTypeResolve(tok string) ([]string, string) {
+// tapXTypeResolve names the catalogue permanents a tapXType cost taps and the
+// gap class when it cannot. The announced `<X/filter>` count (Secluded
+// Starforge's tapXType<X/Artifact>, whose X is the tap election's own
+// selection) reads x, defaulting to 1 untapped permanent.
+func tapXTypeResolve(tok string, x int) ([]string, string) {
 	payload, ok := bracketPayload(tok)
 	if !ok {
 		return nil, "tapXType<malformed>"
@@ -300,7 +365,8 @@ func tapXTypeResolve(tok string) ([]string, string) {
 	if len(parts) < 2 {
 		return nil, "tapXType<malformed>"
 	}
-	if strings.EqualFold(strings.TrimSpace(parts[0]), "X") {
+	tapX := strings.EqualFold(strings.TrimSpace(parts[0]), "X")
+	if tapX && x < 1 {
 		return nil, "tapXType<X>"
 	}
 	filter := parts[1]
@@ -315,7 +381,9 @@ func tapXTypeResolve(tok string) ([]string, string) {
 		filter = filter[:i]
 	}
 	count := 0
-	if strings.EqualFold(parts[0], "Any") {
+	if tapX {
+		count = x
+	} else if strings.EqualFold(parts[0], "Any") {
 		if threshold == 0 {
 			return nil, "tapXType<unsupported-filter>"
 		}
@@ -341,7 +409,11 @@ func tapXTypeResolve(tok string) ([]string, string) {
 		case clause == "creature" || clause == "creature.other":
 			choices = append(choices, "Grizzly Bears", "Llanowar Elves", "Nessian Asp", "Colossal Dreadmaw", "Craw Wurm", "Siege Wurm")
 		case clause == "elf" || clause == "elf.other":
-			choices = append(choices, "Llanowar Elves", "Elvish Mystic", "Elvish Visionary")
+			// Ten distinct, no-ETB corpus Elves (Lathril's tapXType<10/Elf>):
+			// the fixture order is the tap order, deterministic.
+			choices = append(choices, "Llanowar Elves", "Elvish Mystic", "Elvish Visionary",
+				"Fyndhorn Elves", "Priest of Titania", "Elvish Archers", "Timberwatch Elf",
+				"Wellwisher", "Wirewood Elf", "Elvish Warrior", "Arbor Elf")
 		case clause == "ally" || clause == "ally.other":
 			choices = append(choices, "Hada Freeblade", "Kazandu Blademaster")
 		case clause == "permanent" || clause == "permanent.other":
@@ -408,14 +480,14 @@ func uniqueFixtureNames(names []string) []string {
 	return out
 }
 
-func tapXTypeFixtureSupported(tok string) bool { _, ok := tapXTypeFixtures(tok); return ok }
+func tapXTypeFixtureSupported(tok string, x int) bool { _, ok := tapXTypeFixtures(tok, x); return ok }
 
 // tapXTypeGapClass keeps census buckets useful without exposing every raw
 // filter payload. Unsupported X counts, token filters and counts above the
 // catalogue are distinct classes; remaining parser/filter shapes share the
 // unsupported-filter bucket.
 func tapXTypeGapClass(tok string) string {
-	_, gap := tapXTypeResolve(tok)
+	_, gap := tapXTypeResolve(tok, 0)
 	return gap
 }
 
@@ -462,7 +534,7 @@ func addTapXTypeAnswers(answers [][]oraclegen.XAnswer, step int, cost string, de
 		if !strings.HasPrefix(tok, "tapXType") {
 			continue
 		}
-		picks, ok := tapXTypeFixtures(tok)
+		picks, ok := tapXTypeFixtures(tok, 0)
 		if !ok {
 			if needs, isToken := tokenCostNeeds(tok); isToken {
 				// The tokens a prelude made: one answer per tapped token.
@@ -538,12 +610,12 @@ func hasPickKind(d rules.OracleDecision, kind string) bool {
 	return false
 }
 
-func addTapXTypeFixtures(p0 *oraclegen.Seat, cost string) {
+func addTapXTypeFixtures(p0 *oraclegen.Seat, cost string, x int) {
 	for _, tok := range costTokens(cost) {
 		if !strings.HasPrefix(tok, "tapXType") {
 			continue
 		}
-		picks, ok := tapXTypeFixtures(tok)
+		picks, ok := tapXTypeFixtures(tok, x)
 		if !ok {
 			continue
 		}

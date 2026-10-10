@@ -38,6 +38,8 @@ func TestStatusBChild(t *testing.T) {
 }
 
 func runStatusBChild(batch []string) ([]SetStatus, error) {
+	ratchetChildSem <- struct{}{}
+	defer func() { <-ratchetChildSem }()
 	cmd := exec.Command(os.Args[0], "-test.run=^TestStatusBChild$", "-test.count=1")
 	cmd.Env = append(os.Environ(), levelBStatusChildEnv+"="+strings.Join(batch, ","))
 	out, err := cmd.CombinedOutput()
@@ -67,6 +69,7 @@ func runStatusBChild(batch []string) ([]SetStatus, error) {
 // with the declared claim. Record an improved count with
 // `go run ./cmd/oraclediff status -all -level B -sets <SETS> -write-ratchet`.
 func TestLevelBRatchet(t *testing.T) {
+	t.Parallel()
 	if os.Getenv(levelBStatusChildEnv) != "" {
 		return
 	}

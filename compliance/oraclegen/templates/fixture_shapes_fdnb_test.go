@@ -146,7 +146,7 @@ func TestDiesOtherDamagedByCombat(t *testing.T) {
 		}
 		sc.Steps = steps
 		_, res, ok := oraclegen.Settle(reg, sc)
-		return ok && abilityOnStack(res.Snapshots, "Predator Ooze", "Predator Ooze", "0")
+		return ok && abilityOnStack(res.Snapshots, []string{"predator ooze"}, "0")
 	}
 	if !atEndCombat(it.Scenario, true) {
 		t.Fatalf("the dies trigger is not on the stack at end of combat")

@@ -176,7 +176,7 @@ func TestRoomSacCostPickUsesTheAliasForm(t *testing.T) {
 // reports, so the fixture placement and the alias pick never disagree.
 func TestSacCostNamesRoomAgreesWithSacFilterFixtures(t *testing.T) {
 	for _, tok := range []string{"Sac<1/Room>", "Sac<1/Room.Other>"} {
-		got, ok := sacFilterFixtures(tok)
+		got, ok := sacFilterFixtures(tok, 0)
 		if !ok || len(got) != 1 || got[0] != "Bottomless Pool" {
 			t.Fatalf("sacFilterFixtures(%q) = (%v, %v), want [Bottomless Pool]", tok, got, ok)
 		}

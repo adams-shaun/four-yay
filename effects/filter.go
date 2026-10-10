@@ -186,6 +186,54 @@ var predicates = map[string]predFn{
 		return src != 0 && o.ID != src && o.PhasedOut && o.Zone == state.ZBattlefield
 	},
 	"attacking": func(g *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool { return o.IsAttacking },
+	// attackingAlone is "attacking alone" (Crowd of True Believers' and
+	// Viper, Cruel Conspirator's target specs): the object is attacking and
+	// is the only creature attacking this combat -- the count of live
+	// battlefield attackers is one. A phased-out attacker has already left
+	// the combat, so it is not counted even if its flag lags.
+	"attackingAlone": func(g *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
+		if !o.IsAttacking || o.Zone != state.ZBattlefield {
+			return false
+		}
+		count := 0
+		for i := range g.Objs {
+			a := &g.Objs[i]
+			if a.Zone == state.ZBattlefield && a.IsAttacking && !a.PhasedOut {
+				count++
+			}
+		}
+		return count == 1
+	},
+	// blockingAlone is "blocking alone" (Thijarian Witness's death
+	// specification): the object blocks at least one attacker, and every
+	// attacker it blocks is blocked only by it.
+	"blockingAlone": func(g *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
+		if !isBlocking(g, o.ID) {
+			return false
+		}
+		blocked := false
+		for i := range g.Objs {
+			a := &g.Objs[i]
+			if len(a.BlockedBy) == 0 {
+				continue
+			}
+			mine := false
+			for _, b := range a.BlockedBy {
+				if b == o.ID {
+					mine = true
+					break
+				}
+			}
+			if !mine {
+				continue
+			}
+			if len(a.BlockedBy) != 1 {
+				return false
+			}
+			blocked = true
+		}
+		return blocked
+	},
 	// unblocked is the CR 509.1h "attacking creature ... with no creatures
 	// blocking it" predicate: the object is attacking and no blocker is
 	// recorded on it. It is the filter half of ninjutsu's activated cost
@@ -508,6 +556,26 @@ var predicates = map[string]predFn{
 	// Giant Beaver are the corpus carriers.
 	"SaddledThisTurn": func(g *state.Game, o *state.Object, _ state.PlayerID, src state.ObjID) bool {
 		return pairedWithSourceThisTurn(g, o, src)
+	},
+	// CrewedBySourceThisTurn is the reverse direction of CrewedThisTurn
+	// (Forge's Vehicle.CrewedBySourceThisTurn): the object was CREWED by the
+	// spec's source this turn -- Balthier and Fran's `Mode$ Attacks |
+	// ValidCard$ Vehicle.CrewedBySourceThisTurn`. SOURCE-RELATIVE the same
+	// way, but read from the source's own pairing (state.Object.CrewedTurn /
+	// CrewedVehicles, folded by events.Apply's Crew case): src paid a Crew
+	// cost this turn and the object is among the Vehicles it crewed. A
+	// missing source or a source that crewed nothing this turn fails closed.
+	"CrewedBySourceThisTurn": func(g *state.Game, o *state.Object, _ state.PlayerID, src state.ObjID) bool {
+		s := g.Obj(src)
+		if s == nil || o == nil || s.CrewedTurn != g.Turn {
+			return false
+		}
+		for _, v := range s.CrewedVehicles {
+			if v == o.ID {
+				return true
+			}
+		}
+		return false
 	},
 	// Permanent is Forge's CardProperty.Permanent (card.isPermanent()): the
 	// printed face is a permanent type, in ANY zone (CR 109.2). This is the
@@ -1242,7 +1310,7 @@ func positiveRecognised(p string) bool {
 	if strings.HasPrefix(p, "greatestCMC_") || strings.HasPrefix(p, "lowestCMC") {
 		return true
 	}
-	if p == "TriggeredNewCard" || p == "TriggeredCard" || p == "TriggeredCards" || strings.HasPrefix(p, "ChosenMode") && len(p) > len("ChosenMode") {
+	if p == "TriggeredNewCard" || p == "TriggeredCard" || p == "TriggeredCards" || p == "TriggeredTarget" || p == "NotDefinedTriggeredTarget" || strings.HasPrefix(p, "ChosenMode") && len(p) > len("ChosenMode") {
 		return true
 	}
 	// Forge's base-qualified `SharesColorWith <referent>` predicate (C.A.M.P.'s
@@ -1859,6 +1927,35 @@ func sharesNameWithObject(o, src *state.Object, sc SpecContext) bool {
 	return false
 }
 
+// matchTriggeredTarget evaluates Forge's bare TriggeredTarget /
+// NotDefinedTriggeredTarget property ("the object the triggering event
+// targeted") inside an ordinary filter spec -- Blade of Shared Souls'
+// `Creature.YouCtrl+!TriggeredTarget` ("another target creature you
+// control"), Toralf, God of Fury's
+// `Creature.!TriggeredTarget,Player,Planeswalker.!TriggeredTarget` ("any
+// target other than that permanent"), Pawpatch Recruit's
+// `Creature.YouCtrl+NotDefinedTriggeredTarget` ("other than that creature").
+// The binding arrives through SpecContext.TriggerContext: rules'
+// targetSpecContext binds the pushed trigger's captured context
+// (rules/trigger_referents.go's Attached case sets TriggerTarget to the
+// bearer, ExcessDamage to the damaged permanent, BecomesTarget to the
+// trigger's own source), so the candidate matches exactly the object the
+// causing event captured. A player-valued or absent binding fails CLOSED
+// (ok=false) -- the spec matches nothing, never an invented referent, and the
+// leading-'!' spelling cannot invert the absence into a match.
+// NotDefinedTriggeredTarget is the corpus's one positive-evaluation spelling
+// of the same exclusion, so negated=true inverts in place.
+func matchTriggeredTarget(o *state.Object, sc SpecContext, negated bool) (result, ok bool) {
+	if sc.TriggerTarget.IsPlayer || sc.TriggerTarget.Obj == 0 {
+		return false, false
+	}
+	match := o.ID == sc.TriggerTarget.Obj
+	if negated {
+		match = !match
+	}
+	return match, true
+}
+
 // matchPositive evaluates a recognised positive-evaluation predicate token p
 // to its boolean. ok is false for an unknown token OR an unbound trigger
 // referent. The latter remains a recognised grammar shape for the census, but
@@ -1990,6 +2087,9 @@ func matchPositive(g *state.Game, p string, o *state.Object, sc SpecContext) (re
 			return false, false
 		}
 		return o.ID == sc.TriggerCard, true
+	}
+	if p == "TriggeredTarget" || p == "NotDefinedTriggeredTarget" {
+		return matchTriggeredTarget(o, sc, p == "NotDefinedTriggeredTarget")
 	}
 	if p == "TriggeredCards" {
 		// Forge's Card.TriggeredCards set property inside an ordinary filter

@@ -32,7 +32,7 @@ func offBattlefieldGatedGrantItem(reg *cards.Registry, f *cards.Face, name strin
 	if desc == "" {
 		return oraclegen.Item{}, "", false
 	}
-	pool, gap := activationCostIn(sa.ParamStr(cards.PKCost), zone)
+	pool, gap := activationCostIn(sa.ParamStr(cards.PKCost), zone, "")
 	if gap != "" {
 		return oraclegen.Item{}, "", false
 	}

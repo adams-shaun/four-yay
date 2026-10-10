@@ -17,6 +17,7 @@ func TestCombatRemainderTriggerRecipes(t *testing.T) {
 	reg := loadGenRegistry(t)
 	for _, tc := range []struct{ name, key, sub, slot string }{
 		{"Assimilation Aegis", "trigger#0.1", "trigger.attached", "1"},
+		{"Blade of Shared Souls", "trigger#0.0", "trigger.attached", "0"},
 		{"Enormous Energy Blade", "trigger#0.0", "trigger.attached", "0"},
 		{"Inchblade Companion", "trigger#0.0", "trigger.attached", "0"},
 		{"Bramble Elemental", "trigger#0.0", "trigger.attached", "0"},
@@ -60,7 +61,7 @@ func combatRemainderOnStack(t *testing.T, reg *cards.Registry, sc oraclegen.Scen
 	}
 	for _, steps := range variants {
 		res := runSteps(t, reg, sc, steps)
-		if abilityOnStack(res.Snapshots, name, name, slot) {
+		if abilityOnStack(res.Snapshots, []string{strings.ToLower(name)}, slot) {
 			return true
 		}
 	}
@@ -166,7 +167,6 @@ func TestCombatRemainderNamedGaps(t *testing.T) {
 	for _, tc := range []struct{ name, key string }{
 		{"Eriette, the Beguiler", "trigger#0.0"},
 		{"Metamorphic Alteration", "trigger#0.0"},
-		{"Blade of Shared Souls", "trigger#0.0"},
 		{"Unstable Glyphbridge", "trigger#1.0"},
 	} {
 		c, ok := reg.Lookup(tc.name)

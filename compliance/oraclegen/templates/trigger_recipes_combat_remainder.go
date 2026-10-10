@@ -171,10 +171,14 @@ func attachedCause(reg *cards.Registry, f *cards.Face, name string, t *cards.Tri
 // is still live when blockers are declared.
 func vehicleBlockCause(reg *cards.Registry, f *cards.Face, name string, t *cards.Trigger) (triggerCause, bool) {
 	act, ok := attackActivationCause(reg, f, name, t)
-	if !ok || len(act.steps) == 0 {
+	if !ok || len(act.steps) == 0 || len(act.xability) == 0 {
 		return triggerCause{}, false
 	}
 	activate := act.steps[0]
+	// xability is parallel to steps (trigger_recipes.go): the activate sits at
+	// index 2 here, so its rule text belongs at index 2, not at act's own 0.
+	xab := make([]string, 5)
+	xab[2] = act.xability[0]
 	return triggerCause{
 		battlefield:         act.battlefield,
 		opponentBattlefield: []string{bearsProbe},
@@ -185,7 +189,7 @@ func vehicleBlockCause(reg *cards.Registry, f *cards.Face, name string, t *cards
 			{Op: "resolve"},
 			{Op: "block", Seat: 0, Blocks: [][2]string{{"p0:" + name, "p1:" + bearsProbe}}},
 		},
-		xability:     act.xability,
+		xability:     xab,
 		activateCost: act.activateCost,
 	}, true
 }
@@ -222,7 +226,7 @@ func opponentLoyaltyCause(reg *cards.Registry, name, probe string) (triggerCause
 				{Op: "pass_to", Step: "main1", Active: "p1"},
 				{Op: "activate", Seat: 1, Card: "p1:" + probe, AbilityIndex: &idx},
 			},
-			xability: []string{prefix},
+			xability: []string{"", prefix},
 		}, true
 	}
 	return triggerCause{}, false

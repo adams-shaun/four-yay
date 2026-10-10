@@ -19,6 +19,13 @@ import (
 // process (see ChildMaxCards for why the gate runs in children).
 const statusChildEnv = "GORGE_ADOPT_STATUS_SETS"
 
+// ratchetChildSem bounds the two ratchet tests' child processes TOGETHER to
+// the four StatusChunked allows one test. The tests run in parallel (they
+// share only the read-only census and their children are separate
+// processes), so without a shared bound a grown level-B claim could put
+// 4+4 children at ~0.6 GiB each on one binary.
+var ratchetChildSem = make(chan struct{}, 4)
+
 func TestStatusChild(t *testing.T) {
 	sets := os.Getenv(statusChildEnv)
 	if sets == "" {
@@ -40,6 +47,8 @@ func TestStatusChild(t *testing.T) {
 }
 
 func runStatusChild(batch []string) ([]SetStatus, error) {
+	ratchetChildSem <- struct{}{}
+	defer func() { <-ratchetChildSem }()
 	cmd := exec.Command(os.Args[0], "-test.run=^TestStatusChild$", "-test.count=1")
 	cmd.Env = append(os.Environ(), statusChildEnv+"="+strings.Join(batch, ","))
 	out, err := cmd.CombinedOutput()
@@ -80,6 +89,7 @@ func (e *childError) Error() string { return e.err.Error() + ": " + e.out }
 // of them. A set that improved passes and is logged: record it with
 // `go run ./cmd/oraclediff status -all -sets <SETS> -write-ratchet`.
 func TestCertificationRatchet(t *testing.T) {
+	t.Parallel()
 	if os.Getenv(statusChildEnv) != "" {
 		return
 	}
