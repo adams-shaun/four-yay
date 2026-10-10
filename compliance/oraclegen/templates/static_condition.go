@@ -597,7 +597,16 @@ func staticFixtures(reg *cards.Registry, c *cards.Card, f *cards.Face, name stri
 		if zone == "" {
 			zone = "Battlefield"
 		}
-		add(staticPresence(present, zone, staticCountFrom(st.ParamStr(cards.PKPresentCompare))))
+		compare := st.ParamStr(cards.PKPresentCompare)
+		if strings.EqualFold(zone, "Library") && strings.EqualFold(compare, "EQ0") {
+			// "As long as there are no cards in your library" (Living
+			// Conundrum): both engines pad each library to 40 only when fewer
+			// than 40 cards are named across the setup zones, so 40 named
+			// cards in the graveyard leave nothing to pad it with.
+			add(staticFixture{conditionPrelude: conditionPrelude{graveyard: oraclegen.Repeat("Wastes", 40)}}, true)
+		} else {
+			add(staticPresence(present, zone, staticCountFrom(compare)))
+		}
 	}
 	n := staticCountFrom(st.ParamStr(cards.PKSVarCompare))
 	for _, body := range staticSVarBodies(f, st) {
