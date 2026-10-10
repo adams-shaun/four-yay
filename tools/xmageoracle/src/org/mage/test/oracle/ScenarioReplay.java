@@ -39,6 +39,7 @@ import mage.game.PutToBattlefieldInfo;
 import mage.game.events.GameEvent;
 import mage.game.permanent.Permanent;
 import mage.game.stack.Spell;
+import mage.game.stack.StackAbility;
 import mage.game.stack.StackObject;
 import mage.players.ManaPool;
 import mage.util.RandomUtil;
@@ -1123,6 +1124,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
         setupBattlefield.clear();
         setupNames.clear();
         placedNames.clear();
+        abilityAliasSeq = 0;
         backFaceNames.clear();
         enterWithCountersApplied.clear();
         String format = str(sc, "format");
@@ -2924,6 +2926,8 @@ public class ScenarioReplay extends CardTestPlayerBase {
     private void queueCastTarget(TestPlayer p, String t) {
         if (isSeatRef(t)) {
             addTarget(p, seat(seatOf(t)));
+        } else if (isAbilityRef(t)) {
+            queueAbilityTarget(p, t);
         } else if (cast.contains(castSpelling(refName(t)))) {
             // A spell an earlier step cast: its setup alias names the card
             // in hand, not the spell. The target string is the cast-command
@@ -2932,6 +2936,85 @@ public class ScenarioReplay extends CardTestPlayerBase {
         } else {
             addTarget(p, targetName(t));
         }
+    }
+
+    /** True for an "ability:" ref ("p0:ability:Elvish Visionary#2"): the
+     * k-th pending ability object on the stack controlled by that seat whose
+     * source is the named card, gorge's own grammar for a stack ability
+     * (rules/oracle_run.go splitRef). */
+    static boolean isAbilityRef(String ref) {
+        return isScenarioRef(ref) && ref.startsWith("ability:", ref.indexOf(':') + 1);
+    }
+
+    /** The source card name of an ability ref, "#k" and seat stripped. */
+    static String abilitySourceName(String ref) {
+        return refName(ref.substring(0, ref.indexOf(':') + 1) + ref.substring(ref.indexOf(':') + 1 + "ability:".length()));
+    }
+
+    /** The 1-based "#k" ordinal of a ref, 1 when it has none. */
+    static int refOrdinal(String ref) {
+        int hash = ref.lastIndexOf('#');
+        if (hash >= 0 && ref.substring(hash + 1).matches("[0-9]+")) {
+            return Integer.parseInt(ref.substring(hash + 1));
+        }
+        return 1;
+    }
+
+    /** The nth (1-based) element of a stack, counted bottom-up: gorge ranks
+     * pending abilities in creation order, the oldest first, and XMage
+     * iterates its stack top-first, so the same ability gets the same k. */
+    static <T> T nthPending(List<T> topFirst, java.util.function.Predicate<T> matches, int nth) {
+        int seen = 0;
+        for (int i = topFirst.size() - 1; i >= 0; i--) {
+            if (matches.test(topFirst.get(i)) && ++seen == nth) {
+                return topFirst.get(i);
+            }
+        }
+        return null;
+    }
+
+    /** Counter that makes each ability-ref alias unique: the same ref can
+     * name a different ability object in a later step, and TestPlayer
+     * refuses to rebind an alias. Reset by build(). */
+    private int abilityAliasSeq;
+
+    /** Queue a target that names a stack ability. XMage's stack branch
+     * matches an ability by an alias or by a prefix of its rule text
+     * (StackAbility.toString), never by "ability:<Source>", and the ability
+     * does not exist yet when the step's answers are queued (every step is
+     * registered before execute()). So bind an alias to the pending
+     * ability's id with a code action registered just ahead of the
+     * activation or cast, and queue that alias. */
+    private void queueAbilityTarget(TestPlayer p, String ref) {
+        String key = ref + "~" + (++abilityAliasSeq);
+        runCode("bind " + ref, turn, phase, p, (info, pl, g) -> bindPendingAbility(g, ref, key));
+        addTarget(p, "@" + key);
+    }
+
+    private void bindPendingAbility(Game g, String ref, String key) {
+        UUID controller = seat(refSeat(ref)).getId();
+        String name = abilitySourceName(ref);
+        List<StackObject> topFirst = new ArrayList<>();
+        for (StackObject so : g.getStack()) {
+            topFirst.add(so);
+        }
+        StackObject found = nthPending(topFirst, so -> so instanceof StackAbility
+                && controller.equals(so.getControllerId())
+                && abilitySourceIsNamed(((StackAbility) so).getSourceObject(g), name), refOrdinal(ref));
+        if (found == null) {
+            throw new IllegalArgumentException("ability ref " + ref + " is not on the stack");
+        }
+        for (int j = 0; j < 2; j++) {
+            seat(j).addAlias(key, found.getId());
+        }
+    }
+
+    private boolean abilitySourceIsNamed(mage.MageObject source, String name) {
+        if (source == null) {
+            return false;
+        }
+        String live = source.getName();
+        return live.equals(xmageSpelling(name)) || gorgeSpellingRule(gorgeName, xmageName, live).equals(name);
     }
 
     /** The name form XMage's attack/block command takes. Unlike a cast
