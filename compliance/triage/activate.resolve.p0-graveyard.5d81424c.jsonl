@@ -1,3 +1,2 @@
-{"shape":{"template":"activate","op":"resolve","field":"p0.graveyard","diff":"gorge+[$CARD] xmage+[]"},"key":"activate | resolve | p0.graveyard | gorge+[$CARD] xmage+[]","cards":2}
+{"shape":{"template":"activate","op":"resolve","field":"p0.graveyard","diff":"gorge+[$CARD] xmage+[]"},"key":"activate | resolve | p0.graveyard | gorge+[$CARD] xmage+[]","cards":1}
 {"card":"Iron Man Armor","template":"activate#0.0","status":"diverge","api":"ChangesZone:Attach","sets":["MSH"],"detail":"step 1 (resolve) p0.graveyard: gorge \"[Iron Man Armor]\", xmage \"[]\""}
-{"card":"Sunbird Standard","template":"activate#0.1","status":"diverge","api":"-","sets":["LCI"],"detail":"step 1 (resolve) p0.graveyard: gorge \"[Sunbird Standard]\", xmage \"[]\""}
