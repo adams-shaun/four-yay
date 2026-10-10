@@ -409,8 +409,8 @@ func matchesCompiledBase(base predicateBase, o *state.Object, sc *SpecContext) b
 		// must not disagree.
 		matched = o.Face() != nil && o.Face().IsPermanent()
 	case predicateBaseSpell:
-		// The textual oracle's twin (matchesCompiledBase's cbSpell arm in
-		// filter_compiled.go): the derived AsStack override makes the card a
+		// The textual oracle's twin (the cbSpell arm of filter_compiled.go's
+		// matchBase): the derived AsStack override makes the card a
 		// cast is announcing (or a may-play permission is offering) read as the
 		// spell it is while it is still in its origin zone, so a printed
 		// ValidAfterStack$ Spell.<...> grant is not refused by the compiled
