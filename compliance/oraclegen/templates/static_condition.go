@@ -651,6 +651,7 @@ func staticFixtures(reg *cards.Registry, c *cards.Card, f *cards.Face, name stri
 	// run after every existing candidate for the same reason.
 	out = append(out, staticExileFixtures(reg, f, st, st.ParamStr(cards.PKAffected))...)
 	out = append(out, staticChosenTypeFixtures(f, st)...)
+	out = append(out, staticStealFixtures(reg, st)...)
 	// A fixture that puts a copy of the card under test on the battlefield
 	// (a named-permanents count such as Phoenix Fleet Airship's eight copies)
 	// cannot also CAST it: the two share a name, so the cast step's "pN:Name"
