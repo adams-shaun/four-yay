@@ -108,6 +108,37 @@ func TestQuietGrantScopePerSeat(t *testing.T) {
 	}
 }
 
+// TestQuietGrantActivatorStaysBlocker is the soundness arm of flag 1: a grant
+// whose Affected$ spec provably cannot reach p still stays a blocker when the
+// granted body carries Activator$ -- the one way a player other than the
+// recipient's controller may activate the granted ability. The plain-bodied
+// grant on the same board clears p, so the row fails if the Activator$ read
+// (cards.SVarGrantHasActivator) is dropped.
+func TestQuietGrantActivatorStaysBlocker(t *testing.T) {
+	reg := testutil.CorpusRegistry(t)
+	bears := lookup(t, reg, "Grizzly Bears")
+	e := quietGrantBase(t, reg, []*cards.Card{bears})
+	src := addZone(t, e, 1, bears, state.ZBattlefield)
+	plain := ContinuousEffect{
+		Source:       src,
+		Controller:   1,
+		Affects:      "Creature.YouCtrl",
+		AddAbilities: []string{"Draw"},
+		SVars:        map[string]string{"Draw": "AB$ Draw | Cost$ T | NumCards$ 1"},
+	}
+	if !e.quietGrantEffectClears(&plain, 0) {
+		t.Fatal("precondition: a plain grant scoped to the opponent must clear p")
+	}
+	opp := plain
+	opp.SVars = map[string]string{"Draw": "AB$ Draw | Cost$ T | Activator$ Opponent | NumCards$ 1"}
+	if e.quietGrantEffectClears(&opp, 0) {
+		t.Fatal("an Activator$ grant must stay a blocker for p")
+	}
+	if !e.quietGrantsReachSeat([]ContinuousEffect{opp}, 0) {
+		t.Fatal("quietGrantsReachSeat must report the Activator$ grant reaches p")
+	}
+}
+
 // TestQuietSpecClearsSeat pins quietSpecClearsSeat's scope arms, including the
 // attached-to arm no corpus fixture reaches cheaply: an Equipment's
 // "Creature.EquippedBy" grant reaches only the creature it is attached to.

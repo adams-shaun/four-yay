@@ -100,9 +100,9 @@ func (e *Engine) quietGrantEffectClears(ce *ContinuousEffect, p state.PlayerID) 
 	if !e.quietSpecClearsSeat(ce.Affects, ce.Controller, ce.Source, p) {
 		return false
 	}
-	if len(ce.AddAbilities) == 0 {
-		return true
-	}
+	// The caller (quietGrantsReachSeat) only reaches here for a grant with a
+	// non-empty AddAbilities: it skips a ce with neither AddAbilities nor
+	// GainedFaces, and GainedFaces returns false above.
 	src := e.G.Obj(ce.Source)
 	if src == nil || src.Face() == nil {
 		// grantedAbilities skips a grant whose source has no face.
