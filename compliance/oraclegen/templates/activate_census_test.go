@@ -151,12 +151,14 @@ var wantActivateCensus = map[string]map[string]int{
 		// 2026-10-09 main merge: the graveyard candidate main serves lifts
 		// graveyard 8 -> 9, and both prior skip buckets empty (the merged
 		// generator serves the YouScryThisTurn SVar row and the no-fixture row
-		// that each side alone still skipped).
-		"served:activate.battlefield": 73,
+		// that each side alone still skipped). Re-measured for the
+		// attackedThisTurn predicate ticket: Hexhaven Dueling Arena
+		// activate#0.1 is served by an attack + pass_to main2 prelude, so the
+		// named skip bucket is gone and battlefield rises 73 -> 74.
+		"served:activate.battlefield": 74,
 		"served:activate.graveyard":   9,
 		"served:activate.hand":        9,
 		"served:activate.mana":        27,
-		"skip:activate target gap: attackedThisTurn needs a combat prelude (Creature.attackedThisTurn)": 1,
 	},
 }
 
