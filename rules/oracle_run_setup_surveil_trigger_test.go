@@ -65,6 +65,25 @@ func TestSetupDriveSurveilTriggerTemplateKeepsOnTop(t *testing.T) {
 		t.Errorf("setup p0 graveyard = %v, want no Wastes (the looked-at card must stay on top)", gy)
 	}
 
+	// The same trigger shape's SECOND resolution, at the pass_to upkeep's
+	// resolve step: the cached XMage reference graveyarded the looked-at card
+	// there (the stored rows read `step 1 (resolve) p0.graveyard: gorge "[]",
+	// xmage "[Wastes]"`), so the step-time fallback answers the empty set.
+	if len(res.Snapshots) != 3 {
+		t.Fatalf("precondition: trigger-shape snapshots = %d, want setup + pass_to + resolve", len(res.Snapshots))
+	}
+	stepLine := arrangeFallback(res.Transcript, "resolve fallback")
+	if stepLine == "" {
+		t.Fatal("precondition: no resolve arrange fallback in the transcript — the upkeep trigger never asked at step time")
+	}
+	if !strings.Contains(stepLine, "-> []") {
+		t.Errorf("resolve arrange fallback chose %s, want the empty set (the looked-at card to the graveyard)", stepLine)
+	}
+	if before, after := countName(res.Snapshots[1].Players[0].Graveyard, "Wastes"),
+		countName(res.Snapshots[2].Players[0].Graveyard, "Wastes"); after != before+1 {
+		t.Errorf("p0 Wastes in graveyard: pass_to %d, resolve %d, want one more at the resolve checkpoint", before, after)
+	}
+
 	// Activate shape: no pass_to upkeep step, so the scenario never revisits
 	// the phase. D1's empty-set arm still applies; the looked-at card goes to
 	// the graveyard at setup, matching the stored activate#0.0 reference.
@@ -98,12 +117,28 @@ func TestSetupDriveSurveilTriggerTemplateKeepsOnTop(t *testing.T) {
 // setupArrangeFallback returns the one transcript line the setup drive logs
 // for an arrange fallback, or "" when none ran.
 func setupArrangeFallback(transcript []string) string {
+	return arrangeFallback(transcript, "setup fallback")
+}
+
+// arrangeFallback returns the first transcript line logging an arrange
+// answered by the given fallback tag ("setup fallback", "resolve fallback").
+func arrangeFallback(transcript []string, tag string) string {
 	for _, l := range transcript {
-		if strings.Contains(l, "setup fallback") && strings.Contains(l, "arrange") {
+		if strings.Contains(l, tag) && strings.Contains(l, "arrange") {
 			return l
 		}
 	}
 	return ""
+}
+
+func countName(xs []string, name string) int {
+	n := 0
+	for _, x := range xs {
+		if x == name {
+			n++
+		}
+	}
+	return n
 }
 
 func surveilTestContains(xs []string, want string) bool {

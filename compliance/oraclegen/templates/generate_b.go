@@ -27,6 +27,10 @@ func GenerateB(reg *cards.Registry, name string, req levelb.Requirement) (item o
 		if item.ID == "" {
 			return
 		}
+		// Every served activate step names its ability for XMage's replay
+		// driver; a slot a family builder left empty is filled here from the
+		// step's own card (activate_xability_fill.go, cluster C5).
+		fillActivateXAbility(reg, &item)
 		c, ok := reg.Lookup(name)
 		if !ok || req.Face < 0 || req.Face >= len(c.Faces) {
 			return

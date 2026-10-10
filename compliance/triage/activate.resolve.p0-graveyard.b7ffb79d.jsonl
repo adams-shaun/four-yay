@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"resolve","field":"p0.graveyard","diff":"gorge+[Hill Giant] xmage+[$LIB]"},"key":"activate | resolve | p0.graveyard | gorge+[Hill Giant] xmage+[$LIB]","cards":1}
+{"card":"Stay Hidden, Stay Silent","template":"activate#0.0","status":"diverge","api":"Attach","sets":["DSK"],"detail":"step 3 (resolve) p0.graveyard: gorge \"[Hill Giant, Stay Hidden, Stay Silent]\", xmage \"[Wastes, Stay Hidden, Stay Silent]\""}

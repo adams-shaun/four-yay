@@ -39,6 +39,9 @@ type triggerCause struct {
 	// target, an opponent-comparison gate) the cause needs on the other side
 	// of the table.
 	opponentBattlefield []string
+	// opponentGraveyard are p1 graveyard cards (an exile-and-grant cause
+	// exiles one for p0 to cast).
+	opponentGraveyard []string
 	// opponentCounters puts counters on p1's battlefield cards at setup
 	// (card name -> kind -> count), the p1 side of counters.
 	opponentCounters map[string]map[string]int

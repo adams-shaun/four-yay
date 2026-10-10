@@ -33,6 +33,7 @@ import mage.constants.PhaseStep;
 import mage.constants.Zone;
 import mage.counters.Counter;
 import mage.counters.CounterType;
+import mage.counters.Counters;
 import mage.game.Game;
 import mage.game.PutToBattlefieldInfo;
 import mage.game.events.GameEvent;
@@ -944,6 +945,21 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     // Name the card the way the scenario (and gorge) does.
                     msg = msg.replace(xmageName, gorgeName);
                 }
+                // A command XMage could not resolve is only half a diagnosis:
+                // name the battlefield it searched, so a replay row carries
+                // what was actually placed under each seat (agent
+                // 20261009T041408Z cluster C3: the staged back-face combat
+                // rows XMage cannot find under their back name).
+                if (msg.contains("No permanents found called") && currentGame != null) {
+                    msg = msg + " (battlefield: " + battlefieldListing() + ")";
+                }
+                // assertAllCommandsUsed names only the count of leftover
+                // actions; name the actions themselves, so a replay row says
+                // which queued ask the game never reached (agent
+                // 20261009T041408Z cluster C4).
+                if (msg.contains("must have 0 actions but found") && currentGame != null) {
+                    msg = msg + " (leftover: " + leftoverActionNames() + ")";
+                }
                 int want = stepCount + 1;
                 if (snaps.size() == want && msg.contains("Count are not equal")) {
                     res.addProperty("leftover", msg.length() > 300 ? msg.substring(0, 300) : msg);
@@ -1107,6 +1123,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
         setupBattlefield.clear();
         setupNames.clear();
         backFaceNames.clear();
+        enterWithCountersApplied.clear();
         String format = str(sc, "format");
         if (!format.isEmpty() && !format.equals("constructed")) {
             throw new IllegalArgumentException("unsupported format " + format);
@@ -1174,6 +1191,13 @@ public class ScenarioReplay extends CardTestPlayerBase {
                         if (!pl.getId().equals(perm.getControllerId()) || !setupNames.getOrDefault(perm.getId(), perm.getName()).equals(name)) {
                             continue;
                         }
+                        if (enterWithCountersApplied.contains(perm.getId())) {
+                            // Applied with the placement (build()), which is
+                            // what keeps a would-die placement alive to here;
+                            // a second application would double the counters.
+                            placed = true;
+                            continue;
+                        }
                         for (Map.Entry<String, JsonElement> byKind : byCard.getValue().getAsJsonObject().entrySet()) {
                             CounterType kind = xmageCounter(byKind.getKey());
                             perm.addCounters(kind.createInstance(byKind.getValue().getAsInt()), pl.getId(), null, g);
@@ -1227,6 +1251,34 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 xmageName = backFaceNames.get("p" + i + ":" + xmageName);
             }
             if (zone == Zone.BATTLEFIELD) {
+                // gorge's runner emits the setup counters WITH the placement,
+                // before any state-based action, so a placement that would die
+                // as an SBA (a printed 0/0, an X-cost creature's X=0 board)
+                // survives with them. Apply through XMage's enter-with-counters
+                // map, keyed by the id the placement resolution produces.
+                // CardUtil.getDefaultCardSideForBattlefield is the exact card
+                // the cheat() placement turns into a PermanentCard (a stored
+                // half maps to itself, a stored parent to its left half, a
+                // plain card to itself), and PermanentCard shares the card's
+                // id, so applyEnterWithCounters' getEnterWithCounters lookup
+                // hits for plain cards AND staged back faces alike. Keying on
+                // getMainCard() instead holds the parent's id for a staged
+                // half, which the resolution never looks up. The counters are
+                // on the permanent when the first SBA check runs, exactly the
+                // runner's order; applySetupState no longer re-adds them.
+                JsonObject counters = s.has("counters") ? s.getAsJsonObject("counters") : null;
+                JsonElement kinds = counters == null ? null : counters.get(n);
+                if (kinds != null && kinds.isJsonObject()) {
+                    List<PutToBattlefieldInfo> placements = getBattlefieldCards(p);
+                    Card placedCard = CardUtil.getDefaultCardSideForBattlefield(
+                            currentGame, placements.get(placements.size() - 1).getCard());
+                    Counters enter = new Counters();
+                    for (Map.Entry<String, JsonElement> byKind : kinds.getAsJsonObject().entrySet()) {
+                        enter.addCounter(xmageCounter(byKind.getKey()).createInstance(byKind.getValue().getAsInt()));
+                    }
+                    currentGame.setEnterWithCounters(placedCard.getId(), enter);
+                    enterWithCountersApplied.add(placedCard.getId());
+                }
                 // Record the seeded permanents by (controller id, current XMage
                 // name), including staged back faces, so the entry-history
                 // normalizer ages exactly these, never a genuine turn-1 entry.
@@ -1807,6 +1859,10 @@ public class ScenarioReplay extends CardTestPlayerBase {
     private final java.util.Map<String, Integer> setupBattlefield = new java.util.HashMap<>();
     private final Map<UUID, String> setupNames = new HashMap<>();
     private final Map<String, String> backFaceNames = new HashMap<>();
+    // Setup counters already applied WITH the placement (build(), through the
+    // enter-with-counters map): applySetupState skips these permanents, since
+    // a second application would double them.
+    private final Set<UUID> enterWithCountersApplied = new java.util.HashSet<>();
     // The card under test's two spellings: the scenario's (gorge/corpus) name
     // and XMage's card-database name when they differ (Forge prints "Dáin
     // Ironfoot", XMage stores "Dain Ironfoot"). xmageName is empty when equal.
@@ -2873,6 +2929,41 @@ public class ScenarioReplay extends CardTestPlayerBase {
         if (!cast.isEmpty()) {
             cast.remove(cast.size() - 1);
         }
+    }
+
+    /** Every battlefield permanent, "seat:name", for a failed command's
+     * diagnosis. controllerSeat(g) resolves a controller id to the seat it
+     * plays; a controller the two seats do not cover is named by its id. */
+    private String battlefieldListing() {
+        if (currentGame == null) {
+            return "no game";
+        }
+        java.util.List<String> out = new ArrayList<>();
+        for (Permanent perm : currentGame.getBattlefield().getAllPermanents()) {
+            String seat = perm.getControllerId() == playerA.getId() ? "p0"
+                    : perm.getControllerId() == playerB.getId() ? "p1"
+                    : String.valueOf(perm.getControllerId());
+            out.add(seat + ":" + perm.getName());
+        }
+        return out.isEmpty() ? "empty" : String.join(", ", out);
+    }
+
+    /** The actions still queued on either seat at a failed execute(): the
+     * asks XMage never reached, named so a replay row says which of the
+     * scenario's steps dangled. */
+    private String leftoverActionNames() {
+        java.util.List<String> out = new ArrayList<>();
+        for (TestPlayer p : new TestPlayer[]{playerA, playerB}) {
+            Player real = currentGame == null ? null : currentGame.getPlayer(p.getId());
+            if (!(real instanceof TestPlayer)) {
+                continue;
+            }
+            String seat = p == playerA ? "p0" : "p1";
+            for (PlayerAction a : ((TestPlayer) real).getActions()) {
+                out.add(seat + " " + a.getActionName() + " (" + a.getAction() + ")");
+            }
+        }
+        return out.isEmpty() ? "none" : String.join("; ", out);
     }
 
     /** Front-name setup refs keep their identity; name-based battlefield

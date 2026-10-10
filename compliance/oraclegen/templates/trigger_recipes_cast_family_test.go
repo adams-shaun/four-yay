@@ -49,8 +49,16 @@ func TestCastFamilyBackFaceAndNamedOwnershipSkip(t *testing.T) {
 	if gontiReq == nil {
 		t.Fatal("precondition: Gonti SpellCast requirement missing")
 	}
-	if _, skip := GenerateB(reg, "Gonti, Night Minister", *gontiReq); skip == nil || skip.Reason != "trigger spell-cast unsupported ownership provenance" {
-		t.Fatalf("Gonti skip = %v, want named ownership-provenance skip", skip)
+	item, skip = GenerateB(reg, "Gonti, Night Minister", *gontiReq)
+	if skip != nil {
+		t.Fatalf("Gonti ownership trigger skipped: %s", skip.Reason)
+	}
+	// The cause needs a resolve between Nita's activate and the cast it
+	// grants, so triggerShownOnStack's resolve-stripping replay cannot show
+	// it: replay the served scenario verbatim and look for the trigger slot.
+	res, ok := oraclegen.PlaysThrough(reg, item.Scenario)
+	if !ok || !abilityOnStack(res.Snapshots, stackSourceWants(reg, "Gonti, Night Minister", gonti.Faces[0]), gontiReq.Slot) {
+		t.Fatalf("Gonti, Night Minister's ownership trigger never appears on stack (ok=%v)", ok)
 	}
 }
 

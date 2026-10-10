@@ -631,6 +631,9 @@ func staticFixtures(reg *cards.Registry, c *cards.Card, f *cards.Face, name stri
 	// pool mana, a raid-count attack) run after every existing candidate, so
 	// a row an existing candidate already serves keeps its scenario bytes.
 	out = append(out, staticStateFixtures(reg, f, st)...)
+	// The exiled-with fixtures (the source's own graveyard-to-exile ability)
+	// run after every existing candidate for the same reason.
+	out = append(out, staticExileFixtures(reg, f, st, st.ParamStr(cards.PKAffected))...)
 	// A fixture that puts a copy of the card under test on the battlefield
 	// (a named-permanents count such as Phoenix Fleet Airship's eight copies)
 	// cannot also CAST it: the two share a name, so the cast step's "pN:Name"
