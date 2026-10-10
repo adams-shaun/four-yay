@@ -2,11 +2,9 @@ package templates
 
 import (
 	"strconv"
-	"strings"
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
-	"github.com/adams-shaun/gorge/compliance/levelb"
 )
 
 // setupLoyalty is the LOYALTY the item's setup adds to the card on p0.
@@ -77,7 +75,7 @@ func TestActivateLoyaltyGate(t *testing.T) {
 
 // TestActivateTargetFixtures: a legendary-creature target and a
 // creature-with-a-+1/+1-counter target each get a fixture that matches, and
-// "target creature that attacked this turn" is a named skip.
+// "target creature that attacked this turn" is served by an attack prelude.
 func TestActivateTargetFixtures(t *testing.T) {
 	reg := loadGenRegistry(t)
 	assertActivateItem(t, reg, "Yoshimaru, Beloved Companion", "activate#0.0", "{6}")
@@ -93,18 +91,8 @@ func TestActivateTargetFixtures(t *testing.T) {
 	if got := it.Scenario.Setup["p1"].Counters["Grizzly Bears"]["P1P1"]; got != 1 {
 		t.Fatalf("Tomik fixture p1 counters = %v, want Grizzly Bears P1P1=1", it.Scenario.Setup["p1"].Counters)
 	}
-	c, _ := reg.Lookup("Hexhaven Dueling Arena")
-	var req *levelb.Requirement
-	for _, r := range levelb.Requirements(c) {
-		if r.Key == "activate#0.1" {
-			req = &r
-		}
-	}
-	if req == nil {
-		t.Fatal("precondition: Hexhaven Dueling Arena carries no activate#0.1")
-	}
-	_, skip := GenerateB(reg, "Hexhaven Dueling Arena", *req)
-	if skip == nil || !strings.Contains(skip.Reason, "attackedThisTurn needs a combat prelude") {
-		t.Fatalf("Hexhaven Dueling Arena activate#0.1 skip = %+v, want the named attackedThisTurn gap", skip)
-	}
+	// Hexhaven Dueling Arena activate#0.1 ("target creature that attacked
+	// this turn") now generates: activateRequirement fails on any skip. The
+	// scenario's shape is pinned in activate_attacked_this_turn_test.go.
+	activateRequirement(t, reg, "Hexhaven Dueling Arena", "activate#0.1")
 }

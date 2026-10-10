@@ -820,11 +820,14 @@ type Object struct {
 
 	// AttackedTurn and AttackedCombat stamp the (turn, combat phase) in which
 	// this creature was last declared as an attacker. They are set together by
-	// events.Apply's DeclareAttackers fold, so the attackedThisCombat filter
+	// events.Apply's DeclareAttackers fold. The attackedThisCombat filter
 	// predicate (Tolsimir, Midnight's Light) answers "attacked THIS combat"
 	// against the live g.Turn/g.CombatsThisTurn -- true for a creature that has
-	// since been removed from combat, false in a later extra combat. Cleared at
-	// TurnChange and when the permanent leaves the battlefield (CR 400.7).
+	// since been removed from combat, false in a later extra combat; the
+	// attackedThisTurn predicate (Hexhaven Dueling Arena, Erg Raiders) reads
+	// AttackedTurn alone and so stays true across later combats of the turn.
+	// Cleared at TurnChange and when the permanent leaves the battlefield
+	// (CR 400.7).
 	AttackedTurn   int32
 	AttackedCombat int32
 
