@@ -83,6 +83,25 @@ func compilePlayerSpec(spec string) *playerSpecCompiled {
 			if ref, is := strings.CutPrefix(clause, "wasDealtDamageThisGameBy "); is {
 				c.dealt, c.dealtRef = true, ref
 			} else if !c.bare {
+				if !strings.Contains(clause, ".") && playerSpecBaseCodes.Code(clause) == 0 {
+					// agent-20261009T174731Z-42d5e0f4: a dotless clause after
+					// `+` is a qualifier on the SAME candidate, not an
+					// independent spec with a base of its own; it used to
+					// compile to an unknown base ("Active") that matched
+					// nobody, so Unstable Glyphbridge's back face
+					// (`ValidActivatingPlayer$ Player.Opponent+Active`) never
+					// fired. Read it the way matchesPlayerSpecSVars already
+					// spells a dotless clause (base "Player", the clause as
+					// the qualifier): each `+` clause stays an independent
+					// candidate property, conjoined -- `Player.Opponent+Active`
+					// = "candidate is an opponent of `you` AND candidate is
+					// the active player". A dotless clause that IS a known
+					// base word (Player/Any/You/Opponent/Other) keeps its base
+					// reading, and an unknown qualifier still fails that
+					// clause closed, exactly as a dotted `Player.<unknown>`
+					// does.
+					clause = "Player." + clause
+				}
 				c.single = compilePlayerSingle(clause)
 			}
 			clauses = append(clauses, c)
