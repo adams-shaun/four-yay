@@ -493,7 +493,10 @@ func (e *Engine) mayPlayStatic(params map[string]string, id state.ObjID, you sta
 	// ValidAfterStack describes the spell's characteristics at announcement.
 	// The card is still in its origin zone while the permission is offered,
 	// so evaluate it under the derived stack view without moving the object.
-	if spec := strings.TrimSpace(params["ValidAfterStack"]); spec != "" {
+	// A land card is never cast (CR 305.1: playing it is a special action),
+	// so the spell qualifier has nothing to qualify on it and only narrows
+	// spells ("play lands and cast spells with mana value 4 or greater").
+	if spec := strings.TrimSpace(params["ValidAfterStack"]); spec != "" && !mayPlayLandCard(e.G.Obj(id)) {
 		sc := e.specCtx(source, you)
 		sc.AsStack = true
 		if !e.matchesSpec(spec, id, sc) {
@@ -935,12 +938,21 @@ func (e *Engine) effectGrantSpecContext(ce *state.ContinuousEffect) effects.Spec
 	return sc
 }
 
+// mayPlayLandCard reports whether o is a land card by its printed type line.
+// It is the one test the ValidAfterStack$ gates (mayPlayStatic and
+// effectGrantMatches) share: a spell qualifier is never asked of a land, which
+// is played rather than cast. A card outside the battlefield carries no layer
+// effects, so the printed face is the whole answer.
+func mayPlayLandCard(o *state.Object) bool {
+	return o != nil && o.Face() != nil && o.Face().IsLand()
+}
+
 func (e *Engine) effectGrantMatches(ce *state.ContinuousEffect, id state.ObjID) bool {
 	sc := e.effectGrantSpecContext(ce)
 	if !e.matchesSpec(ce.Affects, id, sc) {
 		return false
 	}
-	if ce.MayPlayValidAfterStack != "" {
+	if ce.MayPlayValidAfterStack != "" && !mayPlayLandCard(e.G.Obj(id)) {
 		sc.AsStack = true
 		if !e.matchesSpec(ce.MayPlayValidAfterStack, id, sc) {
 			return false

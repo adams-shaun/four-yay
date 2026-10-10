@@ -672,7 +672,7 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 		if cz.RememberLKI {
 			c.Snap.ChangeZone = append(c.Snap.ChangeZone, state.LKIObject{Obj: o.ID, Controller: o.Controller, Owner: o.Owner})
 		}
-		if to == state.ZExile && len(ev.IDs) == 0 && (faceStaticsNameExiledWithSource(h, c.Source) || cz.Imprint) {
+		if to == state.ZExile && len(ev.IDs) == 0 && (faceNamesExiledWithSource(h, c.Source) || cz.Imprint) {
 			ev.IDs = []state.ObjID{c.Source}
 		}
 		applyMoveFaceDown(h, c, &cz.Riders.FaceDownRiders, &ev, to)
@@ -1409,7 +1409,7 @@ func settleChangeZoneMoveAs(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, 
 			c.Snap.ChangeZone = append(c.Snap.ChangeZone, state.LKIObject{Obj: id, Controller: o.Controller, Owner: o.Owner})
 		}
 	}
-	if to == state.ZExile && len(ev.IDs) == 0 && (faceStaticsNameExiledWithSource(h, c.Source) || cz.Imprint) {
+	if to == state.ZExile && len(ev.IDs) == 0 && (faceNamesExiledWithSource(h, c.Source) || cz.Imprint) {
 		// The S: static spelling of the same provenance need: a source whose
 		// own Static lines name ExiledWithSource (Intellect Devourer's
 		// MayPlay+ExiledWithSource grant) tracks its exiles exactly like the

@@ -111,7 +111,11 @@ func PT(b Board, s *Scratch, id state.ObjID, o *state.Object, f *cards.Face, act
 		// below it. matchesWithChars reads a nil list as the printed-face
 		// fallback, so a caller that did not build one is unchanged.
 		setFrame()
-		if !b.Matches(ce, id, types, kw, 0, PTBind{Power: power, Toughness: toughness, BasePower: basePower, BaseToughness: baseToughness, Has: true}) {
+		matchTypes := types
+		if ce.SourceAbilityLayer == state.LType {
+			matchTypes = lockedLayer4Types(active, ce, types)
+		}
+		if !b.Matches(ce, id, matchTypes, kw, 0, PTBind{Power: power, Toughness: toughness, BasePower: basePower, BaseToughness: baseToughness, Has: true}) {
 			continue
 		}
 		switch ce.Sub {
@@ -124,13 +128,21 @@ func PT(b Board, s *Scratch, id state.ObjID, o *state.Object, f *cards.Face, act
 					if ce.SetPowerPresent {
 						power = ce.SetPower
 						if ce.SetPowerExpr != "" {
-							power = b.StaticAmount(ce, ce.SetPowerExpr, ce.Source)
+							anchor := ce.Source
+							if ce.SetPowerAffected {
+								anchor = id
+							}
+							power = b.StaticAmount(ce, ce.SetPowerExpr, anchor)
 						}
 					}
 					if ce.SetToughnessPresent {
 						toughness = ce.SetToughness
 						if ce.SetToughnessExpr != "" {
-							toughness = b.StaticAmount(ce, ce.SetToughnessExpr, ce.Source)
+							anchor := ce.Source
+							if ce.SetToughnessAffected {
+								anchor = id
+							}
+							toughness = b.StaticAmount(ce, ce.SetToughnessExpr, anchor)
 						}
 					}
 				} else {
@@ -749,4 +761,32 @@ func substituteTextWord(text, from, to string) string {
 // matching CR 612's word sense closely enough for the corpus's words).
 func isLetterByte(c byte) bool {
 	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
+}
+
+// lockedLayer4Types approximates CR 613.6 for a layer-7 effect whose static
+// ability began applying in layer 4 (March of the Machines, Opalescence:
+// "is a creature ... with P/T equal to its mana value"): the ability keeps
+// applying in layer 7 to the set it applied to in layer 4, even though its
+// own type grant has since changed what its Affected$ spec reads
+// (`Artifact.nonCreature` no longer matches an artifact March made a
+// creature). The finished list is read with the types the ability's own
+// layer-4 sibling (same source, timestamp and Affected$) added taken back
+// out, which is the list that sibling matched whenever no other effect
+// supplied the same word. Without a sibling the finished list is returned
+// unchanged, so only an affected object's derivation allocates.
+func lockedLayer4Types(active []state.ContinuousEffect, ce *state.ContinuousEffect, types []string) []string {
+	for i := range active {
+		sib := &active[i]
+		if sib.Layer != state.LType || sib.Source != ce.Source || sib.Timestamp != ce.Timestamp || sib.Affects != ce.Affects || len(sib.AddTypes) == 0 {
+			continue
+		}
+		out := make([]string, 0, len(types))
+		for _, t := range types {
+			if !slices.ContainsFunc(sib.AddTypes, func(a string) bool { return strings.EqualFold(a, t) }) {
+				out = append(out, t)
+			}
+		}
+		return out
+	}
+	return types
 }
