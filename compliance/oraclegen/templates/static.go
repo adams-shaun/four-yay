@@ -29,6 +29,9 @@ var StaticObserved = Template{ID: "static", Version: 1}
 
 // staticSubs are the level-B static sub-families this template serves.
 func staticSubs(sub string) bool {
+	if scopedLegalitySub(sub) {
+		return true
+	}
 	switch sub {
 	case "static.disable-triggers", "static.combat-damage-toughness", "static.can-attack-defender", "static.can-attack-defender-svar", "static.cant-block-by", "static.cant-be-cast-threshold", "static.cant-be-cast-combat", "static.cant-be-activated-combat", "static.cant-block-self", "static.cant-block-by-self", "static.min-blockers",
 		"static.cant-be-cast-opponent-turn", "static.cant-be-cast-first-turns", "static.cant-be-cast-limit", "static.cant-be-activated-opponent-turn", "static.cant-be-activated-all", "static.cant-be-activated-enchanted", "static.panharmonicon", "static.optional-cost",
@@ -60,6 +63,9 @@ const toughnessAttacker = "Giant Spider"
 func staticRequirement(reg *cards.Registry, f *cards.Face, name string, req levelb.Requirement) (oraclegen.Item, *oraclegen.Skip) {
 	skip := func(why string) (oraclegen.Item, *oraclegen.Skip) {
 		return oraclegen.Item{}, &oraclegen.Skip{Card: name, Reason: "static " + why}
+	}
+	if it, sk, ok := scopedLegalityItem(reg, f, name, req); ok {
+		return it, sk
 	}
 	switch req.Sub {
 	case "static.disable-triggers":

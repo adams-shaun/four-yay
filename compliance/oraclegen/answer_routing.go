@@ -1,6 +1,7 @@
 package oraclegen
 
 import (
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -31,6 +32,17 @@ type answerRouting struct {
 	// (measured driver error: "Choice key [Yes] not found in [White, Blue,
 	// Black, Red, Green]").
 	manaBool map[int]bool
+	// playBool marks a trigger-level optional boolean that gates a Play whose
+	// own "may" ask follows it at once. Forge models the ONE "you may cast"
+	// of the trigger's text twice (OptionalDecider$ on the trigger and
+	// Optional$ on the Play), so gorge poses two asks; XMage's trigger is not
+	// optional and MayCastTargetCardEffect poses a single chooseUse ("Cast
+	// X?"). The play decision's answer is that one boolean, so the trigger's
+	// own scripts nothing -- else its "yes" is consumed by the "Cast X?" ask
+	// and the cast's target ask meets a queued answer meant for a later
+	// object (Seifer Almasy: "Targets list was setup by addTarget with
+	// [Shock], but not used").
+	playBool map[int]bool
 	// manaHoist maps a same-source trigger-order span to the colour answer
 	// that replaces it and LEADS its step's stream, manaHoisted marks the
 	// colour decision whose answer was thus moved. XMage's mana trigger for
@@ -45,7 +57,8 @@ type answerRouting struct {
 func newAnswerRouting(ds []rules.OracleDecision) *answerRouting {
 	r := &answerRouting{ds: ds, soleCost: map[int]bool{}, opponent: map[int]int{},
 		splitTarget: map[int]int{}, targetSplit: map[int]int{},
-		manaBool: map[int]bool{}, manaHoist: map[int]XAnswer{}, manaHoisted: map[int]bool{}}
+		manaBool: map[int]bool{}, playBool: map[int]bool{},
+		manaHoist: map[int]XAnswer{}, manaHoisted: map[int]bool{}}
 	for i := range ds {
 		if soleAltCost(ds[i]) && i+1 < len(ds) && sameAsker(ds[i], ds[i+1]) && len(ds[i+1].ObjectPicks) == 1 {
 			r.soleCost[i+1] = true
@@ -59,6 +72,11 @@ func newAnswerRouting(ds []rules.OracleDecision) *answerRouting {
 		if a.Kind == "yesno" && a.GorgeKind == "trigger_optional" && a.Resume == "optional" &&
 			pickKind(a, 0) == "yes" && manaHoistAnswer(b) != "" {
 			r.manaBool[i] = true
+		}
+		if a.Kind == "yesno" && a.GorgeKind == "trigger_optional" && a.Resume == "optional" &&
+			pickKind(a, 0) == "yes" && len(a.Picks) == 1 && b.Kind == "mode" && b.Resume == "play" &&
+			maysIn(a) == 1 {
+			r.playBool[i] = true
 		}
 	}
 	for i := range ds {
@@ -206,12 +224,73 @@ func (r *answerRouting) manaHoistedPick(i int) bool { return r.manaHoisted[i] }
 
 func sameAsker(a, b rules.OracleDecision) bool { return a.Step == b.Step && a.Seat == b.Seat }
 
+var mayWord = regexp.MustCompile(`(?i)\bmay\b`)
+
+// maysIn counts the "may" words of an optional trigger decision's label,
+// "Yes -- <Source>: <the trigger's rules text>", past the source's name (a
+// card name may itself contain the word). XMage poses one chooseUse per
+// "may" of the Oracle text, so a trigger text with exactly one has one real
+// ask however many Forge models it with; two or more ("you may put it on
+// the bottom ... You may cast that card", Neera, Wild Mage) are distinct
+// asks and stay as recorded.
+func maysIn(d rules.OracleDecision) int {
+	text := d.Picks[0]
+	if len(d.PickRefs) == 1 {
+		if _, rest, ok := strings.Cut(text, oraclediffRefName(d.PickRefs[0])+": "); ok {
+			text = rest
+		}
+	}
+	return len(mayWord.FindAllStringIndex(text, -1))
+}
+
 // digBottomName is the card name of a Dig "Put X on bottom" label, else "".
 func digBottomName(label string) string {
 	if strings.HasPrefix(label, "Put ") && strings.HasSuffix(label, " on bottom") {
 		return strings.TrimSuffix(strings.TrimPrefix(label, "Put "), " on bottom")
 	}
 	return ""
+}
+
+// digExileComplement is the card name a Dig take must script for the
+// second-destination-is-exile family (Ashiok, Wicked Manipulator; Karn, Scion
+// of Urza), else "". XMage's Dig dialog for that shape selects the card to
+// EXILE, the opposite of gorge's pick (the card to hand), so the scripted
+// answer must be the OTHER offered option. The family is the Dig take whose
+// pick is a plain card name over exactly two offered objects with a one-card
+// take (DigNum$ 2 / ChangeNum$ 1); the complement is computed from the
+// decision alone, since the offered option list holds both names and gorge's
+// pick is the one to hand. The decision carries no destination, so the family
+// is recognised by this shape -- the only shape a Standard-set Dig take
+// produces for it (measured over the 20 level-B sets, Ashiok is the sole
+// real-name two-option one-card take). The bottom-label form (digBottomName)
+// is a different XMage dialog and measures AGREE, so it is excluded here and
+// owned by its own case.
+func digExileComplement(d rules.OracleDecision) string {
+	if d.Resume != "dig" || d.Options != 2 || d.Min != 1 || d.Max != 1 ||
+		len(d.Picks) != 1 || len(d.OptionRefs) != 2 || digBottomName(d.Picks[0]) != "" {
+		return ""
+	}
+	pick := d.Picks[0]
+	complement := ""
+	matched := false
+	for _, ref := range d.OptionRefs {
+		name := oraclediffRefName(ref)
+		if name == pick {
+			matched = true
+			continue
+		}
+		if complement != "" && complement != name {
+			// Two distinct non-pick names: the offer is ambiguous, so the
+			// complement cannot be computed. Leave the decision to the generic
+			// choice path rather than guess.
+			return ""
+		}
+		complement = name
+	}
+	if !matched || complement == "" {
+		return ""
+	}
+	return complement
 }
 
 // declinedChoice is a generic effect ask ("choose up to N") gorge answered
@@ -242,6 +321,10 @@ func (r *answerRouting) route(i int) (as []XAnswer, owned bool) {
 		as = append(as, XAnswer{asker, "choice", seatRef(seat)})
 	}
 	switch {
+	case r.playBool[i]:
+		// The redundant trigger-level half of a single "may cast": the Play
+		// decision that follows carries the one boolean XMage asks.
+		return nil, true
 	case r.manaBool[i]:
 		// The mandatory-in-XMage mana trigger's own resolution: XMage poses
 		// only the colour dialog that follows, so the boolean scripts
@@ -275,6 +358,11 @@ func (r *answerRouting) route(i int) (as []XAnswer, owned bool) {
 	case d.Resume == "dig" && len(d.Picks) == 1 && digBottomName(d.Picks[0]) != "":
 		// XMage's bottom pick is a card selection by name, not gorge's label.
 		return append(as, XAnswer{d.Seat, "choice", digBottomName(d.Picks[0])}), true
+	case digExileComplement(d) != "":
+		// XMage's Dig dialog for the exile-second-destination family selects
+		// the card to EXILE, the opposite of gorge's pick (the card to hand),
+		// so the scripted answer is the other offered option.
+		return append(as, XAnswer{d.Seat, "choice", digExileComplement(d)}), true
 	case d.Resume == "taporuntap" && len(d.Picks) == 1:
 		// TapOrUntap's election is XMage's chooseUse, not a labelled choice:
 		// the pick's option index maps to the boolean (option 0, the

@@ -1,0 +1,2 @@
+{"shape":{"template":"static","op":"setup","field":"offered","diff":"gorge=p0:Island|activate| xmage="},"key":"static | setup | offered | gorge=p0:Island|activate| xmage=","cards":1}
+{"card":"Surveillance Phantasm","template":"static#0.0","status":"diverge","api":"-","sets":["FRA"],"detail":"setup offered: gorge \"p0:Island|activate|\", xmage \"\""}

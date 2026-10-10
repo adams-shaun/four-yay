@@ -53,14 +53,17 @@ var wantCensus = map[string]map[string]int{
 		// main (f6fd28f37) classified the combat-only CantPreventDamage static
 		// out of its gap; this branch (agent-20261009T160853Z-c3e35453) serves
 		// The Endstone's plain hand land drop as trigger.land-played.
-		"activate.battlefield":              39,
-		"activate.mana":                     23,
-		"combat.attack":                     49,
-		"combat.block":                      49,
-		"covered-by-A":                      76,
-		"static.can-attack-defender-gated":  1,
-		"static.cant-block-by-gated":        1,
-		"static.combat":                     1,
+		"activate.battlefield":             39,
+		"activate.mana":                    23,
+		"combat.attack":                    49,
+		"combat.block":                     49,
+		"covered-by-A":                     76,
+		"static.can-attack-defender-gated": 1,
+		"static.cant-block-by-gated":       1,
+		// Meltstrider's Resolve's enchanted-creature MinMaxBlocker moved out
+		// of static.combat when the bearer-scoped sub-family classified it
+		// (cli-20261009T041714Z-d0f325e1); static.combat is now empty in EOE.
+		"static.max-blockers-bearer":        1,
 		"static.combat-damage-toughness":    1,
 		"static.continuous":                 63,
 		"static.cost":                       9,
@@ -119,7 +122,7 @@ var wantCensus = map[string]map[string]int{
 		"trigger.damage":                      4,
 		"trigger.drawn-other":                 1, // Scrawling Crawler (opponent draws): cli-20261009T031408Z-a01003ef
 		"trigger.life-lost":                   1, // Bloodthirsty Conqueror: cli-20261009T031408Z-a01003ef
-		"trigger.gap:Discarded":               1,
+		"trigger.discarded-opponent":          1, // Tinybones, Bauble Burglar (agent-20261009T174759Z-3f3e77a4)
 		"trigger.sacrificed":                  1,
 		"trigger.spell-cast-opponent":         4,
 		"trigger.spell-cast-opponent-turn":    1, // FDN Dreams: OpponentTurn$ True now routes here (trigger_cast.go, cli-20261009T031408Z-09f47be1).

@@ -1447,7 +1447,7 @@ func (e *Engine) dropDepartedFlow(d *decision.Decision) {
 		e.manaActivation = nil
 	case chooseManaColor:
 		e.manaColorActivation = nil
-	case chooseManaDiscard, chooseManaExile, chooseManaSacrifice:
+	case chooseManaDiscard, chooseManaExile, chooseManaSacrifice, chooseManaEvidence:
 		e.ManaCost = nil
 	case chooseManaUnless:
 		e.manaUnlessActivation = nil

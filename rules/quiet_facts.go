@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -45,7 +46,10 @@ func quietZoneIndex(z state.Zone) int {
 // abQuietZone summarizes one face's non-mana activated abilities whose
 // ActivationZone$ admits one zone. Every admitting ability is bucketed by
 // whether its cost needs {T}, and the bucket records the minimum mana floor
-// and whether every member is sorcery-speed-only.
+// and whether every member is sorcery-speed-only. Q3b: an admitting ability
+// whose cost's non-mana parts the proof can bound is stored as ONE
+// quietBoundedAbility group instead of only the nonMana bit, so the proof can
+// evaluate the parts' necessary conditions instead of blocking outright.
 type abQuietZone struct {
 	any      bool // some ability admits this zone
 	nonMana  bool // some admitting ability's cost has a part the bound cannot price
@@ -55,6 +59,79 @@ type abQuietZone struct {
 	floorTap int32
 	sorcAny  bool // every no-{T} admitting ability is SorcerySpeed$ True
 	sorcTap  bool // every {T} admitting ability is SorcerySpeed$ True
+	// groups holds the part-carrying admitting abilities whose cost the
+	// Q3b bound CAN price: mana-only abilities live in the floorAny/floorTap
+	// aggregation above, an unpriceable cost sets nonMana, and one group per
+	// priceable ability carries its own mana floor, {T} need, sorcery timing
+	// and part list. Overflow (more abilities than quietMaxGroups, or more
+	// parts than quietMaxParts) sets nonMana -- the ability then blocks
+	// unconditionally, the same over-approximation as before Q3b.
+	//
+	// It is SPARSE: only the present groups are stored, because a quietPart
+	// embeds a 16-byte string and a dense [quietZones][quietMaxGroups] array
+	// would grow walkFaceFacts ~5x past its committed memory-shape bound
+	// (TestWalkFaceFactsAltCostSidecarIsSparse) for EVERY face, part-carrying
+	// or not. The overwhelming majority of faces carry no bounded part, so
+	// they allocate nothing here; len(groups) is the group count. The same
+	// sparse-sidecar discipline as walkFaceFacts.altCosts.
+	groups []quietBoundedAbility
+}
+
+// quietMaxGroups and quietMaxParts bound the per-zone part storage. Three
+// groups cover a planeswalker face's three loyalty abilities (each a
+// SubCounter<N/LOYALTY> cost) beside an ordinary activated ability; three
+// parts cover the corpus's multi-part ability costs. Anything beyond is
+// nonMana (blocked outright), which can only cost coverage.
+const (
+	quietMaxGroups = 3
+	quietMaxParts  = 3
+)
+
+// quietPartKind names the non-mana cost-part kinds the Q3b bound prices.
+// Every other component (Phyrexian pips, X, AddCounter, Reveal, ExileFromTop,
+// ...) stays in quietCostUnclassified and reads as nonMana.
+type quietPartKind uint8
+
+const (
+	pqNone         quietPartKind = iota // zero value: the part needs no check
+	pqSac                               // sacrifice N permanents from the payer's battlefield
+	pqDiscard                           // discard N cards from the payer's hand
+	pqSubCounter                        // remove N counters of a kind from the source
+	pqLife                              // pay N life
+	pqExileGrave                        // exile N cards from the payer's graveyard
+	pqExileHand                         // exile N cards from the payer's hand
+	pqTapPermanent                      // tap N untapped permanents from the payer's battlefield
+)
+
+// quietPart is one bounded non-mana cost part: the kind, the count, and the
+// cheap precomputed shape the proof's count over-approximates the part's
+// Forge filter spec with. incl is the type mask a candidate must intersect
+// (0 = any type -- a subtype base such as "Goblin" has no cheap bit, and the
+// bare count the brief calls the coarse version), excl the types a candidate
+// must have none of (a "nonLand" predicate), exclSelf the ".Other" predicate
+// (the source itself is not a candidate), and self a CARDNAME/NICKNAME spec
+// (the source is the ONLY candidate). kindStr carries a SubCounter part's
+// counter kind -- the same string the offer gate's pay.SubCounterAvailable
+// compares, so gate and proof cannot disagree about which counters pay.
+type quietPart struct {
+	kind     quietPartKind
+	n        int32
+	incl     cards.TypeMask
+	excl     cards.TypeMask
+	exclSelf bool
+	self     bool
+	kindStr  string
+}
+
+// quietBoundedAbility is one admitting ability whose cost the Q3b bound
+// prices: its own mana floor, {T} need, sorcery timing, and the bounded
+// non-mana parts.
+type quietBoundedAbility struct {
+	tap    bool
+	sorc   bool
+	floor  int32
+	nParts uint8
+	parts  [quietMaxParts]quietPart
 }
 
 // quietFaceFacts are the spell-half and ability-half facts the quiet proof
@@ -87,6 +164,9 @@ type quietFaceFacts struct {
 	recastOpen  bool
 	// Exile recast routes a face can open (Warp, Foretell, Plot, Suspend).
 	exileCastKW bool
+	// downCast: the face prints Morph/Megamorph/Disguise (a {3} face-down
+	// cast). Same three reads quietFaceHasDownCast makes, folded in once.
+	downCast bool
 
 	// manaMax is the most units ONE activation of any printed mana ability
 	// yields (an over-count when a face prints several); manaIndeterminate
@@ -219,6 +299,7 @@ func computeQuietFaceFacts(f *cards.Face, hasAltCosts bool) quietFaceFacts {
 			}
 		}
 	}
+	q.downCast = quietFaceHasDownCast(f)
 	quietRecastFacts(f, &q)
 	quietManaFacts(f, &q)
 	quietAbilityFacts(f, &q)
@@ -532,7 +613,6 @@ func quietAbilityFacts(f *cards.Face, q *quietFaceFacts) {
 		}
 		mask := abilityZoneMask(ab)
 		c := ParseCost(ab.ParamStr(cards.PKCost))
-		floor, tap, nonMana := quietCostFloor(&c)
 		// The offer's ability-cost substitutions, fail closed: every one can
 		// make the real payable price cheaper than the printed floor, so the
 		// bound cannot price the ability and the summary marks it nonMana.
@@ -547,41 +627,61 @@ func quietAbilityFacts(f *cards.Face, q *quietFaceFacts) {
 		// taps pay three of its {4} with one floating mana, so the printed
 		// floorTap of 4 mis-called a payable ability unaffordable and the
 		// proof called the window quiet while the walk offered it.
-		if pay.TapCreaturesForMana(ab) ||
+		open := pay.TapCreaturesForMana(ab) ||
 			strings.TrimSpace(ab.ParamStr(cards.PKReduceCost)) != "" ||
 			strings.EqualFold(strings.TrimSpace(ab.ParamStr(cards.PKPowerUp)), "True") ||
-			(isAttachCostSA(ab) && strings.TrimSpace(ab.ParamStr(cards.PKAlternateCost)) != "") {
-			nonMana = true
-		}
+			(isAttachCostSA(ab) && strings.TrimSpace(ab.ParamStr(cards.PKAlternateCost)) != "")
 		sorc := strings.EqualFold(strings.TrimSpace(ab.ParamStr(cards.PKSorcerySpeed)), "True")
+		var floor int32
+		var tap bool
+		var parts []quietPart
+		if !open {
+			floor, tap, parts, open = quietAbilityCost(&c)
+		}
 		for z := 0; z < quietZones; z++ {
 			if mask&(1<<uint(quietZoneBit(z))) == 0 {
 				continue
 			}
 			aq := &q.abQuiet[z]
 			aq.any = true
-			if nonMana {
+			if open {
+				// The bound cannot price the cost: the ability blocks
+				// outright, the pre-Q3b behaviour (and it no longer
+				// contributes its floor to the mana-only aggregation, whose
+				// arms are exact only for abilities with no parts).
 				aq.nonMana = true
+				continue
 			}
-			if tap {
-				if !aq.hasTap {
-					aq.floorTap, aq.hasTap, aq.sorcTap = floor, true, sorc
-				} else {
-					if floor < aq.floorTap {
-						aq.floorTap = floor
+			if len(parts) == 0 {
+				if tap {
+					if !aq.hasTap {
+						aq.floorTap, aq.hasTap, aq.sorcTap = floor, true, sorc
+					} else {
+						if floor < aq.floorTap {
+							aq.floorTap = floor
+						}
+						aq.sorcTap = aq.sorcTap && sorc
 					}
-					aq.sorcTap = aq.sorcTap && sorc
-				}
-			} else {
-				if !aq.hasAny {
-					aq.floorAny, aq.hasAny, aq.sorcAny = floor, true, sorc
 				} else {
-					if floor < aq.floorAny {
-						aq.floorAny = floor
+					if !aq.hasAny {
+						aq.floorAny, aq.hasAny, aq.sorcAny = floor, true, sorc
+					} else {
+						if floor < aq.floorAny {
+							aq.floorAny = floor
+						}
+						aq.sorcAny = aq.sorcAny && sorc
 					}
-					aq.sorcAny = aq.sorcAny && sorc
 				}
+				continue
 			}
+			// A priceable part-carrying ability: one group, its own floor.
+			if len(aq.groups) >= quietMaxGroups || len(parts) > quietMaxParts {
+				aq.nonMana = true
+				continue
+			}
+			g := quietBoundedAbility{tap: tap, sorc: sorc, floor: floor, nParts: uint8(len(parts))}
+			copy(g.parts[:len(parts)], parts)
+			aq.groups = append(aq.groups, g)
 		}
 	}
 }
@@ -603,37 +703,353 @@ func quietZoneBit(slot int) state.Zone {
 	return state.ZBattlefield
 }
 
-// quietCostFloor is the §2.4 cost classifier over a compiled cost: the mana
-// floor with X = 0, whether the cost needs {T}, and whether any part cannot
-// be priced (nonMana). Any field of cost.Cost not explicitly classified here
-// means nonMana -- TestQuietCostClassifierCoversCostFields fails the build
-// when the struct gains a field this switch does not name.
-func quietCostFloor(c *Cost) (floor int32, tap, nonMana bool) {
+// quietManaFloor is the §2.4 mana half of the cost classifier: the mana floor
+// with X = 0 and whether the cost needs {T}.
+func quietManaFloor(c *Cost) (floor int32, tap bool) {
 	if c == nil {
-		return 0, false, false
+		return 0, false
 	}
 	floor = c.Generic + int32(len(c.Hybrid)) + int32(len(c.Twobrid)) + c.Snow
 	for i := 0; i < len(c.Colored); i++ {
 		floor += c.Colored[i]
 	}
-	tap = c.Tap
-	if c.Life != 0 || len(c.Phyrexian) > 0 || c.XMin != 0 || c.Waterbend != 0 || c.WaterbendX ||
-		c.Untap || len(c.Sac) > 0 || len(c.Discard) > 0 || len(c.SubCounter) > 0 ||
-		len(c.AddCounter) > 0 || len(c.Exile) > 0 || len(c.ExileFromTop) > 0 ||
+	return floor, c.Tap
+}
+
+// quietCostUnclassified reports the components quietCostFloor cannot bound
+// at all -- every cost.Cost field outside the six kinds the Q3b bound prices
+// (Sac, Discard, SubCounter, Life, Exile, TapPermanent) plus the shapes of
+// those kinds no bound covers. Any field of cost.Cost not explicitly
+// classified here means true -- TestQuietCostClassifierCoversCostFields
+// fails the build when the struct gains a field this condition does not
+// name, so a new cost component cannot silently read as free.
+func quietCostUnclassified(c *Cost) bool {
+	return len(c.Phyrexian) > 0 || c.XMin != 0 || c.Waterbend != 0 || c.WaterbendX ||
+		c.Untap || len(c.AddCounter) > 0 || len(c.ExileFromTop) > 0 ||
 		len(c.Reveal) > 0 || len(c.RevealOrChoose) > 0 || len(c.RevealChosen) > 0 ||
-		len(c.Behold) > 0 || len(c.TapPermanent) > 0 || len(c.UntapPermanent) > 0 ||
+		len(c.Behold) > 0 || len(c.UntapPermanent) > 0 ||
 		len(c.Blight) > 0 || len(c.Exert) > 0 || c.Forage || len(c.Draw) > 0 ||
 		len(c.Energy) > 0 || len(c.LifeX) > 0 || c.LifeHalfUp || len(c.DamageYou) > 0 ||
 		len(c.GainLife) > 0 || len(c.Return) > 0 || len(c.PutToLib) > 0 ||
 		len(c.MoveToGrave) > 0 || len(c.Mill) > 0 || len(c.Evidence) > 0 ||
-		len(c.RollDice) > 0 || len(c.Withheld) > 0 || len(c.Unknown) > 0 {
-		nonMana = true
-	}
-	// X is announced separately; a cost that needs an X has no fixed floor.
-	if c.X != 0 {
-		nonMana = true
-	}
+		len(c.RollDice) > 0 || len(c.Withheld) > 0 || len(c.Unknown) > 0
+}
+
+// quietCostFloor is the §2.4 cost classifier over a compiled cost: the mana
+// floor with X = 0, whether the cost needs {T}, and whether any part cannot
+// be priced (nonMana). It is the CONSERVATIVE classifier: the Q3a recast
+// pricing (quietRecastFacts) uses it whole, where any non-mana part makes
+// the route unpriceable. The Q3b ability path (quietAbilityCost) instead
+// prices the six bounded kinds and falls back to this answer for everything
+// else.
+func quietCostFloor(c *Cost) (floor int32, tap, nonMana bool) {
+	floor, tap = quietManaFloor(c)
+	nonMana = c.X != 0 || c.Life != 0 || len(c.Sac) > 0 || len(c.Discard) > 0 ||
+		len(c.SubCounter) > 0 || len(c.Exile) > 0 || len(c.TapPermanent) > 0 ||
+		quietCostUnclassified(c)
 	return floor, tap, nonMana
+}
+
+// quietAbilityCost classifies one compiled ABILITY cost for the Q3b part
+// bounds: the mana floor with X = 0, the {T} need, the bounded non-mana
+// parts, and whether some part cannot be bounded (open -- the caller then
+// keeps the ability a plain nonMana blocker, the pre-Q3b behaviour). An
+// announced part is trivial: its count is a legal-zero announcement
+// (DiscardCostPayable's reading), so it can never withhold an offer and the
+// bound skips it.
+func quietAbilityCost(c *Cost) (floor int32, tap bool, parts []quietPart, open bool) {
+	if c == nil {
+		return 0, false, nil, false
+	}
+	floor, tap = quietManaFloor(c)
+	if c.X != 0 {
+		// X is announced separately; a cost that needs an X has no fixed
+		// floor, so the bound cannot price it.
+		return floor, tap, nil, true
+	}
+	if quietCostUnclassified(c) {
+		return floor, tap, nil, true
+	}
+	add := func(p quietPart, ok bool) bool {
+		if !ok {
+			open = true
+			return false
+		}
+		if p.kind != pqNone {
+			parts = append(parts, p)
+		}
+		return true
+	}
+	for i := range c.Sac {
+		if !add(quietSacPart(&c.Sac[i])) {
+			return floor, tap, nil, true
+		}
+	}
+	for i := range c.Discard {
+		if !add(quietDiscardPart(&c.Discard[i])) {
+			return floor, tap, nil, true
+		}
+	}
+	for i := range c.SubCounter {
+		if !add(quietSubCounterPart(&c.SubCounter[i])) {
+			return floor, tap, nil, true
+		}
+	}
+	if c.Life != 0 {
+		parts = append(parts, quietPart{kind: pqLife, n: c.Life})
+	}
+	for i := range c.Exile {
+		if !add(quietExilePart(&c.Exile[i])) {
+			return floor, tap, nil, true
+		}
+	}
+	for i := range c.TapPermanent {
+		if !add(quietTapPermanentPart(&c.TapPermanent[i])) {
+			return floor, tap, nil, true
+		}
+	}
+	if len(parts) > quietMaxParts {
+		return floor, tap, nil, true
+	}
+	return floor, tap, parts, false
+}
+
+// quietSelfN1 guards the self-reference parts: the only candidate is the
+// source itself, so a count above 1 cannot be paid and the bound is open.
+func quietSelfN1(n int32) bool { return n <= 1 }
+
+// quietSacPart bounds one Sac cost part. An announced Sac<X/Spec> is trivial
+// (X = 0 is a legal announcement, SacrificeCostAssignable's reading); a
+// bound referent is a granted-ability shape the printed face never carries,
+// and the bound fails closed on it.
+func quietSacPart(part *CostPart) (quietPart, bool) {
+	if part.Announced || part.N <= 0 {
+		return quietPart{}, true
+	}
+	if part.Referent != 0 {
+		return quietPart{}, false
+	}
+	if spec := sacrificeMatchSpec(part.Spec); spec == "CARDNAME" {
+		if !quietSelfN1(part.N) {
+			return quietPart{}, false
+		}
+		return quietPart{kind: pqSac, n: part.N, self: true}, true
+	}
+	incl, excl, exclSelf, self, ok := quietSpecMask(sacrificeMatchSpec(part.Spec))
+	if !ok || self {
+		// A mask-classified Sac part must be a real type filter; a
+		// self-shaped spec that survived the CARDNAME check is unboundable.
+		return quietPart{}, false
+	}
+	return quietPart{kind: pqSac, n: part.N, incl: incl, excl: excl, exclSelf: exclSelf}, true
+}
+
+// quietDiscardPart bounds one Discard cost part. "Hand" is Forge's
+// discard-your-whole-hand shape whose count the payment ignores (payable
+// empty), so it is trivial; "Random" is any card; "LastDrawn" is a
+// history-keyed slot the proof cannot see and fails closed on.
+func quietDiscardPart(part *CostPart) (quietPart, bool) {
+	if part.Announced || part.N <= 0 {
+		return quietPart{}, true
+	}
+	switch sacrificeMatchSpec(part.Spec) {
+	case "CARDNAME":
+		if !quietSelfN1(part.N) {
+			return quietPart{}, false
+		}
+		return quietPart{kind: pqDiscard, n: part.N, self: true}, true
+	case "Hand":
+		// The whole-hand shape never withholds an offer (DiscardCostPayable
+		// reserves every candidate and checks no count).
+		return quietPart{}, true
+	case "LastDrawn":
+		return quietPart{}, false
+	case "Random":
+		return quietPart{kind: pqDiscard, n: part.N}, true
+	}
+	if part.Referent != 0 {
+		return quietPart{}, false
+	}
+	incl, excl, exclSelf, self, ok := quietSpecMask(part.Spec)
+	if !ok || self {
+		return quietPart{}, false
+	}
+	return quietPart{kind: pqDiscard, n: part.N, incl: incl, excl: excl, exclSelf: exclSelf}, true
+}
+
+// quietSubCounterPart bounds one SubCounter cost part. The bound prices only
+// the source-anchored shapes (subCounterTargetsSource): a part whose
+// removal-target field names another permanent needs a battlefield
+// candidate the printed-face facts cannot see, so it fails closed. The
+// counter kind is the part's own Spec string, the exact string the offer
+// gate's pay.SubCounterAvailable compares ("Any" = the object's whole
+// counter count).
+func quietSubCounterPart(part *CostPart) (quietPart, bool) {
+	if part.Announced || part.N <= 0 {
+		return quietPart{}, true
+	}
+	if !subCounterTargetsSource(part.Target) {
+		return quietPart{}, false
+	}
+	return quietPart{kind: pqSubCounter, n: part.N, kindStr: part.Spec}, true
+}
+
+// quietExilePart bounds one Exile cost part. Only the hand and graveyard
+// zones are priced: a ZoneSet part (ExileCtrlOrGrave) names two zones at
+// once and a bound Referent names a grantor, and both fail closed.
+func quietExilePart(part *CostPart) (quietPart, bool) {
+	if part.Announced || part.N <= 0 {
+		return quietPart{}, true
+	}
+	if part.ZoneSet != 0 || part.Referent != 0 {
+		return quietPart{}, false
+	}
+	var kind quietPartKind
+	switch part.Zone {
+	case 0:
+		kind = pqExileHand
+	case state.ZGraveyard:
+		kind = pqExileGrave
+	default:
+		return quietPart{}, false
+	}
+	switch sacrificeMatchSpec(part.Spec) {
+	case "CARDNAME":
+		if !quietSelfN1(part.N) {
+			return quietPart{}, false
+		}
+		return quietPart{kind: kind, n: part.N, self: true}, true
+	case "All":
+		// The whole-zone shape: the token still demands part.N cards
+		// (IsWholeZoneExileSpec), priced as the plain zone count.
+		return quietPart{kind: kind, n: part.N}, true
+	}
+	incl, excl, exclSelf, self, ok := quietSpecMask(part.Spec)
+	if !ok || self {
+		return quietPart{}, false
+	}
+	return quietPart{kind: kind, n: part.N, incl: incl, excl: excl, exclSelf: exclSelf}, true
+}
+
+// quietTapPermanentPart bounds one tapXType cost part. Only the literal
+// count is priced: the X and Any forms announce their count, MinPower is a
+// SET-level power floor the per-object matcher cannot evaluate, and a bound
+// Referent names a grantor -- all fail closed.
+func quietTapPermanentPart(part *CostPart) (quietPart, bool) {
+	if part.Announced || part.N <= 0 {
+		return quietPart{}, true
+	}
+	if part.Dyn != "" || part.MinPower != 0 || part.Referent != 0 {
+		return quietPart{}, false
+	}
+	if spec := sacrificeMatchSpec(part.Spec); spec == "CARDNAME" {
+		if !quietSelfN1(part.N) {
+			return quietPart{}, false
+		}
+		return quietPart{kind: pqTapPermanent, n: part.N, self: true}, true
+	}
+	incl, excl, exclSelf, self, ok := quietSpecMask(part.Spec)
+	if !ok || self {
+		return quietPart{}, false
+	}
+	return quietPart{kind: pqTapPermanent, n: part.N, incl: incl, excl: excl, exclSelf: exclSelf}, true
+}
+
+// sacrificeMatchSpec is SacrificeMatchSpec (rules/pay): NICKNAME reads as
+// CARDNAME, everything else passes through. The part builders here classify
+// the same specs the payment gates see.
+func sacrificeMatchSpec(spec string) string {
+	if strings.EqualFold(spec, "NICKNAME") {
+		return "CARDNAME"
+	}
+	return spec
+}
+
+// quietSpecMask over-approximates one Forge filter spec with the cheap type
+// masks the proof's zone counts match: incl is the type set a candidate must
+// intersect (0 = any type), excl the type set it must avoid, exclSelf the
+// ".Other" predicate (the source is not a candidate), self a
+// CARDNAME/NICKNAME base (the source is the only candidate -- the callers
+// above handle it before reaching here). ok is false when the spec cannot be
+// over-approximated at all.
+//
+// The over-approximation is sound because every clause of a Forge filter is
+// a conjunctive restriction on the candidate: a base word that is not a type
+// line word (a subtype such as "Goblin", a marker such as "TopOfLibrary")
+// reads as the wildcard (any type), and a predicate word that is not
+// recognised here (a colour, "cmcEQX", "TriggeredSource", ...) is ignored --
+// both can only widen the counted set. The one widening the proof must not
+// ignore is a negated predicate ("!Creature" on a Card base): it is still a
+// conjunctive restriction of the same base, so it too is ignored -- the
+// wildcard base already admits everything. An exclusion predicate ("nonLand")
+// is the only shape that needs a bit of its own: with a wildcard base,
+// "wildcard minus the excluded type" is exactly the filter's match set.
+func quietSpecMask(spec string) (incl, excl cards.TypeMask, exclSelf, self bool, ok bool) {
+	spec = strings.TrimSpace(spec)
+	if strings.EqualFold(spec, "CARDNAME") || strings.EqualFold(spec, "NICKNAME") {
+		return 0, 0, false, true, true
+	}
+	sawWild := false
+	first := true
+	for alt := range effects.FilterAlternatives(spec) {
+		alt = strings.TrimSpace(alt)
+		if alt == "" {
+			continue
+		}
+		base, rest, _ := strings.Cut(alt, ".")
+		altIncl := cards.TypeMaskOfName(base)
+		altExcl := cards.TypeMask(0)
+		altExclSelf := false
+		if altIncl == 0 {
+			if strings.EqualFold(base, "CARDNAME") || strings.EqualFold(base, "NICKNAME") {
+				// A mixed spec with a self alternative -- no corpus shape;
+				// fail closed rather than reason about the union.
+				return 0, 0, false, false, false
+			}
+			sawWild = true
+		}
+		for p := range strings.SplitSeq(rest, "+") {
+			switch {
+			case p == "":
+			case p == "Other":
+				altExclSelf = true
+			case p == "YouCtrl" || p == "YouOwn":
+				// The proof counts the payer's own zone only, so a
+				// possession predicate is satisfied by construction.
+			case p == "token" || p == "Token" || p == "Tapped":
+				// A narrowing predicate: ignoring it over-counts (safe).
+			case strings.HasPrefix(p, "non"):
+				bit := cards.TypeMaskOfName(p[len("non"):])
+				if bit == 0 {
+					return 0, 0, false, false, false
+				}
+				altExcl |= bit
+			default:
+				// Any other predicate (a colour, cmcEQX, TriggeredSource,
+				// ...) narrows within the base; ignoring it over-counts.
+			}
+		}
+		if first {
+			incl, excl, exclSelf = altIncl, altExcl, altExclSelf
+			first = false
+			continue
+		}
+		incl |= altIncl
+		excl &= altExcl
+		exclSelf = exclSelf && altExclSelf
+	}
+	if sawWild {
+		// A wildcard alternative admits every type (subject to its own
+		// exclusions), so the union's type requirement is the wildcard; the
+		// intersected exclusions above stay the over-set's only restriction.
+		incl = 0
+	}
+	if first {
+		// Every alternative was blank: the spec matched nothing at parse.
+		// Treat it as the wildcard rather than reason about an empty spec.
+		return 0, 0, false, false, true
+	}
+	return incl, excl, exclSelf, false, true
 }
 
 // quietCostFieldNames is the explicit allowlist of cost.Cost fields the

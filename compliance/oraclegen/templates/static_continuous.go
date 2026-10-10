@@ -352,6 +352,16 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 			return it, nil
 		}
 	}
+	// A static whose AddStaticAbility$ grants a STATIC ability is observed
+	// through the granted static's own effect (static_granted_static.go).
+	// Tried after every probe, fixture, offered and granted-trigger path so an
+	// already-served row keeps its scenario bytes; an unserved grant falls
+	// through to its named gap.
+	if st.HasParam(cards.PKAddStaticAbility) {
+		if it, ok := staticGrantedStaticItem(reg, f, name, req, st); ok {
+			return it, nil
+		}
+	}
 	// A chosen-name mana grant (Petrified Hamlet's "Lands with the chosen
 	// name have '{T}: Add {C}.') is observed on the named probe land the
 	// source's ETB trigger names (static_named_enters.go); the grant gap's
@@ -379,6 +389,9 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 	// observable: name the measured engine gap rather than the generic
 	// "counts cards exiled with the source" (static_fixture_exile.go).
 	if gap := staticExileWithGap(f, st); gap != "" {
+		return skip(gap)
+	}
+	if gap := staticSetupReplacementGap(f, st); gap != "" {
 		return skip(gap)
 	}
 	if gap := staticConditionGap(f, st); gap != "" {
@@ -588,6 +601,12 @@ func staticBase(reg *cards.Registry, c *cards.Card, f *cards.Face, name string, 
 			copy(base.XAbility[len(base.Steps)-len(cond.afterXab):], cond.afterXab)
 		}
 	}
+	if cond != nil && cond.chosenType != "" && !answerChosenType(&base, cond.chosenType) {
+		return base, "chosen type has no as-enters ask to script"
+	}
+	if cond != nil && cond.beholdPick != "" && !answerBeholdCost(&base, name, cond.beholdPick) {
+		return base, "behold cost has no pick to script"
+	}
 	if cond != nil && cond.opponentTurn {
 		// A Condition$ NotPlayerTurn static (Midnight Mangler) is false on
 		// p0's own turn; advance to p1's first main phase so its controller
@@ -633,6 +652,9 @@ func (s staticFixture) baseline() staticBaseline {
 		bl.probePT = s.attachPT
 	case "self":
 		bl.cardPT = s.attachPT
+	}
+	if s.selfPT != ([2]int32{}) {
+		bl.cardPT = s.selfPT
 	}
 	if s.tokenName != "" {
 		bl.tokens = map[string]staticProbeSpec{s.tokenName: s.tokenSpec}

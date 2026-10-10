@@ -33,11 +33,13 @@ import mage.constants.PhaseStep;
 import mage.constants.Zone;
 import mage.counters.Counter;
 import mage.counters.CounterType;
+import mage.counters.Counters;
 import mage.game.Game;
 import mage.game.PutToBattlefieldInfo;
 import mage.game.events.GameEvent;
 import mage.game.permanent.Permanent;
 import mage.game.stack.Spell;
+import mage.game.stack.StackAbility;
 import mage.game.stack.StackObject;
 import mage.players.ManaPool;
 import mage.util.RandomUtil;
@@ -944,6 +946,21 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     // Name the card the way the scenario (and gorge) does.
                     msg = msg.replace(xmageName, gorgeName);
                 }
+                // A command XMage could not resolve is only half a diagnosis:
+                // name the battlefield it searched, so a replay row carries
+                // what was actually placed under each seat (agent
+                // 20261009T041408Z cluster C3: the staged back-face combat
+                // rows XMage cannot find under their back name).
+                if (msg.contains("No permanents found called") && currentGame != null) {
+                    msg = msg + " (battlefield: " + battlefieldListing() + ")";
+                }
+                // assertAllCommandsUsed names only the count of leftover
+                // actions; name the actions themselves, so a replay row says
+                // which queued ask the game never reached (agent
+                // 20261009T041408Z cluster C4).
+                if (msg.contains("must have 0 actions but found") && currentGame != null) {
+                    msg = msg + " (leftover: " + leftoverActionNames() + ")";
+                }
                 int want = stepCount + 1;
                 if (snaps.size() == want && msg.contains("Count are not equal")) {
                     res.addProperty("leftover", msg.length() > 300 ? msg.substring(0, 300) : msg);
@@ -1106,7 +1123,10 @@ public class ScenarioReplay extends CardTestPlayerBase {
         frontCounts.clear();
         setupBattlefield.clear();
         setupNames.clear();
+        placedNames.clear();
+        abilityAliasSeq = 0;
         backFaceNames.clear();
+        enterWithCountersApplied.clear();
         String format = str(sc, "format");
         if (!format.isEmpty() && !format.equals("constructed")) {
             throw new IllegalArgumentException("unsupported format " + format);
@@ -1171,7 +1191,14 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     boolean placed = false;
                     for (Permanent perm : g.getBattlefield().getAllPermanents()) {
                         // A back-face-staged permanent is still named by its front (setupNames).
-                        if (!pl.getId().equals(perm.getControllerId()) || !setupNames.getOrDefault(perm.getId(), perm.getName()).equals(name)) {
+                        if (!pl.getId().equals(perm.getControllerId()) || !setupName(perm).equals(name)) {
+                            continue;
+                        }
+                        if (enterWithCountersApplied.contains(perm.getId())) {
+                            // Applied with the placement (build()), which is
+                            // what keeps a would-die placement alive to here;
+                            // a second application would double the counters.
+                            placed = true;
                             continue;
                         }
                         for (Map.Entry<String, JsonElement> byKind : byCard.getValue().getAsJsonObject().entrySet()) {
@@ -1227,10 +1254,39 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 xmageName = backFaceNames.get("p" + i + ":" + xmageName);
             }
             if (zone == Zone.BATTLEFIELD) {
+                // gorge's runner emits the setup counters WITH the placement,
+                // before any state-based action, so a placement that would die
+                // as an SBA (a printed 0/0, an X-cost creature's X=0 board)
+                // survives with them. Apply through XMage's enter-with-counters
+                // map, keyed by the id the placement resolution produces.
+                // CardUtil.getDefaultCardSideForBattlefield is the exact card
+                // the cheat() placement turns into a PermanentCard (a stored
+                // half maps to itself, a stored parent to its left half, a
+                // plain card to itself), and PermanentCard shares the card's
+                // id, so applyEnterWithCounters' getEnterWithCounters lookup
+                // hits for plain cards AND staged back faces alike. Keying on
+                // getMainCard() instead holds the parent's id for a staged
+                // half, which the resolution never looks up. The counters are
+                // on the permanent when the first SBA check runs, exactly the
+                // runner's order; applySetupState no longer re-adds them.
+                JsonObject counters = s.has("counters") ? s.getAsJsonObject("counters") : null;
+                JsonElement kinds = counters == null ? null : counters.get(n);
+                if (kinds != null && kinds.isJsonObject()) {
+                    List<PutToBattlefieldInfo> placements = getBattlefieldCards(p);
+                    Card placedCard = CardUtil.getDefaultCardSideForBattlefield(
+                            currentGame, placements.get(placements.size() - 1).getCard());
+                    Counters enter = new Counters();
+                    for (Map.Entry<String, JsonElement> byKind : kinds.getAsJsonObject().entrySet()) {
+                        enter.addCounter(xmageCounter(byKind.getKey()).createInstance(byKind.getValue().getAsInt()));
+                    }
+                    currentGame.setEnterWithCounters(placedCard.getId(), enter);
+                    enterWithCountersApplied.add(placedCard.getId());
+                }
                 // Record the seeded permanents by (controller id, current XMage
                 // name), including staged back faces, so the entry-history
                 // normalizer ages exactly these, never a genuine turn-1 entry.
                 setupBattlefield.merge(p.getId() + "|" + xmageName, 1, Integer::sum);
+                recordPlacedName(placedNames, getBattlefieldCards(p), xmageSpelling(n));
             }
         }
         return ns.size();
@@ -1307,20 +1363,8 @@ public class ScenarioReplay extends CardTestPlayerBase {
             }
             for (Card c : pl.getLibrary().getCards(g)) objs.add(c);
             for (mage.MageObject o : objs) {
-                String xmageCardName = setupNames.getOrDefault(o.getId(), o.getName());
-                int k = counts.merge(xmageCardName, 1, Integer::sum);
-                String xmageRef = "p" + i + ":" + xmageCardName + (k > 1 ? "#" + k : "");
-                String scenarioCardName = !xmageName.isEmpty() && xmageCardName.equals(xmageName)
-                        ? gorgeName : xmageCardName;
-                int scenarioOccurrence = scenarioCounts.merge(scenarioCardName, 1, Integer::sum);
-                String scenarioRef = "p" + i + ":" + scenarioCardName
-                        + (scenarioOccurrence > 1 ? "#" + scenarioOccurrence : "");
-                // A split/Room object also gets its front-half ref bound (see
-                // frontHalfScenarioRef); the occurrence counts follow the same
-                // rule the whole name uses.
-                int frontOccurrence = registerFrontOccurrence(frontCounts, i, xmageCardName);
-                registerObjectAliases(i, xmageCardName, xmageRef, scenarioRef,
-                        frontOccurrence, o.getId(), refAlias, (ref, objId) -> {
+                bindSetupObject(i, setupName(o), gorgeName, xmageName, counts, scenarioCounts,
+                        frontCounts, o.getId(), refAlias, (ref, objId) -> {
                             for (int j = 0; j < 2; j++) {
                                 try {
                                     seat(j).addAlias(ref, objId);
@@ -1436,7 +1480,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
             }
             for (Card c : pl.getLibrary().getCards(currentGame)) objs.add(c);
             for (mage.MageObject o : objs) {
-                if (!setupNames.getOrDefault(o.getId(), o.getName()).equals(name)) {
+                if (!setupName(o).equals(name)) {
                     continue;
                 }
                 if (++seen == wanted) {
@@ -1763,7 +1807,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
         int seen = 0;
         for (Permanent perm : g.getBattlefield().getAllPermanents()) {
             if (perm.getControllerId().equals(seat(seatIndex).getId())
-                    && setupNames.getOrDefault(perm.getId(), perm.getName()).equals(name)) {
+                    && setupName(perm).equals(name)) {
                 if (++seen == wanted) {
                     return perm;
                 }
@@ -1806,7 +1850,15 @@ public class ScenarioReplay extends CardTestPlayerBase {
     // Seeded setup permanents keyed "controllerId|xmageName" -> count (build()).
     private final java.util.Map<String, Integer> setupBattlefield = new java.util.HashMap<>();
     private final Map<UUID, String> setupNames = new HashMap<>();
+    // The name each setup battlefield placement was dealt under, by the id its
+    // permanent will carry. Read only when XMage's live name is empty (see
+    // setupObjectName); setupNames stays the staged back faces' map.
+    private final Map<UUID, String> placedNames = new HashMap<>();
     private final Map<String, String> backFaceNames = new HashMap<>();
+    // Setup counters already applied WITH the placement (build(), through the
+    // enter-with-counters map): applySetupState skips these permanents, since
+    // a second application would double them.
+    private final Set<UUID> enterWithCountersApplied = new java.util.HashSet<>();
     // The card under test's two spellings: the scenario's (gorge/corpus) name
     // and XMage's card-database name when they differ (Forge prints "Dáin
     // Ironfoot", XMage stores "Dain Ironfoot"). xmageName is empty when equal.
@@ -1849,6 +1901,59 @@ public class ScenarioReplay extends CardTestPlayerBase {
             return null;
         }
         return "p" + seat + ":" + frontHalf(xmageCardName) + (occurrence > 1 ? "#" + occurrence : "");
+    }
+
+    /** The name a setup object is spelled by in scenario refs. A staged back
+     * face keeps its front (setupNames); an object XMage still names uses
+     * that name; an object XMage names "" falls back to the name setup dealt
+     * it under. A Room permanent with both doors locked has no name (CR
+     * 709.5: it has neither half's name, and RoomCharacteristicsEffect
+     * strips both), and a setup-placed Room is always both-locked, so its
+     * live name alone would leave every ref to it unbound. */
+    static String setupObjectName(Map<UUID, String> setupNames, Map<UUID, String> placedNames,
+            UUID id, String liveName) {
+        String staged = setupNames.get(id);
+        if (staged != null) {
+            return staged;
+        }
+        if (liveName.isEmpty()) {
+            return placedNames.getOrDefault(id, liveName);
+        }
+        return liveName;
+    }
+
+    private String setupName(mage.MageObject o) {
+        return setupObjectName(setupNames, placedNames, o.getId(), o.getName());
+    }
+
+    /** Records the card setup just dealt to the battlefield (the last
+     * placement) under the id its permanent will carry. A DFC half staged by
+     * stageBackFace is already in setupNames, which wins. */
+    static void recordPlacedName(Map<UUID, String> placedNames, List<PutToBattlefieldInfo> placements,
+            String name) {
+        placedNames.put(placements.get(placements.size() - 1).getMainCard().getId(), name);
+    }
+
+    /** Binds one setup object's refs during registerAliases: counts the
+     * whole name (xmageCardName) and its scenario spelling per seat, then
+     * hands the refs to registerObjectAliases. Static so the driver tests
+     * can drive the whole ref computation without a game. */
+    static void bindSetupObject(int seat, String xmageCardName, String gorgeName, String xmageName,
+            Map<String, Integer> counts, Map<String, Integer> scenarioCounts,
+            Map<String, Integer> frontCounts, UUID id, Map<String, String> refAlias, AliasBinder bind) {
+        int k = counts.merge(xmageCardName, 1, Integer::sum);
+        String xmageRef = "p" + seat + ":" + xmageCardName + (k > 1 ? "#" + k : "");
+        String scenarioCardName = !xmageName.isEmpty() && xmageCardName.equals(xmageName)
+                ? gorgeName : xmageCardName;
+        int scenarioOccurrence = scenarioCounts.merge(scenarioCardName, 1, Integer::sum);
+        String scenarioRef = "p" + seat + ":" + scenarioCardName
+                + (scenarioOccurrence > 1 ? "#" + scenarioOccurrence : "");
+        // A split/Room object also gets its front-half ref bound (see
+        // frontHalfScenarioRef); the occurrence counts follow the same rule
+        // the whole name uses.
+        int frontOccurrence = registerFrontOccurrence(frontCounts, seat, xmageCardName);
+        registerObjectAliases(seat, xmageCardName, xmageRef, scenarioRef, frontOccurrence, id,
+                refAlias, bind);
     }
 
     /** One alias binding shared by both seats, duplicates swallowed: the
@@ -2641,10 +2746,39 @@ public class ScenarioReplay extends CardTestPlayerBase {
         }
         for (JsonElement e : answers.get(0).getAsJsonArray()) {
             JsonObject a = e.getAsJsonObject();
-            if (!str(a, "kind").equals("setup_choice")) {
+            String kind = str(a, "kind");
+            if (kind.equals("setup_target")) {
+                // An optional target ask posed while setup resolves a placed
+                // Saga's chapter I (and queues the next chapter): script the
+                // decline gorge's runner took, so TestPlayer does not
+                // auto-pick a legal target. Only "[target_skip]" is read.
+                addTarget(seat(a.get("seat").getAsInt()), TestPlayer.TARGET_SKIP);
                 continue;
             }
-            queueSetupChoices(seat(a.get("seat").getAsInt()), str(a, "value"));
+            TestPlayer p = seat(a.get("seat").getAsInt());
+            String value = str(a, "value");
+            if (kind.equals("setup_mode")) {
+                // A setup-drive modal pick (Zuko, Conflicted's turn-1 charm):
+                // XMage poses chooseMode, or chooseUse for a yes/no
+                // GenericChoice, exactly as the step-time "mode" kind does.
+                if (value.equalsIgnoreCase("yes") || value.equalsIgnoreCase("no")) {
+                    setChoice(p, value.equalsIgnoreCase("yes"));
+                } else {
+                    setModeChoice(p, value);
+                }
+                continue;
+            }
+            if (!kind.equals("setup_choice")) {
+                continue;
+            }
+            if (value.equals("yes") || value.equals("no")) {
+                // An optional boolean the setup drive posed (Gathering
+                // Stone's mill/reveal pair): XMage asks chooseUse, not a
+                // labelled choice.
+                setChoice(p, value.equals("yes"));
+                continue;
+            }
+            queueSetupChoices(p, value);
         }
     }
 
@@ -2693,6 +2827,8 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     }
                     break;
                 case "setup_choice":
+                case "setup_target":
+                case "setup_mode":
                     // Queued before setup placement; never enqueue it again at
                     // the corresponding gameplay step.
                     break;
@@ -2811,6 +2947,8 @@ public class ScenarioReplay extends CardTestPlayerBase {
     private void queueCastTarget(TestPlayer p, String t) {
         if (isSeatRef(t)) {
             addTarget(p, seat(seatOf(t)));
+        } else if (isAbilityRef(t)) {
+            queueAbilityTarget(p, t);
         } else if (cast.contains(castSpelling(refName(t)))) {
             // A spell an earlier step cast: its setup alias names the card
             // in hand, not the spell. The target string is the cast-command
@@ -2819,6 +2957,85 @@ public class ScenarioReplay extends CardTestPlayerBase {
         } else {
             addTarget(p, targetName(t));
         }
+    }
+
+    /** True for an "ability:" ref ("p0:ability:Elvish Visionary#2"): the
+     * k-th pending ability object on the stack controlled by that seat whose
+     * source is the named card, gorge's own grammar for a stack ability
+     * (rules/oracle_run.go splitRef). */
+    static boolean isAbilityRef(String ref) {
+        return isScenarioRef(ref) && ref.startsWith("ability:", ref.indexOf(':') + 1);
+    }
+
+    /** The source card name of an ability ref, "#k" and seat stripped. */
+    static String abilitySourceName(String ref) {
+        return refName(ref.substring(0, ref.indexOf(':') + 1) + ref.substring(ref.indexOf(':') + 1 + "ability:".length()));
+    }
+
+    /** The 1-based "#k" ordinal of a ref, 1 when it has none. */
+    static int refOrdinal(String ref) {
+        int hash = ref.lastIndexOf('#');
+        if (hash >= 0 && ref.substring(hash + 1).matches("[0-9]+")) {
+            return Integer.parseInt(ref.substring(hash + 1));
+        }
+        return 1;
+    }
+
+    /** The nth (1-based) element of a stack, counted bottom-up: gorge ranks
+     * pending abilities in creation order, the oldest first, and XMage
+     * iterates its stack top-first, so the same ability gets the same k. */
+    static <T> T nthPending(List<T> topFirst, java.util.function.Predicate<T> matches, int nth) {
+        int seen = 0;
+        for (int i = topFirst.size() - 1; i >= 0; i--) {
+            if (matches.test(topFirst.get(i)) && ++seen == nth) {
+                return topFirst.get(i);
+            }
+        }
+        return null;
+    }
+
+    /** Counter that makes each ability-ref alias unique: the same ref can
+     * name a different ability object in a later step, and TestPlayer
+     * refuses to rebind an alias. Reset by build(). */
+    private int abilityAliasSeq;
+
+    /** Queue a target that names a stack ability. XMage's stack branch
+     * matches an ability by an alias or by a prefix of its rule text
+     * (StackAbility.toString), never by "ability:<Source>", and the ability
+     * does not exist yet when the step's answers are queued (every step is
+     * registered before execute()). So bind an alias to the pending
+     * ability's id with a code action registered just ahead of the
+     * activation or cast, and queue that alias. */
+    private void queueAbilityTarget(TestPlayer p, String ref) {
+        String key = ref + "~" + (++abilityAliasSeq);
+        runCode("bind " + ref, turn, phase, p, (info, pl, g) -> bindPendingAbility(g, ref, key));
+        addTarget(p, "@" + key);
+    }
+
+    private void bindPendingAbility(Game g, String ref, String key) {
+        UUID controller = seat(refSeat(ref)).getId();
+        String name = abilitySourceName(ref);
+        List<StackObject> topFirst = new ArrayList<>();
+        for (StackObject so : g.getStack()) {
+            topFirst.add(so);
+        }
+        StackObject found = nthPending(topFirst, so -> so instanceof StackAbility
+                && controller.equals(so.getControllerId())
+                && abilitySourceIsNamed(((StackAbility) so).getSourceObject(g), name), refOrdinal(ref));
+        if (found == null) {
+            throw new IllegalArgumentException("ability ref " + ref + " is not on the stack");
+        }
+        for (int j = 0; j < 2; j++) {
+            seat(j).addAlias(key, found.getId());
+        }
+    }
+
+    private boolean abilitySourceIsNamed(mage.MageObject source, String name) {
+        if (source == null) {
+            return false;
+        }
+        String live = source.getName();
+        return live.equals(xmageSpelling(name)) || gorgeSpellingRule(gorgeName, xmageName, live).equals(name);
     }
 
     /** The name form XMage's attack/block command takes. Unlike a cast
@@ -2873,6 +3090,41 @@ public class ScenarioReplay extends CardTestPlayerBase {
         if (!cast.isEmpty()) {
             cast.remove(cast.size() - 1);
         }
+    }
+
+    /** Every battlefield permanent, "seat:name", for a failed command's
+     * diagnosis. controllerSeat(g) resolves a controller id to the seat it
+     * plays; a controller the two seats do not cover is named by its id. */
+    private String battlefieldListing() {
+        if (currentGame == null) {
+            return "no game";
+        }
+        java.util.List<String> out = new ArrayList<>();
+        for (Permanent perm : currentGame.getBattlefield().getAllPermanents()) {
+            String seat = perm.getControllerId() == playerA.getId() ? "p0"
+                    : perm.getControllerId() == playerB.getId() ? "p1"
+                    : String.valueOf(perm.getControllerId());
+            out.add(seat + ":" + perm.getName());
+        }
+        return out.isEmpty() ? "empty" : String.join(", ", out);
+    }
+
+    /** The actions still queued on either seat at a failed execute(): the
+     * asks XMage never reached, named so a replay row says which of the
+     * scenario's steps dangled. */
+    private String leftoverActionNames() {
+        java.util.List<String> out = new ArrayList<>();
+        for (TestPlayer p : new TestPlayer[]{playerA, playerB}) {
+            Player real = currentGame == null ? null : currentGame.getPlayer(p.getId());
+            if (!(real instanceof TestPlayer)) {
+                continue;
+            }
+            String seat = p == playerA ? "p0" : "p1";
+            for (PlayerAction a : ((TestPlayer) real).getActions()) {
+                out.add(seat + " " + a.getActionName() + " (" + a.getAction() + ")");
+            }
+        }
+        return out.isEmpty() ? "none" : String.join("; ", out);
     }
 
     /** Front-name setup refs keep their identity; name-based battlefield

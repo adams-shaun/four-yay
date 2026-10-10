@@ -1084,6 +1084,7 @@ func cloneFieldsPaySession(c, e *Engine, sp *Spare, remap *cloneRemap) {
 		p0.Taps = append([]state.ObjID(nil), e.ManaCost.Taps...)
 		p0.SubCounterPays = append([]pay.SubCounterPay(nil), e.ManaCost.SubCounterPays...)
 		p0.Untaps = append([]state.ObjID(nil), e.ManaCost.Untaps...)
+		p0.Evidence = append([]state.ObjID(nil), e.ManaCost.Evidence...)
 		c.ManaCost = &p0
 	}
 }

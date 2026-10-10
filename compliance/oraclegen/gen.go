@@ -167,9 +167,17 @@ type AttackRequired struct {
 }
 
 // CanAttack asserts whether Attacker is among the attackers the pending
-// declare-attackers decision offers (rules/oracle_can_attack.go).
+// declare-attackers decision offers (rules/oracle_can_attack.go). Defender,
+// when set, requires the matched option to name the attacked battlefield
+// permanent (a planeswalker ref); MaxAttackers, when set, additionally
+// asserts the AttackRestrict cap the matched option's Group publishes
+// (0 = no restriction).
 type CanAttack struct {
 	Attacker string `json:"attacker"`
+	// Defender, when set, names the planeswalker the attack would be
+	// declared against (the option's Battle), not just its controller.
+	Defender     string `json:"defender,omitempty"`
+	MaxAttackers *int   `json:"max_attackers,omitempty"`
 }
 
 type Expect struct {
@@ -995,11 +1003,22 @@ func xanswersSetup(ds []rules.OracleDecision, steps int, modes map[string]int, c
 	// the ordering ask only at the first priority, so a colour answer must
 	// precede a name even when the runner recorded the order first.
 	var setupTrigAnswers []XAnswer
+	// The setup drive's other answers (a modal pick, an optional boolean or a
+	// labelled choice the runner answered with its fallback) queue after the
+	// as-enters choices and the trigger orders: XMage consumes the placement
+	// dialogs during build(), the ordering ask at the first priority, and
+	// these asks as the setup drive reaches their trigger.
+	var setupAsks []XAnswer
 	for i, d := range ds {
 		if d.Step < 0 {
 			switch {
 			case IsSetupChoice(d):
 				setupAnswers = append(setupAnswers, XAnswer{d.Seat, "setup_choice", d.Picks[0]})
+				any = true
+			case IsSetupTargetDecline(d):
+				// The driver queues a target skip before build() so XMage
+				// declines the optional ask instead of auto-picking.
+				setupAnswers = append(setupAnswers, XAnswer{d.Seat, "setup_target", "[target_skip]"})
 				any = true
 			case triggerOrderSetupPosed(d, setup):
 				// The last pick is never consumed: XMage asks only while more
@@ -1009,6 +1028,11 @@ func xanswersSetup(ds []rules.OracleDecision, steps int, modes map[string]int, c
 					setupTrigAnswers = append(setupTrigAnswers, XAnswer{d.Seat, "setup_choice", triggerOrderChoice(d, k)})
 				}
 				any = true
+			default:
+				if as := setupDriveAnswers(d, modes); len(as) > 0 {
+					setupAsks = append(setupAsks, as...)
+					any = true
+				}
 			}
 			continue
 		}
@@ -1146,6 +1170,22 @@ func xanswersSetup(ds []rules.OracleDecision, steps int, modes map[string]int, c
 				// chooseTargetAmount consumes one "<ref>^X=<share>" per chosen
 				// target on the target queue, not makeChoose choices.
 				as = damageSplitAnswers(d)
+				break
+			}
+			if d.Resume == "mana_color" && len(d.ManaColours) > 1 {
+				// A Produced$ "Combo <colours>" ask whose offered span
+				// exceeds one colour is XMage's AddManaInAnyCombinationEffect
+				// at every unit count: one multi-amount message per offered
+				// colour, in the set's own order, zeroes included (Muerra,
+				// Trash Tactician's Add R / Add G pair). The set rides the
+				// decision (ManaColours); a produced-Any ask stays on the
+				// routing below, which is what its colour dialog and WUBRG
+				// multi-amount already agree with. A SINGLE-colour Combo set
+				// (effects/params/produced.go returns ok for one colour too)
+				// keeps the ordinary choice routing: no committed row exists
+				// to measure its dialog shape against, and switching it to
+				// amount answers on a hunch would serve an unmeasured guess.
+				as = manaColourAllocation(d)
 				break
 			}
 			if d.Resume == "mana_color" && d.Min == d.Max && d.Max > 1 {
@@ -1359,15 +1399,16 @@ func xanswersSetup(ds []rules.OracleDecision, steps int, modes map[string]int, c
 		return nil
 	}
 	demoteTriggerOrderSpans(out, trigSpans)
-	if len(setupAnswers) > 0 || len(setupTrigAnswers) > 0 {
+	if len(setupAnswers) > 0 || len(setupTrigAnswers) > 0 || len(setupAsks) > 0 {
 		// Setup answers are read from xmage_answers[0] before build(), even
 		// when the scenario has no gameplay steps.
 		if len(out) == 0 {
 			out = append(out, nil)
 		}
-		lead := make([]XAnswer, 0, len(setupAnswers)+len(setupTrigAnswers))
+		lead := make([]XAnswer, 0, len(setupAnswers)+len(setupTrigAnswers)+len(setupAsks))
 		lead = append(lead, setupAnswers...)
 		lead = append(lead, setupTrigAnswers...)
+		lead = append(lead, setupAsks...)
 		out[0] = append(lead, out[0]...)
 	}
 	return out

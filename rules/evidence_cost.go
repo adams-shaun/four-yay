@@ -6,6 +6,7 @@ import (
 
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -25,16 +26,7 @@ import (
 // cannot pay two cost parts), skipping objects with no printed face. The
 // caller orders and counts.
 func evidenceGraveCandidates(g *state.Game, player state.PlayerID, reserved map[state.ObjID]bool) []state.ObjID {
-	var out []state.ObjID
-	for _, id := range g.Zone(state.ZGraveyard, player) {
-		if reserved[id] {
-			continue
-		}
-		if o := g.Obj(id); o != nil && o.Face() != nil {
-			out = append(out, id)
-		}
-	}
-	return out
+	return pay.EvidenceGraveCandidates(g, player, reserved)
 }
 
 // evidenceReserveOrder puts the least valuable graveyard candidates first,
@@ -116,27 +108,13 @@ func evidenceCanReach(g *state.Game, player state.PlayerID, need int32, reserved
 // deterministic bot's generic KChoose arm and Clamp's top-up both settle a
 // legal evidence payment on the first answer.
 func evidenceOrder(g *state.Game, ids []state.ObjID) []state.ObjID {
-	ordered := append([]state.ObjID(nil), ids...)
-	sort.Slice(ordered, func(i, j int) bool {
-		mi, mj := g.Obj(ordered[i]).Face().Cmc(), g.Obj(ordered[j]).Face().Cmc()
-		if mi != mj {
-			return mi > mj
-		}
-		return ordered[i] < ordered[j]
-	})
-	return ordered
+	return pay.EvidenceOrder(g, ids)
 }
 
 // evidenceManaValue sums the mana values of the named cards the payer owns
 // (the Ward evidence payment's wardManaValue read, over a caller-built list).
 func evidenceManaValue(g *state.Game, p state.PlayerID, ids []state.ObjID) int32 {
-	var n int32
-	for _, id := range ids {
-		if o := g.Obj(id); o != nil && o.Face() != nil && o.Owner == p {
-			n = addClampedGeneric(n, int64(o.Face().Cmc()))
-		}
-	}
-	return n
+	return pay.EvidenceManaValue(g, p, ids)
 }
 
 // evidenceGreedyMin returns the smallest prefix length of the ORDERED ids
@@ -144,17 +122,7 @@ func evidenceManaValue(g *state.Game, p state.PlayerID, ids []state.ObjID) int32
 // deterministic bot answers with. need <= 0 yields 0; a list that never
 // reaches need yields len(ids) (callers check reachability first).
 func evidenceGreedyMin(g *state.Game, ids []state.ObjID, need int32) int {
-	if need <= 0 {
-		return 0
-	}
-	remaining := need
-	for i, id := range ids {
-		if remaining <= 0 {
-			return i
-		}
-		remaining -= g.Obj(id).Face().Cmc()
-	}
-	return len(ids)
+	return pay.EvidenceGreedyMin(g, ids, need)
 }
 
 // evidenceNeed resolves the window's collect-evidence threshold from the

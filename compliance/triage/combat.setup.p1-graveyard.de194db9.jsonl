@@ -1,2 +1,0 @@
-{"shape":{"template":"combat","op":"setup","field":"p1.graveyard","diff":"gorge+[] xmage+[Grizzly Bears]"},"key":"combat | setup | p1.graveyard | gorge+[] xmage+[Grizzly Bears]","cards":1}
-{"card":"Summon: Bahamut","template":"combat#0.attack","status":"diverge","api":"-","sets":["FIN"],"detail":"setup p1.graveyard: gorge \"[]\", xmage \"[Grizzly Bears]\""}

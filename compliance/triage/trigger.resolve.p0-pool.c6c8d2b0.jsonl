@@ -1,0 +1,2 @@
+{"shape":{"template":"trigger","op":"resolve","field":"p0.pool","diff":"gorge= xmage=R"},"key":"trigger | resolve | p0.pool | gorge= xmage=R","cards":1}
+{"card":"Zuko, Conflicted","template":"trigger#0.0","status":"diverge","api":"Phase:Charm","sets":["TLA"],"detail":"step 2 (resolve) p0.pool: gorge \"\", xmage \"R\""}
