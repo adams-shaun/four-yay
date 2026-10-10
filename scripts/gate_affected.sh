@@ -323,15 +323,29 @@ else
   GOMAXPROCS=4 GOMEMLIMIT=3GiB go test -p=1 -skip "^($global|$kr8|$postmerge)$" ./rules/ & a1=$!
   a2=; a3=; a4=
 fi
-# TestKr8WorldsInFuzzGames runs its six games as t.Parallel subtests (the same
-# shape as the shards above), so it needs the same GOMAXPROCS=4 override: at
-# the gate env's GOMAXPROCS=2 only two games run at once. Measured in this
-# worktree, one run alone under the 400% seat scope: GOMAXPROCS=2 -> 23.7 s,
-# GOMAXPROCS=6 -> 14.5 s; the gate's own 2-vCPU cap is the operator's 4-vCPU
-# per-test budget, so 4 (like the shards) is the right value. GOMEMLIMIT=3GiB
-# is the operator's 2026-10-09 per-test budget, as on the shard lines;
-# TestKr8HeadsCheckpointAll is sequential (it flips a process-wide default),
-# so the override is inert there but keeps the two Kr8 processes consistent.
+# The two Kr8 runs sit under the gate env's inherited GOMAXPROCS=2, which
+# holds each one's parallel game pool to two tests at a time; both are
+# process-global tests (cloneFuzzTapeWorldHook / tapeCheckpointAll), so they
+# cannot join the shards' binary. GOMAXPROCS=4, as the shards run: the Kr8
+# pair was the longest pole of the whole affected phase (measured on the
+# 2026-10-09 gate logs, agent-20261009T044926Z-8ec278bb/r2: 69.2s and 34.3s
+# against the shards' 19-34s), and standalone in this worktree the worlds
+# test reads 15.3s at GOMAXPROCS=2 vs 9.5s at 4 -- the gate figure is that
+# run inflated ~4.5x by the ~30 concurrent threads the phase starts against
+# the scope's 1600% quota, so the extra parallelism is exactly what a
+# quota-bound phase shares out. GOMEMLIMIT=3GiB is the operator's 2026-10-09
+# per-test budget, set explicitly as on the shard lines; the override is inert
+# on TestKr8HeadsCheckpointAll (sequential, it flips a process-wide default)
+# but keeps the two Kr8 processes consistent (cli-20261009T114433Z-45f2f307).
+# GC relaxation at these two lines is measured and REJECTED
+# (agent-20261009T195921Z-c0900c9d): standalone (-cpuprofile vehicle) GOGC=off
+# reads 13.2s / 3.09 GiB peak vs GOGC=200's 16.3s / 1.24 GiB (GOGC=400 a wash,
+# 16.1s / 1.96 GiB), but under this phase's shape the worlds pole's on-CPU
+# work GREW 26.4 -> 32.3 cpu-s and its wall got worse (45.4s -> 50.5s), while
+# the unmodified shape itself read 46.1s and 64.9s twenty minutes apart with
+# the shared box's load at 33-40/32: the residual gate wall here is the pole
+# being descheduled by the fleet's box load, which no line-local env knob buys
+# back. Do not re-try GOGC/GOMEMLIMIT tuning at these lines.
 GOMAXPROCS=4 GOMEMLIMIT=3GiB go test -p=1 -run '^TestKr8WorldsInFuzzGames$' ./rules/ & b=$!
 GOMAXPROCS=4 GOMEMLIMIT=3GiB go test -p=1 -run '^TestKr8HeadsCheckpointAll$' ./rules/ & c=$!
 # -p=6: the $others packages are independent test binaries; with -p=1 they

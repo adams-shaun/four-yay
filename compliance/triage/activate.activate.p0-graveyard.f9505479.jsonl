@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"activate","field":"p0.graveyard","diff":"gorge+[] xmage+[Kari Zev, Merfolk Wayfinder, Sengir, Skyship Raider, the Dark Baron]"},"key":"activate | activate | p0.graveyard | gorge+[] xmage+[Kari Zev, Merfolk Wayfinder, Sengir, Skyship Raider, the Dark Baron]","cards":1}
+{"card":"Throne of the Grim Captain","template":"activate#0.1","status":"diverge","api":"-","sets":["LCI"],"detail":"step 0 (activate) p0.graveyard: gorge \"[]\", xmage \"[Merfolk Wayfinder, Kari Zev, Skyship Raider, Sengir, the Dark Baron]\""}

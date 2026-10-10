@@ -10,7 +10,8 @@
 # server kept vetoing every later head until a human ran the manual reaper
 # (scripts/gorged_reap.py, cleanup.sh gorged). The cause was that the caretaker
 # had no removal step. This test drives the loop's own stability section against
-# a REAL detached orphan and asserts the orphan dies while the demo and a
+# a REAL orphan fixture (spawned SUPERVISED — see the fixture contract at its
+# spawn below) and asserts the orphan dies while the demo and a
 # live-agent-owned dev server are left alone.
 #
 #   scripts/tests/seed_gorged_reap_smoke.sh
@@ -77,37 +78,32 @@ fake_pid 7001 1 bin/gorged -addr 127.0.0.1:8080 -dir /tmp/gorge-demo-pub -tables
 fake_pid 8001 1 pi-agent --cwd /home/agent/agent-20261001T000000Z-abcdef12 --name impl
 fake_pid 7002 8001 bin/gorged -addr 127.0.0.1:8092 -dir /tmp/gorge-dev-x -tables 1
 
-# A REAL orphan: a sleeping python carrying gorged-shaped flags, detached by a
-# double fork so its parent exits and it is adopted at once -- the exact
-# reparent-to-init shape of the 2026-10-01 leak. Its dir names no live seat.
+# A REAL orphan fixture: a sleeping python carrying gorged-shaped flags,
+# spawned SUPERVISED — a plain `&` child of THIS script, so the collector's
+# script-supervisor ownership signal owns it on the real table. This is the
+# same conversion e2738cb74 gave the demo-port neighbour (ticket
+# agent-20261009T175153Z-de58b6da): the old double-forked detached fixture
+# had ppid 1 and was unowned by every ownership signal, so any free reward
+# probe overlapping the smoke recorded it as a second standing gorged beside
+# the real demo and vetoed the scoreboard for a test artifact; a production
+# cycle's unconditional early reap could also kill it mid-test. Residual
+# (accepted, the same residual e2738cb74 accepted for the demo fixture): the
+# loop no longer proves the reap of a genuinely unowned REAL process from
+# the real table — the STANDING classification and the kill are proven
+# through the forged ppid=1 fake-tree carry below; the ownership signals
+# themselves stay covered by reward_collect.py --selftest's fake-tree cases.
+# Its dir names no live seat. The port is only ever a FLAG, never bound.
 ORPHAN=""
-for port in 8093 8091 8097 8098 8099; do
-	rm -f "$TMP/orphan.pid"
-	python3 -c "import os
-pid = os.fork()
-if pid == 0:
-    os.setsid()
-    p2 = os.fork()
-    if p2 == 0:
-        open('$TMP/orphan.pid', 'w').write(str(os.getpid()))
-        os.execvp('python3', ['python3', '-c', 'import time; time.sleep(300)',
-                              '-addr', '127.0.0.1:$port', '-tables', '1',
-                              '-dir', '/tmp/gorge-seed-reap-smoke-orphan'])
-    os._exit(0)
-os.waitpid(pid, 0)"
-	adopted=1
-	for _ in $(seq 1 50); do
-		ORPHAN=$(cat "$TMP/orphan.pid" 2>/dev/null || true)
-		[ -n "$ORPHAN" ] && [ -e "/proc/$ORPHAN/stat" ] || { sleep 0.1; continue; }
-		ppid=$(awk '{print $4}' "/proc/$ORPHAN/stat")
-		[ "$ppid" != "$$" ] && { adopted=0; break; }
-		sleep 0.1
-	done
-	[ "$adopted" = 0 ] && break
-	[ -n "$ORPHAN" ] && kill -9 "$ORPHAN" 2>/dev/null
-	ORPHAN=""
+python3 -c 'import time; time.sleep(300)' \
+	-addr 127.0.0.1:8093 -tables 1 -dir /tmp/gorge-seed-reap-smoke-orphan &
+ORPHAN=$!
+for _ in $(seq 1 50); do
+	[ -e "/proc/$ORPHAN/stat" ] && break
+	sleep 0.1
 done
-check "a detached real orphan is running, adopted away from this script" "$adopted" \
+ppid=$(awk '{print $4}' "/proc/$ORPHAN/stat" 2>/dev/null)
+[ "$ppid" = "$$" ]
+check "a real orphan fixture is running, a direct child of this script" $? \
 	"orphan=$ORPHAN ppid=${ppid:-}"
 
 # Carry the real orphan into the fake tree with ppid=1, so classify() sees it as
