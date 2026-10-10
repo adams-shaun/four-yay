@@ -205,11 +205,12 @@ func TestOasisRitualistExertManaAbilityExerts(t *testing.T) {
 // TestManaAbilityUnsettleablePartsFailClosed: a mana ability whose cost
 // carries a part the off-stack path cannot settle is refused, never
 // activated with that part free -- Pili-Pala's {Q} (an unmodelled token
-// that used to be one phantom generic) and Cryptex's CollectEvidence<3>
-// (a modelled part the mana path has no settle for).
+// that used to be one phantom generic). Cryptex's CollectEvidence<3> left
+// this list when the mana path gained its evidence election
+// (mana_collect_evidence_test.go).
 func TestManaAbilityUnsettleablePartsFailClosed(t *testing.T) {
 	t.Parallel()
-	for _, name := range []string{"Pili-Pala", "Cryptex"} {
+	for _, name := range []string{"Pili-Pala"} {
 		e, _, id := manaCostBoard(t, 88, name, 0)
 		// Give the seat plenty of mana and graveyard fodder so only the
 		// unsettleable part can be the reason for refusal.
