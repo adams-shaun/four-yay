@@ -964,7 +964,7 @@ func (e *Engine) legalTargets(targets []state.Target, sa *cards.SA, zones []stat
 			// log before the ordinary filter, so offer and recheck cannot
 			// disagree about a spec carrying one.
 			tspec, ok := e.castProvenanceAdmits(targetSpecForZone(spec, o.Zone), t.Obj, you)
-			if ok && e.matchesSpec(tspec, t.Obj, sc) &&
+			if ok && e.matchesTargetSpec(tspec, t.Obj, sc) &&
 				e.mentorAdmits(sa, source, t.Obj) &&
 				(controllerProp == "" || e.targetControllerPropertyAdmits(controllerProp, t.Obj)) &&
 				(!hasSharedRef || e.sharedCardTypeAdmits(t.Obj, sharedRef, sharedWhitelist)) &&
