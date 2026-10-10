@@ -1,0 +1,2 @@
+{"shape":{"template":"static","op":"harness","field":"xmage","diff":"AssertionError: PlayerA - Targets list was setup by addTarget with […], but not used"},"key":"static | harness | xmage | AssertionError: PlayerA - Targets list was setup by addTarget with […], but not used","cards":1}
+{"card":"Meltstrider's Resolve","template":"static#0.1","status":"harness","api":"Attach","sets":["EOE"],"detail":"xmage: AssertionError: PlayerA - Targets list was setup by addTarget with [Hill Giant], but not used"}

@@ -271,6 +271,11 @@ func ManaCostPayableFull(e Engine, p state.PlayerID, o *state.Object, source sta
 	if !ok {
 		return false
 	}
+	// A CollectEvidence<N> part (Cryptex): the graveyard, less the cards the
+	// exile parts above reserve, must reach N (the stage elects the cards).
+	if !manaEvidencePayable(e, p, cost, exiles) {
+		return false
+	}
 	// tapXType<N/Spec> parts (Springleaf Drum, Heritage Druid): the payer must
 	// have enough untapped matching permanents, reserving the source when the
 	// same cost also taps it and the sacrifice/discard/exile picks above (one

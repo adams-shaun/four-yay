@@ -1,6 +1,0 @@
-{"shape":{"template":"static","op":"harness","field":"xmage","diff":"AssertionError: Player PlayerA must have N actions but found N"},"key":"static | harness | xmage | AssertionError: Player PlayerA must have N actions but found N","cards":5}
-{"card":"Bone-Cairn Butcher","template":"static#0.0","status":"harness","api":"Attacks:Token","sets":["TDM"],"detail":"xmage: AssertionError: Player PlayerA must have 0 actions but found 1"}
-{"card":"Case of the Gateway Express","template":"static#0.0","status":"harness","api":"ChangesZone:EachDamage+Phase:AlterAttribute","sets":["MKM"],"detail":"xmage: AssertionError: Player PlayerA must have 0 actions but found 1"}
-{"card":"Deepway Navigator","template":"static#0.0","status":"harness","api":"ChangesZone:UntapAll","sets":["ECL"],"detail":"xmage: AssertionError: Player PlayerA must have 0 actions but found 1"}
-{"card":"Okoye, Dora Milaje Leader","template":"static#0.0","status":"harness","api":"ChangesZone:Token","sets":["MSH"],"detail":"xmage: AssertionError: Player PlayerA must have 0 actions but found 1"}
-{"card":"Starry-Eyed Skyrider","template":"static#0.0","status":"harness","api":"Attacks:Pump","sets":["TDM"],"detail":"xmage: AssertionError: Player PlayerA must have 0 actions but found 1"}

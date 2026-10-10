@@ -179,8 +179,10 @@ func producibleSymbols(o *state.Object) string {
 // resolution's elected untapYType cost binding (Ctx.CostUntapped -- the
 // tapped land an opponent controls that Benthic Explorers just untapped;
 // an empty binding stays fail-closed, never a widened scan); and
-// "ExiledWith" scans exile for cards whose ExiledWith provenance names the
-// source (Pit of Offerings' imprint family).
+// "ExiledWith" scans exile for cards exiled by the source, reading the shared
+// exiledBySource association (the reverse scalar OR the source's forward
+// ExiledCards list) exactly as Defined$ ExiledWith does, so a real ETB exile
+// that records only the forward list is seen (Pit of Offerings).
 func reflectedDefinedExtras(h Host, c *Ctx, sel string) ([]state.ObjID, bool) {
 	g := h.Game()
 	spec := ""
@@ -224,7 +226,7 @@ func reflectedDefinedExtras(h Host, c *Ctx, sel string) ([]state.ObjID, bool) {
 		var out []state.ObjID
 		for _, q := range g.AliveFrom(0) {
 			for _, id := range g.Zone(state.ZExile, q) {
-				if o := g.Obj(id); o != nil && o.ExiledWith == c.Source {
+				if exiledBySource(g, g.Obj(id), c.Source) {
 					out = append(out, id)
 				}
 			}

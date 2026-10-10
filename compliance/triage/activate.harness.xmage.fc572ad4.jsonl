@@ -1,2 +1,0 @@
-{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"IllegalStateException: Error in unit tests: counters name $CARD, which is not on pN's battlefield"},"key":"activate | harness | xmage | IllegalStateException: Error in unit tests: counters name $CARD, which is not on pN's battlefield","cards":1}
-{"card":"Marketback Walker","template":"activate#0.0","status":"harness","api":"ChangesZone:Draw","sets":["DFT"],"detail":"xmage: IllegalStateException: Error in unit tests: counters name Marketback Walker, which is not on p0's battlefield"}

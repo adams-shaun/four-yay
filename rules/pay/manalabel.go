@@ -550,9 +550,11 @@ func ChainGatesOnActivationCount(sa *cards.SA) bool {
 // (payManaConvFor), {T}, Mill, SubCounter on the source, PayEnergy<N>,
 // AddCounter on the source, Exert<1/CARDNAME>, Sac, Discard, Exile, the
 // literal tapXType<N/Spec> tap (its election rides the same continuation)
-// and the self-Return. Every other part -- an unmodelled token (Cost.Unknown:
-// Pili-Pala's {Q}, Benthic Explorers' untapYType, both of which used to be
-// priced as one phantom generic), CollectEvidence (Cryptex), a
+// the self-Return, and a literal CollectEvidence<N> (Cryptex: the evidence
+// election rides the same continuation). Every other part -- an unmodelled
+// token (Cost.Unknown: Pili-Pala's {Q}, Benthic Explorers' untapYType, both
+// of which used to be priced as one phantom generic), a CollectEvidence whose
+// amount is a name or an announced X (resolved only by the cast flow), a
 // Draw/DamageYou/PutToLib/MoveToGrave/RollDice part, a dynamic PayEnergy<X>
 // or a SubCounter anchored to another permanent (Jetfire's
 // RemoveAnyCounter) -- has no settle here, so the ability is refused rather
@@ -560,7 +562,7 @@ func ChainGatesOnActivationCount(sa *cards.SA) bool {
 // Reveal, Behold, a DYNAMIC tapXType<X/...>/<Any/...> part, Blight, Forage,
 // LifeX, an unsupported Return) live beside the call site.
 func ManaCostPartsSettleable(cost costvocab.Cost) bool {
-	if len(cost.Unknown) > 0 || len(cost.Evidence) > 0 || len(cost.Draw) > 0 ||
+	if len(cost.Unknown) > 0 || ManaEvidenceNeed(cost) < 0 || len(cost.Draw) > 0 ||
 		len(cost.DamageYou) > 0 || len(cost.GainLife) > 0 || len(cost.PutToLib) > 0 || len(cost.MoveToGrave) > 0 ||
 		len(cost.RollDice) > 0 || cost.LifeHalfUp {
 		return false

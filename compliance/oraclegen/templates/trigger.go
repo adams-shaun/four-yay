@@ -210,6 +210,7 @@ func triggerScenario(f *cards.Face, name string, c triggerCause, req levelb.Requ
 	p0.Battlefield = appendFixtureCounts(p0.Battlefield, c.battlefield)
 	p0.Graveyard = appendFixtureCounts(p0.Graveyard, c.graveyard)
 	p1.Hand = appendFixtureCounts(p1.Hand, c.opponentHand)
+	p1.Graveyard = appendFixtureCounts(p1.Graveyard, c.opponentGraveyard)
 	p1.Battlefield = appendFixtureCounts(p1.Battlefield, c.opponentBattlefield)
 	oppCounterCards := make([]string, 0, len(c.opponentCounters))
 	for card := range c.opponentCounters {

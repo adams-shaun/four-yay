@@ -81,7 +81,13 @@ func xanswersForScenario(res rules.OracleResult, sc Scenario, modes map[string]i
 		}
 	}
 	collapseRoomLock(ds)
-	return xanswersSetup(ds, len(sc.Steps), modes, castSteps, sc.Setup)
+	out := xanswersSetup(ds, len(sc.Steps), modes, castSteps, sc.Setup)
+	// The deterministic trample assignment XMage poses as a multi-amount
+	// dialog is no decision the engine recorded, so it is synthesized from
+	// the scenario's own attack/block steps and leads the pass_to step that
+	// crosses combat damage (combat_damage_answers.go).
+	prependCombatDamageAnswers(res, sc, out)
+	return out
 }
 
 // compositeCardPick distinguishes the follow-up card selector from any other

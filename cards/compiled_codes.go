@@ -344,6 +344,13 @@ const (
 	TypeRoom
 )
 
+// TypeMaskOfName is the exported form of typeMaskFor: the catalog type mask
+// of one type-line word, 0 for a word that is not a type (a subtype such as
+// "Goblin", a marker such as "CARDNAME", or a filter predicate). A zero
+// answer means "no cheap type bit", not "matches nothing" -- callers that
+// over-approximate a filter with a type mask must treat zero as a wildcard.
+func TypeMaskOfName(name string) TypeMask { return typeMaskFor(name) }
+
 func typeMaskFor(name string) TypeMask {
 	switch name {
 	case "Artifact":

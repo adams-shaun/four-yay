@@ -237,27 +237,16 @@ func (e *Engine) quietBlocker(p state.PlayerID) quietBlockerID {
 func (e *Engine) quietBoardBlocker(p state.PlayerID) quietBlockerID {
 	ces := e.active()
 	sum := e.activeSummaryOf(ces)
-	if sum.hasGrants || len(e.collectAddAbilityCarriers()) > 0 {
+	if sum.hasGrants {
 		return qbBoardGrant
-	}
-	if len(e.activeStatics("CastWithFlash")) > 0 {
-		return qbBoardFlash
-	}
-	if len(e.activeStatics("PlotZone")) > 0 {
-		return qbBoardMayPlay
 	}
 	// Any active may-play grant. mayPlaySpellIds covers the zone-permission
 	// family; a Continuous static carrying MayPlay$ True (Omniscience,
 	// Conspiracy Unraveler, Fires of Invention) and the effect-delivered
 	// copies of the same grant are the "cast from hand for a substituted
-	// cost" family mayPlayAltCosts serves. Reading the raw statics is the
-	// coarse over-approximation: any such grant can open a hand cast.
-	for _, sv := range e.activeStatics("Continuous") {
-		if strings.EqualFold(strings.TrimSpace(sv.ParamStr(cards.PKMayPlay)), "True") {
-			return qbBoardMayPlay
-		}
-	}
-	for _, ce := range e.active() {
+	// cost" family mayPlayAltCosts serves. The static half is read by the
+	// existence scan below; the effect-delivered half here.
+	for _, ce := range ces {
 		if ce.MayPlay {
 			return qbBoardMayPlay
 		}
@@ -267,28 +256,46 @@ func (e *Engine) quietBoardBlocker(p state.PlayerID) quietBlockerID {
 			return qbBoardKeyword
 		}
 	}
-	if len(e.mayPlaySpellIds(p)) > 0 || len(e.mayPlayLandIds(p)) > 0 || len(e.mayhemLandPlayIds(p)) > 0 {
-		return qbBoardMayPlay
-	}
-	// A self-carried may-play static on a card still in hand is reported by
-	// the per-card castOpen classifier, but a board static that grants the
-	// hand casts is caught here (above).
 	// An active cost-minting ContinuousEffect (appendEffectCostStatics'
 	// Effect-delivered, granted and AddKeyword$-Affinity-minted arms) blocks
 	// on its own, before the printed-static scan: a granted or bound view's
 	// Source is the BOUND HOST, so its ValidCard$ Card.Self does not scope it
 	// to a printed face the per-card castOpen classifier reads, and the
-	// selfOnly bit quietCostStaticBoardBlocker trusts is about printed faces
-	// -- it says nothing about a grant that prices a hand card the classifier
-	// never sees (Mycosynth Golem's affinity grant).
+	// self-only bit is about printed faces -- it says nothing about a grant
+	// that prices a hand card the classifier never sees (Mycosynth Golem's
+	// affinity grant).
 	for i := range ces {
 		if continuousMintsCostStatic(&ces[i]) {
 			return qbBoardCostGrant
 		}
 	}
-	cs := e.collectCostStatics()
-	if quietCostStaticBoardBlocker(&cs) {
-		return qbBoardCostStatic
+	// One early-exit existence pass over the static-hot objects answers the
+	// AddAbility$ carrier, CastWithFlash, PlotZone, MayPlay$ True and
+	// non-self-only reduce/set cost static reads without building a view
+	// (rules/quiet_boardscan.go; verify mode checks it against the views).
+	if quietVerifyOn() {
+		e.quietBoardStaticGuard(p)
+	}
+	if h := e.quietBoardStaticScan(false); h != 0 {
+		switch {
+		case h&qbhAddAbility != 0:
+			return qbBoardGrant
+		case h&qbhFlash != 0:
+			return qbBoardFlash
+		case h&(qbhPlotZone|qbhMayPlay) != 0:
+			return qbBoardMayPlay
+		default:
+			return qbBoardCostStatic
+		}
+	}
+	// Every board-side may-play grant source is closed here: the static scan
+	// above found no Continuous MayPlay$ True static (it ignores no static
+	// mayPlayBoardGrantsOpen reads: a superset test, its own gates only ever
+	// remove a hit the activeStatics read also removes) and the loop above
+	// returned on any active MayPlay effect, so the board-closed grant reads
+	// are exact (verify mode re-runs them in full).
+	if len(e.mayPlaySpellIdsBoard(p, false)) > 0 || e.mayPlayLandAny(p) || len(e.mayhemLandPlayIds(p)) > 0 {
+		return qbBoardMayPlay
 	}
 	return qbNone
 }
@@ -472,7 +479,8 @@ func (e *Engine) quietHandBlocker(p state.PlayerID, ceiling int32, unbounded, so
 		if o == nil || o.Card == nil {
 			return qbBadObject
 		}
-		if b := e.quietObjectFallback(o); b != qbNone {
+		oFF, b := e.quietObjectFacts(o)
+		if b != qbNone {
 			return b
 		}
 		// Keyword actions offered from hand regardless of the face's own
@@ -491,18 +499,24 @@ func (e *Engine) quietHandBlocker(p state.PlayerID, ceiling int32, unbounded, so
 			if f == nil {
 				continue
 			}
-			ff := e.walkFaceFactsOf(f)
+			ff := oFF
+			if f != o.Face() {
+				ff = e.walkFaceFactsOf(f)
+			}
 			if ff == nil {
 				return qbBadObject
 			}
-			qf := ff.quiet
+			qf := &ff.quiet
 			if qf.isLand {
-				if landOpen && quietFaceNotForbidden(e, p, id) {
+				// A CantPlayLand restriction can only withhold the play, so it
+				// is ignored: the proof over-approximates (blocks more) and
+				// skips the restriction read's allocations.
+				if landOpen {
 					return qbHandLand
 				}
 				// A land printed with Morph/Megamorph/Disguise is also cast
 				// face down for {3} (Zoetic Cavern), even after the land drop.
-				if quietFaceHasDownCast(f) && quietAffordable(3, ceiling, unbounded) {
+				if qf.downCast && quietAffordable(3, ceiling, unbounded) {
 					return qbHandSpell
 				}
 				continue
@@ -516,7 +530,7 @@ func (e *Engine) quietHandBlocker(p state.PlayerID, ceiling int32, unbounded, so
 			// land branch above: the walk offers the down-cast through
 			// spellTimingOK (timingOpen) and offerCastable({3}), independent
 			// of the printed floor.
-			if timingOpen && quietFaceHasDownCast(f) && quietAffordable(3, ceiling, unbounded) {
+			if timingOpen && qf.downCast && quietAffordable(3, ceiling, unbounded) {
 				return qbHandSpell
 			}
 			if !timingOpen {
@@ -530,24 +544,14 @@ func (e *Engine) quietHandBlocker(p state.PlayerID, ceiling int32, unbounded, so
 		// abilities (kwGranted) plus printed AB abilities with a Hand zone.
 		// A printed ability the loop would offer is covered by the abQuiet
 		// hand bucket; a granted-expansion head is covered below.
-		if quietFaceGrantedHead(o) {
+		if quietFaceGrantedHeadFacts(o, o.Face(), oFF) {
 			return qbHandAbility
 		}
-		if abQuietBlocked(e.quietHandAbQuiet(o), o, ceiling, unbounded, sorceryOpen) {
+		if abQuietBlocked(e, p, &oFF.quiet.abQuiet[3], o, ceiling, unbounded, sorceryOpen) {
 			return qbHandAbility
 		}
 	}
 	return qbNone
-}
-
-// quietHandAbQuiet returns the Hand-zone ability summary for the object's
-// live face, or the zero summary when it has none.
-func (e *Engine) quietHandAbQuiet(o *state.Object) abQuietZone {
-	ff := e.walkFaceFactsOf(o.Face())
-	if ff == nil {
-		return abQuietZone{}
-	}
-	return ff.quiet.abQuiet[3]
 }
 
 // quietFaceGrantedHead reports whether the object's face carries any of the
@@ -558,7 +562,12 @@ func quietFaceGrantedHead(o *state.Object) bool {
 	if f == nil {
 		return true
 	}
-	ff := walkFaceFactsOfFace(f)
+	return quietFaceGrantedHeadFacts(o, f, walkFaceFactsOfFace(f))
+}
+
+// quietFaceGrantedHeadFacts is quietFaceGrantedHead with the face and its
+// facts already in hand (ff may be nil: the raw-list fallback runs).
+func quietFaceGrantedHeadFacts(o *state.Object, f *cards.Face, ff *walkFaceFacts) bool {
 	if ff != nil && ff.keywordsCurrent(f) {
 		if ff.kwGranted {
 			return true
@@ -613,7 +622,8 @@ func (e *Engine) quietExileBlocker(p state.PlayerID) quietBlockerID {
 		if o.IsToken {
 			continue
 		}
-		if b := e.quietObjectFallback(o); b != qbNone {
+		ff, b := e.quietObjectFacts(o)
+		if b != qbNone {
 			return b
 		}
 		if o.IsCopy && o.PreparedSource != 0 {
@@ -634,20 +644,11 @@ func (e *Engine) quietExileBlocker(p state.PlayerID) quietBlockerID {
 		if e.airbendCastAvailable(id) {
 			return qbExileRoute
 		}
-		if e.quietFaceExileRoute(o.Face()) || e.quietObjectDerivedRoute(id, quietExileDerivedHeads...) {
+		if ff.quiet.exileCastKW || e.quietObjectDerivedRoute(id, quietExileDerivedHeads...) {
 			return qbExileRoute
 		}
 	}
 	return qbNone
-}
-
-// quietFaceExileRoute reports whether a face carries an exile recast keyword.
-func (e *Engine) quietFaceExileRoute(f *cards.Face) bool {
-	ff := e.walkFaceFactsOf(f)
-	if ff == nil {
-		return true
-	}
-	return ff.quiet.exileCastKW
 }
 
 // quietCommandBlocker: any object in the command zone is a blocker (the
@@ -671,15 +672,16 @@ func (e *Engine) quietGraveBlocker(p state.PlayerID, ceiling int32, unbounded, s
 		if o == nil || o.Card == nil {
 			return qbBadObject
 		}
-		if b := e.quietObjectFallback(o); b != qbNone {
+		ff, b := e.quietObjectFacts(o)
+		if b != qbNone {
 			return b
 		}
 		if aftermathAlternateFace(o) != nil {
 			return qbGraveRoute
 		}
 		f := o.Face()
-		if e.quietFaceGraveRoute(f) {
-			qf := e.walkFaceFactsOf(f).quiet
+		if ff.quiet.recastOpen || ff.quiet.recastFloor >= 0 {
+			qf := &ff.quiet
 			if quietGraveRecastBlocked(qf, ceiling, unbounded, sorceryOpen) {
 				return qbGraveRoute
 			}
@@ -701,7 +703,7 @@ func (e *Engine) quietGraveBlocker(p state.PlayerID, ceiling int32, unbounded, s
 // the recast's timing is open and the route is either unpriced (recastOpen) or
 // affordable at the seat's mana ceiling. A route with no priced floor cannot
 // reach here (quietFaceGraveRoute refuses it).
-func quietGraveRecastBlocked(qf quietFaceFacts, ceiling int32, unbounded, sorceryOpen bool) bool {
+func quietGraveRecastBlocked(qf *quietFaceFacts, ceiling int32, unbounded, sorceryOpen bool) bool {
 	if !qf.instantSpeed && !sorceryOpen {
 		return false
 	}
@@ -724,17 +726,6 @@ func (e *Engine) quietObjectExtraRecastRoute(id state.ObjID, f *cards.Face) bool
 		}
 	}
 	return false
-}
-
-// quietFaceGraveRoute reports whether a face has a graveyard cast route the
-// walk prices (recastFloor >= 0) or one whose cost it cannot bound
-// (recastOpen). A face with no facts fails closed.
-func (e *Engine) quietFaceGraveRoute(f *cards.Face) bool {
-	ff := e.walkFaceFactsOf(f)
-	if ff == nil {
-		return true
-	}
-	return ff.quiet.recastOpen || ff.quiet.recastFloor >= 0
 }
 
 // quietObjectDerivedRoute reports whether id could carry any of heads on its
@@ -784,21 +775,18 @@ func (e *Engine) quietBattlefieldBlocker(p state.PlayerID, ceiling int32, unboun
 					// exist (CR 702.25b).
 					continue
 				}
-				if b := e.quietObjectFallback(o); b != qbNone {
+				ff, b := e.quietObjectFacts(o)
+				if b != qbNone {
 					return b
 				}
 				ctl := e.controllerOf(id)
 				owner := o.Owner
 				// A granted/CastWithFlash board already blocked. An object
 				// that can carry a dynamic granted keyword must block.
-				if quietFaceGrantedHead(o) || len(o.IntrinsicKeywords) > 0 && quietDynamicKWMaybe(o) {
+				if quietFaceGrantedHeadFacts(o, o.Face(), ff) || len(o.IntrinsicKeywords) > 0 && quietDynamicKWMaybe(o) {
 					if ctl == p || owner == p || z == state.ZStack {
 						return qbBattlefieldAbility
 					}
-				}
-				ff := e.walkFaceFactsOf(o.Face())
-				if ff == nil {
-					return qbBadObject
 				}
 				mask := ff.abZones
 				if ctl != p {
@@ -811,8 +799,8 @@ func (e *Engine) quietBattlefieldBlocker(p state.PlayerID, ceiling int32, unboun
 					return qbBattlefieldStack
 				}
 				if zidx >= 0 {
-					aq := ff.quiet.abQuiet[zidx]
-					if abQuietBlocked(aq, o, ceiling, unbounded, sorceryOpen) {
+					aq := &ff.quiet.abQuiet[zidx]
+					if abQuietBlocked(e, p, aq, o, ceiling, unbounded, sorceryOpen) {
 						return qbBattlefieldAbility
 					}
 				}
@@ -872,19 +860,33 @@ func existsOnBattlefieldQuiet(o *state.Object) bool {
 // quietObjectFallback is the fail-closed per-object test: a merged pile, a
 // face-down object or a face with no facts blocks every section that would
 // visit it.
-func (e *Engine) quietObjectFallback(o *state.Object) quietBlockerID {
-	if o == nil || o.Card == nil || o.Face() == nil || len(o.MergedCards) != 0 {
-		return qbBadObject
+//
+// It returns the live face's facts so a section fetches them once per object
+// per window; a non-nil result is always paired with qbNone.
+func (e *Engine) quietObjectFacts(o *state.Object) (*walkFaceFacts, quietBlockerID) {
+	if o == nil || o.Card == nil || len(o.MergedCards) != 0 {
+		return nil, qbBadObject
 	}
-	if e.walkFaceFactsOf(o.Face()) == nil {
-		return qbBadObject
+	f := o.Face()
+	if f == nil {
+		return nil, qbBadObject
 	}
-	return qbNone
+	ff := e.walkFaceFactsOf(f)
+	if ff == nil {
+		return nil, qbBadObject
+	}
+	return ff, qbNone
 }
 
 // abQuietBlocked applies the §2.4 ability test to one object's zone summary.
-func abQuietBlocked(aq abQuietZone, o *state.Object, ceiling int32, unbounded, sorceryOpen bool) bool {
-	if !aq.any {
+// Q3b: a mana-only admitting ability blocks through the floor aggregation
+// (exact); a part-carrying ability blocks through its group when its mana
+// floor is affordable AND every bounded part's necessary condition could
+// hold; an unpriceable cost stays nonMana and blocks outright. p is the seat
+// the proof evaluates (the activating player the parts' counts are read
+// for).
+func abQuietBlocked(e *Engine, p state.PlayerID, aq *abQuietZone, o *state.Object, ceiling int32, unbounded, sorceryOpen bool) bool {
+	if aq == nil || !aq.any {
 		return false
 	}
 	if aq.nonMana {
@@ -895,6 +897,21 @@ func abQuietBlocked(aq abQuietZone, o *state.Object, ceiling int32, unbounded, s
 	}
 	if aq.hasTap && !o.Tapped && (unbounded || aq.floorTap <= ceiling) && (!aq.sorcTap || sorceryOpen) {
 		return true
+	}
+	for i := range aq.groups {
+		g := &aq.groups[i]
+		if g.tap && o.Tapped {
+			continue
+		}
+		if !unbounded && g.floor > ceiling {
+			continue
+		}
+		if g.sorc && !sorceryOpen {
+			continue
+		}
+		if e.quietPartsPayable(p, o, g) {
+			return true
+		}
 	}
 	return false
 }
@@ -916,6 +933,14 @@ func quietFaceHasDownCast(f *cards.Face) bool {
 // activationPhasesOK), so a window where the walk offers neither stays
 // provable.
 func quietHandKeywordAction(o *state.Object, id state.ObjID, e *Engine, p state.PlayerID, sorceryOpen bool) bool {
+	// Fused necessary condition: every read below is monotone under the
+	// derived-keyword precheck (stackKeywordPossibleH answers true only when
+	// mayHaveDerivedKeywordH does, and a nil face answers false everywhere),
+	// so one pass over the derived seeds for all six heads rules the whole
+	// function out for the common hand card.
+	if !e.mayHaveDerivedKeywordAnyH(id, kwhForetell, kwhSuspend, kwhPlot, kwhMayFlashCost, kwhSneak, kwhTeamwork) {
+		return false
+	}
 	if e.sneakTimingOK(p) && e.stackKeywordPossibleH(id, kwhSneak) {
 		return true
 	}
@@ -948,13 +973,6 @@ func quietHandKeywordAction(o *state.Object, id state.ObjID, e *Engine, p state.
 		}
 	}
 	return false
-}
-
-// quietFaceNotForbidden is the land-play restriction gate. A restriction can
-// only withhold a play, so ignoring it is sound; it is kept as a hook for the
-// test fixtures that exercise adjustLandPlays.
-func quietFaceNotForbidden(e *Engine, p state.PlayerID, id state.ObjID) bool {
-	return !playLandForbidden(e, p, state.ZHand, id)
 }
 
 // quietDynamicKWMaybe reports an object whose intrinsic keywords or keyword

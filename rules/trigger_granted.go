@@ -640,10 +640,11 @@ func (e *Engine) checkGrantedAfflictTriggers(id state.ObjID, o *state.Object, f 
 		return // cascade bound: see maxTriggerFires.
 	}
 	pt := func(p state.PlayerID) state.Target { return state.Target{Player: p, IsPlayer: true} }
-	for _, aid := range e.attackerBlockedCandidates(t, id, ev) {
+	for _, pr := range e.attackerBlockedCandidates(t, id, ev) {
 		// ValidCard$ Card.Self admits only the granted creature itself;
 		// attackerBlockedCandidates still returns other attackers this event
 		// blocked, so skip anything that is not the source.
+		aid := pr[0]
 		if aid != id {
 			continue
 		}

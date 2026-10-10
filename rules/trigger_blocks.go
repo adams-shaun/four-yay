@@ -9,32 +9,78 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
-// attackerBlockedCandidates lists the attackers one become-blocked trigger
-// fires for (Forge Mode$ AttackerBlocked; She-Hulk, Wallbreaker's "Whenever
-// a Hero you control becomes blocked"). A DeclareBlockers event's Pairs
-// name exactly the attacker-blocker assignments this defender's declaration
-// just made -- an attacker already carrying blockers is never re-paired, so
-// the declared pairs ARE the became-blocked transition, and a trigger fires
-// once per DISTINCT matching attacker (two Heroes blocked by one
-// declaration are two trigger instances, CR 603.2c). Deterministic order:
-// the event's own pair order, deduplicated.
-func (e *Engine) attackerBlockedCandidates(t cards.Trigger, source state.ObjID, ev events.Event) []state.ObjID {
+// pairMemberMatches reads one Valid spec of a become-blocked trigger against
+// one member of a declared (attacker, blocker) pair, with the source's spec
+// context. It is the ONE place both become-blocked walks (Mode$ AttackerBlocked
+// and Mode$ AttackerBlockedByCreature) build that context: the member's
+// DERIVED keyword list is what a keyword predicate must read -- a blocker
+// granted flanking by a layer-6 AddKeyword$ (Agility, Flanking Licid,
+// Sidewinder Sliver, Cavalry Master) HAS flanking and takes no -1/-1, and
+// Creature.withFlying on a granted-flying attacker must match; the
+// object-alone read the filter would otherwise use sees only the printed face
+// plus marker counters. An empty spec matches everything.
+func (e *Engine) pairMemberMatches(spec string, member state.ObjID, sc effects.SpecContext) bool {
+	if spec == "" {
+		return true
+	}
+	sc.ExtraKeywords, sc.ExtraKeywordsOwner = e.Derived(member).Keywords, member
+	sc.PredicatePrograms = nil
+	return e.matchesSpec(spec, member, sc)
+}
+
+// attackerBlockedCandidates lists the (attacker, blocker) pairs one
+// become-blocked trigger fires for (Forge Mode$ AttackerBlocked; She-Hulk,
+// Wallbreaker's "Whenever a Hero you control becomes blocked", Wall of Frost's
+// "Whenever CARDNAME blocks a creature", Tel-Jilad Wolf's "becomes blocked by
+// an artifact creature"). A DeclareBlockers event's Pairs name exactly the
+// attacker-blocker assignments this defender's declaration just made -- an
+// attacker already carrying blockers is never re-paired, so the declared pairs
+// ARE the became-blocked transition, and a trigger fires once per DISTINCT
+// matching attacker (two Heroes blocked by one declaration are two trigger
+// instances, CR 603.2c). ValidCard$ is read against the attacker and
+// ValidBlocker$ against that attacker's blockers: the attacker qualifies when
+// at least one of its blockers in this declaration matches (absent: any
+// blocker does), and ValidBlockerAmount$ ("blocked by two or more
+// creatures", Seifer) compares the count of those matching blockers. The
+// pair's blocker is the FIRST matching one in event order -- the referent
+// TriggeredBlocker names; Forge leaves a choice among several unspecified.
+// Deterministic order: the event's own pair order, deduplicated by attacker.
+func (e *Engine) attackerBlockedCandidates(t cards.Trigger, source state.ObjID, ev events.Event) [][2]state.ObjID {
 	if ev.Kind != events.DeclareBlockers || len(ev.Pairs) == 0 {
 		return nil
 	}
-	ctrl := e.controllerOf(source)
+	sc := e.specCtx(source, e.controllerOf(source))
+	cardSpec := t.ParamStr(cards.PKValidCard)
+	blockerSpec := t.ParamStr(cards.PKValidBlocker)
+	amount := t.ParamStr(cards.PKValidBlockerAmount)
 	seen := map[state.ObjID]bool{}
-	var out []state.ObjID
-	for _, pr := range ev.Pairs {
+	var out [][2]state.ObjID
+	for i, pr := range ev.Pairs {
 		a := pr[0]
 		if seen[a] {
 			continue
 		}
 		seen[a] = true
-		if v := t.ParamStr(cards.PKValidCard); v != "" && !e.matchesSpec(v, a, e.specCtx(source, ctrl)) {
+		if !e.pairMemberMatches(cardSpec, a, sc) {
 			continue
 		}
-		out = append(out, a)
+		var first state.ObjID
+		matched := 0
+		// The first occurrence of an attacker is at i (earlier ones would have
+		// marked it seen), so its remaining pairs are at i and after.
+		for _, q := range ev.Pairs[i:] {
+			if q[0] != a || !e.pairMemberMatches(blockerSpec, q[1], sc) {
+				continue
+			}
+			if matched == 0 {
+				first = q[1]
+			}
+			matched++
+		}
+		if matched == 0 || (amount != "" && !comparePresent(matched, amount)) {
+			continue
+		}
+		out = append(out, [2]state.ObjID{a, first})
 	}
 	return out
 }
@@ -58,32 +104,14 @@ func (e *Engine) attackerBlockedByPairCandidates(t cards.Trigger, source state.O
 	if ev.Kind != events.DeclareBlockers || len(ev.Pairs) == 0 {
 		return nil
 	}
-	ctrl := e.controllerOf(source)
-	sc := e.specCtx(source, ctrl)
+	sc := e.specCtx(source, e.controllerOf(source))
+	cardSpec := t.ParamStr(cards.PKValidCard)
+	blockerSpec := t.ParamStr(cards.PKValidBlocker)
 	var out [][2]state.ObjID
 	for _, pr := range ev.Pairs {
-		if v := t.ParamStr(cards.PKValidCard); v != "" {
-			asc := sc
-			asc.ExtraKeywords, asc.ExtraKeywordsOwner = e.Derived(pr[0]).Keywords, pr[0]
-			asc.PredicatePrograms = nil
-			if !e.matchesSpec(v, pr[0], asc) {
-				continue
-			}
+		if e.pairMemberMatches(cardSpec, pr[0], sc) && e.pairMemberMatches(blockerSpec, pr[1], sc) {
+			out = append(out, pr)
 		}
-		if v := t.ParamStr(cards.PKValidBlocker); v != "" {
-			// The blocker's DERIVED keyword list is what `withoutFlanking` must
-			// read: a blocker granted flanking by a layer-6 AddKeyword$ (Agility,
-			// Flanking Licid, Sidewinder Sliver, Cavalry Master) HAS flanking and
-			// takes no -1/-1. The object-alone read the filter would otherwise
-			// use sees only the printed face plus marker counters.
-			bsc := sc
-			bsc.ExtraKeywords, bsc.ExtraKeywordsOwner = e.Derived(pr[1]).Keywords, pr[1]
-			bsc.PredicatePrograms = nil
-			if !e.matchesSpec(v, pr[1], bsc) {
-				continue
-			}
-		}
-		out = append(out, pr)
 	}
 	return out
 }
@@ -392,11 +420,7 @@ func (e *Engine) queueAttackerBlockedTrigger(t cards.Trigger, source state.ObjID
 		}
 		return
 	}
-	for _, aid := range e.attackerBlockedCandidates(t, source, ev) {
-		defender := pt(0)
-		if ao := e.G.Obj(aid); ao != nil {
-			defender = pt(ao.Attacking)
-		}
+	for _, pr := range e.attackerBlockedCandidates(t, source, ev) {
 		reserve()
 		e.triggerFireCount[key]++
 		e.pendingTriggers = append(e.pendingTriggers, pendingTrigger{
@@ -407,17 +431,41 @@ func (e *Engine) queueAttackerBlockedTrigger(t cards.Trigger, source state.ObjID
 			Granted:    granted,
 			Grantor:    grantor,
 			Execute:    t.ParamStr(cards.PKExecute),
-			Ctx: effects.NewCtx(source, controller, effects.CtxInit{
-				Remembered: []state.Target{{Obj: aid}},
-				Captured:   []state.Target{{Obj: aid}},
-				TriggerContext: effects.TriggerContext{
-					TriggerCard:     aid,
-					TriggerSource:   aid,
-					AttackingPlayer: pt(e.controllerOf(aid)),
-					DefendingPlayer: defender,
-				},
-			}),
+			Ctx:        effects.NewCtx(source, controller, e.attackerBlockedCtx(t, pr[0], pr[1], ev)),
 		})
+	}
+}
+
+// attackerBlockedCtx is the referent capture of one Mode$ AttackerBlocked
+// instance for the (attacker aid, blocker bid) pair attackerBlockedCandidates
+// chose. Every shape remembers the ATTACKER (TriggeredAttacker, the
+// She-Hulk/Afflict/Kraken bodies) and now also captures the blocker role, so
+// Defined$ TriggeredBlockerLKICopy (Righteous Indignation, "the blocking
+// creature gets +1/+1") names the creature that blocked. With several
+// matching blockers the first in declaration order is the referent. A
+// blocker-anchored line ("Whenever CARDNAME blocks a creature", Wall of Frost;
+// triggerAnchoredAtBlocker) takes the defending player from the declaring
+// event -- the blocking player, whose creature the source is -- the same
+// capture the blocker half of Mode$ AttackerBlockedByCreature uses; the other
+// shapes read the attacker's own defender, which is the same player here.
+func (e *Engine) attackerBlockedCtx(t cards.Trigger, aid, bid state.ObjID, ev events.Event) effects.CtxInit {
+	pt := func(p state.PlayerID) state.Target { return state.Target{Player: p, IsPlayer: true} }
+	defender := pt(0)
+	if triggerAnchoredAtBlocker(t) {
+		defender = pt(ev.Player)
+	} else if ao := e.G.Obj(aid); ao != nil {
+		defender = pt(ao.Attacking)
+	}
+	return effects.CtxInit{
+		Remembered: []state.Target{{Obj: aid}},
+		Captured:   []state.Target{{Obj: aid}},
+		TriggerContext: effects.TriggerContext{
+			TriggerCard:     aid,
+			TriggerSource:   aid,
+			TriggerBlocker:  bid,
+			AttackingPlayer: pt(e.controllerOf(aid)),
+			DefendingPlayer: defender,
+		},
 	}
 }
 

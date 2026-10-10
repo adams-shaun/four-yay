@@ -44,6 +44,13 @@ func (f *Face) IsPlaneswalker() bool { return f.hasTypeMask(TypePlaneswalker, "P
 func (f *Face) IsBattle() bool       { return f.hasTypeMask(TypeBattle, "Battle") }
 func (f *Face) IsRoom() bool         { return f.hasTypeMask(TypeRoom, "Room") }
 
+// TypeMaskOf returns the face's catalog type mask: the bit set of every
+// type-line word this face carries (compiled_codes.go typeMaskFor). Zero
+// means the face is not catalog-bound (its Types list is the only source),
+// so a caller matching a spec against it must treat zero as "unknown, assume
+// any type" rather than "matches nothing".
+func (f *Face) TypeMaskOf() TypeMask { return f.compiledTypeMask }
+
 // IsPermanent reports whether resolving this face puts it onto the battlefield.
 func (f *Face) IsPermanent() bool { return !f.IsInstant() && !f.IsSorcery() }
 
