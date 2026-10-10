@@ -2018,7 +2018,41 @@ func exileProvenanceNeeded(c *Ctx) bool {
 			return true
 		}
 	}
+	// The A: spelling (Mimeoplasm, Revered One's `ValidTgts$
+	// Creature.ExiledWithSource`) names it on the source face's own ability
+	// lines, which no SVar carries. Ctx.Host is bound by effects.Resolve; a
+	// Ctx that never entered Resolve has no host and keeps the SVar-only read.
+	return c.Host != nil && faceAbilitiesNameExiledWithSource(c.Host, c.Source)
+}
+
+// faceAbilitiesNameExiledWithSource reports whether the source CARD's own
+// A: ability lines name ExiledWithSource in any param value -- the ability
+// spelling of the provenance need exileProvenanceNeeded's SVar scan and
+// faceStaticsNameExiledWithSource's S: scan cover. Iterating the param map
+// only feeds a boolean OR, so map order never reaches an event, and the
+// printed face is immutable, so the answer is stable through replay.
+func faceAbilitiesNameExiledWithSource(h Host, src state.ObjID) bool {
+	o := h.Game().Obj(src)
+	if o == nil || o.Face() == nil {
+		return false
+	}
+	for _, sa := range o.Face().Abilities {
+		if sa == nil {
+			continue
+		}
+		for _, v := range sa.Params {
+			if strings.Contains(v, "ExiledWithSource") {
+				return true
+			}
+		}
+	}
 	return false
+}
+
+// faceNamesExiledWithSource is the settle sites' source-face test: the S:
+// static spelling or the A: ability spelling of the same provenance need.
+func faceNamesExiledWithSource(h Host, src state.ObjID) bool {
+	return faceStaticsNameExiledWithSource(h, src) || faceAbilitiesNameExiledWithSource(h, src)
 }
 
 // faceStaticsNameExiledWithSource reports whether the source CARD's own

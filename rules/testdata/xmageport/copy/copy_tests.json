@@ -1,0 +1,142 @@
+{
+ "source": "Mage.Tests/src/test/java/org/mage/test/cards/copy/{CloneTest,PhantasmalImageTest}.java (XMage, MIT)",
+ "scenarios": [
+  {
+   "name": "clone-ignores-copied-pump",
+   "xmage": "CloneTest#testCard3",
+   "cr": [
+    "707.2"
+   ],
+   "why": "Clone copies Craw Wurm's copiable values only; Public Execution's -2/-0 to the opponent's other creatures does not carry over.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Public Execution",
+      "Clone"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Llanowar Elves",
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Public Execution",
+     "mana": "CCCCCB",
+     "targets": [
+      "p1:Llanowar Elves"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Clone",
+     "mana": "CCCU"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p1:Craw Wurm"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 1,
+      "zone": "battlefield",
+      "name": "Llanowar Elves"
+     },
+     "eq": 0
+    },
+    {
+     "card": "p1:Craw Wurm",
+     "pt": "4/4"
+    },
+    {
+     "card": "p0:Craw Wurm",
+     "pt": "6/4"
+    }
+   ]
+  },
+  {
+   "name": "phantasmal-image-copies-etb-trigger",
+   "xmage": "PhantasmalImageTest#testCopyEntersBattlefieldTriggeredAbility",
+   "cr": [
+    "707.2",
+    "603.6a"
+   ],
+   "why": "A copy entering as Howling Banshee has its ETB trigger: each player loses 3.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Phantasmal Image"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Howling Banshee"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Phantasmal Image",
+     "mana": "CU"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "yes"
+       ]
+      },
+      {
+       "kind": "any",
+       "pick": [
+        "p1:Howling Banshee"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Howling Banshee"
+     },
+     "eq": 1
+    },
+    {
+     "life": {
+      "p0": 17,
+      "p1": 17
+     }
+    }
+   ],
+   "known_bug": "Phantasmal Image's Clone carries AddTypes$/AddTriggers$/AddSVars$ riders the ETB-copy whitelist declines, so effClone takes the loud 'unimplemented API Clone' fallback (effects/clone.go:63-75): the Image enters as a 0/0 and dies. Plain Clone (clone-ignores-copied-pump) works."
+  }
+ ]
+}
