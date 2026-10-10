@@ -237,27 +237,16 @@ func (e *Engine) quietBlocker(p state.PlayerID) quietBlockerID {
 func (e *Engine) quietBoardBlocker(p state.PlayerID) quietBlockerID {
 	ces := e.active()
 	sum := e.activeSummaryOf(ces)
-	if sum.hasGrants || len(e.collectAddAbilityCarriers()) > 0 {
+	if sum.hasGrants {
 		return qbBoardGrant
-	}
-	if len(e.activeStatics("CastWithFlash")) > 0 {
-		return qbBoardFlash
-	}
-	if len(e.activeStatics("PlotZone")) > 0 {
-		return qbBoardMayPlay
 	}
 	// Any active may-play grant. mayPlaySpellIds covers the zone-permission
 	// family; a Continuous static carrying MayPlay$ True (Omniscience,
 	// Conspiracy Unraveler, Fires of Invention) and the effect-delivered
 	// copies of the same grant are the "cast from hand for a substituted
-	// cost" family mayPlayAltCosts serves. Reading the raw statics is the
-	// coarse over-approximation: any such grant can open a hand cast.
-	for _, sv := range e.activeStatics("Continuous") {
-		if strings.EqualFold(strings.TrimSpace(sv.ParamStr(cards.PKMayPlay)), "True") {
-			return qbBoardMayPlay
-		}
-	}
-	for _, ce := range e.active() {
+	// cost" family mayPlayAltCosts serves. The static half is read by the
+	// existence scan below; the effect-delivered half here.
+	for _, ce := range ces {
 		if ce.MayPlay {
 			return qbBoardMayPlay
 		}
@@ -267,28 +256,40 @@ func (e *Engine) quietBoardBlocker(p state.PlayerID) quietBlockerID {
 			return qbBoardKeyword
 		}
 	}
-	if len(e.mayPlaySpellIds(p)) > 0 || len(e.mayPlayLandIds(p)) > 0 || len(e.mayhemLandPlayIds(p)) > 0 {
-		return qbBoardMayPlay
-	}
-	// A self-carried may-play static on a card still in hand is reported by
-	// the per-card castOpen classifier, but a board static that grants the
-	// hand casts is caught here (above).
 	// An active cost-minting ContinuousEffect (appendEffectCostStatics'
 	// Effect-delivered, granted and AddKeyword$-Affinity-minted arms) blocks
 	// on its own, before the printed-static scan: a granted or bound view's
 	// Source is the BOUND HOST, so its ValidCard$ Card.Self does not scope it
 	// to a printed face the per-card castOpen classifier reads, and the
-	// selfOnly bit quietCostStaticBoardBlocker trusts is about printed faces
-	// -- it says nothing about a grant that prices a hand card the classifier
-	// never sees (Mycosynth Golem's affinity grant).
+	// self-only bit is about printed faces -- it says nothing about a grant
+	// that prices a hand card the classifier never sees (Mycosynth Golem's
+	// affinity grant).
 	for i := range ces {
 		if continuousMintsCostStatic(&ces[i]) {
 			return qbBoardCostGrant
 		}
 	}
-	cs := e.collectCostStatics()
-	if quietCostStaticBoardBlocker(&cs) {
-		return qbBoardCostStatic
+	// One early-exit existence pass over the static-hot objects answers the
+	// AddAbility$ carrier, CastWithFlash, PlotZone, MayPlay$ True and
+	// non-self-only reduce/set cost static reads without building a view
+	// (rules/quiet_boardscan.go; verify mode checks it against the views).
+	if quietVerifyOn() {
+		e.quietBoardStaticGuard()
+	}
+	if h := e.quietBoardStaticScan(false); h != 0 {
+		switch {
+		case h&qbhAddAbility != 0:
+			return qbBoardGrant
+		case h&qbhFlash != 0:
+			return qbBoardFlash
+		case h&(qbhPlotZone|qbhMayPlay) != 0:
+			return qbBoardMayPlay
+		default:
+			return qbBoardCostStatic
+		}
+	}
+	if len(e.mayPlaySpellIds(p)) > 0 || len(e.mayPlayLandIds(p)) > 0 || len(e.mayhemLandPlayIds(p)) > 0 {
+		return qbBoardMayPlay
 	}
 	return qbNone
 }
