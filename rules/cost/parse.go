@@ -644,7 +644,7 @@ func ParseCost(s string) Cost {
 				// RemoveAnyCounter is the same payment component as SubCounter;
 				// its distinct head is Forge's spelling for the counter-choice
 				// family. Keep the target filter and display description intact.
-				kind := strings.ReplaceAll(m[2], ";", ",")
+				kind := state.CanonicalCounterKind(strings.ReplaceAll(m[2], ";", ","))
 				target, desc := "", m[3]
 				if t := m[3]; t != "" && !strings.ContainsAny(t, " \t") {
 					target, desc = t, m[4]
@@ -678,7 +678,7 @@ func ParseCost(s string) Cost {
 				// space-bearing third field is a description and the removal
 				// stays source-anchored (subCounterTargetsSource). The ";" OR
 				// alternation folds to "," like every other spec.
-				kind := strings.ReplaceAll(m[2], ";", ",")
+				kind := state.CanonicalCounterKind(strings.ReplaceAll(m[2], ";", ","))
 				target, desc := "", m[3]
 				if t := m[3]; t != "" && !strings.ContainsAny(t, " \t") {
 					target, desc = t, m[4]
