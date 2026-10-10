@@ -167,12 +167,17 @@ type AttackRequired struct {
 }
 
 // CanAttack asserts whether Attacker is among the attackers the pending
-// declare-attackers decision offers (rules/oracle_can_attack.go).
+// declare-attackers decision offers (rules/oracle_can_attack.go). Defender,
+// when set, requires the matched option to name the attacked battlefield
+// permanent (a planeswalker ref); MaxAttackers, when set, additionally
+// asserts the AttackRestrict cap the matched option's Group publishes
+// (0 = no restriction).
 type CanAttack struct {
 	Attacker string `json:"attacker"`
 	// Defender, when set, names the planeswalker the attack would be
 	// declared against (the option's Battle), not just its controller.
-	Defender string `json:"defender,omitempty"`
+	Defender     string `json:"defender,omitempty"`
+	MaxAttackers *int   `json:"max_attackers,omitempty"`
 }
 
 type Expect struct {
@@ -998,6 +1003,12 @@ func xanswersSetup(ds []rules.OracleDecision, steps int, modes map[string]int, c
 	// the ordering ask only at the first priority, so a colour answer must
 	// precede a name even when the runner recorded the order first.
 	var setupTrigAnswers []XAnswer
+	// The setup drive's other answers (a modal pick, an optional boolean or a
+	// labelled choice the runner answered with its fallback) queue after the
+	// as-enters choices and the trigger orders: XMage consumes the placement
+	// dialogs during build(), the ordering ask at the first priority, and
+	// these asks as the setup drive reaches their trigger.
+	var setupAsks []XAnswer
 	for i, d := range ds {
 		if d.Step < 0 {
 			switch {
@@ -1017,6 +1028,11 @@ func xanswersSetup(ds []rules.OracleDecision, steps int, modes map[string]int, c
 					setupTrigAnswers = append(setupTrigAnswers, XAnswer{d.Seat, "setup_choice", triggerOrderChoice(d, k)})
 				}
 				any = true
+			default:
+				if as := setupDriveAnswers(d, modes); len(as) > 0 {
+					setupAsks = append(setupAsks, as...)
+					any = true
+				}
 			}
 			continue
 		}
@@ -1383,15 +1399,16 @@ func xanswersSetup(ds []rules.OracleDecision, steps int, modes map[string]int, c
 		return nil
 	}
 	demoteTriggerOrderSpans(out, trigSpans)
-	if len(setupAnswers) > 0 || len(setupTrigAnswers) > 0 {
+	if len(setupAnswers) > 0 || len(setupTrigAnswers) > 0 || len(setupAsks) > 0 {
 		// Setup answers are read from xmage_answers[0] before build(), even
 		// when the scenario has no gameplay steps.
 		if len(out) == 0 {
 			out = append(out, nil)
 		}
-		lead := make([]XAnswer, 0, len(setupAnswers)+len(setupTrigAnswers))
+		lead := make([]XAnswer, 0, len(setupAnswers)+len(setupTrigAnswers)+len(setupAsks))
 		lead = append(lead, setupAnswers...)
 		lead = append(lead, setupTrigAnswers...)
+		lead = append(lead, setupAsks...)
 		out[0] = append(lead, out[0]...)
 	}
 	return out

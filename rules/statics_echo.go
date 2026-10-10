@@ -9,6 +9,23 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
+// panharmoniconStatics is every live Panharmonicon static, printed first then
+// AddStaticAbility$-granted (rules/statics_granted.go), in the deterministic
+// order both scans produce. A granted static's source is its host, so a
+// ValidCard$ Card.Self clause resolves against the host (the equipped
+// creature, the chosen-mode siege) exactly as the granting text reads.
+func (e *Engine) panharmoniconStatics() []staticView {
+	printed := e.activeStatics("Panharmonicon")
+	granted := e.grantedStatics("Panharmonicon")
+	if len(granted) == 0 {
+		return printed
+	}
+	out := make([]staticView, 0, len(printed)+len(granted))
+	out = append(out, printed...)
+	out = append(out, granted...)
+	return out
+}
+
 // panharmoniconEchoes reports how many ADDITIONAL trigger placements the
 // battlefield's stat:Panharmonicon statics demand for the trigger the EVENT
 // ev just caused on source object src (CR 702.109: "that ability triggers an
@@ -60,7 +77,7 @@ func (e *Engine) panharmoniconEchoes(observer *Engine, src state.ObjID, ev event
 	}
 	modes := panharmoniconModes(ev)
 	n := 0
-	for _, sv := range e.activeStatics("Panharmonicon") {
+	for _, sv := range e.panharmoniconStatics() {
 		// The "as long as" gates (Condition$, IsPresent$, ClassBand$,
 		// CheckSVar$) share the ONE continuous gate the other static
 		// families use. Bifur, Melodic Rider's `Condition$ EnduringStory`

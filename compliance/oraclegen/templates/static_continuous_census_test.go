@@ -67,6 +67,20 @@ import (
 // card in its zone since cli-3b80d13b1), so DFT loses its four
 // "granted ability in Graveyard is not offered by the engine" skips and its
 // served count rises by four.
+// Re-pinned by merge agent-20261009T094023Z-a30f7588 (mrg1): merging the
+// AddStaticAbility$ granted-static observation (agent-20261009T094023Z,
+// commit 14a747f94) with main's generator serves FRA Tomik, Orzhov Lawmage
+// and DFT Racers' Scoreboard, each previously the set's lone
+// "grants a static ability" skip; those skip rows leave and each served
+// count rises by one.
+// Re-pinned again by agent-20261009T094023Z-a30f7588 (fix round): main's
+// 6e4f59c17 merge (the attacking <PlayerSpec> filter-word work) serves DFT
+// Oviya, Automech Artisan and FRA Ruric Thar, Magecrusher through the generic
+// probe, so each leaves its set's generic-observability skip and the served
+// count rises by one; main's own pin missed those two rows and this branch's
+// previous pin inherited the stale count. DFT served 60->61 (its
+// generic-observability skip leaves); FRA served 35->36 (one of its two
+// leaves).
 // Re-pinned again by agent-20261009T055718Z-17e92d7b: a Condition$ NotPlayerTurn
 // static (DFT Midnight Mangler) is served by placing the card and advancing the
 // scenario to p1's first main phase, so DFT loses its generic observability
@@ -76,11 +90,21 @@ import (
 // prelude at a starting life just below the printed power (The Last Ride:
 // crewed 1/1 at life 12), so DFT loses its computed-count skip and its served
 // count rises by one.
+// Re-pinned by agent-20261009T124456Z-3f7d2756 (r2): the engine words the
+// 4a6b5965 landing added (effects/filter_word_game_rider.go) let two fixtures
+// observe for the first time -- the `Creature.attacking Opponent` static
+// (DFT Oviya, Automech Artisan, trample) and the `Card.!dealtCombatDamagetoAny`
+// static (FRA Ruric Thar, Magecrusher, hexproof) -- so each set loses its one
+// remaining generic-observability skip and its served count rises by one.
 // Re-pinned by agent-20261009T153027Z-bc3dacf9: the exiled-with fixture family
 // serves BIG Territory Forge by running the source's own ETB exile, and names
 // the measured engine gaps for the rows it cannot serve (FRA Null Summoner:
 // the engine's may-play walk covers only the caster's own cards), so BIG's
 // served count rises by one and FRA's exiled skip becomes the named reason.
+// Merge agent-20261009T094023Z-a30f7588 (mrg2) with main's bc3dacf9 pin: FRA
+// keeps main's renamed exiled skip (an opponent-owned exiled card) and this
+// branch's served Tomik, so FRA is 36 served; DFT keeps 61 (main's 60 predates
+// the granted-static Racers' Scoreboard row).
 // It fails in both directions.
 var wantStaticContinuousCensus = map[string]map[string]int{
 	"BIG": {
@@ -98,9 +122,8 @@ var wantStaticContinuousCensus = map[string]map[string]int{
 		"skip:static needs counters on the affected permanent":                                       1,
 	},
 	"FRA": {
-		"served": 35,
+		"served": 36,
 		"skip:static effect not observable on a probe or the card":                                                                 1,
-		"skip:static grants a static ability (observed only through its own effect)":                                               1,
 		"skip:static an opponent-owned exiled card is not offered (the engine's may-play walk covers only the caster's own cards)": 1,
 		"skip:static grants only keywords outside the compared evergreen set":                                                      1,
 	},
@@ -113,10 +136,9 @@ var wantStaticContinuousCensus = map[string]map[string]int{
 	// 20261009T055718Z-17e92d7b) is the generic-observability row the
 	// advanced-scenario path serves.
 	"DFT": {
-		"served": 60,
+		"served": 61,
 		"skip:static characteristic-defining P/T of a non-creature (the snapshot omits its P/T)": 1,
 		"skip:static gated self grant is not offered in the gate-on fixture":                     1,
-		"skip:static grants a static ability (observed only through its own effect)":             1,
 		"skip:static grants a replacement effect (needs an event the replacement can change)":    2,
 	},
 }

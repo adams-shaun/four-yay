@@ -135,21 +135,21 @@ def journal_rows(repo: Path, days: int = WINDOW_DAYS) -> list[dict]:
 CLOSED_ISSUE_STATUSES = frozenset({"merged", "superseded"})
 
 
-def closed_issue_ids(repo: Path) -> set[str]:
-    """Issue ids whose ticket is closed (merged or superseded).
+def issue_statuses(repo: Path) -> dict[str, str]:
+    """Issue id -> front-matter status for the repo's issue store.
 
-    Read from the repo's issue store, `.ds4/issues/*.md` front matter. The
-    store is repo-level shared state that a task worktree deliberately does
-    not carry, so the shared checkout is resolved through the git common dir
-    first and `repo` itself is the fallback. Anything unreadable -- no store,
-    no front matter, no status line -- contributes nothing, so the caller then
-    sees every branch as live: the behaviour before this filter, and the safe
-    direction for a measurement that cannot read the tickets.
+    Read from `.ds4/issues/*.md` front matter. The store is repo-level shared
+    state that a task worktree deliberately does not carry, so the shared
+    checkout is resolved through the git common dir first and `repo` itself is
+    the fallback. Anything unreadable -- no store, no front matter, no status
+    line -- contributes nothing, so a caller then sees every branch as live:
+    the behaviour before this filter, and the safe direction for a measurement
+    that cannot read the tickets.
     """
     store = ds4_dir(repo, "issues")
     if store is None:
-        return set()
-    out: set[str] = set()
+        return {}
+    out: dict[str, str] = {}
     for p in sorted(store.glob("*.md")):
         status = ""
         try:
@@ -163,9 +163,13 @@ def closed_issue_ids(repo: Path) -> set[str]:
                         break
         except OSError:
             continue
-        if status in CLOSED_ISSUE_STATUSES:
-            out.add(p.stem)
+        out[p.stem] = status
     return out
+
+
+def closed_issue_ids(repo: Path) -> set[str]:
+    """Issue ids whose ticket is closed (merged or superseded)."""
+    return {i for i, s in issue_statuses(repo).items() if s in CLOSED_ISSUE_STATUSES}
 
 
 def _tree_blobs(repo: Path, ref: str, paths: list[str]) -> dict[str, str]:
@@ -496,6 +500,7 @@ def idle_branches(repo: Path, hours: int = 12) -> list[tuple[str, int, float]]:
     """
     out: list[tuple[str, int, float]] = []
     now = datetime.now(timezone.utc).timestamp()
+    statuses = issue_statuses(repo)
     # Split on blank lines rather than tracking state line by line: the last
     # record has no trailing blank line, and a state machine drops it.
     for block in git(repo, "worktree", "list", "--porcelain").split("\n\n"):
@@ -505,6 +510,18 @@ def idle_branches(repo: Path, hours: int = 12) -> list[tuple[str, int, float]]:
         ref, path = fields.get("branch", "").strip(), fields.get("worktree", "").strip()
         if not ref or not path or ref == "refs/heads/main":
             continue
+        # A `wt/<id>` branch whose ticket is not closed is work the pipeline
+        # still owns (park-branch.sh's live-seat guard keeps it too), not idle
+        # residue: a landing/waiting/dispatched/human_needed ticket is being
+        # worked, and the daemon re-registers its worktree. Mirror that guard
+        # exactly -- only `wt/*` is ticket-guarded, and only a merged or
+        # superseded ticket (or no ticket at all) may be parked. Fail-open: no
+        # store, or no ticket for the id, leaves the branch listed, so a hand
+        # branch is still idle.
+        if ref.startswith("refs/heads/wt/"):
+            status = statuses.get(ref.rsplit("/", 1)[-1])
+            if status is not None and status not in CLOSED_ISSUE_STATUSES:
+                continue
         # A branch already contained in main holds nothing.
         if subprocess.run(
             ["git", "-C", str(repo), "merge-base", "--is-ancestor", ref, "main"],
@@ -1556,6 +1573,46 @@ def selftest() -> int:
         hs = hotspots(gr)
         check("the live pair is still a hot spot, the residue is not",
               hs == [("g2.txt", sorted(["live", "live2"]))], hs)
+
+        # idle_branches must consult the ticket store too: a `wt/<id>`
+        # worktree whose ticket the pipeline still owns (landing/waiting/
+        # dispatched/human_needed/...) is work being done, not idle residue --
+        # park-branch.sh's live-seat guard refuses to park it and the daemon
+        # re-registers the worktree, so listing it mints a ticket no seat can
+        # act on (cli-20261010T130402Z-a3001936). Only a merged/superseded
+        # ticket -- or no ticket at all -- is idle. The four statuses below are
+        # the cases that pinned the bug: landing and human_needed were listed
+        # (wrong); superseded and no-ticket stay listed (right).
+        idle_tickets = (
+            ("landing", "landing"),      # the daemon is landing it: not idle
+            ("human", "human_needed"),   # parked for a person: not idle
+            ("super", "superseded"),     # closed residue: idle
+            ("none", ""),                # no ticket file: idle (fail-open)
+        )
+        for id_, status in idle_tickets:
+            w = Path(td) / f"wt-{id_}"
+            run("worktree", "add", "-q", "-b", f"wt/{id_}", str(w))
+            (w / f"{id_}.txt").write_text(id_)
+            subprocess.run(["git", "-C", str(w), "add", f"{id_}.txt"], capture_output=True)
+            subprocess.run(
+                ["git", "-C", str(w), "-c", "user.email=t@t", "-c", "user.name=t",
+                 "commit", "-qm", f"{id_} ahead"], capture_output=True)
+            os.utime(w, (1000, 1000))  # long idle, like the real four
+            if status:
+                (store / f"{id_}.md").write_text(
+                    f"---\nid: {id_}\ntitle: t\nstatus: {status}\n---\n\n## Report\n")
+        check("precondition: the fixture's statuses are read as written",
+              issue_statuses(gr).get("landing") == "landing"
+              and issue_statuses(gr).get("human") == "human_needed"
+              and issue_statuses(gr).get("super") in CLOSED_ISSUE_STATUSES
+              and "none" not in issue_statuses(gr), issue_statuses(gr))
+        listed = {b for b, _, _ in idle_branches(gr, hours=1)}
+        check("a wt/<id> worktree whose ticket the pipeline owns is not idle",
+              "landing" not in listed and "human" not in listed, listed)
+        check("a superseded ticket's worktree is still idle residue",
+              "super" in listed, listed)
+        check("a wt/<id> worktree with no ticket is still idle (fail-open)",
+              "none" in listed, listed)
 
         # The reward collectors must read repo-level shared state from inside
         # a task worktree (2026-09-30): a seat re-runs this script with

@@ -2090,6 +2090,12 @@ var handRoots = struct {
 		// mustAttackRequired scans MustAttack statics directly, with no
 		// activeStatics call; its Params reads are the whitelist switch.
 		"MustAttack": {"Engine.mustAttackRequired"},
+		// panharmoniconStatics (rules/statics_echo.go) holds the
+		// activeStatics("Panharmonicon") literal, but every Params read
+		// (ValidMode$/ValidCause$/.../ValidCard$) lives in its CALLER
+		// panharmoniconEchoes, which the root's callee closure never
+		// reaches. Declared so the mode's read set is the echoes walk's.
+		"Panharmonicon": {"Engine.panharmoniconEchoes"},
 		// untapOtherStaticsMatch scans UntapOtherPlayer statics directly over
 		// the face's Statics slice (Endbringer's foreign-untap shape), with
 		// no activeStatics call -- the same direct-scan shape

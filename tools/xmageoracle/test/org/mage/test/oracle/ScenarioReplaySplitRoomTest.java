@@ -242,6 +242,8 @@ public final class ScenarioReplaySplitRoomTest {
         System.out.println("PASS ordinary alias and unchanged spelling");
         checkFrontHalfAliasBinding();
         System.out.println("PASS front-half alias binding of a split/Room fixture");
+        checkEmptyNamedRoomBinding();
+        System.out.println("PASS a setup-placed Room whose XMage name is empty is bound by its scenario refs");
     }
 
     /** registerObjectAliases (registerAliases' per-object body, extracted so
@@ -320,5 +322,53 @@ public final class ScenarioReplaySplitRoomTest {
         equal(2, ScenarioReplay.registerFrontOccurrence(shared, 0, "Bottomless Pool // Locker Room"));
         equal("p0:Bottomless Pool#2", ScenarioReplay.frontHalfScenarioRef(0, "Bottomless Pool // Locker Room", 2));
         equal(0, ScenarioReplay.registerFrontOccurrence(shared, 1, "Grizzly Bears"));
+    }
+
+    /** A both-doors-locked Room permanent has the name "" in XMage
+     * (RoomCharacteristicsEffect strips both half names), and a setup-placed
+     * Room is always both-locked. The ref a scenario queues for it
+     * ("@p0:Bottomless Pool") must still be bound, to the permanent's id. */
+    private static void checkEmptyNamedRoomBinding() throws Exception {
+        mage.cards.b.BottomlessPoolLockerRoom room = new mage.cards.b.BottomlessPoolLockerRoom(
+                UUID.randomUUID(), new CardSetInfo("Bottomless Pool // Locker Room", "DSK", "1", Rarity.UNCOMMON));
+        // Precondition: the card setup deals is the whole Room object and its
+        // main card is itself, so the placement's id is the permanent's id.
+        equal("Bottomless Pool // Locker Room", room.getName());
+        equal(room.getId(), room.getMainCard().getId());
+
+        java.util.Map<UUID, String> placed = new java.util.HashMap<>();
+        java.util.List<mage.game.PutToBattlefieldInfo> placements = new java.util.ArrayList<>();
+        placements.add(new mage.game.PutToBattlefieldInfo(room, false));
+        ScenarioReplay.recordPlacedName(placed, placements, "Bottomless Pool");
+        equal("Bottomless Pool", placed.get(room.getId()));
+
+        // XMage's live name is "": without the placed name the object has no
+        // name to spell a ref by (the failing state), with it the fixture's
+        // dealt name.
+        java.util.Map<UUID, String> staged = new java.util.HashMap<>();
+        equal("", ScenarioReplay.setupObjectName(staged, new java.util.HashMap<>(), room.getId(), ""));
+        String name = ScenarioReplay.setupObjectName(staged, placed, room.getId(), "");
+        equal("Bottomless Pool", name);
+
+        // Drive the same ref computation registerAliases runs.
+        java.util.Map<String, String> refAlias = new LinkedHashMap<>();
+        java.util.Map<String, UUID> bound = new LinkedHashMap<>();
+        ScenarioReplay.bindSetupObject(0, name, "Keys to the House", "", new java.util.HashMap<>(),
+                new java.util.HashMap<>(), new java.util.HashMap<>(), room.getId(), refAlias,
+                (ref, id) -> bound.put(ref, id));
+        equal(room.getId(), bound.get("p0:Bottomless Pool"));
+        equal("@p0:Bottomless Pool", refAlias.get("p0:Bottomless Pool"));
+        if (bound.containsKey("p0:")) {
+            throw new AssertionError("the empty name still produced the ref \"p0:\": " + bound);
+        }
+
+        // A name XMage still reports wins over the placed name, and a staged
+        // back face wins over both.
+        equal("Dazzling Theater // Prop Room", ScenarioReplay.setupObjectName(staged, placed, room.getId(),
+                "Dazzling Theater // Prop Room"));
+        staged.put(room.getId(), "Front");
+        equal("Front", ScenarioReplay.setupObjectName(staged, placed, room.getId(), ""));
+        // An object setup never placed on the battlefield stays unnamed.
+        equal("", ScenarioReplay.setupObjectName(new java.util.HashMap<>(), placed, UUID.randomUUID(), ""));
     }
 }
