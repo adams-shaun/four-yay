@@ -32,6 +32,7 @@ import (
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/chars"
 	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -389,9 +390,15 @@ func (r *oracleRun) objName(o *state.Object) string {
 
 // fieldName is the name the snapshot reports for a permanent. A face-down
 // battlefield permanent has no name (CR 708.2a), so it reports the empty
-// string, exactly as the XMage driver's perm.getName() does. Otherwise a
-// battlefield object wears its layer-3 name (a SetName$ effect, CR 613.1b),
-// which may differ from its printed face name (Honest Work's Humble
+// string, exactly as the XMage driver's perm.getName() does. A battlefield
+// Room wears the CR 709.5 name its unlocked doors give it (chars.RoomName):
+// the empty string when both doors are locked, one door's name when one is
+// unlocked, "Left // Right" when both are -- the same string XMage's
+// RoomCharacteristicsEffect computes. A layer-3 SetName$ effect (CR 613.1b)
+// still wins over that printed-name rule, so a Room wears the derived name
+// when it differs from the printed face name (the only way an effect can
+// override it here). Every other battlefield object wears its layer-3 name
+// (which may differ from its printed face name -- Honest Work's Humble
 // Merchant). Every other zone names the printed face, since a continuous
 // effect only applies on the battlefield.
 func (r *oracleRun) fieldName(o *state.Object) string {
@@ -401,6 +408,12 @@ func (r *oracleRun) fieldName(o *state.Object) string {
 	if o.Zone == state.ZBattlefield {
 		if o.FaceDown {
 			return ""
+		}
+		if name, ok := chars.RoomName(o); ok {
+			if n := r.e.Derived(o.ID).Name; n != o.Face().Name {
+				return n
+			}
+			return name
 		}
 		if n := r.e.Derived(o.ID).Name; n != "" {
 			return n
