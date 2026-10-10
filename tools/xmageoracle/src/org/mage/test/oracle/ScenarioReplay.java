@@ -2706,10 +2706,30 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 addTarget(seat(a.get("seat").getAsInt()), TestPlayer.TARGET_SKIP);
                 continue;
             }
+            TestPlayer p = seat(a.get("seat").getAsInt());
+            String value = str(a, "value");
+            if (kind.equals("setup_mode")) {
+                // A setup-drive modal pick (Zuko, Conflicted's turn-1 charm):
+                // XMage poses chooseMode, or chooseUse for a yes/no
+                // GenericChoice, exactly as the step-time "mode" kind does.
+                if (value.equalsIgnoreCase("yes") || value.equalsIgnoreCase("no")) {
+                    setChoice(p, value.equalsIgnoreCase("yes"));
+                } else {
+                    setModeChoice(p, value);
+                }
+                continue;
+            }
             if (!kind.equals("setup_choice")) {
                 continue;
             }
-            queueSetupChoices(seat(a.get("seat").getAsInt()), str(a, "value"));
+            if (value.equals("yes") || value.equals("no")) {
+                // An optional boolean the setup drive posed (Gathering
+                // Stone's mill/reveal pair): XMage asks chooseUse, not a
+                // labelled choice.
+                setChoice(p, value.equals("yes"));
+                continue;
+            }
+            queueSetupChoices(p, value);
         }
     }
 
@@ -2759,6 +2779,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     break;
                 case "setup_choice":
                 case "setup_target":
+                case "setup_mode":
                     // Queued before setup placement; never enqueue it again at
                     // the corresponding gameplay step.
                     break;
