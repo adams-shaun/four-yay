@@ -819,7 +819,7 @@ func (r *oracleRun) submit(d *decision.Decision, choices []int, why string) erro
 			// A produced-Any ask is DynamicManaEffect's colour dialog at one
 			// unit and a WUBRG multi-amount above it, so it stays unmarked
 			// and the generator's existing routing answers it unchanged.
-			if _, ok := effects.ComboColours(d.ResumeSA.ParamStr(cards.PKProduced)); ok {
+			if _, ok := effects.ComboColours(effects.ManaOf(d.ResumeSA).Produced); ok {
 				od.ManaColours = manaAskColours(d)
 			}
 		}
