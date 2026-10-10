@@ -90,6 +90,12 @@ import (
 // prelude at a starting life just below the printed power (The Last Ride:
 // crewed 1/1 at life 12), so DFT loses its computed-count skip and its served
 // count rises by one.
+// Re-pinned by agent-20261009T124456Z-3f7d2756 (r2): the engine words the
+// 4a6b5965 landing added (effects/filter_word_game_rider.go) let two fixtures
+// observe for the first time -- the `Creature.attacking Opponent` static
+// (DFT Oviya, Automech Artisan, trample) and the `Card.!dealtCombatDamagetoAny`
+// static (FRA Ruric Thar, Magecrusher, hexproof) -- so each set loses its one
+// remaining generic-observability skip and its served count rises by one.
 // Re-pinned by agent-20261009T153027Z-bc3dacf9: the exiled-with fixture family
 // serves BIG Territory Forge by running the source's own ETB exile, and names
 // the measured engine gaps for the rows it cannot serve (FRA Null Summoner:

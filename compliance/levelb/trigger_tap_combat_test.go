@@ -34,6 +34,7 @@ func TestTapCombatClassification(t *testing.T) {
 		{"any player attacks with three", creature, "AttackersDeclared", map[string]string{"AttackingPlayer": "Player", "ValidAttackers": "Creature", "ValidAttackersAmount": "GE3"}, "trigger.attacks"},
 		{"mana tap is a static mana ability", creature, "TapsForMana", map[string]string{"ValidCard": "Land", "Static": "True"}, TapsForManaSub},
 		{"creature mana tap is a static mana ability", creature, "TapsForMana", map[string]string{"ValidCard": "Creature", "Static": "True"}, TapsForManaSub},
+		{"artifact token mana tap has a token probe", creature, "TapsForMana", map[string]string{"ValidCard": "Artifact.token", "Static": "True"}, TapsForManaSub},
 		{"you expend four", creature, "ManaExpend", map[string]string{"Amount": "4", "Player": "You"}, ManaExpendSub},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -51,7 +52,8 @@ func TestTapCombatClassification(t *testing.T) {
 		params map[string]string
 		want   string
 	}{
-		{"artifact token mana tap has no probe", creature, "TapsForMana", map[string]string{"ValidCard": "Artifact.token", "Static": "True"}, "trigger.gap:TapsForMana"},
+		{"artifact token mana tap with a qualifier has no probe", creature, "TapsForMana", map[string]string{"ValidCard": "Artifact.token+withFlying", "Static": "True"}, "trigger.gap:TapsForMana"},
+		{"artifact token mana tap producing G has no probe", creature, "TapsForMana", map[string]string{"ValidCard": "Artifact.token", "Produced": "G", "Static": "True"}, "trigger.gap:TapsForMana"},
 		{"teamwork tap", creature, "Taps", map[string]string{"ValidCard": "Card.Self", "Teamwork": "True"}, "trigger.gap:Taps"},
 		{"crewed vehicle taps", creature, "Taps", map[string]string{"ValidCard": "Card.CrewedBySource"}, "trigger.gap:Taps"},
 		{"class level trigger", creature, "Taps", map[string]string{"ValidCard": "Card.Self", "ClassBand": "3"}, "trigger.gap:Taps"},

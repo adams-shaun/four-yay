@@ -99,4 +99,42 @@ func TestTapsForManaRecipes(t *testing.T) {
 			}
 		})
 	}
+	// The artifact-token shape (Roxanne, Starfall Savant, `ValidCard$
+	// Artifact.token`): the tapped source is a Powerstone token the prelude's
+	// producer cast creates, never a setup permanent, and the activate
+	// checkpoint's pool holds the token's own {C} plus the reflected {C}
+	// ({C}{C}); the control run without the trigger source holds only {C},
+	// which is why the item was emitted at all (manaTapWith compares them).
+	t.Run("Roxanne, Starfall Savant", func(t *testing.T) {
+		const (
+			name = "Roxanne, Starfall Savant"
+			key  = "trigger#0.2"
+		)
+		it := triggerRequirement(t, reg, name, key, levelb.TapsForManaSub)
+		p0 := it.Scenario.Setup["p0"]
+		// Precondition: the trigger source is on the battlefield and the
+		// token producer is in hand, so the pool assertion below rides on the
+		// token the prelude really makes.
+		onField, inHand := false, false
+		for _, bf := range p0.Battlefield {
+			onField = onField || bf == name
+		}
+		for _, h := range p0.Hand {
+			inHand = inHand || h == "Argothian Opportunist"
+		}
+		if !onField || !inHand {
+			t.Fatalf("precondition: %s battlefield=%v hand=%v, want %s on the battlefield and the producer in hand", name, p0.Battlefield, p0.Hand, name)
+		}
+		tapsToken, waitsForUntap := false, false
+		for _, st := range it.Scenario.Steps {
+			tapsToken = tapsToken || (st.Op == "activate" && st.Card == "p0:token:Powerstone Token")
+			waitsForUntap = waitsForUntap || (st.Op == "pass_to" && st.Step == "upkeep" && st.Active == "p0")
+		}
+		if !tapsToken || !waitsForUntap {
+			t.Fatalf("precondition: steps tap=%v untap-wait=%v, want an activate of the Powerstone token after a pass_to upkeep", tapsToken, waitsForUntap)
+		}
+		if p := poolAtCheckpoint(t, reg, it, "(activate)"); p != "CC" {
+			t.Fatalf("%s: pool at the activate checkpoint = %q, want CC (the token's {C} plus the reflected {C}; the control without %s holds {C})", name, p, name)
+		}
+	})
 }

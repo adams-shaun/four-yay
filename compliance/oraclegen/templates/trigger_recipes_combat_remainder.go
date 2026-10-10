@@ -87,6 +87,17 @@ func remainderTriggerRecipe(reg *cards.Registry, f *cards.Face, name string, t *
 		for _, probe := range loyaltyProbes {
 			add(opponentLoyaltyCause(reg, name, probe))
 		}
+		// Avalanche of Sector 7's artifact half: ValidSA$ Activated.OppCtrl
+		// without the Loyalty token is an artifact ability the opponent
+		// activates on their own artifact (ValidSAonCard$ Activated.YouCtrl);
+		// a probe artifact's non-mana ability is the cause (Sensei's Divining
+		// Top, whose {1} rearrange leaves the source on the battlefield at
+		// push time).
+		if !strings.Contains(strings.ToLower(t.ParamStr(cards.PKValidSA)), "loyalty") &&
+			(t.ParamStr(cards.PKValidCard) == "" ||
+				strings.Contains(strings.ToLower(t.ParamStr(cards.PKValidCard)), "artifact")) {
+			add(opponentArtifactAbilityCause(reg, "Sensei's Divining Top"))
+		}
 	case "trigger.ability-triggered":
 		// Borderland Marauder's own "whenever this attacks" line is the
 		// causing ability: attacking with it emits the engine's

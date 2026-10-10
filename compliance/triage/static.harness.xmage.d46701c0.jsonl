@@ -1,0 +1,2 @@
+{"shape":{"template":"static","op":"harness","field":"xmage","diff":"IllegalStateException: Error in unit tests: move card pN:Grizzly Bears is not in PlayerA's […]"},"key":"static | harness | xmage | IllegalStateException: Error in unit tests: move card pN:Grizzly Bears is not in PlayerA's […]","cards":1}
+{"card":"The Masamune","template":"static#0.1","status":"harness","api":"-","sets":["FIN"],"detail":"xmage: IllegalStateException: Error in unit tests: move card p0:Grizzly Bears is not in PlayerA's [HAND, GRAVEYARD, LIBRARY, exile zone]"}

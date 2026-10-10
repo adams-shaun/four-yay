@@ -100,6 +100,23 @@ func classifyEventTrigger(t *cards.Trigger) (sub string, ok bool) {
 		// controller for You/Player, an opponent for Opponent); the engine's
 		// LifeLost matcher still decides per card whether the loss fires it.
 		return "trigger.life-lost", true
+	case cards.TriggerSearchedLibrary:
+		// "Whenever an opponent searches their library" (Wan Shi Tong,
+		// Librarian; Archivist of Oghma; Ob Nixilis Unshackled): the cause is
+		// p1 casting a tutor, whose completed search emits the
+		// events.SearchedLibrary marker naming p1. The cause guarantees only
+		// an opponent's own-library search with no card narrowing; every
+		// other shape stays a gap.
+		switch strings.ToLower(strings.TrimSpace(t.ParamStr(cards.PKValidPlayer))) {
+		case "", "player", "opponent", "player.opponent":
+		default:
+			return "", false
+		}
+		if !strings.EqualFold(strings.TrimSpace(t.Params["SearchOwnLibrary"]), "True") ||
+			strings.TrimSpace(t.ParamStr(cards.PKValidCard)) != "" {
+			return "", false
+		}
+		return "trigger.searched-library", true
 	case cards.TriggerTransformed:
 		// "Whenever this permanent transforms into CARDNAME": a self-transform
 		// body (ValidCard$ Card.Self). The cause is the card's own Phase
@@ -137,10 +154,12 @@ func classifyEventTrigger(t *cards.Trigger) (sub string, ok bool) {
 		if namesSelf(t.ParamStr(cards.PKValidCard)) || discardByController(t) {
 			return "trigger.discarded", true
 		}
+		return discardedOpponentSub(t)
 	case cards.TriggerDiscardedAll:
 		if discardByController(t) {
 			return "trigger.discarded", true
 		}
+		return discardedOpponentSub(t)
 	case cards.TriggerAttackersDeclaredOneTarget:
 		if namesYouCtrl(t.ParamStr(cards.PKValidAttackers)) && strings.EqualFold(t.ParamStr(cards.PKAttackedTarget), "Player") {
 			return "trigger.attacks-one-target", true
@@ -165,6 +184,34 @@ func classifyEventTrigger(t *cards.Trigger) (sub string, ok bool) {
 			strings.Contains(strings.ToLower(t.ParamStr(cards.PKValidSource)), "youctrl") {
 			return "trigger.ability-triggered", true
 		}
+	case cards.TriggerChangesController:
+		// "Whenever an opponent gains control of a permanent from you"
+		// (Zidane, Tantalus Thief): the cause is p1's Threaten taking a p0
+		// creature, so the cause serves only an opponent-new-controller shape
+		// whose original controller is (or is not narrowed past) the trigger's
+		// own controller. The engine's matcher reads ValidCard$ post-change.
+		switch strings.ToLower(strings.TrimSpace(t.ParamStr(cards.PKValidOriginalController))) {
+		case "", "you":
+		default:
+			return "", false
+		}
+		if t.ParamStr(cards.PKValidNewController) != "" ||
+			!filterHasToken(t.ParamStr(cards.PKValidCard), "OppCtrl") {
+			return "", false
+		}
+		return "trigger.changes-controller", true
+	case cards.TriggerExiled:
+		// Market Gnome's "when this is exiled from the battlefield while
+		// you're activating a craft ability": the cause is p0 activating a
+		// probe Craft ability whose only legal material is the source itself.
+		// The WhileKeyword$ gate is what the cause guarantees; an Exiled
+		// shape without it has no craft cause and stays a gap.
+		if !strings.EqualFold(t.ParamStr(cards.PKOrigin), "Battlefield") ||
+			!namesSelf(t.ParamStr(cards.PKValidCard)) ||
+			!strings.Contains(strings.ToLower(t.Params["WhileKeyword"]), "craft") {
+			return "", false
+		}
+		return "trigger.exiled-craft", true
 	case cards.TriggerClassLevelGained:
 		// "When this Class becomes level N": the card's own Class. The body
 		// carries ClassBand$ N (the level that fires it).
@@ -195,6 +242,19 @@ func discardByController(t *cards.Trigger) bool {
 	}
 	filter := strings.ToLower(t.ParamStr(cards.PKValidCard))
 	return !strings.Contains(filter, "oppown") && !strings.Contains(filter, "oppctrl")
+}
+
+// discardedOpponentSub names the opponent-scoped discard shape the
+// Mind-Rot-at-p1 cause serves: the discarded card is an opponent's, and the
+// discarding player filter (if any) admits the opponent the cause makes
+// discard. Everything narrower stays a gap.
+func discardedOpponentSub(t *cards.Trigger) (string, bool) {
+	switch strings.ToLower(strings.TrimSpace(t.ParamStr(cards.PKValidPlayer))) {
+	case "", "player", "opponent", "player.opponent":
+	default:
+		return "", false
+	}
+	return "trigger.discarded-opponent", true
 }
 
 // landPlayedFilterBare reports whether a LandPlayed trigger's ValidCard
