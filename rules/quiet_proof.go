@@ -547,7 +547,7 @@ func (e *Engine) quietHandBlocker(p state.PlayerID, ceiling int32, unbounded, so
 		if quietFaceGrantedHeadFacts(o, o.Face(), oFF) {
 			return qbHandAbility
 		}
-		if abQuietBlocked(e, p, oFF.quiet.abQuiet[3], o, ceiling, unbounded, sorceryOpen) {
+		if abQuietBlocked(e, p, &oFF.quiet.abQuiet[3], o, ceiling, unbounded, sorceryOpen) {
 			return qbHandAbility
 		}
 	}
@@ -799,7 +799,7 @@ func (e *Engine) quietBattlefieldBlocker(p state.PlayerID, ceiling int32, unboun
 					return qbBattlefieldStack
 				}
 				if zidx >= 0 {
-					aq := ff.quiet.abQuiet[zidx]
+					aq := &ff.quiet.abQuiet[zidx]
 					if abQuietBlocked(e, p, aq, o, ceiling, unbounded, sorceryOpen) {
 						return qbBattlefieldAbility
 					}
@@ -885,8 +885,8 @@ func (e *Engine) quietObjectFacts(o *state.Object) (*walkFaceFacts, quietBlocker
 // hold; an unpriceable cost stays nonMana and blocks outright. p is the seat
 // the proof evaluates (the activating player the parts' counts are read
 // for).
-func abQuietBlocked(e *Engine, p state.PlayerID, aq abQuietZone, o *state.Object, ceiling int32, unbounded, sorceryOpen bool) bool {
-	if !aq.any {
+func abQuietBlocked(e *Engine, p state.PlayerID, aq *abQuietZone, o *state.Object, ceiling int32, unbounded, sorceryOpen bool) bool {
+	if aq == nil || !aq.any {
 		return false
 	}
 	if aq.nonMana {
