@@ -1,0 +1,426 @@
+{
+ "source": "Mage.Tests/src/test/java/org/mage/test/cards/replacement/{DoublingSeasonTest,WouldDieExileInsteadTest,LeylineOfTheVoidTest,PanharmoniconTest}.java (XMage, MIT)",
+ "scenarios": [
+  {
+   "name": "doubling-season-test-of-faith",
+   "xmage": "DoublingSeasonTest#test_Counters_ByPreventEffect",
+   "cr": [
+    "614.1a",
+    "615.1",
+    "122.6"
+   ],
+   "why": "Test of Faith prevents 3 of Lightning Helix's damage and puts that many +1/+1 counters; Doubling Season doubles them to 6.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Doubling Season",
+      "Silvercoat Lion"
+     ],
+     "hand": [
+      "Test of Faith"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Helix"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Test of Faith",
+     "mana": "CW",
+     "targets": [
+      "p0:Silvercoat Lion"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Lightning Helix",
+     "mana": "RW",
+     "targets": [
+      "p0:Silvercoat Lion"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 23
+     }
+    },
+    {
+     "card": "p0:Silvercoat Lion",
+     "counters": {
+      "p1p1": 6
+     },
+     "pt": "8/8"
+    }
+   ],
+   "known_bug": "Test of Faith's prevention works but its +1/+1 counter rider never runs: effects/prevent_damage.go:96 only accepts ShieldEffectTarget$ ParentTarget (Test of Faith says Targeted) and rules/replacement_damage.go:212 resolves only a DealDamage PreventionSubAbility$ (this one is PutCounter); both emit a loud 'unimplemented' Note."
+  },
+  {
+   "name": "doubling-season-liliana-plus-one",
+   "xmage": "DoublingSeasonTest#test_Tokens_ByPlaneswalkerActivate",
+   "cr": [
+    "614.1a",
+    "111.1"
+   ],
+   "why": "Liliana's +1 makes one Zombie; Doubling Season doubles it.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Liliana, Dreadhorde General",
+      "Doubling Season"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Liliana, Dreadhorde General",
+     "ability_index": 0
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Zombie"
+     },
+     "eq": 2
+    }
+   ]
+  },
+  {
+   "name": "kalitas-damnation",
+   "xmage": "WouldDieExileInsteadTest#kalitasDamnationInteraction",
+   "cr": [
+    "614.1a",
+    "614.6"
+   ],
+   "why": "Kalitas exiles each opponent's dying nontoken creature instead and makes a Zombie per exile, even while Kalitas itself dies simultaneously.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Kalitas, Traitor of Ghet"
+     ],
+     "hand": [
+      "Damnation"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Bronze Sable",
+      "Wall of Roots",
+      "Sigiled Starfish"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Damnation",
+     "mana": "CCBB"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "graveyard",
+      "name": "Kalitas, Traitor of Ghet"
+     },
+     "eq": 1
+    },
+    {
+     "count": {
+      "seat": 1,
+      "zone": "exile",
+      "name": "Bronze Sable"
+     },
+     "eq": 1
+    },
+    {
+     "count": {
+      "seat": 1,
+      "zone": "exile",
+      "name": "Wall of Roots"
+     },
+     "eq": 1
+    },
+    {
+     "count": {
+      "seat": 1,
+      "zone": "exile",
+      "name": "Sigiled Starfish"
+     },
+     "eq": 1
+    },
+    {
+     "graveyard_size": {
+      "p1": 0
+     }
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Zombie"
+     },
+     "eq": 3
+    }
+   ],
+   "known_bug": "DestroyAll moves victims one MoveZone at a time in seat order (effects/zone_bulk.go:155-170); Kalitas (seat 0) leaves first, so its ActiveZones$ Battlefield move replacement is gone before the opponent's creatures move. CR 614.6/603.10: a replacement on a permanent destroyed simultaneously still applies. control-kalitas-murder (Kalitas surviving) passes."
+  },
+  {
+   "name": "leyline-of-the-void-murder",
+   "xmage": "LeylineOfTheVoidTest#testMorbidAbility (exile half)",
+   "cr": [
+    "614.1a"
+   ],
+   "why": "An opponent's creature that would go to the graveyard is exiled instead.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Leyline of the Void"
+     ],
+     "hand": [
+      "Murder"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Memnite"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Murder",
+     "mana": "CBB",
+     "targets": [
+      "p1:Memnite"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 1,
+      "zone": "exile",
+      "name": "Memnite"
+     },
+     "eq": 1
+    },
+    {
+     "graveyard_size": {
+      "p1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "panharmonicon-doubles-etb-triggers",
+   "xmage": "PanharmoniconTest#testAddsTrigger",
+   "cr": [
+    "603.2d"
+   ],
+   "why": "Panharmonicon makes each ETB trigger of a creature entering trigger twice: Soul Warden sees itself? no -- Soul Warden sees Devout Monk (x2) and Devout Monk's own ETB (x2): 20 + 2 + 2 = 24.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Panharmonicon"
+     ],
+     "hand": [
+      "Soul Warden",
+      "Devout Monk"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Soul Warden",
+     "mana": "W"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Devout Monk",
+     "mana": "W"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 24
+     }
+    }
+   ]
+  },
+  {
+   "name": "control-test-of-faith-alone",
+   "xmage": "(control, derived from DoublingSeasonTest#test_Counters_ByPreventEffect)",
+   "cr": [
+    "614.1a",
+    "615.1",
+    "122.6"
+   ],
+   "why": "Control without Doubling Season: Test of Faith alone turns 3 prevented damage into three +1/+1 counters.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Silvercoat Lion"
+     ],
+     "hand": [
+      "Test of Faith"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Helix"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Test of Faith",
+     "mana": "CW",
+     "targets": [
+      "p0:Silvercoat Lion"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Lightning Helix",
+     "mana": "RW",
+     "targets": [
+      "p0:Silvercoat Lion"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 23
+     }
+    },
+    {
+     "card": "p0:Silvercoat Lion",
+     "counters": {
+      "p1p1": 3
+     },
+     "pt": "5/5"
+    }
+   ],
+   "known_bug": "Same as doubling-season-test-of-faith: PutCounter PreventionSubAbility$ rider unimplemented (rules/replacement_damage.go:212, effects/prevent_damage.go:96)."
+  },
+  {
+   "name": "control-kalitas-murder",
+   "xmage": "(control, derived from WouldDieExileInsteadTest#kalitasDamnationInteraction)",
+   "cr": [
+    "614.1a",
+    "614.6"
+   ],
+   "why": "Control: Kalitas survives; one opponent creature destroyed is exiled and a Zombie is made.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Kalitas, Traitor of Ghet"
+     ],
+     "hand": [
+      "Murder"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Bronze Sable"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Murder",
+     "mana": "CBB",
+     "targets": [
+      "p1:Bronze Sable"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 1,
+      "zone": "exile",
+      "name": "Bronze Sable"
+     },
+     "eq": 1
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Zombie"
+     },
+     "eq": 1
+    }
+   ]
+  }
+ ]
+}
