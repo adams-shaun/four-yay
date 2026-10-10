@@ -40,8 +40,7 @@
       "Swamp"
      ]
     }
-   ],
-   "known_bug": "CR 613.8 layer-4 dependency not modelled: rules/chars/types.go:118 walks LType effects in pure timestamp order, so Urborg's Swamp grant still applies after Blood Moon removed Urborg's ability (Urborg and Plains both read Swamp)."
+   ]
   },
   {
    "name": "urborg-animate-land-then-ovinize",
@@ -172,8 +171,7 @@
      },
      "eq": 0
     }
-   ],
-   "known_bug": "SetPower$/SetToughness$ AffectedX is anchored on the static's SOURCE: rules/chars/derive.go:127 and :133 pass ce.Source to StaticAmount (the SubModify arm at :155-:165 honours AddPowerAffected; the SubSet arm has no equivalent), so every Opalescence creature gets Opalescence's own MV 4 (lands 4/4 survive)."
+   ]
   },
   {
    "name": "humility-march-lattice-lands-die",
@@ -244,8 +242,7 @@
      },
      "eq": 0
     }
-   ],
-   "known_bug": "CR 613.8 layer-4 dependency not modelled (rules/chars/types.go:118 timestamp-only walk): March of the Machines (earlier timestamp) is not reapplied after Mycosynth Lattice makes the lands artifacts, so lands are noncreature artifacts and survive; with the walk fixed the AffectedX source-anchor bug (rules/chars/derive.go:127) would still make them 4/4."
+   ]
   },
   {
    "name": "humility-masumaro",
@@ -355,8 +352,7 @@
      ],
      "pt": "6/6"
     }
-   ],
-   "known_bug": "Both layer bugs: CR 613.8 layer-4 dependency (rules/chars/types.go:118; Conspiracy is applied before Opalescence/Enchanted Evening make the permanents creatures, so nothing becomes an Advisor) and the AffectedX source anchor (rules/chars/derive.go:127; Swamp 4/4 instead of 0/0+anthem)."
+   ]
   },
   {
    "name": "control-opalescence-alone",
@@ -401,8 +397,7 @@
       "Creature"
      ]
     }
-   ],
-   "known_bug": "Same root cause as opalescence-enchanted-evening-lands-die: rules/chars/derive.go:127/:133 anchor AffectedX on the source (Glorious Anthem reads 5/5 = Opalescence's MV 4 + anthem, want 4/4)."
+   ]
   }
  ]
 }

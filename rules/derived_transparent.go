@@ -350,6 +350,7 @@ func derivedEffectEqual(a, b *ContinuousEffect) bool {
 		a.AddPowerExpr == b.AddPowerExpr && a.AddToughnessExpr == b.AddToughnessExpr &&
 		a.AddPowerAffected == b.AddPowerAffected && a.AddToughnessAffected == b.AddToughnessAffected &&
 		a.SetPowerExpr == b.SetPowerExpr && a.SetToughnessExpr == b.SetToughnessExpr &&
+		a.SetPowerAffected == b.SetPowerAffected && a.SetToughnessAffected == b.SetToughnessAffected &&
 		a.SetName == b.SetName && a.TextFrom == b.TextFrom && a.TextTo == b.TextTo &&
 		a.TextSet == b.TextSet && a.TextSetSet == b.TextSetSet &&
 		a.OverwriteColors == b.OverwriteColors && a.RemoveCreatureTypes == b.RemoveCreatureTypes &&

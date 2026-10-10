@@ -20,7 +20,7 @@ import (
 // it is compared here.
 
 const (
-	continuousEffectFieldCount = 112
+	continuousEffectFieldCount = 114
 	attackOfferFieldCount      = 4
 	blockChargeFieldCount      = 7
 	objectTypesFieldCount      = 3
@@ -81,6 +81,8 @@ func continuousEffectEqual(a, b *ContinuousEffect) bool {
 		a.AddToughnessAffected == b.AddToughnessAffected &&
 		a.SetPowerExpr == b.SetPowerExpr &&
 		a.SetToughnessExpr == b.SetToughnessExpr &&
+		a.SetPowerAffected == b.SetPowerAffected &&
+		a.SetToughnessAffected == b.SetToughnessAffected &&
 		a.SetPowerPresent == b.SetPowerPresent &&
 		a.SetToughnessPresent == b.SetToughnessPresent &&
 		a.StaticSet == b.StaticSet &&
