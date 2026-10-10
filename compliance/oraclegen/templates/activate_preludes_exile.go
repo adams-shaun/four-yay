@@ -99,13 +99,17 @@ func manaReflectedPlayPrelude(sa *cards.SA, name string, p0 *oraclegen.Seat) ([]
 }
 
 // craftActivatePrelude supplies the prelude for a requirement on a face after
-// 0 whose front face has a Craft ability (Sunbird Standard's Sunbird Effigy):
-// the front face is placed on the battlefield and its Craft activation exiles
-// a material, so the card transforms and the back face enters with the
-// ExiledWith set populated. The caller must NOT mark the card as a back-face
-// setup. ok is false for a face-0 requirement or a front face with no Craft.
-func craftActivatePrelude(reg *cards.Registry, name string, face int, p0 *oraclegen.Seat) (steps []oraclegen.Step, xab []string, cost string, ok bool) {
-	if face <= 0 {
+// 0 whose front face has a Craft ability AND whose own ability reads the
+// crafted exile set (Sunbird Standard's Sunbird Effigy, "Produced$ Special
+// EachColorAmong_ExiledWith"): the front face is placed on the battlefield and
+// its Craft activation exiles a material, so the card transforms and the back
+// face enters with the ExiledWith set populated. The caller must NOT mark the
+// card as a back-face setup. ok is false for a face-0 requirement, a front
+// face with no Craft, or a back-face ability that does not read the exile set
+// (Spring-Loaded Sawblades' Bladewheel Chariot, whose Animate is served by the
+// back-face setup as before).
+func craftActivatePrelude(reg *cards.Registry, name string, sa *cards.SA, face int, p0 *oraclegen.Seat) (steps []oraclegen.Step, xab []string, cost string, ok bool) {
+	if face <= 0 || !abilityReadsExiledWith(sa) {
 		return nil, nil, "", false
 	}
 	c, found := reg.Lookup(name)
@@ -118,4 +122,20 @@ func craftActivatePrelude(reg *cards.Registry, name string, face int, p0 *oracle
 	}
 	p0.Graveyard = append(p0.Graveyard, materials...)
 	return steps, xab, cost, true
+}
+
+// abilityReadsExiledWith reports whether any of the ability's parameter values
+// names the crafted exile set ("ExiledWith"): the signal that the ability is
+// observable only once the Craft activation has populated that set. Iterating
+// the param map only feeds a boolean OR, so map order never reaches an event.
+func abilityReadsExiledWith(sa *cards.SA) bool {
+	if sa == nil {
+		return false
+	}
+	for _, v := range sa.Params {
+		if strings.Contains(v, "ExiledWith") {
+			return true
+		}
+	}
+	return false
 }

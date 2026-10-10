@@ -255,7 +255,7 @@ func activateWithFixture(reg *cards.Registry, f *cards.Face, name string, req le
 	// A requirement on a back face whose front face has a Craft ability
 	// (Sunbird Effigy) is reached by crafting the front face, not by a
 	// back-face setup: the Craft prelude populates the ExiledWith set.
-	craftSteps, craftXab, craftCost, craftOK := craftActivatePrelude(reg, name, req.Face, &p0)
+	craftSteps, craftXab, craftCost, craftOK := craftActivatePrelude(reg, name, f.Abilities[idx], req.Face, &p0)
 	prelude := make([]oraclegen.Step, 0, len(fxPre)+len(restrictSteps)+len(costAttach)+len(sourceAttach)+len(combat)+len(craftSteps)+len(mrPlay)+1)
 	if isLoyaltyCost(cost) {
 		// CR 606.3: a loyalty ability needs an empty stack. The setup can
