@@ -237,7 +237,9 @@ func (e *Engine) quietBlocker(p state.PlayerID) quietBlockerID {
 func (e *Engine) quietBoardBlocker(p state.PlayerID) quietBlockerID {
 	ces := e.active()
 	sum := e.activeSummaryOf(ces)
-	if sum.hasGrants {
+	// Flag 1 (Q3c): per seat. A grant whose Affected$ cannot reach an object
+	// p controls, and whose abilities carry no Activator$, is not p's.
+	if sum.hasGrants && e.quietGrantsReachSeat(ces, p) {
 		return qbBoardGrant
 	}
 	// Any active may-play grant. mayPlaySpellIds covers the zone-permission
@@ -246,14 +248,23 @@ func (e *Engine) quietBoardBlocker(p state.PlayerID) quietBlockerID {
 	// copies of the same grant are the "cast from hand for a substituted
 	// cost" family mayPlayAltCosts serves. The static half is read by the
 	// existence scan below; the effect-delivered half here.
-	for _, ce := range ces {
-		if ce.MayPlay {
+	// Flag 3 (Q3c): every reader of an effect-delivered may-play grant gates
+	// on ce.Controller == p (mayPlayBoardGrantsOpen, mayPlaySpellIds,
+	// mayPlayLandAny, mayPlayGrantedBy, MayPlayRider), so another seat's
+	// grant offers p nothing.
+	for i := range ces {
+		if ces[i].MayPlay && ces[i].Controller == p {
 			return qbBoardMayPlay
 		}
 	}
+	// Flag 5 (Q3c): the global head list answers "no head blocks" at once;
+	// only when one does is each granting effect scoped to p.
 	for _, h := range e.activeKWHeads {
 		if quietActiveKWGrantBlocker(h) || quietGraveRecastGrantHead(h) {
-			return qbBoardKeyword
+			if e.quietKWGrantsReachSeat(ces, p) {
+				return qbBoardKeyword
+			}
+			break
 		}
 	}
 	// An active cost-minting ContinuousEffect (appendEffectCostStatics'
@@ -276,7 +287,7 @@ func (e *Engine) quietBoardBlocker(p state.PlayerID) quietBlockerID {
 	if quietVerifyOn() {
 		e.quietBoardStaticGuard(p)
 	}
-	if h := e.quietBoardStaticScan(false); h != 0 {
+	if h := e.quietBoardStaticScan(p, false); h != 0 {
 		switch {
 		case h&qbhAddAbility != 0:
 			return qbBoardGrant
