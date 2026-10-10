@@ -598,6 +598,9 @@ func staticBase(reg *cards.Registry, c *cards.Card, f *cards.Face, name string, 
 			copy(base.XAbility[len(base.Steps)-len(cond.afterXab):], cond.afterXab)
 		}
 	}
+	if cond != nil && cond.chosenType != "" && !answerChosenType(&base, cond.chosenType) {
+		return base, "chosen type has no as-enters ask to script"
+	}
 	if cond != nil && cond.opponentTurn {
 		// A Condition$ NotPlayerTurn static (Midnight Mangler) is false on
 		// p0's own turn; advance to p1's first main phase so its controller
