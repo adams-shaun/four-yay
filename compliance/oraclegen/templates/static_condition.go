@@ -97,6 +97,10 @@ type staticFixture struct {
 	// beholdPick scripts the card's own cast's behold-cost pick to this card
 	// (staticBeholdFixtures), so the battlefield probe is not exiled to pay.
 	beholdPick string
+	// selfPT is the +n/+n the fixture's own prelude puts on the card under
+	// test (a +1/+1 counter): the compared card P/T is raised by it, so only
+	// a change the static itself makes is observable.
+	selfPT [2]int32
 }
 
 // setupOnly reports whether the fixture needs no steps, so it also fits the
@@ -218,6 +222,9 @@ func (s staticFixture) merge(o staticFixture) staticFixture {
 	}
 	if s.beholdPick == "" {
 		s.beholdPick = o.beholdPick
+	}
+	if s.selfPT == ([2]int32{}) {
+		s.selfPT = o.selfPT
 	}
 	for kind, n := range o.probeCounters {
 		if s.probeCounters == nil {
@@ -659,6 +666,7 @@ func staticFixtures(reg *cards.Registry, c *cards.Card, f *cards.Face, name stri
 	out = append(out, staticChosenTypeFixtures(f, st)...)
 	out = append(out, staticStealFixtures(reg, st)...)
 	out = append(out, staticBeholdFixtures(f)...)
+	out = append(out, staticCountersAddedFixtures(reg, f, st)...)
 	// A fixture that puts a copy of the card under test on the battlefield
 	// (a named-permanents count such as Phoenix Fleet Airship's eight copies)
 	// cannot also CAST it: the two share a name, so the cast step's "pN:Name"

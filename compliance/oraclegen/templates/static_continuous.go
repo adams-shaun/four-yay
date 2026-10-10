@@ -650,6 +650,9 @@ func (s staticFixture) baseline() staticBaseline {
 	case "self":
 		bl.cardPT = s.attachPT
 	}
+	if s.selfPT != ([2]int32{}) {
+		bl.cardPT = s.selfPT
+	}
 	if s.tokenName != "" {
 		bl.tokens = map[string]staticProbeSpec{s.tokenName: s.tokenSpec}
 	}
