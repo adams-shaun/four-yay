@@ -1099,7 +1099,7 @@ zoneLoop:
 				if !ok {
 					continue
 				}
-				if e.matchesSpec(tspec, oid, sc) {
+				if e.matchesTargetSpec(tspec, oid, sc) {
 					out = append(out, targetCandidate{kind: stackTargetOptionKind(e.stackObjKind(o)), obj: oid, player: o.Controller})
 					if limit > 0 && len(out) >= limit {
 						break zoneLoop
