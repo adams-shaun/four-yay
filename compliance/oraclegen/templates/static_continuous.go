@@ -375,6 +375,12 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 	if gap := staticGap(st, affected); gap != "" {
 		return skip(gap)
 	}
+	// A static over cards exiled with the source a fixture could not make
+	// observable: name the measured engine gap rather than the generic
+	// "counts cards exiled with the source" (static_fixture_exile.go).
+	if gap := staticExileWithGap(f, st); gap != "" {
+		return skip(gap)
+	}
 	if gap := staticConditionGap(f, st); gap != "" {
 		return skip(gap)
 	}
