@@ -58,6 +58,9 @@ import (
 // and an AdjustLandPlays$ grant whose source carries a land-entry trigger
 // resolves it before the second-land assertion (EOE Icetill Explorer leaves
 // the player-rule skip).
+// Re-pinned by the G7 engine-gap merge (6e4f59c17: the attacking
+// <PlayerSpec> rider and dealtDamagetoAny words): one DFT and one FRA
+// generic-observability skip become served.
 // Re-pinned again by agent-20261009T060626Z-a6d0cf40: the Surveyor cycle's
 // graveyard AddAbility$ grant is served by the off-battlefield arm of the
 // gated-grant observation (the engine offers the granted activation on the
@@ -91,8 +94,8 @@ var wantStaticContinuousCensus = map[string]map[string]int{
 		"skip:static needs counters on the affected permanent":                                       1,
 	},
 	"FRA": {
-		"served": 34,
-		"skip:static effect not observable on a probe or the card":                   2,
+		"served": 35,
+		"skip:static effect not observable on a probe or the card":                   1,
 		"skip:static grants a static ability (observed only through its own effect)": 1,
 		"skip:static counts cards exiled with the source":                            1,
 		"skip:static grants only keywords outside the compared evergreen set":        1,
@@ -106,9 +109,8 @@ var wantStaticContinuousCensus = map[string]map[string]int{
 	// 20261009T055718Z-17e92d7b) is the generic-observability row the
 	// advanced-scenario path serves.
 	"DFT": {
-		"served": 59,
+		"served": 60,
 		"skip:static characteristic-defining P/T of a non-creature (the snapshot omits its P/T)": 1,
-		"skip:static effect not observable on a probe or the card":                               1,
 		"skip:static gated self grant is not offered in the gate-on fixture":                     1,
 		"skip:static grants a static ability (observed only through its own effect)":             1,
 		"skip:static grants a replacement effect (needs an event the replacement can change)":    2,
