@@ -127,6 +127,7 @@ import "embed"
 //go:embed slot.go
 //go:embed strtab.go
 //go:embed subset.go
+//go:embed svar_activator.go
 //go:embed tokens.go
 //go:embed universe.go
 //go:embed validate.go
