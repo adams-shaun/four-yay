@@ -1,0 +1,4 @@
+{"shape":{"template":"activate","op":"setup","field":"permanents","diff":"gorge+Bottomless Pool; xmage+"},"key":"activate | setup | permanents | gorge+Bottomless Pool; xmage+","cards":3}
+{"card":"Intruding Soulrager","template":"activate#0.0","status":"diverge","api":"-","sets":["DSK"],"detail":"setup permanents: gorge \"c0 o0 Bottomless Pool [enchantment room] {U}\", xmage \"c0 o0  [enchantment room] {U}\""}
+{"card":"Keys to the House","template":"activate#0.1","status":"diverge","api":"-","sets":["DSK"],"detail":"setup permanents: gorge \"c0 o0 Bottomless Pool [enchantment room] {U}\", xmage \"c0 o0  [enchantment room] {U}\""}
+{"card":"Marina Vendrell","template":"activate#0.0","status":"diverge","api":"ChangesZone:Dig","sets":["DSK"],"detail":"setup permanents: gorge \"c0 o0 Bottomless Pool [enchantment room] {U}\", xmage \"c0 o0  [enchantment room] {U}\""}

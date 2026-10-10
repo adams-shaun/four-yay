@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"pass_to","field":"turn","diff":"gorge=3 xmage=5"},"key":"activate | pass_to | turn | gorge=3 xmage=5","cards":1}
+{"card":"Pit of Offerings","template":"activate#0.1","status":"diverge","api":"ChangesZone:ChangeZone","sets":["LCI"],"detail":"step 3 (pass_to) turn: gorge \"3\", xmage \"5\""}
