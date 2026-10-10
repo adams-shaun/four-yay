@@ -676,6 +676,8 @@ var specialPositiveTokenSet = state.NewNameSet(
 	"TriggeredNewCard",
 	"TriggeredCard",
 	"TriggeredCards",
+	"TriggeredTarget",
+	"NotDefinedTriggeredTarget",
 	"blockingTriggeredAttacker",
 	"EffectSource",
 	"IsGoaded",
