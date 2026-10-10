@@ -85,7 +85,7 @@ func spellCastYouDontOwnCause(reg *cards.Registry) (triggerCause, bool) {
 			continue
 		}
 		cost := sa.ParamStr(cards.PKCost)
-		mana, gap := activationCostIn(cost, "battlefield")
+		mana, gap := activationCostIn(cost, "battlefield", granter)
 		if gap != "" {
 			continue
 		}
@@ -95,7 +95,7 @@ func spellCastYouDontOwnCause(reg *cards.Registry) (triggerCause, bool) {
 		}
 		idx := i
 		setup := oraclegen.Seat{}
-		addActivationCostFixtures(&setup, cost)
+		addActivationCostFixtures(&setup, granter, cost)
 		answers := activationXAnswers(cost)
 		if len(setup.Battlefield) > 0 {
 			// The cost's own fixture table names the sacrifice; scripting it
