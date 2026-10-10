@@ -87,6 +87,9 @@ type quietFaceFacts struct {
 	recastOpen  bool
 	// Exile recast routes a face can open (Warp, Foretell, Plot, Suspend).
 	exileCastKW bool
+	// downCast: the face prints Morph/Megamorph/Disguise (a {3} face-down
+	// cast). Same three reads quietFaceHasDownCast makes, folded in once.
+	downCast bool
 
 	// manaMax is the most units ONE activation of any printed mana ability
 	// yields (an over-count when a face prints several); manaIndeterminate
@@ -219,6 +222,7 @@ func computeQuietFaceFacts(f *cards.Face, hasAltCosts bool) quietFaceFacts {
 			}
 		}
 	}
+	q.downCast = quietFaceHasDownCast(f)
 	quietRecastFacts(f, &q)
 	quietManaFacts(f, &q)
 	quietAbilityFacts(f, &q)

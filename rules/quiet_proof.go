@@ -502,7 +502,7 @@ func (e *Engine) quietHandBlocker(p state.PlayerID, ceiling int32, unbounded, so
 				}
 				// A land printed with Morph/Megamorph/Disguise is also cast
 				// face down for {3} (Zoetic Cavern), even after the land drop.
-				if quietFaceHasDownCast(f) && quietAffordable(3, ceiling, unbounded) {
+				if qf.downCast && quietAffordable(3, ceiling, unbounded) {
 					return qbHandSpell
 				}
 				continue
@@ -516,7 +516,7 @@ func (e *Engine) quietHandBlocker(p state.PlayerID, ceiling int32, unbounded, so
 			// land branch above: the walk offers the down-cast through
 			// spellTimingOK (timingOpen) and offerCastable({3}), independent
 			// of the printed floor.
-			if timingOpen && quietFaceHasDownCast(f) && quietAffordable(3, ceiling, unbounded) {
+			if timingOpen && qf.downCast && quietAffordable(3, ceiling, unbounded) {
 				return qbHandSpell
 			}
 			if !timingOpen {
