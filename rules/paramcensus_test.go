@@ -1150,6 +1150,14 @@ func (s *scan) scanRangeWhitelist(t *testing.T, fset *token.FileSet, fi *fnInfo,
 		if pkg == "effects" && fname == "abilityReferencesX" {
 			return
 		}
+		// faceAbilitiesNameExiledWithSource (effects/context.go) recognizes
+		// the ExiledWithSource word in any param value of the source face's
+		// A: lines, so an exile it performs records its provenance
+		// (Mimeoplasm, Revered One). Recognition only; it reads no key and
+		// consumes no SA parameter.
+		if pkg == "effects" && fname == "faceAbilitiesNameExiledWithSource" {
+			return
+		}
 		// disableTriggersUnread dynamically validates every parameter name
 		// against the DisableTriggers grammar. This is a structural key scan,
 		// not a card-parameter consumer to attribute to a primitive bucket.
