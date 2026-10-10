@@ -216,3 +216,35 @@ func offersActivate(e *Engine, id state.ObjID) bool {
 	}
 	return false
 }
+
+// TestManaAbilityCollectEvidenceNonInteractiveTakesTheGreedyPrefix: a caller
+// that cannot ask (resolveManaAbility, the attack-cost tap window's shape)
+// settles the election deterministically with the mana-value-descending
+// prefix instead of posing the ask or paying nothing.
+func TestManaAbilityCollectEvidenceNonInteractiveTakesTheGreedyPrefix(t *testing.T) {
+	t.Parallel()
+	e, cfg, cx, ids := evidenceBoard(t, 96, "Grizzly Bears", "Llanowar Elves", "Birds of Paradise")
+	mas := e.G.Obj(cx).Face().ManaAbilities()
+	if len(mas) != 1 || len(e.parseCost(mas[0].Params["Cost"]).Evidence) != 1 {
+		t.Fatalf("precondition: Cryptex mana abilities = %d, want one carrying CollectEvidence", len(mas))
+	}
+	e.resolveManaAbility(0, cx, mas[0], false)
+	answerManaChoose(t, e, "Add R")
+	bears := ids["Grizzly Bears"]
+	if z := e.G.Obj(bears).Zone; z != state.ZExile {
+		t.Fatalf("Grizzly Bears (the highest mana value) is in %s, want exiled as evidence", z)
+	}
+	exiled := 0
+	for _, g := range []string{"Grizzly Bears", "Llanowar Elves", "Birds of Paradise"} {
+		if e.G.Obj(ids[g]).Zone == state.ZExile {
+			exiled++
+		}
+	}
+	if exiled != 2 {
+		t.Fatalf("exiled evidence cards = %d, want the greedy two (2+1 reaches 3)", exiled)
+	}
+	if got := evidenceEventCount(e, events.CollectEvidenceAction); got != 1 {
+		t.Fatalf("CollectEvidenceAction events = %d, want 1", got)
+	}
+	replayCheck(t, e, cfg)
+}
