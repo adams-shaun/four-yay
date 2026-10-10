@@ -391,6 +391,9 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 	if gap := staticExileWithGap(f, st); gap != "" {
 		return skip(gap)
 	}
+	if gap := staticSetupReplacementGap(f, st); gap != "" {
+		return skip(gap)
+	}
 	if gap := staticConditionGap(f, st); gap != "" {
 		return skip(gap)
 	}

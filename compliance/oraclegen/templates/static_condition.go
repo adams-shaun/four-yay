@@ -745,6 +745,11 @@ func staticConditionGap(f *cards.Face, st cards.Static) string {
 		return "counts attackers declared this turn"
 	case has("maxspeed"):
 		return "needs max speed (setup has no speed knob)"
+	case has("attackedthisturn"):
+		// The object predicate is absent from the filter grammar (only
+		// attackedThisCombat exists), so a Card.Self+attackedThisTurn gate
+		// fails closed and stays false after the source attacks.
+		return "gate reads the attackedThisTurn filter predicate, which the engine does not evaluate"
 	}
 	return ""
 }
