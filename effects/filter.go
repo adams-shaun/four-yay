@@ -346,6 +346,15 @@ var predicates = map[string]predFn{
 	"attackedThisCombat": func(g *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
 		return o.AttackedCombat != 0 && o.AttackedTurn == g.Turn && o.AttackedCombat == g.CombatsThisTurn
 	},
+	// attackedThisTurn is "declared as an attacker at any point this turn"
+	// (extra combats included): Erg Raiders' end-step gate, Full Throttle's
+	// UntapAll, Kratos's count. It reads the same event-folded stamp pair as
+	// attackedThisCombat without the combat-clock match. NOT AttacksThisTurn,
+	// which survives a battlefield exit; the stamp is cleared there because a
+	// re-entering creature is a new object that has not attacked (CR 400.7).
+	"attackedThisTurn": func(g *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
+		return o != nil && o.AttackedCombat != 0 && o.AttackedTurn == g.Turn
+	},
 	// IsSaddled is CR 702.171b's until-end-of-turn designation. The turn
 	// stamp makes it expire without a cleanup event and is preserved by
 	// controller changes.
