@@ -86,7 +86,7 @@ func ManaCostTapStage(e Engine, md *ManaCostActivation) ManaCostStep {
 }
 
 // ManaCostChoiceStages runs the mana ability's remaining cost elections in
-// order -- Forage, sacrifice, discard, exile, untapYType -- each recording
+// order -- Forage, sacrifice, discard, exile, evidence, untapYType -- each recording
 // a forced pick without an ask, pausing on an ask, or dropping the payment
 // when the board changed under the offer.
 func ManaCostChoiceStages(e Engine, md *ManaCostActivation) ManaCostStep {
@@ -240,6 +240,9 @@ func ManaCostChoiceStages(e Engine, md *ManaCostActivation) ManaCostStep {
 		}
 		e.Ask(AskManaExile, d)
 		return ManaCostAsked
+	}
+	if st := manaCostEvidenceStage(e, md); st != ManaCostNext {
+		return st
 	}
 	return manaCostUntapStage(e, md)
 }

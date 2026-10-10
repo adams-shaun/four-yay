@@ -170,6 +170,9 @@ type AttackRequired struct {
 // declare-attackers decision offers (rules/oracle_can_attack.go).
 type CanAttack struct {
 	Attacker string `json:"attacker"`
+	// Defender, when set, names the planeswalker the attack would be
+	// declared against (the option's Battle), not just its controller.
+	Defender string `json:"defender,omitempty"`
 }
 
 type Expect struct {
@@ -1000,6 +1003,11 @@ func xanswersSetup(ds []rules.OracleDecision, steps int, modes map[string]int, c
 			switch {
 			case IsSetupChoice(d):
 				setupAnswers = append(setupAnswers, XAnswer{d.Seat, "setup_choice", d.Picks[0]})
+				any = true
+			case IsSetupTargetDecline(d):
+				// The driver queues a target skip before build() so XMage
+				// declines the optional ask instead of auto-picking.
+				setupAnswers = append(setupAnswers, XAnswer{d.Seat, "setup_target", "[target_skip]"})
 				any = true
 			case triggerOrderSetupPosed(d, setup):
 				// The last pick is never consumed: XMage asks only while more

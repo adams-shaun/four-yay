@@ -177,8 +177,8 @@ func labelIs(l, prefix, name, suffix string) bool {
 }
 
 // walkFaceFactsEqual is reflect.DeepEqual(a, b) for walkFaceFacts, typed:
-// every field but altCosts is compared with ==, and altCosts row by row
-// (Cost.Equal on each frozen Cost, through pointers so nothing is boxed). The
+// every scalar field is compared with ==, and the two slice fields (altCosts
+// and quiet.abQuiet's per-zone part groups) element by element. The
 // pointer-valued fields compare by identity, which is DeepEqual's answer
 // here: each is a list-identity guard or the face itself, and verifyFresh
 // either checked it current (so both sides hold the same address) or copied
@@ -198,7 +198,7 @@ func walkFaceFactsEqual(a, b *walkFaceFacts) bool {
 		a.svars != b.svars || a.svarsLen != b.svarsLen ||
 		a.staticOn != b.staticOn || a.staticOff != b.staticOff ||
 		a.mayPlay != b.mayPlay ||
-		a.flash != b.flash || a.quiet != b.quiet {
+		a.flash != b.flash || !quietFaceFactsEqual(a.quiet, b.quiet) {
 		return false
 	}
 	if (a.altCosts == nil) != (b.altCosts == nil) || len(a.altCosts) != len(b.altCosts) {
@@ -206,6 +206,43 @@ func walkFaceFactsEqual(a, b *walkFaceFacts) bool {
 	}
 	for i := range a.altCosts {
 		if a.altCosts[i].ok != b.altCosts[i].ok || !a.altCosts[i].cost.Equal(&b.altCosts[i].cost) {
+			return false
+		}
+	}
+	return true
+}
+
+// quietFaceFactsEqual is walkFaceFactsEqual's quiet-half comparator. The
+// scalar fields compare with ==; the per-zone part groups are the one sparse
+// slice and compare element by element (quietBoundedAbility and its fixed
+// parts array are comparable).
+func quietFaceFactsEqual(a, b quietFaceFacts) bool {
+	if a.isLand != b.isLand || a.instantSpeed != b.instantSpeed || a.castOpen != b.castOpen ||
+		a.castFloor != b.castFloor || a.recastKW != b.recastKW || a.recastFloor != b.recastFloor ||
+		a.recastOpen != b.recastOpen || a.exileCastKW != b.exileCastKW ||
+		a.manaMax != b.manaMax || a.manaIndeterminate != b.manaIndeterminate {
+		return false
+	}
+	for z := range a.abQuiet {
+		if !abQuietZoneEqual(&a.abQuiet[z], &b.abQuiet[z]) {
+			return false
+		}
+	}
+	return true
+}
+
+// abQuietZoneEqual compares one zone summary, the groups slice element by
+// element.
+func abQuietZoneEqual(a, b *abQuietZone) bool {
+	if a.any != b.any || a.nonMana != b.nonMana || a.hasAny != b.hasAny || a.hasTap != b.hasTap ||
+		a.floorAny != b.floorAny || a.floorTap != b.floorTap || a.sorcAny != b.sorcAny || a.sorcTap != b.sorcTap {
+		return false
+	}
+	if len(a.groups) != len(b.groups) {
+		return false
+	}
+	for i := range a.groups {
+		if a.groups[i] != b.groups[i] {
 			return false
 		}
 	}

@@ -374,11 +374,11 @@ func exiledWithSet(g *state.Game, c *Ctx) []state.Target {
 // payload) OR the source's forward Object.ExiledCards list (Forge's
 // hostCard.exiledCards, written by exiledWithAssociation). `Defined$
 // ExiledWith` (via exiledWithSet) and the `Card.ExiledWithSource` filter
-// family both consume it so those two spellings cannot disagree. A few
-// narrower consumers of the same association still read only the reverse
-// scalar (count_ref.go's `ExiledWith$`, mana_reflected.go's "ExiledWith",
-// type_choices.go's SharedTypeLabels); routing them here too is a follow-up,
-// not part of this fix.
+// family both consume it so those two spellings cannot disagree, as does the
+// ManaReflected "Defined.ExiledWith" scan (mana_reflected.go). A few narrower
+// consumers of the same association still read only the reverse scalar
+// (count_ref.go's `ExiledWith$`, type_choices.go's SharedTypeLabels); routing
+// them here too is a follow-up, not part of this fix.
 func exiledBySource(g *state.Game, o *state.Object, src state.ObjID) bool {
 	if o == nil || src == 0 {
 		return false

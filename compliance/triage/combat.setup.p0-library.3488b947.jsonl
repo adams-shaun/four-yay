@@ -1,3 +1,0 @@
-{"shape":{"template":"combat","op":"setup","field":"p0.library","diff":"placement"},"key":"combat | setup | p0.library | placement","cards":2}
-{"card":"Jecht, Reluctant Guardian","template":"combat#1.attack","status":"diverge","api":"DamageDone:ChangeZone","sets":["FIN"],"detail":"setup p0.hand: gorge \"[]\", xmage \"[Wastes]\""}
-{"card":"Jecht, Reluctant Guardian","template":"combat#1.block","status":"diverge","api":"DamageDone:ChangeZone","sets":["FIN"],"detail":"setup p0.hand: gorge \"[]\", xmage \"[Wastes]\""}

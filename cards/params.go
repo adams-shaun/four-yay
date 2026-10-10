@@ -775,6 +775,9 @@ const (
 	// ChooseCard's ImprintChosen$ rider records selected card IDs on the
 	// source's non-exile imprint association.
 	PKImprintChosen
+	// Mode$ AttackerBlocked's "blocked by two or more creatures" comparator
+	// (Seifer, Balamb Rival; append-only).
+	PKValidBlockerAmount
 	paramKeyCount
 )
 
@@ -1149,6 +1152,7 @@ var paramKeyNames = [paramKeyCount]string{
 	PKIgnoreFreeze:                     "IgnoreFreeze",
 	PKImprintFound:                     "ImprintFound",
 	PKImprintChosen:                    "ImprintChosen",
+	PKValidBlockerAmount:               "ValidBlockerAmount",
 	PKInvalidTypes:                     "InvalidTypes",
 	PKKeywords:                         "Keywords",
 	PKLeftRightPile:                    "LeftRightPile",

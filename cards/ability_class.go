@@ -1,5 +1,7 @@
 package cards
 
+import "strings"
+
 // manaChainDepth bounds the SubAbility$ walk IsManaAbilitySA performs. Real
 // chains are four nodes deep (ChooseColor -> Mana -> Animate -> Cleanup); the
 // cap exists so a runtime-built cyclic Sub chain cannot hang a classifier
@@ -31,16 +33,30 @@ func IsManaAbilityAPI(api string) bool { return api == "Mana" || api == "ManaRef
 // (CR 605.1a), and planeswalker ultimates (Chandra, Heart of Fire) are
 // loyalty abilities (CR 605.1b). Measured 2026-10-09: 25 activated abilities
 // across 21 other head APIs reach a DB$ Mana; this ticket owns only the four
-// ChooseColor carriers, and the generic CR-correct classification (target and
-// loyalty gates) is a separate change.
+// ChooseColor carriers, and the generic CR-correct classification (the
+// loyalty gate) is a separate change.
+//
+// An ability whose own parameters declare ValidTgts$ requires a target and is
+// not a mana ability (CR 605.1a): Radiant Lotus, The Warring Triad and Jetfire
+// stay on the ordinary stack path (the corpus population is pinned by
+// TestManaAbilityTargetGateMovesOnlyTheHeadTargetingCarriers). The gate reads
+// the head only. A target that lives on a SubAbility$ (Witch Engine's
+// ChangeControl, the two Chandra loyalty abilities' damage) is the separate
+// whole-chain change this classifier still owes.
 func IsManaAbilitySA(sa *SA) bool {
 	if sa == nil || !sa.IsActivated() {
 		return false
 	}
-	if IsManaAbilityAPI(sa.API) {
-		return true
+	if !IsManaAbilityAPI(sa.API) && !(sa.API == "ChooseColor" && ManaChainProduction(sa) != nil) {
+		return false
 	}
-	return sa.API == "ChooseColor" && ManaChainProduction(sa) != nil
+	return !requiresTarget(sa)
+}
+
+// requiresTarget reports whether sa itself declares ValidTgts$ (the head read
+// effects.TargetsOf(sa).Targeted() makes; CR 605.1a).
+func requiresTarget(sa *SA) bool {
+	return strings.TrimSpace(sa.ParamStr(PKValidTgts)) != ""
 }
 
 // ManaChainProduction returns the first DB$ Mana sub-ability reachable through
