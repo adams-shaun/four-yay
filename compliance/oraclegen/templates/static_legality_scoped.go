@@ -118,8 +118,8 @@ func (p *scopedPlan) controlDropsCard() bool {
 }
 
 // scenario builds the scenario fielding att against blk. control omits the
-// bind steps (and the card itself when controlDropsCard); gateOn selects the
-// gate polarity (true when the plan has no gate).
+// bind steps (and the card itself when controlDropsCard) and takes the gate
+// unheld.
 func (p *scopedPlan) scenario(att []scopedCard, blk []scopedBlocker, control bool, expect []oraclegen.Expect) oraclegen.Scenario {
 	steps := append([]oraclegen.Step(nil), p.setup...)
 	if !control {
@@ -201,9 +201,9 @@ func (p *scopedPlan) fieldBoard(att []scopedCard, blk []scopedBlocker, control b
 	return withBackFace(sc, p.name, p.req)
 }
 
-// attackerCandidates are the matrix's attackers: the card itself when it can
-// attack, then the pool (counters on two of them when the filter reads a
-// counter).
+// poolAttackers are the matrix's pool attackers (counters on two of them when
+// the filter reads a counter); attackersWithCard puts the card itself ahead
+// of them when it can attack.
 func (p *scopedPlan) poolAttackers(reg *cards.Registry, counters bool) []scopedCard {
 	var out []scopedCard
 	for _, n := range scopedAttackerPool {
