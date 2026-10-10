@@ -73,7 +73,7 @@ func MatchesPlayerSpecCtx(g *state.Game, spec string, p, you state.PlayerID, pc 
 // its random pick always took the no-candidate arm) and a ValidTgts$ pool
 // that admits no target. A clause with no `+` is a one-clause conjunction and
 // behaves exactly as before, so the single-qualifier grammar is unchanged.
-// A DITLESS clause (no `.`) after `+` is a qualifier on the same candidate,
+// A DOTLESS clause (no `.`) after `+` is a qualifier on the same candidate,
 // not an independent spec: it is compiled as `Player.<clause>` (the same
 // reading matchesPlayerSpecSVars gives a dotless clause), so each clause
 // stays an independent candidate property and the conjunction conjoins them
