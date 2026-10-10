@@ -462,7 +462,7 @@ func runDiff(dir, scen, xm, cacheDir, out, write, ref, rulingDir string) error {
 					vr.Detail = "xmage: " + firstLine(row.Verdict.Msg)
 				} else {
 					vr.Status = compliance.StatusHarness
-					vr.Detail = row.Verdict.Engine + ": " + firstLine(row.Verdict.Msg)
+					vr.Detail = row.Verdict.Engine + ": " + harnessDetail(row.Verdict.Msg)
 				}
 			}
 			if r, _, _ := shape.Classify(&vr, rs, cardAPI(reg, it.Card)); r != nil {
@@ -567,6 +567,36 @@ func runPlan(dir, scen, verdictDir, ref, cacheDir, replay, rediff string) error 
 		fmt.Printf("  stale: %-40s %d\n", k, reasons[k])
 	}
 	return nil
+}
+
+// harnessDetail is a harness message's verdict Detail: its first line, and --
+// for TestPlayer's end-of-ask "Targets list was setup by addTarget with [...],
+// but not used" -- the Card:/Ability:/Target: lines that follow it. The first
+// line alone says only which answers were left over; the lines after it name
+// the ask that found none of them, which is what tells a driver mis-binding
+// (an alias the ask class never reads) from a queue ordered against the ask
+// sequence. shape.Of cuts the appended lines back off (HarnessAskContext), so
+// the row's shape is the one the first line alone gave.
+func harnessDetail(msg string) string {
+	first := firstLine(msg)
+	if !strings.Contains(first, "Targets list was setup by addTarget") {
+		return first
+	}
+	var ask []string
+	for _, l := range strings.Split(msg, "\n")[1:] {
+		for _, p := range [...]string{"Card: ", "Ability: ", "Target: "} {
+			if strings.HasPrefix(l, p) {
+				if len(l) > 220 {
+					l = l[:220]
+				}
+				ask = append(ask, l)
+			}
+		}
+	}
+	if len(ask) == 0 || !strings.HasPrefix(ask[0], "Card: ") {
+		return first
+	}
+	return first + shape.HarnessAskContext + strings.TrimPrefix(strings.Join(ask, " | "), "Card: ")
 }
 
 func firstLine(s string) string {

@@ -167,12 +167,17 @@ type AttackRequired struct {
 }
 
 // CanAttack asserts whether Attacker is among the attackers the pending
-// declare-attackers decision offers (rules/oracle_can_attack.go).
+// declare-attackers decision offers (rules/oracle_can_attack.go). Defender,
+// when set, requires the matched option to name the attacked battlefield
+// permanent (a planeswalker ref); MaxAttackers, when set, additionally
+// asserts the AttackRestrict cap the matched option's Group publishes
+// (0 = no restriction).
 type CanAttack struct {
 	Attacker string `json:"attacker"`
 	// Defender, when set, names the planeswalker the attack would be
 	// declared against (the option's Battle), not just its controller.
-	Defender string `json:"defender,omitempty"`
+	Defender     string `json:"defender,omitempty"`
+	MaxAttackers *int   `json:"max_attackers,omitempty"`
 }
 
 type Expect struct {

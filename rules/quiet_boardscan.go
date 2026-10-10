@@ -40,12 +40,12 @@ const (
 // The effect-delivered cost statics (appendEffectCostStatics) are not read
 // here: continuousMintsCostStatic, run before this in quietBoardBlocker, is a
 // superset of that arm's mint conditions.
-func (e *Engine) quietBoardStaticScan(all bool) quietBoardHit {
+func (e *Engine) quietBoardStaticScan(p state.PlayerID, all bool) quietBoardHit {
 	var hit quietBoardHit
 	nPlayers := len(e.G.Players)
 	stackDone := false
 	for pi := 0; pi < nPlayers; pi++ {
-		p := state.PlayerID(pi)
+		seat := state.PlayerID(pi)
 		if e.G.Players[pi].Lost {
 			continue
 		}
@@ -56,7 +56,7 @@ func (e *Engine) quietBoardStaticScan(all bool) quietBoardHit {
 				}
 				stackDone = true
 			}
-			ids, filter := e.quietStaticSourcePeek(p, z)
+			ids, filter := e.quietStaticSourcePeek(seat, z)
 			for _, id := range ids {
 				if filter && !e.walkClassOf(id).staticHot(z) {
 					continue
@@ -75,7 +75,11 @@ func (e *Engine) quietBoardStaticScan(all bool) quietBoardHit {
 						if !ok {
 							continue
 						}
-						hit |= e.quietStaticHit(o, z, &pst.Static, pst.Face == f)
+						sf := pst.Face
+						if sf == nil {
+							sf = f
+						}
+						hit |= e.quietStaticHit(p, o, sf, z, &pst.Static, pst.Face == f)
 						if hit != 0 && !all {
 							return hit
 						}
@@ -83,7 +87,7 @@ func (e *Engine) quietBoardStaticScan(all bool) quietBoardHit {
 					continue
 				}
 				for si := range f.Statics {
-					hit |= e.quietStaticHit(o, z, &f.Statics[si], true)
+					hit |= e.quietStaticHit(p, o, f, z, &f.Statics[si], true)
 					if hit != 0 && !all {
 						return hit
 					}
@@ -125,7 +129,7 @@ func (e *Engine) quietStaticSourcePeek(p state.PlayerID, z state.Zone) ([]state.
 // quietStaticHit classifies one static of o (in zone z) and returns the board
 // shape it opens, or 0. topFace is true when st belongs to o's current face
 // (the Room door-lock gate applies to those only, as scanActiveStatics').
-func (e *Engine) quietStaticHit(o *state.Object, z state.Zone, st *cards.Static, topFace bool) quietBoardHit {
+func (e *Engine) quietStaticHit(p state.PlayerID, o *state.Object, sf *cards.Face, z state.Zone, st *cards.Static, topFace bool) quietBoardHit {
 	var h quietBoardHit
 	switch st.ModeKind() {
 	case cards.StaticContinuous:
@@ -174,6 +178,16 @@ func (e *Engine) quietStaticHit(o *state.Object, z state.Zone, st *cards.Static,
 	if h&^qbhCostStatic != 0 && !staticEffectZoneOK(*st, o.Zone) {
 		h &^= qbhAddAbility | qbhFlash | qbhPlotZone | qbhMayPlay
 	}
+	// Q3c per-seat scope (rules/quiet_grantscope.go): a battlefield MayPlay$
+	// static grants its CONTROLLER alone (mayPlayBoardGrantsOpen,
+	// mayPlayAltCosts), and an AddAbility$ static whose Affected$ cannot reach
+	// an object p controls (and grants no Activator$ ability) gives p nothing.
+	if h&qbhMayPlay != 0 && o.Controller != p && e.controllerOf(o.ID) != p {
+		h &^= qbhMayPlay
+	}
+	if h&qbhAddAbility != 0 && e.quietAddAbilityStaticClears(p, o, sf, st) {
+		h &^= qbhAddAbility
+	}
 	return h
 }
 
@@ -186,23 +200,38 @@ func cardsEffectZoneOK(st *cards.Static, z state.Zone) bool {
 // quietBoardStaticGuard asserts, in verify mode, that the existence scan is at
 // least the old view-based answer for every shape.
 func (e *Engine) quietBoardStaticGuard(p state.PlayerID) {
-	got := e.quietBoardStaticScan(true)
+	got := e.quietBoardStaticScan(p, true)
 	check := func(old bool, bit quietBoardHit, name string) {
 		if old && got&bit == 0 {
 			panic(fmt.Sprintf("rules: quiet board static scan missed %s that the view collector found (turn %d)", name, e.G.Turn))
 		}
 	}
-	check(len(e.collectAddAbilityCarriers()) > 0, qbhAddAbility, "an AddAbility$ carrier")
+	// The Q3c per-seat scope narrows the scan's AddAbility$ and MayPlay$
+	// bits; the view-based answers are narrowed the same way (by the carrier's
+	// own scope read, not by the scan) so the comparison stays a superset test.
+	reach := false
+	for _, sv := range e.collectAddAbilityCarriers() {
+		src := e.G.Obj(sv.Source)
+		spec := strings.TrimSpace(sv.ParamStr(cards.PKAffected))
+		if src != nil && src.Face() != nil && spec != "" &&
+			e.quietSpecClearsSeat(spec, sv.Controller, sv.Source, p) &&
+			quietGrantNamesPlain(src.Face().SVars, strings.TrimSpace(sv.ParamStr(cards.PKAddAbility))) {
+			continue
+		}
+		reach = true
+		break
+	}
+	check(reach, qbhAddAbility, "an AddAbility$ carrier")
 	check(len(e.activeStatics("CastWithFlash")) > 0, qbhFlash, "a CastWithFlash static")
 	check(len(e.activeStatics("PlotZone")) > 0, qbhPlotZone, "a PlotZone static")
 	mayPlay := false
 	for _, sv := range e.activeStatics("Continuous") {
-		if strings.EqualFold(strings.TrimSpace(sv.ParamStr(cards.PKMayPlay)), "True") {
+		if sv.Controller == p && strings.EqualFold(strings.TrimSpace(sv.ParamStr(cards.PKMayPlay)), "True") {
 			mayPlay = true
 			break
 		}
 	}
-	check(mayPlay, qbhMayPlay, "a MayPlay$ True Continuous static")
+	check(mayPlay, qbhMayPlay, "a MayPlay$ True Continuous static of the seat")
 	if len(e.mayPlayLandIds(p)) > 0 && !e.mayPlayLandAny(p) {
 		panic(fmt.Sprintf("rules: mayPlayLandAny missed a may-play land for seat %d (turn %d)", p, e.G.Turn))
 	}

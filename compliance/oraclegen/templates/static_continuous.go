@@ -352,6 +352,16 @@ func staticContinuous(reg *cards.Registry, f *cards.Face, name string, req level
 			return it, nil
 		}
 	}
+	// A static whose AddStaticAbility$ grants a STATIC ability is observed
+	// through the granted static's own effect (static_granted_static.go).
+	// Tried after every probe, fixture, offered and granted-trigger path so an
+	// already-served row keeps its scenario bytes; an unserved grant falls
+	// through to its named gap.
+	if st.HasParam(cards.PKAddStaticAbility) {
+		if it, ok := staticGrantedStaticItem(reg, f, name, req, st); ok {
+			return it, nil
+		}
+	}
 	// A chosen-name mana grant (Petrified Hamlet's "Lands with the chosen
 	// name have '{T}: Add {C}.') is observed on the named probe land the
 	// source's ETB trigger names (static_named_enters.go); the grant gap's

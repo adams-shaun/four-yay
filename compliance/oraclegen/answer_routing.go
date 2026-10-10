@@ -1,6 +1,7 @@
 package oraclegen
 
 import (
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -31,6 +32,17 @@ type answerRouting struct {
 	// (measured driver error: "Choice key [Yes] not found in [White, Blue,
 	// Black, Red, Green]").
 	manaBool map[int]bool
+	// playBool marks a trigger-level optional boolean that gates a Play whose
+	// own "may" ask follows it at once. Forge models the ONE "you may cast"
+	// of the trigger's text twice (OptionalDecider$ on the trigger and
+	// Optional$ on the Play), so gorge poses two asks; XMage's trigger is not
+	// optional and MayCastTargetCardEffect poses a single chooseUse ("Cast
+	// X?"). The play decision's answer is that one boolean, so the trigger's
+	// own scripts nothing -- else its "yes" is consumed by the "Cast X?" ask
+	// and the cast's target ask meets a queued answer meant for a later
+	// object (Seifer Almasy: "Targets list was setup by addTarget with
+	// [Shock], but not used").
+	playBool map[int]bool
 	// manaHoist maps a same-source trigger-order span to the colour answer
 	// that replaces it and LEADS its step's stream, manaHoisted marks the
 	// colour decision whose answer was thus moved. XMage's mana trigger for
@@ -45,7 +57,8 @@ type answerRouting struct {
 func newAnswerRouting(ds []rules.OracleDecision) *answerRouting {
 	r := &answerRouting{ds: ds, soleCost: map[int]bool{}, opponent: map[int]int{},
 		splitTarget: map[int]int{}, targetSplit: map[int]int{},
-		manaBool: map[int]bool{}, manaHoist: map[int]XAnswer{}, manaHoisted: map[int]bool{}}
+		manaBool: map[int]bool{}, playBool: map[int]bool{},
+		manaHoist: map[int]XAnswer{}, manaHoisted: map[int]bool{}}
 	for i := range ds {
 		if soleAltCost(ds[i]) && i+1 < len(ds) && sameAsker(ds[i], ds[i+1]) && len(ds[i+1].ObjectPicks) == 1 {
 			r.soleCost[i+1] = true
@@ -59,6 +72,11 @@ func newAnswerRouting(ds []rules.OracleDecision) *answerRouting {
 		if a.Kind == "yesno" && a.GorgeKind == "trigger_optional" && a.Resume == "optional" &&
 			pickKind(a, 0) == "yes" && manaHoistAnswer(b) != "" {
 			r.manaBool[i] = true
+		}
+		if a.Kind == "yesno" && a.GorgeKind == "trigger_optional" && a.Resume == "optional" &&
+			pickKind(a, 0) == "yes" && len(a.Picks) == 1 && b.Kind == "mode" && b.Resume == "play" &&
+			maysIn(a) == 1 {
+			r.playBool[i] = true
 		}
 	}
 	for i := range ds {
@@ -206,6 +224,25 @@ func (r *answerRouting) manaHoistedPick(i int) bool { return r.manaHoisted[i] }
 
 func sameAsker(a, b rules.OracleDecision) bool { return a.Step == b.Step && a.Seat == b.Seat }
 
+var mayWord = regexp.MustCompile(`(?i)\bmay\b`)
+
+// maysIn counts the "may" words of an optional trigger decision's label,
+// "Yes -- <Source>: <the trigger's rules text>", past the source's name (a
+// card name may itself contain the word). XMage poses one chooseUse per
+// "may" of the Oracle text, so a trigger text with exactly one has one real
+// ask however many Forge models it with; two or more ("you may put it on
+// the bottom ... You may cast that card", Neera, Wild Mage) are distinct
+// asks and stay as recorded.
+func maysIn(d rules.OracleDecision) int {
+	text := d.Picks[0]
+	if len(d.PickRefs) == 1 {
+		if _, rest, ok := strings.Cut(text, oraclediffRefName(d.PickRefs[0])+": "); ok {
+			text = rest
+		}
+	}
+	return len(mayWord.FindAllStringIndex(text, -1))
+}
+
 // digBottomName is the card name of a Dig "Put X on bottom" label, else "".
 func digBottomName(label string) string {
 	if strings.HasPrefix(label, "Put ") && strings.HasSuffix(label, " on bottom") {
@@ -284,6 +321,10 @@ func (r *answerRouting) route(i int) (as []XAnswer, owned bool) {
 		as = append(as, XAnswer{asker, "choice", seatRef(seat)})
 	}
 	switch {
+	case r.playBool[i]:
+		// The redundant trigger-level half of a single "may cast": the Play
+		// decision that follows carries the one boolean XMage asks.
+		return nil, true
 	case r.manaBool[i]:
 		// The mandatory-in-XMage mana trigger's own resolution: XMage poses
 		// only the colour dialog that follows, so the boolean scripts
