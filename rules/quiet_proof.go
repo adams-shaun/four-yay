@@ -916,6 +916,14 @@ func quietFaceHasDownCast(f *cards.Face) bool {
 // activationPhasesOK), so a window where the walk offers neither stays
 // provable.
 func quietHandKeywordAction(o *state.Object, id state.ObjID, e *Engine, p state.PlayerID, sorceryOpen bool) bool {
+	// Fused necessary condition: every read below is monotone under the
+	// derived-keyword precheck (stackKeywordPossibleH answers true only when
+	// mayHaveDerivedKeywordH does, and a nil face answers false everywhere),
+	// so one pass over the derived seeds for all six heads rules the whole
+	// function out for the common hand card.
+	if !e.mayHaveDerivedKeywordAnyH(id, kwhForetell, kwhSuspend, kwhPlot, kwhMayFlashCost, kwhSneak, kwhTeamwork) {
+		return false
+	}
 	if e.sneakTimingOK(p) && e.stackKeywordPossibleH(id, kwhSneak) {
 		return true
 	}
