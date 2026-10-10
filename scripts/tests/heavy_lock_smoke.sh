@@ -18,7 +18,9 @@
 # contender finds every lane held. Part G is the non-heavy.sh yield proof
 # (agent-20261009T214406Z-777851fe): a `heavy_lock.sh run` job stops its child
 # and releases its lane while a broker bracket is open, resumes and re-takes it
-# at gate-end, and a fresh `run` defers while the flag is live.
+# at gate-end, and a fresh `run` defers while the flag is live; a job that ends
+# during a bracket's grace gives its lane back at once, and a group signal to
+# the wrapper (Ctrl-C, `timeout`) takes the job with it, parked or not.
 set -uo pipefail
 
 ROOT=$(git rev-parse --show-toplevel)
@@ -38,6 +40,8 @@ cleanup() {
 	[ -z "${JOBPID:-}" ] || kill -KILL -- "-$JOBPID" 2>/dev/null
 	[ -z "${GYPID:-}" ] || kill -KILL "$GYPID" 2>/dev/null
 	[ -z "${GYJOBPID:-}" ] || kill -KILL -- "-$GYJOBPID" 2>/dev/null
+	[ -z "${GQPID:-}" ] || kill -KILL "$GQPID" 2>/dev/null
+	[ -z "${GSJOBPID:-}" ] || kill -KILL -- "-$GSJOBPID" 2>/dev/null
 	for v in LPIDA LPIDB LPIDC LPIDD LPIDE; do
 		[ -z "${!v:-}" ] || kill -KILL "${!v}" 2>/dev/null
 	done
@@ -442,6 +446,84 @@ GORGE_HEAVY_LOCK_HELD=$GORGE_HEAVY_LOCK "$S/heavy_lock.sh" run -- touch "$TMP/gy
 rc=$?
 [ "$rc" = 0 ] && [ -e "$TMP/gy-nested" ]
 check "GORGE_HEAVY_LOCK_HELD pass-through runs while the flag is live" $? "rc=$rc"
+rm -f "$GORGE_REWARD_DIR/gate-active"
+
+# 5. a job that ENDS during a bracket's grace gives its lane back at once. The
+# supervisor holds the lane's open file description, so a wrapper that waited
+# out its in-flight grace sleep kept a FINISHED job's lane for the whole grace
+# (here 20 s; production default 60 s).
+export GORGE_HEAVY_PAUSE_GRACE_S=20
+rm -f "$TMP/gq-started"
+"$S/heavy_lock.sh" run -- bash -c ': >"$1"; sleep 2' _ "$TMP/gq-started" >"$TMP/gq.log" 2>&1 &
+GQPID=$!
+for _ in $(seq 50); do [ -e "$TMP/gq-started" ] && break; sleep 0.1; done
+[ -e "$TMP/gq-started" ]
+check "precondition: the short run job started" $? "$(cat "$TMP/gq.log")"
+"$S/broker.sh" gate-begin smoke >/dev/null 2>&1
+gq0=$(date +%s)
+wait "$GQPID"
+rc=$?
+gqel=$(( $(date +%s) - gq0 ))
+[ "$rc" = 0 ] && [ "$gqel" -lt 8 ]
+check "run returns promptly when its job ends inside the bracket's grace" $? \
+	"rc=$rc after ${gqel}s (grace 20s)"
+flock -n "$GORGE_HEAVY_LOCK" -c true 2>/dev/null
+check "the finished job's lane is free the moment run returns" $?
+"$S/broker.sh" gate-end smoke >/dev/null 2>&1
+export GORGE_HEAVY_PAUSE_GRACE_S=1
+
+# 6. a group-directed signal to the wrapper (a terminal Ctrl-C, `timeout`) must
+# take the job with it: the job runs in its OWN group (so it can be STOPped),
+# which such a signal no longer reaches unless the wrapper forwards it. Python
+# spawns the wrapper in a fresh session with default signal dispositions (a
+# bash `&` would start it with SIGINT ignored). Case 1: running job, SIGINT.
+# Case 2: job parked by a live bracket, SIGTERM -- it must not stay STOPped.
+# Case 2's job ignores HUP: without that the kernel's orphaned-group SIGHUP
+# (sent to a pgrp with stopped members) would kill it with no forwarding at all.
+cat >"$TMP/sigtest.py" <<'PY'
+import os, signal, subprocess, sys, time
+wrapper, sig, bracket, broker = sys.argv[1:5]
+p = subprocess.Popen([wrapper, "run", "--"] + sys.argv[5:], start_new_session=True,
+                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+pf = os.environ["JOBPIDFILE"]
+for _ in range(100):
+    if os.path.exists(pf) and os.path.getsize(pf) > 0:
+        break
+    time.sleep(0.1)
+if bracket == "1":
+    subprocess.run([broker, "gate-begin", "smoke"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    time.sleep(3)
+os.killpg(p.pid, getattr(signal, sig))
+try:
+    print(p.wait(timeout=15))
+except subprocess.TimeoutExpired:
+    os.killpg(p.pid, signal.SIGKILL)
+    print("timeout")
+PY
+for case in "SIGINT 0 running" "SIGTERM 1 parked"; do
+	set -- $case
+	jobcmd=("$TMP/job.sh")
+	[ "$3" = parked ] && jobcmd=(bash -c 'trap "" HUP; exec "$0"' "$TMP/job.sh")
+	rm -f "$TMP/gsjobpid" "$TMP/gsjobfd"
+	: >"$TMP/gsticks"
+	prc=$(TICKS=$TMP/gsticks JOBPIDFILE=$TMP/gsjobpid JOBFD=$TMP/gsjobfd \
+		python3 -I "$TMP/sigtest.py" "$S/heavy_lock.sh" "$1" "$2" "$S/broker.sh" "${jobcmd[@]}")
+	GSJOBPID=$(cat "$TMP/gsjobpid" 2>/dev/null || true)
+	[ -n "$GSJOBPID" ]
+	check "precondition: the $3 job started under the signalled wrapper" $? "wrapper rc=$prc"
+	dead=0
+	for _ in $(seq 30); do
+		kill -0 "$GSJOBPID" 2>/dev/null || { dead=1; break; }
+		sleep 0.1
+	done
+	[ "$dead" = 1 ]
+	check "$1 to the wrapper's group leaves no $3 job behind" $? "wrapper rc=$prc job=$GSJOBPID"
+	[ "$dead" = 1 ] || kill -KILL -- "-$GSJOBPID" 2>/dev/null
+	flock -n "$GORGE_HEAVY_LOCK" -c true 2>/dev/null
+	check "the lane is free after the signalled $3 wrapper is gone" $?
+	"$S/broker.sh" gate-end smoke >/dev/null 2>&1
+	GSJOBPID=""
+done
 rm -f "$GORGE_REWARD_DIR/gate-active"
 
 printf '\n%s failure(s)\n' "$fails"

@@ -72,6 +72,11 @@
 # step or gauntlet starting mid-bracket cannot steal the gate's lane. The
 # gate's OWN command is the inline acquisition in .agentctl/config.toml, never
 # this file, so the deferral can never deadlock the gate.
+# The child runs in its own process group (so it can be STOPped without
+# stopping the wrapper); the wrapper therefore FORWARDS INT/TERM/HUP to that
+# group (gorge_heavy_forward), or a Ctrl-C / `timeout` would orphan the job
+# with no lane. A SIGKILLed wrapper cannot: its child and supervisor keep
+# running, and the supervisor resumes a parked child when the bracket clears.
 GORGE_HEAVY_LANES=${GORGE_HEAVY_LANES:-3}
 # The grace a gate bracket gets before a runner's child is STOPped, so a child
 # with its own checkpoint loop can park first. Its OWN knob, NOT heavy.sh's
@@ -114,48 +119,127 @@ gorge_heavy_gate_active() {
 
 # gorge_heavy_supervise PID: park PID's process group while a gate bracket is
 # open, yielding the lane on fd 9 for exactly that window. Runs in a background
-# subshell that SHARES fd 9 with its caller, so flock -u/-w move the one open
-# file description the lane lock lives on. The shape is heavy.sh's lease
-# supervisor (heavy.sh:208-243) with the per-lease pause file replaced by
-# gorge_heavy_gate_active. INVARIANT: the lane is released ONLY while the child
-# group is STOPped (a job running beside a lane holder is the bug), and it is
-# re-taken before the group is continued.
+# subshell (callers start it with `&`) that SHARES fd 9 with its caller, so
+# flock -u/-w move the one open file description the lane lock lives on. The
+# shape is heavy.sh's lease supervisor (heavy.sh:208-243) with the per-lease
+# pause file replaced by gorge_heavy_gate_active. INVARIANT: the lane is
+# released ONLY while the child group is STOPped (a job running beside a lane
+# holder is the bug), and it is re-taken before the group is continued.
+#
+# The supervisor holds the lane's open file description too, so the lane is not
+# free until it exits: every wait in it is a backgrounded command it `wait`s
+# on, so the caller's SIGTERM is acted on at once (bash defers a trap until a
+# FOREGROUND command returns, which would keep a finished job's lane for up to
+# a whole grace period). Plain sleeps carry 9>&- so a stray one cannot pin it.
 gorge_heavy_supervise() {
-	local job=$1 parked=0
+	_hl_job=$1 _hl_parked=0 _hl_bg=""
 	# This runs in a background subshell that INHERITS the caller's shell
 	# options (sb-gauntlet.sh runs `set -euo pipefail`), so disable errexit
 	# here: a flock/kill probe returning non-zero must not abort the supervisor
 	# and leave the child STOPped with no one to resume it.
 	set +e
-	# Orphan safety: if this supervisor is signalled while the child is parked,
-	# continue it so it cannot stay frozen forever. If the PARENT is SIGKILLed
-	# the supervisor is not killed -- it keeps running and resumes the child
-	# when the bracket clears, holding the lane until it exits.
-	trap 'kill -CONT "-$job" 2>/dev/null || kill -CONT "$job" 2>/dev/null || true; exit 0' TERM INT
-	trap 'kill -CONT "-$job" 2>/dev/null || kill -CONT "$job" 2>/dev/null || true' EXIT
-	while kill -0 "$job" 2>/dev/null; do
+	# Orphan safety: whenever this supervisor ends while the child is parked
+	# (signalled by its caller, or the caller's shell died and took the group
+	# with it) it re-takes the lane best-effort and continues the child, so it
+	# cannot stay frozen forever. If the PARENT is SIGKILLed the supervisor is
+	# not signalled -- it keeps running and resumes the child when the bracket
+	# clears, holding the lane until the child exits.
+	trap 'exit 0' TERM INT HUP
+	trap '_hl_supervise_done' EXIT
+	while kill -0 "$_hl_job" 2>/dev/null; do
 		if gorge_heavy_gate_active; then
-			if [ "$parked" = 0 ]; then
-				sleep "$GORGE_HEAVY_PAUSE_GRACE_S" 9>&-
+			if [ "$_hl_parked" = 0 ]; then
+				sleep "$GORGE_HEAVY_PAUSE_GRACE_S" 9>&- &
+				_hl_bg=$!
+				wait "$_hl_bg"
 				# The bracket may have ended during the grace (a short gate);
 				# do not stop a child that is no longer asked to pause.
 				gorge_heavy_gate_active || continue
-				kill -0 "$job" 2>/dev/null || break
-				kill -STOP "-$job" 2>/dev/null || kill -STOP "$job" 2>/dev/null || true
-				parked=1
+				kill -0 "$_hl_job" 2>/dev/null || break
+				kill -STOP "-$_hl_job" 2>/dev/null || kill -STOP "$_hl_job" 2>/dev/null || true
+				_hl_parked=1
 				flock -u 9 || true
 			fi
-		elif [ "$parked" = 1 ]; then
+		elif [ "$_hl_parked" = 1 ]; then
 			# Re-acquire in 1 s steps so a child that died while parked is
 			# still noticed by the loop condition; it stays STOPPED until the
 			# lane is ours again.
-			if flock -w 1 9; then
-				kill -CONT "-$job" 2>/dev/null || kill -CONT "$job" 2>/dev/null || true
-				parked=0
+			flock -w 1 9 &
+			_hl_bg=$!
+			if wait "$_hl_bg"; then
+				kill -CONT "-$_hl_job" 2>/dev/null || kill -CONT "$_hl_job" 2>/dev/null || true
+				_hl_parked=0
 			fi
 		fi
-		sleep 1 9>&-
+		sleep 1 9>&- &
+		_hl_bg=$!
+		wait "$_hl_bg"
 	done
+}
+
+_hl_supervise_done() {
+	[ -z "$_hl_bg" ] || kill "$_hl_bg" 2>/dev/null
+	if [ "$_hl_parked" = 1 ] && kill -0 "$_hl_job" 2>/dev/null; then
+		flock -w 2 9 2>/dev/null
+		kill -CONT "-$_hl_job" 2>/dev/null || kill -CONT "$_hl_job" 2>/dev/null
+	fi
+	return 0
+}
+
+# gorge_heavy_forward SIG JOB SUPERVISOR: the wrapper was signalled. The child
+# runs in its OWN process group (job control, so the supervisor can STOP it
+# without hitting this shell), which a group-directed signal to the wrapper
+# (Ctrl-C, `timeout`) no longer reaches -- forward it, or the job is orphaned
+# running with no lane. The supervisor is stopped first (its exit path re-takes
+# the lane and continues a parked child) so it cannot STOP the dying child
+# again. Every command is `|| true`: this runs inside a trap under set -e.
+gorge_heavy_forward() {
+	local sig=$1 job=$2 supervisor=$3
+	kill -TERM "$supervisor" 2>/dev/null || true
+	wait "$supervisor" 2>/dev/null || true
+	kill "-$sig" -- "-$job" 2>/dev/null || kill "-$sig" "$job" 2>/dev/null || true
+	kill -CONT -- "-$job" 2>/dev/null || kill -CONT "$job" 2>/dev/null || true
+	return 0
+}
+
+# gorge_heavy_exec cmd...: run cmd as a supervised BACKGROUND child of this
+# shell, which already holds a lane on fd 9, and return cmd's status. Both
+# gorge_heavy_run and the `run` exec branch go through here. It closes fd 9
+# (the lane is this shell's until then) before returning.
+gorge_heavy_exec() {
+	local had_m=0 job="" supervisor="" rc pending="" old_traps
+	case $- in *m*) had_m=1 ;; esac
+	old_traps=$(trap -p INT TERM HUP)
+	# Installed BEFORE the fork, so a signal in the gap is not lost: until the
+	# child exists the handler only records it.
+	trap 'if [ -n "$job" ]; then gorge_heavy_forward INT "$job" "$supervisor"; else pending=INT; fi' INT
+	trap 'if [ -n "$job" ]; then gorge_heavy_forward TERM "$job" "$supervisor"; else pending=TERM; fi' TERM
+	trap 'if [ -n "$job" ]; then gorge_heavy_forward HUP "$job" "$supervisor"; else pending=HUP; fi' HUP
+	# Background the child so a supervisor can STOP/continue its process group;
+	# job control gives it its own group (heavy.sh:176-182). The child never
+	# gets fd 9; the supervisor subshell keeps it (shared) so flock -u/-w move
+	# the lane lock.
+	set -m
+	GORGE_HEAVY_LOCK_HELD=$GORGE_HEAVY_LOCK "$@" 9>&- &
+	job=$!
+	[ "$had_m" = 1 ] || set +m
+	gorge_heavy_supervise "$job" &
+	supervisor=$!
+	[ -z "$pending" ] || gorge_heavy_forward "$pending" "$job" "$supervisor"
+	# A trapped signal interrupts `wait`, so loop until the child is reaped.
+	# `if wait` keeps a failing child from tripping a set -e caller.
+	while :; do
+		if wait "$job"; then rc=0; else rc=$?; fi
+		kill -0 "$job" 2>/dev/null || break
+	done
+	# The job is done: stop the supervisor NOW (it holds the lane's open file
+	# description, so the lane is not free until it is gone), then release.
+	kill -TERM "$supervisor" 2>/dev/null || true
+	wait "$supervisor" 2>/dev/null || true
+	trap - INT TERM HUP
+	[ -z "$old_traps" ] || eval "$old_traps"
+	exec 9>&-
+	return $rc
 }
 
 gorge_heavy_acquire() { # [-w SECS]: one free lane on fd 9, or exit 75
@@ -238,24 +322,7 @@ gorge_heavy_run() { # [-w SECS] [-s] -- cmd...: run cmd holding one lane
 		return $?
 	fi
 	if gorge_heavy_acquire ${wait_s:+-w "$wait_s"}; then
-		# Background the child so a supervisor can STOP/continue its process
-		# group; job control gives it its own group (heavy.sh:176-182), so a
-		# negative-pid STOP never hits this shell. The child never gets fd 9;
-		# the supervisor subshell keeps it (shared) so flock -u/-w move the
-		# lane lock.
-		local had_m=0 job supervisor rc
-		case $- in *m*) had_m=1 ;; esac
-		set -m
-		GORGE_HEAVY_LOCK_HELD=$GORGE_HEAVY_LOCK "$@" 9>&- &
-		job=$!
-		[ "$had_m" = 1 ] || set +m
-		gorge_heavy_supervise "$job" &
-		supervisor=$!
-		if wait "$job"; then rc=0; else rc=$?; fi
-		kill "$supervisor" 2>/dev/null || true
-		wait "$supervisor" 2>/dev/null || true
-		exec 9>&- # the lane is this shell's until fd 9 closes; release it now
-		return $rc
+		if gorge_heavy_exec "$@"; then return 0; else return $?; fi
 	fi
 	printf 'heavy_lock.sh: %s still held after %ss; not run: %s\n' "$GORGE_HEAVY_LOCK" "${wait_s:-0}" "$1" >&2
 	[ "$skip" = 1 ] && return 0
@@ -303,19 +370,8 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
 		# Backgrounding (heavy.sh:180) is what lets the supervisor STOP the
 		# child's process group and yield the lane while a gate bracket is open.
 		if gorge_heavy_acquire ${wait_s:+-w "$wait_s"}; then
-			had_m=0
-			case $- in *m*) had_m=1 ;; esac
-			set -m
-			GORGE_HEAVY_LOCK_HELD=$GORGE_HEAVY_LOCK "$@" 9>&- &
-			job=$!
-			[ "$had_m" = 1 ] || set +m
-			gorge_heavy_supervise "$job" &
-			supervisor=$!
-			if wait "$job"; then rc=0; else rc=$?; fi
-			kill "$supervisor" 2>/dev/null || true
-			wait "$supervisor" 2>/dev/null || true
-			exec 9>&-
-			exit $rc
+			gorge_heavy_exec "$@"
+			exit $?
 		fi
 		printf 'heavy_lock.sh: %s still held after %ss; not run: %s\n' "$GORGE_HEAVY_LOCK" "${wait_s:-0}" "$1" >&2
 		[ "$skip" = 1 ] && exit 0
