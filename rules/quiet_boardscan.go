@@ -2,6 +2,7 @@ package rules
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -55,7 +56,11 @@ func (e *Engine) quietBoardStaticScan(all bool) quietBoardHit {
 				}
 				stackDone = true
 			}
-			for _, id := range e.staticSourceIDs(p, z) {
+			ids, filter := e.quietStaticSourcePeek(p, z)
+			for _, id := range ids {
+				if filter && !e.walkClassOf(id).staticHot(z) {
+					continue
+				}
 				o := e.G.Obj(id)
 				if o == nil || o.Card == nil {
 					continue
@@ -87,6 +92,34 @@ func (e *Engine) quietBoardStaticScan(all bool) quietBoardHit {
 		}
 	}
 	return hit
+}
+
+// quietStaticSourcePeek is staticSourceIDs without the summary rebuild: it
+// returns the ids a whole-board static read must visit and whether the caller
+// must still filter them by the object's cached class (staticHot). A valid,
+// current summary is served as is (its hot list, no filter). A stale one is
+// NOT rebuilt -- a rebuild takes fresh backing storage and is shared engine
+// maintenance the walk and staticEffects pay anyway -- so the raw zone list is
+// returned and the caller filters by the same per-object class bit the
+// rebuild would have used (so the visited set is identical). Unsummarized
+// zones (stack, command) are returned whole, as staticSourceIDs does. Verify
+// mode takes the real path so the summary's own cross-checks stay live.
+func (e *Engine) quietStaticSourcePeek(p state.PlayerID, z state.Zone) ([]state.ObjID, bool) {
+	cur := e.G.Zone(z, p)
+	slot := staticZoneSlot(z)
+	if slot < 0 || len(cur) == 0 {
+		return cur, false
+	}
+	if staticZoneSkipVerify {
+		return e.staticSourceIDs(p, z), false
+	}
+	e.staticZonesCatchUp()
+	if i := int(p)*staticZoneSlots + slot; i < len(e.staticZones) {
+		if s := &e.staticZones[i]; s.valid && slices.Equal(s.ids, cur) {
+			return s.hotIDs, false
+		}
+	}
+	return cur, true
 }
 
 // quietStaticHit classifies one static of o (in zone z) and returns the board
@@ -170,6 +203,9 @@ func (e *Engine) quietBoardStaticGuard(p state.PlayerID) {
 		}
 	}
 	check(mayPlay, qbhMayPlay, "a MayPlay$ True Continuous static")
+	if len(e.mayPlayLandIds(p)) > 0 && !e.mayPlayLandAny(p) {
+		panic(fmt.Sprintf("rules: mayPlayLandAny missed a may-play land for seat %d (turn %d)", p, e.G.Turn))
+	}
 	// The proof passes board=false to the may-play enumerators on the strength
 	// of the scan: the scan found no MayPlay$ True static, so the board must
 	// read closed (the caller already returned on any active MayPlay effect).

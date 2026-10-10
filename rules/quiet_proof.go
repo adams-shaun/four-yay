@@ -294,7 +294,7 @@ func (e *Engine) quietBoardBlocker(p state.PlayerID) quietBlockerID {
 	// remove a hit the activeStatics read also removes) and the loop above
 	// returned on any active MayPlay effect, so the board-closed grant reads
 	// are exact (verify mode re-runs them in full).
-	if len(e.mayPlaySpellIdsBoard(p, false)) > 0 || len(e.mayPlayLandIds(p)) > 0 || len(e.mayhemLandPlayIds(p)) > 0 {
+	if len(e.mayPlaySpellIdsBoard(p, false)) > 0 || e.mayPlayLandAny(p) || len(e.mayhemLandPlayIds(p)) > 0 {
 		return qbBoardMayPlay
 	}
 	return qbNone
@@ -508,7 +508,10 @@ func (e *Engine) quietHandBlocker(p state.PlayerID, ceiling int32, unbounded, so
 			}
 			qf := &ff.quiet
 			if qf.isLand {
-				if landOpen && quietFaceNotForbidden(e, p, id) {
+				// A CantPlayLand restriction can only withhold the play, so it
+				// is ignored: the proof over-approximates (blocks more) and
+				// skips the restriction read's allocations.
+				if landOpen {
 					return qbHandLand
 				}
 				// A land printed with Morph/Megamorph/Disguise is also cast
@@ -949,13 +952,6 @@ func quietHandKeywordAction(o *state.Object, id state.ObjID, e *Engine, p state.
 		}
 	}
 	return false
-}
-
-// quietFaceNotForbidden is the land-play restriction gate. A restriction can
-// only withhold a play, so ignoring it is sound; it is kept as a hook for the
-// test fixtures that exercise adjustLandPlays.
-func quietFaceNotForbidden(e *Engine, p state.PlayerID, id state.ObjID) bool {
-	return !playLandForbidden(e, p, state.ZHand, id)
 }
 
 // quietDynamicKWMaybe reports an object whose intrinsic keywords or keyword

@@ -414,6 +414,54 @@ func (e *Engine) mayPlaySpellIdsBoard(p state.PlayerID, board bool) []mayPlaySpe
 	return out
 }
 
+// mayPlayLandAny is len(mayPlayLandIds(p)) > 0 as an early-exit, closure-free
+// existence test for the quiet proof. It is an over-approximation: any active
+// may-play effect controlled by p answers true without matching its filter or
+// limit, and the graveyard, exile and library-top reads are mayPlayLandIds'
+// own (landGranted: the grant AND no RaiseCost$ surcharge). Gates are
+// mayPlayLandIds' own.
+func (e *Engine) mayPlayLandAny(p state.PlayerID) bool {
+	if !e.sorcerySpeed(p) || e.G.Players[p].LandsPlayed >= int32(1+e.adjustLandPlays(p)) {
+		return false
+	}
+	ces := e.active()
+	for i := range ces {
+		if ces[i].MayPlay && ces[i].Controller == p {
+			return true
+		}
+	}
+	for _, z := range [...]state.Zone{state.ZGraveyard, state.ZExile} {
+		for _, id := range e.G.Zone(z, p) {
+			o := e.G.Obj(id)
+			if o == nil || o.Face() == nil || !o.Face().IsLand() || o.Controller != p {
+				continue
+			}
+			if e.mayPlayLandGranted(p, id) {
+				return true
+			}
+		}
+	}
+	if lib := e.G.Zone(state.ZLibrary, p); len(lib) > 0 {
+		if o := e.G.Obj(lib[0]); o != nil && o.Face() != nil && o.Face().IsLand() && o.Controller == p {
+			if e.mayPlayLandGranted(p, lib[0]) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// mayPlayLandGranted is mayPlayLandIds' landGranted gate.
+func (e *Engine) mayPlayLandGranted(p state.PlayerID, id state.ObjID) bool {
+	if _, ok := e.mayPlayGrant(p, id); !ok {
+		return false
+	}
+	if _, hasRaise, _ := e.mayPlayRaiseCost(p, id); hasRaise {
+		return false
+	}
+	return true
+}
+
 // adjustLandPlays reports how many land drops BEYOND the ordinary one
 // (CR 305.2a) player p gets this turn: the SUM over the active
 // additional-land-drops grants (Azusa, Oracle of Mul Daya, Exploration)
