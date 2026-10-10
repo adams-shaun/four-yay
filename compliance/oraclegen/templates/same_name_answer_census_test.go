@@ -205,6 +205,21 @@ func sameNameBucketRank(bucket string) int {
 // evidence, discover, gift, forage, elemental bend) generate items whose
 // picks are exact aliases or need no same-name discrimination.
 //
+// Re-measured on the level-B indirect SVar attack gate (review of
+// agent-20261009T035714Z-15384ed6, commit ae737b73c): DFT unproven 3 -> 4.
+// Serving Fearless Swashbuckler trigger#0.0 ("if a Pirate and a Vehicle
+// attacked this combat", CheckSVar$ X = SVar$Y/Plus.Z) generates one new
+// scenario: the Kitesail Corsair and the crewed Veloheart Bike attack, the
+// trigger draws three then discards two, and the deterministic discard mode
+// answers name the two hand Wastes (refs "p0:Wastes#24"/"p0:Wastes#36",
+// rank-derived hand cards over three same-name options). No exact answer
+// exists, so ClassifySameName marks them Unanswerable: Unproven, not
+// Unresolved. The item tracks the new scenario one-for-one and disappears if
+// trigger_condition_indirect.go is reverted (verified: the six changed files
+// reverted to main's versions re-run the DFT chunk at unproven 3, probe at
+// .ds4/scratch/vr3-census-rev.log). MKM (Tunnel Tipster) and SPM (Spider-Man
+// 2099) stayed at their pins. Unresolved stayed 0.
+//
 // Re-measured on the merge of this branch with that keyword-action land: the
 // merged tree carries the branch's Say Its Name item AND both main items
 // (Disturbing Mirth, Paranormal Analyst), so merged DSK unproven is 36. The
@@ -213,7 +228,7 @@ func sameNameBucketRank(bucket string) int {
 var wantSameNameCensus = map[string]string{
 	"BIG": `{"alias":0,"copy":0,"unresolved":0,"unproven":1,"items":null}`,
 	"BLB": `{"alias":3,"copy":0,"unresolved":0,"unproven":5,"items":null}`,
-	"DFT": `{"alias":0,"copy":0,"unresolved":0,"unproven":3,"items":null}`,
+	"DFT": `{"alias":0,"copy":0,"unresolved":0,"unproven":4,"items":null}`,
 	"DSK": `{"alias":2,"copy":0,"unresolved":0,"unproven":36,"items":null}`,
 	"ECL": `{"alias":0,"copy":0,"unresolved":0,"unproven":5,"items":null}`,
 	"EOE": `{"alias":3,"copy":0,"unresolved":0,"unproven":2,"items":null}`,

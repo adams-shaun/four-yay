@@ -1,0 +1,13 @@
+{
+  "id": "must-attack-force-declared-at-phase-entry",
+  "status": "xmage_wrong",
+  "match": {
+    "template": "static",
+    "op": "pass_to",
+    "field": "permanents",
+    "diff": "$CARD gorge+[] xmage+[attacking, tapped]"
+  },
+  "ruling": "gorge leaves the MustAttack creature undeclared at the pending declare-attackers decision and offers its attacker option with attack_required=true; the declaration is the active player's act. XMage's engine force-declares and taps an Attacks-each-combat creature when it ENTERS DECLARE_ATTACKERS (checkAttackRequirements before selectAttackers), so its snapshot already shows it tapped attacking before any declaration command runs. XMage's engine artifact, not a gorge defect.",
+  "cr": ["508.1d"],
+  "source": "Ares, God of War (static#0.0)"
+}

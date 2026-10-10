@@ -956,6 +956,15 @@ func chooseTargets(sc Scenario, ds []rules.OracleDecision) (Scenario, map[int]bo
 	return out, castSteps
 }
 
+// arrangeEmptyGraveyard reports whether an arrange decision answered the empty
+// kept set of an optional (Min 0) graveyard-destination ask at step time: the
+// shape an upkeep Surveil's step-time fallback poses in a scenario that
+// revisits the upkeep, where every looked-at card went to the graveyard.
+func arrangeEmptyGraveyard(d rules.OracleDecision) bool {
+	return d.Step >= 0 && d.Min == 0 && len(d.PickIdx) == 0 && len(d.ArrangeLabels) > 0 &&
+		len(d.ArrangeLabels) == d.Options && d.ArrangeKind == "graveyard"
+}
+
 // xanswersSetup turns gorge's recorded decisions into XMage's scripted
 // answers, grouped by the step that posed them. setup is the scenario's setup
 // (nil when the caller has none): it lets a trigger-order decision recorded
@@ -1145,6 +1154,22 @@ func xanswersSetup(ds []rules.OracleDecision, steps int, modes map[string]int, c
 				as = damageSplitAnswers(d)
 				break
 			}
+			if d.Resume == "mana_color" && len(d.ManaColours) > 1 {
+				// A Produced$ "Combo <colours>" ask whose offered span
+				// exceeds one colour is XMage's AddManaInAnyCombinationEffect
+				// at every unit count: one multi-amount message per offered
+				// colour, in the set's own order, zeroes included (Muerra,
+				// Trash Tactician's Add R / Add G pair). The set rides the
+				// decision (ManaColours); a produced-Any ask stays on the
+				// routing below, which is what its colour dialog and WUBRG
+				// multi-amount already agree with. A SINGLE-colour Combo set
+				// (effects/params/produced.go returns ok for one colour too)
+				// keeps the ordinary choice routing: no committed row exists
+				// to measure its dialog shape against, and switching it to
+				// amount answers on a hunch would serve an unmeasured guess.
+				as = manaColourAllocation(d)
+				break
+			}
 			if d.Resume == "mana_color" && d.Min == d.Max && d.Max > 1 {
 				// A multi-amount allocation (Combo Any, Desolation of Smaug):
 				// one unit per picked option, options laid out unit*5+colour
@@ -1299,7 +1324,19 @@ func xanswersSetup(ds []rules.OracleDecision, steps int, modes map[string]int, c
 			}
 			// Arrange first asks which cards move; its follow-up ordering is
 			// also on XMage's choice queue. Keeping all cards is a choice skip.
-			if d.GorgeKind == "arrange" {
+			if d.GorgeKind == "arrange" && arrangeEmptyGraveyard(d) {
+				// Every looked-at card goes to the graveyard (gorge's empty
+				// kept pile). XMage's selection IS the cards to graveyard, so
+				// script each looked-at card's name on the choice queue: a
+				// leading card name takes precedence over the skip
+				// (librarySelectionQueue), the queue then ends with nothing
+				// further to consume, and no order answers follow. The generic
+				// partial-selection arm below would emit [choice_skip], which
+				// XMage reads as keep-all -- the opposite outcome.
+				for _, label := range d.ArrangeLabels {
+					as = append(as, XAnswer{d.Seat, "choice", label})
+				}
+			} else if d.GorgeKind == "arrange" {
 				forcedOrder := d.Min == d.Max && d.Max == d.Options
 				if !forcedOrder && len(d.PickIdx) == d.Options {
 					// Keeping every card where it is: XMage's surveil/scry

@@ -58,6 +58,9 @@ import (
 // and an AdjustLandPlays$ grant whose source carries a land-entry trigger
 // resolves it before the second-land assertion (EOE Icetill Explorer leaves
 // the player-rule skip).
+// Re-pinned by the G7 engine-gap merge (6e4f59c17: the attacking
+// <PlayerSpec> rider and dealtDamagetoAny words): one DFT and one FRA
+// generic-observability skip become served.
 // Re-pinned again by agent-20261009T060626Z-a6d0cf40: the Surveyor cycle's
 // graveyard AddAbility$ grant is served by the off-battlefield arm of the
 // gated-grant observation (the engine offers the granted activation on the
@@ -87,11 +90,19 @@ import (
 // prelude at a starting life just below the printed power (The Last Ride:
 // crewed 1/1 at life 12), so DFT loses its computed-count skip and its served
 // count rises by one.
+// Re-pinned by agent-20261009T153027Z-bc3dacf9: the exiled-with fixture family
+// serves BIG Territory Forge by running the source's own ETB exile, and names
+// the measured engine gaps for the rows it cannot serve (FRA Null Summoner:
+// the engine's may-play walk covers only the caster's own cards), so BIG's
+// served count rises by one and FRA's exiled skip becomes the named reason.
+// Merge agent-20261009T094023Z-a30f7588 (mrg2) with main's bc3dacf9 pin: FRA
+// keeps main's renamed exiled skip (an opponent-owned exiled card) and this
+// branch's served Tomik, so FRA is 36 served; DFT keeps 61 (main's 60 predates
+// the granted-static Racers' Scoreboard row).
 // It fails in both directions.
 var wantStaticContinuousCensus = map[string]map[string]int{
 	"BIG": {
-		"served": 2,
-		"skip:static counts cards exiled with the source": 1,
+		"served": 3,
 	},
 	"EOE": {
 		"served": 62,
@@ -106,9 +117,9 @@ var wantStaticContinuousCensus = map[string]map[string]int{
 	},
 	"FRA": {
 		"served": 36,
-		"skip:static effect not observable on a probe or the card":            1,
-		"skip:static counts cards exiled with the source":                     1,
-		"skip:static grants only keywords outside the compared evergreen set": 1,
+		"skip:static effect not observable on a probe or the card":                                                                 1,
+		"skip:static an opponent-owned exiled card is not offered (the engine's may-play walk covers only the caster's own cards)": 1,
+		"skip:static grants only keywords outside the compared evergreen set":                                                      1,
 	},
 	// DFT includes the Surveyor cycle's graveyard AddAbility$ grant, served by
 	// the gated-grant observation's off-battlefield arm (agent-
