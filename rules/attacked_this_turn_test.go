@@ -126,7 +126,7 @@ func TestAttackedThisTurnGivesAgentFrankHorriganIndestructible(t *testing.T) {
 // TestAttackedThisTurnGatesErgRaidersEndStepTrigger drives Erg Raiders'
 // `IsPresent$ Card.Self+!attackedThisTurn` intervening-if: queued for the
 // Raiders that stayed home, not for the one that attacked.
-func TestAttackedThisTurnGatesErgRaidersEndStepTrigger(t *testing.T) {
+func TestAttackedThisTurnGatesErgRaidersEndStepTriggerOnStamp(t *testing.T) {
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	c, ok := reg.Lookup("Erg Raiders")
