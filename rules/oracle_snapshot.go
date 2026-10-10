@@ -115,6 +115,13 @@ type OracleDecision struct {
 	// TargetsForEachPlayer$ ask (Kaya, Spirits' Justice's exile-each) poses one
 	// XMage target per opponent even though the engine records it as a choose.
 	OptionGroups []string `json:"option_groups,omitempty"`
+	// ArrangeLabels is the label of every offered option of a KArrange, in
+	// option order, and ArrangeKind the destination Kind they all share ("" if
+	// they disagree). An answered arrange records only the kept picks, so an
+	// EMPTY answer (every looked-at card to the graveyard) would otherwise
+	// leave the generator no card names to script for XMage's selection.
+	ArrangeLabels []string `json:"arrange_labels,omitempty"`
+	ArrangeKind   string   `json:"arrange_kind,omitempty"`
 	// ObjectPicks records only selected game-object identities, in submission
 	// order. Unlike a snapshot delta, these are the objects the player chose.
 	ObjectPicks []string `json:"object_picks,omitempty"`
