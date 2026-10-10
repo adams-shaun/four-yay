@@ -1,0 +1,288 @@
+{
+ "source": "Mage.Tests/src/test/java/org/mage/test/combat/{FirstStrikeTest,DamageDistributionTest}.java + cards/rules/LegendRuleTest.java (XMage, MIT)",
+ "scenarios": [
+  {
+   "name": "first-strike-attacker-kills-blocker",
+   "xmage": "FirstStrikeTest#firstStrikeAttacker",
+   "cr": [
+    "510.4",
+    "702.7b"
+   ],
+   "why": "A first-striking attacker kills its 2/2 blocker before regular damage; the blocker deals none.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "White Knight"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:White Knight"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "block",
+     "seat": 1,
+     "blocks": [
+      [
+       "p1:Grizzly Bears",
+       "p0:White Knight"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 1,
+      "zone": "graveyard",
+      "name": "Grizzly Bears"
+     },
+     "eq": 1
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "graveyard",
+      "name": "White Knight"
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "first-strike-blocker-kills-attacker",
+   "xmage": "FirstStrikeTest#firstStrikeBlocker",
+   "cr": [
+    "510.4"
+   ],
+   "why": "A first-striking blocker kills the attacker first.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "White Knight"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "block",
+     "seat": 1,
+     "blocks": [
+      [
+       "p1:White Knight",
+       "p0:Grizzly Bears"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "graveyard",
+      "name": "Grizzly Bears"
+     },
+     "eq": 1
+    },
+    {
+     "count": {
+      "seat": 1,
+      "zone": "graveyard",
+      "name": "White Knight"
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "double-strike-unblocked",
+   "xmage": "DamageDistributionTest#testDoubleStrikeUnblocked",
+   "cr": [
+    "702.4b"
+   ],
+   "why": "An unblocked 1/1 double striker deals damage in both combat damage steps.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Warren Instigator"
+     ]
+    },
+    "p1": {
+     "life": 4
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Warren Instigator"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 2
+     }
+    }
+   ]
+  },
+  {
+   "name": "double-strike-blocked-no-trample",
+   "xmage": "DamageDistributionTest#testDoubleStrike",
+   "cr": [
+    "702.4c",
+    "510.1c"
+   ],
+   "why": "The blocker dies in the first-strike step; the attacker stays blocked and deals no damage to the player in the second step.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Warren Instigator"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Merfolk Looter"
+     ],
+     "life": 4
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Warren Instigator"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "block",
+     "seat": 1,
+     "blocks": [
+      [
+       "p1:Merfolk Looter",
+       "p0:Warren Instigator"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 1,
+      "zone": "battlefield",
+      "name": "Merfolk Looter"
+     },
+     "eq": 0
+    },
+    {
+     "life": {
+      "p1": 4
+     }
+    },
+    {
+     "card": "p0:Warren Instigator",
+     "tapped": true
+    }
+   ]
+  },
+  {
+   "name": "legend-rule-second-copy",
+   "xmage": "LegendRuleTest#testRegular",
+   "cr": [
+    "704.5j"
+   ],
+   "why": "Two legendary permanents with the same name: the controller keeps one, the other goes to the graveyard.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Isamaru, Hound of Konda",
+      "Isamaru, Hound of Konda"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Isamaru, Hound of Konda",
+     "mana": "W"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Isamaru, Hound of Konda#2",
+     "mana": "W"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "graveyard",
+      "name": "Isamaru, Hound of Konda"
+     },
+     "eq": 1
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Isamaru, Hound of Konda"
+     },
+     "eq": 1
+    }
+   ]
+  }
+ ]
+}

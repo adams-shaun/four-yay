@@ -1,0 +1,408 @@
+{
+ "source": "Mage.Tests/src/test/java/org/mage/test/cards/continuous/{LayerTests,DependentEffectsTest}.java + cards/replacement/HumilityTest.java (XMage, MIT)",
+ "scenarios": [
+  {
+   "name": "blood-moon-urborg",
+   "xmage": "LayerTests#testBloodMoon_UrborgTombOfYawgmothInteraction",
+   "cr": [
+    "613.8",
+    "305.7"
+   ],
+   "why": "Blood Moon's type change (layer 4) makes Urborg a Mountain and removes its ability first by dependency, so no land is a Swamp.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Blood Moon",
+      "Urborg, Tomb of Yawgmoth",
+      "Plains"
+     ]
+    }
+   },
+   "steps": [],
+   "expect": [
+    {
+     "card": "p0:Urborg, Tomb of Yawgmoth",
+     "types": [
+      "Land",
+      "Mountain"
+     ],
+     "no_types": [
+      "Swamp"
+     ]
+    },
+    {
+     "card": "p0:Plains",
+     "types": [
+      "Land",
+      "Plains"
+     ],
+     "no_types": [
+      "Swamp"
+     ]
+    }
+   ],
+   "known_bug": "CR 613.8 layer-4 dependency not modelled: rules/chars/types.go:118 walks LType effects in pure timestamp order, so Urborg's Swamp grant still applies after Blood Moon removed Urborg's ability (Urborg and Plains both read Swamp)."
+  },
+  {
+   "name": "urborg-animate-land-then-ovinize",
+   "xmage": "LayerTests#testUrborgWithAnimateLandAndOvinize",
+   "cr": [
+    "613.1d",
+    "613.1f",
+    "613.4b"
+   ],
+   "why": "Ovinize removes abilities (layer 6) and sets 0/1 (7b) after Animate Land's 3/3 (7b, earlier timestamp); Urborg keeps the Swamp type it gave itself in layer 4.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Urborg, Tomb of Yawgmoth"
+     ],
+     "hand": [
+      "Animate Land",
+      "Ovinize"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Animate Land",
+     "mana": "G",
+     "targets": [
+      "p0:Urborg, Tomb of Yawgmoth"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Ovinize",
+     "mana": "CU",
+     "targets": [
+      "p0:Urborg, Tomb of Yawgmoth"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Urborg, Tomb of Yawgmoth",
+     "types": [
+      "Creature",
+      "Land",
+      "Swamp"
+     ],
+     "pt": "0/1"
+    }
+   ]
+  },
+  {
+   "name": "opalescence-enchanted-evening-lands-die",
+   "xmage": "DependentEffectsTest#testLandsAreDestroyed",
+   "cr": [
+    "613.8a",
+    "704.5f"
+   ],
+   "why": "Opalescence depends on Enchanted Evening (it changes what Opalescence applies to), so every permanent becomes an X/X creature; mana-value-0 lands are 0/0 and die.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "War Horn",
+      "Plains"
+     ],
+     "hand": [
+      "Opalescence",
+      "Enchanted Evening"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Plains",
+      "Plains"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Opalescence",
+     "mana": "CCWW"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Enchanted Evening",
+     "mana": "CCCWW"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Enchanted Evening",
+     "pt": "5/5"
+    },
+    {
+     "card": "p0:War Horn",
+     "pt": "3/3"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Plains"
+     },
+     "eq": 0
+    },
+    {
+     "count": {
+      "seat": 1,
+      "zone": "battlefield",
+      "name": "Plains"
+     },
+     "eq": 0
+    }
+   ],
+   "known_bug": "SetPower$/SetToughness$ AffectedX is anchored on the static's SOURCE: rules/chars/derive.go:127 and :133 pass ce.Source to StaticAmount (the SubModify arm at :155-:165 honours AddPowerAffected; the SubSet arm has no equivalent), so every Opalescence creature gets Opalescence's own MV 4 (lands 4/4 survive)."
+  },
+  {
+   "name": "humility-march-lattice-lands-die",
+   "xmage": "LayerTests#testMycosynthLatticeAndMarchOfTheMachinesAndHumility",
+   "cr": [
+    "613.1d",
+    "613.4b",
+    "704.5f"
+   ],
+   "why": "Lattice makes every permanent an artifact (layer 4), March makes noncreature artifacts creatures with P/T equal to mana value (7b, later timestamp than Humility's 1/1), so the mana-value-0 lands are 0/0 and die. Only the land assertion is ported: XMage additionally asserts that Humility, March and Lattice die, which this port does not adopt without a ruling (by CR 613.7 timestamps they would be 4/4, 4/4 and 6/6).",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Humility",
+      "March of the Machines",
+      "Mycosynth Lattice"
+     ],
+     "battlefield": [
+      "Island",
+      "Plains",
+      "Swamp"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Humility",
+     "mana": "CCWW"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:March of the Machines",
+     "mana": "CCCU"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Mycosynth Lattice",
+     "mana": "CCCCCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Island"
+     },
+     "eq": 0
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Plains"
+     },
+     "eq": 0
+    }
+   ],
+   "known_bug": "CR 613.8 layer-4 dependency not modelled (rules/chars/types.go:118 timestamp-only walk): March of the Machines (earlier timestamp) is not reapplied after Mycosynth Lattice makes the lands artifacts, so lands are noncreature artifacts and survive; with the walk fixed the AffectedX source-anchor bug (rules/chars/derive.go:127) would still make them 4/4."
+  },
+  {
+   "name": "humility-masumaro",
+   "xmage": "HumilityTest#testHumilityAndMasumaro",
+   "cr": [
+    "613.4a",
+    "613.4b"
+   ],
+   "why": "Masumaro's P/T CDA applies in 7a; Humility's set-to-1/1 in 7b overrides it.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Humility"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Masumaro, First to Live"
+     ],
+     "hand": [
+      "Plains",
+      "Plains",
+      "Plains"
+     ]
+    }
+   },
+   "steps": [],
+   "expect": [
+    {
+     "card": "p1:Masumaro, First to Live",
+     "pt": "1/1"
+    }
+   ]
+  },
+  {
+   "name": "conspiracy-opalescence-evening",
+   "xmage": "LayerTests#testMultipleLayeredDependency",
+   "cr": [
+    "613.8",
+    "613.1d"
+   ],
+   "why": "Enchanted Evening makes all permanents enchantments, Opalescence (depends on it) makes them creatures, Conspiracy (depends on Opalescence) gives the chosen creature type -- even to lands; Glorious Anthem keeps MV-0 lands alive as 1/1s.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Glorious Anthem",
+      "Swamp"
+     ],
+     "hand": [
+      "Conspiracy",
+      "Opalescence",
+      "Enchanted Evening"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Conspiracy",
+     "mana": "CCCBB"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "Advisor"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Opalescence",
+     "mana": "CCWW"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Enchanted Evening",
+     "mana": "CCCWW"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Swamp",
+     "types": [
+      "Land",
+      "Advisor"
+     ],
+     "pt": "1/1"
+    },
+    {
+     "card": "p0:Enchanted Evening",
+     "types": [
+      "Enchantment",
+      "Advisor"
+     ],
+     "pt": "6/6"
+    }
+   ],
+   "known_bug": "Both layer bugs: CR 613.8 layer-4 dependency (rules/chars/types.go:118; Conspiracy is applied before Opalescence/Enchanted Evening make the permanents creatures, so nothing becomes an Advisor) and the AffectedX source anchor (rules/chars/derive.go:127; Swamp 4/4 instead of 0/0+anthem)."
+  },
+  {
+   "name": "control-opalescence-alone",
+   "xmage": "(control, derived from DependentEffectsTest#testLandsAreDestroyed)",
+   "cr": [
+    "613.8a",
+    "704.5f"
+   ],
+   "why": "Control: Opalescence alone makes each OTHER non-Aura enchantment a creature with base P/T equal to ITS OWN mana value: Glorious Anthem (MV 3) is 3/3, +1/+1 from itself = 4/4.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Glorious Anthem"
+     ],
+     "hand": [
+      "Opalescence"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Opalescence",
+     "mana": "CCWW"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Glorious Anthem",
+     "types": [
+      "Creature"
+     ],
+     "pt": "4/4"
+    },
+    {
+     "card": "p0:Opalescence",
+     "no_types": [
+      "Creature"
+     ]
+    }
+   ],
+   "known_bug": "Same root cause as opalescence-enchanted-evening-lands-die: rules/chars/derive.go:127/:133 anchor AffectedX on the source (Glorious Anthem reads 5/5 = Opalescence's MV 4 + anthem, want 4/4)."
+  }
+ ]
+}
