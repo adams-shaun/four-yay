@@ -547,7 +547,7 @@ func (e *Engine) quietHandBlocker(p state.PlayerID, ceiling int32, unbounded, so
 		if quietFaceGrantedHeadFacts(o, o.Face(), oFF) {
 			return qbHandAbility
 		}
-		if abQuietBlocked(oFF.quiet.abQuiet[3], o, ceiling, unbounded, sorceryOpen) {
+		if abQuietBlocked(e, p, &oFF.quiet.abQuiet[3], o, ceiling, unbounded, sorceryOpen) {
 			return qbHandAbility
 		}
 	}
@@ -799,8 +799,8 @@ func (e *Engine) quietBattlefieldBlocker(p state.PlayerID, ceiling int32, unboun
 					return qbBattlefieldStack
 				}
 				if zidx >= 0 {
-					aq := ff.quiet.abQuiet[zidx]
-					if abQuietBlocked(aq, o, ceiling, unbounded, sorceryOpen) {
+					aq := &ff.quiet.abQuiet[zidx]
+					if abQuietBlocked(e, p, aq, o, ceiling, unbounded, sorceryOpen) {
 						return qbBattlefieldAbility
 					}
 				}
@@ -879,8 +879,14 @@ func (e *Engine) quietObjectFacts(o *state.Object) (*walkFaceFacts, quietBlocker
 }
 
 // abQuietBlocked applies the §2.4 ability test to one object's zone summary.
-func abQuietBlocked(aq abQuietZone, o *state.Object, ceiling int32, unbounded, sorceryOpen bool) bool {
-	if !aq.any {
+// Q3b: a mana-only admitting ability blocks through the floor aggregation
+// (exact); a part-carrying ability blocks through its group when its mana
+// floor is affordable AND every bounded part's necessary condition could
+// hold; an unpriceable cost stays nonMana and blocks outright. p is the seat
+// the proof evaluates (the activating player the parts' counts are read
+// for).
+func abQuietBlocked(e *Engine, p state.PlayerID, aq *abQuietZone, o *state.Object, ceiling int32, unbounded, sorceryOpen bool) bool {
+	if aq == nil || !aq.any {
 		return false
 	}
 	if aq.nonMana {
@@ -891,6 +897,21 @@ func abQuietBlocked(aq abQuietZone, o *state.Object, ceiling int32, unbounded, s
 	}
 	if aq.hasTap && !o.Tapped && (unbounded || aq.floorTap <= ceiling) && (!aq.sorcTap || sorceryOpen) {
 		return true
+	}
+	for i := range aq.groups {
+		g := &aq.groups[i]
+		if g.tap && o.Tapped {
+			continue
+		}
+		if !unbounded && g.floor > ceiling {
+			continue
+		}
+		if g.sorc && !sorceryOpen {
+			continue
+		}
+		if e.quietPartsPayable(p, o, g) {
+			return true
+		}
 	}
 	return false
 }
