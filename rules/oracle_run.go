@@ -2136,11 +2136,7 @@ func (r *oracleRun) check(x oracleExpect) []string {
 		}
 	}
 	if x.CanAttack != nil {
-		id, err := r.resolve(x.CanAttack.Attacker)
-		if err != nil {
-			return []string{err.Error()}
-		}
-		bad = append(bad, canAttackFails(e.Pending(), id, x.CanAttack.Attacker, r.wantBool(x))...)
+		bad = append(bad, oracleCanAttackFails(r, x)...)
 	}
 	if x.Count != nil {
 		z, ok := oracleZones[x.Count.Zone]

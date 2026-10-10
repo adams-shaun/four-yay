@@ -145,6 +145,9 @@ func MaxBlockerCap(st *cards.Static) int {
 // gatedLegalityStatic names the sub-family serving st's gated combat-legality
 // shape, or ok=false.
 func gatedLegalityStatic(f *cards.Face, st *cards.Static) (string, bool) {
+	if sub, ok := scopedLegalityStatic(f, st); ok {
+		return sub, true
+	}
 	if !f.IsCreature() {
 		return "", false
 	}
