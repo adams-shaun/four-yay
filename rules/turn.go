@@ -5,6 +5,7 @@ import (
 
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -1727,6 +1728,15 @@ func (e *Engine) handleChoose(d *decision.Decision, in decision.Intent) {
 		}
 	case chooseManaDiscard:
 		cast := e.answerManaDiscard(chosen)
+		if e.pending == nil && !e.manaCostChoicePending() {
+			if e.UnlessPayment != nil {
+				e.advanceUnlessPayment()
+			} else if cast {
+				e.continueCast()
+			}
+		}
+	case chooseManaEvidence:
+		cast := e.answerManaCost(pay.AskManaEvidence, chosen)
 		if e.pending == nil && !e.manaCostChoicePending() {
 			if e.UnlessPayment != nil {
 				e.advanceUnlessPayment()

@@ -52,6 +52,11 @@ func RecordManaCostAnswer(e Engine, md *ManaCostActivation, flow AskFlow, chosen
 			// top three.
 			md.ForagePay = true
 		}
+	case AskManaEvidence:
+		md.Evidence = md.Evidence[:0]
+		for _, opt := range chosen {
+			md.Evidence = append(md.Evidence, opt.Obj)
+		}
 	case AskManaUntap:
 		for _, opt := range chosen {
 			md.Untaps = append(md.Untaps, opt.Obj)
