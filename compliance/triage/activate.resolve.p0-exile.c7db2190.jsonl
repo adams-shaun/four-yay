@@ -1,0 +1,4 @@
+{"shape":{"template":"activate","op":"resolve","field":"p0.exile","diff":"gorge+[] xmage+[Hill Giant]"},"key":"activate | resolve | p0.exile | gorge+[] xmage+[Hill Giant]","cards":3}
+{"card":"Path to Redemption","template":"activate#0.0","status":"diverge","api":"Attach","sets":["TLA"],"detail":"step 3 (resolve) p0.exile: gorge \"[]\", xmage \"[Hill Giant]\""}
+{"card":"Spiral into Solitude","template":"activate#0.0","status":"diverge","api":"Attach","sets":["ECL"],"detail":"step 3 (resolve) p0.exile: gorge \"[]\", xmage \"[Hill Giant]\""}
+{"card":"Uneasy Alliance","template":"activate#0.0","status":"diverge","api":"Attach","sets":["TMT"],"detail":"step 3 (resolve) p0.exile: gorge \"[]\", xmage \"[Hill Giant]\""}

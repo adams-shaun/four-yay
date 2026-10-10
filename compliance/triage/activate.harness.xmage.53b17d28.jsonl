@@ -1,4 +1,0 @@
-{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: -N"},"key":"activate | harness | xmage | AssertionError: Can't find ability to activate command: -N","cards":3}
-{"card":"Oko, Lorwyn Liege","template":"activate#1.0","status":"harness","api":"Phase:SetState","sets":["ECL"],"detail":"xmage: AssertionError: Can't find ability to activate command: -1"}
-{"card":"Oko, Lorwyn Liege","template":"activate#1.1","status":"harness","api":"Phase:SetState","sets":["ECL"],"detail":"xmage: AssertionError: Can't find ability to activate command: -3"}
-{"card":"Oko, Lorwyn Liege","template":"activate#1.2","status":"harness","api":"Phase:SetState","sets":["ECL"],"detail":"xmage: AssertionError: Can't find ability to activate command: -6"}
