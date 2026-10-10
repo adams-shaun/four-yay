@@ -224,6 +224,7 @@ func (e *Engine) emit(ev events.Event) events.Event {
 	// departs from; recursion inside this emit (the Role sweep above, a
 	// replacement body's own move) snapshots its own departure before this
 	// window opens or reuses this board like any batch member.
+	e.noteBatchDeparture(ev)
 	if ev.Kind == events.MoveZone && ev.From == state.ZBattlefield &&
 		ev.To != state.ZBattlefield && e.triggerBefore == nil {
 		if o := e.G.Obj(ev.Obj); o != nil && o.Zone == state.ZBattlefield {

@@ -267,4 +267,15 @@ type engineTriggerBatches struct {
 	// every intent boundary, never cloned.
 	batchWindow      *triggerSnapshot `clone:"reset"`
 	batchWindowDepth int              `clone:"reset"`
+	// batchReplSources lists every object that departed the battlefield
+	// while a simultaneous departure batch was open (replBatchDepth > 0:
+	// an effect's BatchDepartures or an SBA batch in sba.go). CR 614.6/616 with
+	// 603.10: replacement effects for a simultaneous event are determined
+	// against the board immediately before it, so a member that the
+	// sequential emit loop has already moved off the battlefield keeps its
+	// ActiveZones$ Battlefield replacements for the rest of the batch
+	// (Kalitas, Traitor of Ghet destroyed by the same Wrath as the
+	// opponent's creatures). See batchMemberReplActive.
+	batchReplSources []state.ObjID `clone:"reset"`
+	replBatchDepth   int           `clone:"reset"`
 }

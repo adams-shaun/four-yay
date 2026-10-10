@@ -193,8 +193,7 @@
      },
      "eq": 3
     }
-   ],
-   "known_bug": "DestroyAll moves victims one MoveZone at a time in seat order (effects/zone_bulk.go:155-170); Kalitas (seat 0) leaves first, so its ActiveZones$ Battlefield move replacement is gone before the opponent's creatures move. CR 614.6/603.10: a replacement on a permanent destroyed simultaneously still applies. control-kalitas-murder (Kalitas surviving) passes."
+   ]
   },
   {
    "name": "leyline-of-the-void-murder",
