@@ -17,8 +17,20 @@ func changesControllerMatches(e Board, t cards.Trigger, source state.ObjID, ev e
 		return false
 	}
 	you := e.ControllerOf(source)
-	if v := t.ParamStr(cards.PKValidCard); v != "" && !e.MatchesObject(v, lki, source, you, SpecOpts{}) {
-		return false
+	if v := t.ParamStr(cards.PKValidCard); v != "" &&
+		!e.MatchesObject(v, lki, source, you, SpecOpts{}) {
+		// Forge matches ValidCard$ against the card AS THE CHANGE LEFT IT, not
+		// the LKI: Zidane, Tantalus Thief's "an opponent gains control of a
+		// permanent from you" is ValidCard$ Card.OppCtrl beside
+		// ValidOriginalController$ You, and both only hold post-change (the
+		// LKI carries the original controller, so the two filters contradict
+		// there and the trigger could never fire). The LKI read stays first so
+		// every ID-anchored carrier (Card.Self, IsRemembered) matches exactly
+		// as before; only a card whose filter is controller-relative after the
+		// move needs the live object.
+		if live := e.Game().Obj(ev.Obj); live == nil || !e.MatchesObject(v, live, source, you, SpecOpts{}) {
+			return false
+		}
 	}
 	if v := t.ParamStr(cards.PKValidOriginalController); v != "" && !effects.MatchesPlayerSpec(e.Game(), v, lki.Controller, you) {
 		return false

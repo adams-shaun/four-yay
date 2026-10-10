@@ -65,6 +65,7 @@ var wantTriggerCensus = map[string]map[string]int{
 		"served:trigger.state-self-counters":                    1,
 		"served:trigger.drawn":                                  4,
 		"served:trigger.drawn-other":                            1, // Scrawling Crawler: cli-20261009T031408Z-a01003ef
+		"served:trigger.discarded-opponent":                     1, // Tinybones, Bauble Burglar: agent-20261009T174759Z-3f3e77a4
 		"served:trigger.life-lost":                              1, // Bloodthirsty Conqueror: cli-20261009T031408Z-a01003ef
 		"served:trigger.etb-land":                               20,
 		"served:trigger.etb-other":                              24,

@@ -76,8 +76,13 @@ func staticGrantedTriggerItem(reg *cards.Registry, f *cards.Face, name string, r
 			// The recipe refuses a non-creature grantor; the granted shape's
 			// own cause is a probe creature attacking unblocked.
 			causes = grantedCombatDamageCause()
-		case sub == "trigger.discarded" && filterHasTokenFold(t.ParamStr(cards.PKValidCard), "oppown"):
+		case (sub == "trigger.discarded" || sub == "trigger.discarded-opponent") &&
+			filterHasTokenFold(t.ParamStr(cards.PKValidCard), "oppown"):
 			// "Whenever an opponent discards a card": p1 discards a bear.
+			// The classifier now names this shape trigger.discarded-opponent
+			// (its own Mind-Rot-at-p1 recipe); a granted body keeps the
+			// instant draw-and-discard probe cause this route has always
+			// observed, so the pinned granted items are unchanged.
 			causes = grantedOpponentDiscardCauses(reg)
 		default:
 			var why string

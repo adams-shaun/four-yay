@@ -52,10 +52,14 @@ func classifyCastTrigger(f *cards.Face, t *cards.Trigger) (sub string, ok bool) 
 			return "trigger.ability-activated", true
 		}
 		// "Whenever an opponent activates a loyalty ability" (Gideon the
-		// Oathless): the cause activates a probe planeswalker's plus ability
-		// for p1 during p1's main phase, where the AbilityPush's player is
-		// the opponent the ValidSA$ +OppCtrl half reads.
-		if activatedFilter && strings.Contains(validSA, "loyalty") && strings.Contains(validSA, "oppctrl") {
+		// Oathless), and Avalanche of Sector 7's artifact half ("an opponent
+		// activates an ability of an artifact they control", ValidSA$
+		// Activated.OppCtrl with no ValidActivatingPlayer$): the cause
+		// activates a probe planeswalker's plus ability — or, without the
+		// Loyalty token, a probe artifact's non-mana ability — for p1 during
+		// p1's main phase, where the AbilityPush's player is the opponent the
+		// OppCtrl half reads.
+		if activatedFilter && strings.Contains(validSA, "oppctrl") {
 			return "trigger.ability-activated-opponent", true
 		}
 	}

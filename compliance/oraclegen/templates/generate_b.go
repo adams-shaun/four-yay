@@ -7,6 +7,8 @@
 package templates
 
 import (
+	"strings"
+
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/compliance/levelb"
 	"github.com/adams-shaun/gorge/compliance/oraclegen"
@@ -41,10 +43,14 @@ func GenerateB(reg *cards.Registry, name string, req levelb.Requirement) (item o
 			// compare the counts, not the order. Any search on the face
 			// counts, not only the exercised one: the scenario runs the
 			// whole card (an ETB tutor under a static item, a combat-damage
-			// search under a combat item).
-			if oraclegen.FaceShufflesSearched(c.Faces[req.Face]) && oraclegen.NamedLibrary(&item.Scenario) &&
-				!hasCompareOption(item.Compare, oraclegen.CompareNoLibraryOrder) {
-				item.Compare = append(item.Compare, oraclegen.CompareNoLibraryOrder)
+			// search under a combat item). A PROBE a cause casts can search
+			// too (the p1 tutor a searched-library trigger watches), and the
+			// same randomised order follows it.
+			if (oraclegen.FaceShufflesSearched(c.Faces[req.Face]) && oraclegen.NamedLibrary(&item.Scenario)) ||
+				probeCastsASearch(&item.Scenario, reg) {
+				if !hasCompareOption(item.Compare, oraclegen.CompareNoLibraryOrder) {
+					item.Compare = append(item.Compare, oraclegen.CompareNoLibraryOrder)
+				}
 			}
 			return
 		}
@@ -112,6 +118,30 @@ func GenerateB(reg *cards.Registry, name string, req levelb.Requirement) (item o
 func hasCompareOption(options []string, want string) bool {
 	for _, option := range options {
 		if option == want {
+			return true
+		}
+	}
+	return false
+}
+
+// probeCastsASearch reports whether any cast step's card searches a library
+// (the p1 tutor an opponent-searched trigger's cause casts): XMage randomises
+// the searched-and-shuffled library, so the compare must ignore its order
+// even when the requirement's own face never searches.
+func probeCastsASearch(sc *oraclegen.Scenario, reg *cards.Registry) bool {
+	for _, st := range sc.Steps {
+		if st.Op != "cast" {
+			continue
+		}
+		probe := st.Card
+		if i := strings.IndexByte(probe, ':'); i >= 0 {
+			probe = probe[i+1:]
+		}
+		card, ok := reg.Lookup(probe)
+		if !ok || len(card.Faces) == 0 || card.Faces[0] == nil {
+			continue
+		}
+		if oraclegen.SearchesLibrary(card.Faces[0]) {
 			return true
 		}
 	}
