@@ -152,7 +152,7 @@ func cardsEffectZoneOK(st *cards.Static, z state.Zone) bool {
 
 // quietBoardStaticGuard asserts, in verify mode, that the existence scan is at
 // least the old view-based answer for every shape.
-func (e *Engine) quietBoardStaticGuard() {
+func (e *Engine) quietBoardStaticGuard(p state.PlayerID) {
 	got := e.quietBoardStaticScan(true)
 	check := func(old bool, bit quietBoardHit, name string) {
 		if old && got&bit == 0 {
@@ -170,6 +170,12 @@ func (e *Engine) quietBoardStaticGuard() {
 		}
 	}
 	check(mayPlay, qbhMayPlay, "a MayPlay$ True Continuous static")
+	// The proof passes board=false to the may-play enumerators on the strength
+	// of the scan: the scan found no MayPlay$ True static, so the board must
+	// read closed (the caller already returned on any active MayPlay effect).
+	if got&qbhMayPlay == 0 && e.mayPlayBoardGrantsOpen(p) {
+		panic(fmt.Sprintf("rules: quiet proof treats the may-play board as closed for seat %d but mayPlayBoardGrantsOpen is true (turn %d)", p, e.G.Turn))
+	}
 	cs := e.collectCostStatics()
 	// The effect-delivered arm is covered by continuousMintsCostStatic, which
 	// the caller ran first; only a printed (non-effect) view is compared.

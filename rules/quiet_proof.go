@@ -274,7 +274,7 @@ func (e *Engine) quietBoardBlocker(p state.PlayerID) quietBlockerID {
 	// non-self-only reduce/set cost static reads without building a view
 	// (rules/quiet_boardscan.go; verify mode checks it against the views).
 	if quietVerifyOn() {
-		e.quietBoardStaticGuard()
+		e.quietBoardStaticGuard(p)
 	}
 	if h := e.quietBoardStaticScan(false); h != 0 {
 		switch {
@@ -288,7 +288,13 @@ func (e *Engine) quietBoardBlocker(p state.PlayerID) quietBlockerID {
 			return qbBoardCostStatic
 		}
 	}
-	if len(e.mayPlaySpellIds(p)) > 0 || len(e.mayPlayLandIds(p)) > 0 || len(e.mayhemLandPlayIds(p)) > 0 {
+	// Every board-side may-play grant source is closed here: the static scan
+	// above found no Continuous MayPlay$ True static (it ignores no static
+	// mayPlayBoardGrantsOpen reads: a superset test, its own gates only ever
+	// remove a hit the activeStatics read also removes) and the loop above
+	// returned on any active MayPlay effect, so the board-closed grant reads
+	// are exact (verify mode re-runs them in full).
+	if len(e.mayPlaySpellIdsBoard(p, false)) > 0 || len(e.mayPlayLandIds(p)) > 0 || len(e.mayhemLandPlayIds(p)) > 0 {
 		return qbBoardMayPlay
 	}
 	return qbNone

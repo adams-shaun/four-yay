@@ -251,6 +251,15 @@ func (e *Engine) scanMayPlaysThisTurn(p state.PlayerID) int {
 // cap is already reached does not offer through itself; another grant
 // covering the same card still may.
 func (e *Engine) mayPlaySpellIds(p state.PlayerID) []mayPlaySpellOffer {
+	return e.mayPlaySpellIdsBoard(p, e.mayPlayBoardGrantsOpen(p))
+}
+
+// mayPlaySpellIdsBoard is mayPlaySpellIds with the board-grant fact supplied:
+// board must be mayPlayBoardGrantsOpen(p), or false only where the caller has
+// already established that is false (the quiet proof, after its static scan
+// and its active-effect MayPlay blocker). Verify mode re-runs every board-
+// closed grant read in full (mayPlayGrantScoped) and panics on a difference.
+func (e *Engine) mayPlaySpellIdsBoard(p state.PlayerID, board bool) []mayPlaySpellOffer {
 	type offered struct {
 		zone state.Zone
 		id   state.ObjID
@@ -294,7 +303,6 @@ func (e *Engine) mayPlaySpellIds(p state.PlayerID) []mayPlaySpellOffer {
 	// option carries the key the cast consumes. An untyped grant keeps its
 	// single historical offer, whose riders the caller reads through the
 	// aggregate mayPlayGrant/mayPlayRaiseCost helpers.
-	board := e.mayPlayBoardGrantsOpen(p)
 	addCard := func(z state.Zone, id state.ObjID) {
 		// With no board-side grant open, a card's only permissions are its
 		// own Continuous statics and a Paradigm exile grant (the
