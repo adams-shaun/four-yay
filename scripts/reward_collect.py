@@ -1106,19 +1106,38 @@ def collect_correct(repo: Path, state_dir: Path) -> list[str]:
 # audit and obs
 
 
+def _is_test_gate_log(f: Path) -> bool:
+    """A log written by the test gate: `go-test-affected.log`, or the older
+    `go-test-module.log` / `go-test-core.log`. A run that wrote one ran the
+    test gate, so it is a COMPLETE run rather than one that stopped at an
+    earlier blocking gate."""
+    return f.name.startswith("go-test")
+
+
 def gate_wall_seconds(repo: Path, runs: int = 5) -> float:
-    """Median wall time of the last few gate runs, from their own log mtimes.
+    """Median wall time of the last few COMPLETE gate runs, from log mtimes.
 
     The daemon writes one log per gate under
     .ds4/orchestrator/gates/<issue>/<tag>/, so a run's wall time is the spread
     between the first and last log it wrote. No instrumentation needed, and it
     measures what a ticket actually waits for.
+
+    A run that stopped at the first blocking gate writes only its bookkeeping
+    logs and is a few seconds of spread -- letting one into the median beside
+    300-500 s complete runs reads the tax several times too low. So filter to
+    complete runs (a `go-test*.log` is present) FIRST, then take the last
+    `runs` of those: an incomplete run must not consume a `runs` slot.
     """
     root = ds4_dir(repo, "orchestrator/gates")
     if root is None:
         return 0.0
+    complete = [
+        d
+        for d in root.glob("*/*")
+        if d.is_dir() and any(_is_test_gate_log(f) for f in d.glob("*.log"))
+    ]
     tags = sorted(
-        (d for d in root.glob("*/*") if d.is_dir()),
+        complete,
         key=lambda d: d.stat().st_mtime,
         reverse=True,
     )[:runs]
@@ -1195,7 +1214,7 @@ def collect_steward(repo: Path, context_file: Path | None = None, shape: dict | 
     and why they are measured as levels rather than as deltas of deltas.
     `shape` overrides the cmd/codeshape measurement (the self-test's hook).
     """
-    rows = [row(repo, "steward", "gate_wall_s", gate_wall_seconds(repo), note="median of last 5 gate runs")]
+    rows = [row(repo, "steward", "gate_wall_s", gate_wall_seconds(repo), note="median of last 5 complete gate runs")]
 
     ctx_paths = [repo / "AGENTS.md"]
     ctx_paths.append(context_file or (repo / ".superpowers" / "ds4" / "gorge-context.md"))
@@ -1367,11 +1386,44 @@ def selftest() -> int:
         gd.mkdir(parents=True)
         import os
 
-        (gd / "a.log").write_text("x")
+        # One of the logs is the test gate's, so this is a COMPLETE run and
+        # survives the complete-run filter.
+        (gd / "go-test-affected.log").write_text("x")
         (gd / "b.log").write_text("x")
-        os.utime(gd / "a.log", (1000, 1000))
+        os.utime(gd / "go-test-affected.log", (1000, 1000))
         os.utime(gd / "b.log", (1090, 1090))
+        os.utime(gd, (1000, 1000))
         check("gate wall time is the log-mtime spread", gate_wall_seconds(repo) == 90.0, gate_wall_seconds(repo))
+
+        # An incomplete run (bookkeeping logs only, no test gate) must be
+        # excluded AND must not consume one of the `runs` slots. t1 is newer
+        # than t0 and t2 is newer than t1, so with runs=2:
+        #   no filter:            tags=[t2,t1] -> spans [10,11] -> 11.0
+        #   filter AFTER slice:   tags=[t2,t1], drop t1 -> spans [10] -> 10.0
+        #   filter FIRST (fixed): complete=[t2,t0] -> spans [10,90] -> 90.0
+        # 90.0 can only come from taking the last two COMPLETE runs.
+        gd1 = repo / ".ds4" / "orchestrator" / "gates" / "issue-1" / "t1"
+        gd1.mkdir(parents=True)
+        for name in ("xmage-driver-needs-host-replay.log", "ratchets-only-fall.log",
+                     "broker-gate-begin.log", "go-build.log"):
+            (gd1 / name).write_text("x")
+        os.utime(gd1 / "xmage-driver-needs-host-replay.log", (2000, 2000))
+        os.utime(gd1 / "ratchets-only-fall.log", (2003, 2003))
+        os.utime(gd1 / "broker-gate-begin.log", (2008, 2008))
+        os.utime(gd1 / "go-build.log", (2011, 2011))
+        os.utime(gd1, (2000, 2000))
+        gd2 = repo / ".ds4" / "orchestrator" / "gates" / "issue-1" / "t2"
+        gd2.mkdir(parents=True)
+        (gd2 / "go-test-affected.log").write_text("x")
+        (gd2 / "smoke.log").write_text("x")
+        os.utime(gd2 / "go-test-affected.log", (3000, 3000))
+        os.utime(gd2 / "smoke.log", (3010, 3010))
+        os.utime(gd2, (3000, 3000))
+        check("fixture: the newest run is complete, the one before it is not",
+              _is_test_gate_log(gd2 / "go-test-affected.log")
+              and not any(_is_test_gate_log(f) for f in gd1.glob("*.log")))
+        check("an incomplete run is excluded and does not consume a runs slot",
+              gate_wall_seconds(repo, runs=2) == 90.0, gate_wall_seconds(repo, runs=2))
         (repo / "AGENTS.md").write_text("a" * 1000)
         shape = {
             "funcs_over_300": 2,
@@ -1522,9 +1574,9 @@ def selftest() -> int:
                         "issue_id": "t-9", "evidence": {"to": "merge_fix"}}) + "\n")
         tag = orch / "gates" / "iss-x" / "gate"
         tag.mkdir(parents=True)
-        (tag / "a.log").write_text("x")
+        (tag / "go-test-affected.log").write_text("x")
         (tag / "b.log").write_text("y")
-        os.utime(tag / "a.log", (10**6, 10**6))
+        os.utime(tag / "go-test-affected.log", (10**6, 10**6))
         os.utime(tag / "b.log", (10**6 + 12, 10**6 + 12))
         (gr / ".ds4" / "reward").mkdir(exist_ok=True)
         (wt / ".ds4").mkdir(exist_ok=True)  # a seat's PARTIAL .ds4: briefs only
