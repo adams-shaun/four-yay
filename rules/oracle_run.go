@@ -638,9 +638,12 @@ func (r *oracleRun) build(sc oracleScenario) error {
 					// reads, and a dropped trigger would shift later entries down
 					// under the iteration.
 					tail := append([]pendingTrigger(nil), e.pendingTriggers[pendingBefore:]...)
+					// A back-face chapter is dropped only when the entering
+					// face is not itself a Saga (setupBackFaceDropsChapter).
+					dropChapter := setupBackFaceDropsChapter(e.G.Obj(id), backFace)
 					for _, pt := range tail {
 						t, _ := e.triggerOf(pt)
-						if setupPlacementDropsTrigger(t, pt.Chapter && backFace) {
+						if setupPlacementDropsTrigger(t, pt.Chapter && dropChapter) {
 							continue
 						}
 						kept = append(kept, pt)
@@ -2133,18 +2136,7 @@ func (r *oracleRun) check(x oracleExpect) []string {
 		}
 	}
 	if x.CanAttack != nil {
-		id, err := r.resolve(x.CanAttack.Attacker)
-		if err != nil {
-			return []string{err.Error()}
-		}
-		var battle state.ObjID
-		if x.CanAttack.Battle != "" {
-			battle, err = r.resolve(x.CanAttack.Battle)
-			if err != nil {
-				return []string{err.Error()}
-			}
-		}
-		bad = append(bad, canAttackFails(e.Pending(), id, x.CanAttack.Attacker, r.wantBool(x), battle, x.CanAttack.MaxAttackers)...)
+		bad = append(bad, oracleCanAttackFails(r, x)...)
 	}
 	if x.Count != nil {
 		z, ok := oracleZones[x.Count.Zone]

@@ -2697,7 +2697,16 @@ public class ScenarioReplay extends CardTestPlayerBase {
         }
         for (JsonElement e : answers.get(0).getAsJsonArray()) {
             JsonObject a = e.getAsJsonObject();
-            if (!str(a, "kind").equals("setup_choice")) {
+            String kind = str(a, "kind");
+            if (kind.equals("setup_target")) {
+                // An optional target ask posed while setup resolves a placed
+                // Saga's chapter I (and queues the next chapter): script the
+                // decline gorge's runner took, so TestPlayer does not
+                // auto-pick a legal target. Only "[target_skip]" is read.
+                addTarget(seat(a.get("seat").getAsInt()), TestPlayer.TARGET_SKIP);
+                continue;
+            }
+            if (!kind.equals("setup_choice")) {
                 continue;
             }
             queueSetupChoices(seat(a.get("seat").getAsInt()), str(a, "value"));
@@ -2749,6 +2758,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     }
                     break;
                 case "setup_choice":
+                case "setup_target":
                     // Queued before setup placement; never enqueue it again at
                     // the corresponding gameplay step.
                     break;

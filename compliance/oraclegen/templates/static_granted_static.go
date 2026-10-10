@@ -321,7 +321,7 @@ func grantedAttackRestrictItem(reg *cards.Registry, f *cards.Face, name string, 
 // option's Group publishes; max 0 requires no group.
 func attackCapExpect(attacker, battle string, max int) oraclegen.Expect {
 	return oraclegen.Expect{CanAttack: &oraclegen.CanAttack{
-		Attacker: attacker, Battle: battle, MaxAttackers: &max,
+		Attacker: attacker, Defender: battle, MaxAttackers: &max,
 	}, Want: boolPtr(true)}
 }
 

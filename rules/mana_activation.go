@@ -43,6 +43,8 @@ const (
 	chooseManaSubCounter chooseFor = 49
 	chooseManaForage     chooseFor = 50
 	chooseManaUntap      chooseFor = 51
+	// chooseManaEvidence is the CollectEvidence<N> card election (Cryptex).
+	chooseManaEvidence chooseFor = 52
 )
 
 // manaCostChoicePending reports whether the engine is parked on one of the
@@ -54,7 +56,7 @@ const (
 func (e *Engine) manaCostChoicePending() bool {
 	switch e.choosing {
 	case chooseManaColor, chooseManaDiscard, chooseManaExile, chooseManaSacrifice, chooseManaTap,
-		chooseManaSubCounter, chooseManaForage, chooseManaUntap:
+		chooseManaSubCounter, chooseManaForage, chooseManaUntap, chooseManaEvidence:
 		return true
 	}
 	return false
@@ -1045,6 +1047,7 @@ func (e *Engine) commitManaDiscard() {
 				To: state.ZExile, Text: "exiled as a mana ability cost"})
 		}
 	}
+	pay.SettleManaEvidence(asPayer(e), md)
 	pay.PayMillCost(asPayer(e), md.Player, md.Cost.Mill)
 	// The elected tapXType permanents are tapped as part of the cost, before
 	// the source's own {T} (the cast path's pay.EmitChoiceCosts/payCast order), so
@@ -1501,7 +1504,8 @@ func (e *Engine) resolveManaAbilityRefOriginal(p state.PlayerID, source state.Ob
 	// untapYType<N/Spec> part needs its tapped-permanent election. All three
 	// ride the continuation beside the sacrifice/discard/exile/tap parts.
 	needsContinuation := len(cost.Sac) > 0 || len(cost.Discard) > 0 || len(cost.Exile) > 0 ||
-		len(cost.TapPermanent) > 0 || pay.ManaSubCounterNeedsAsk(cost) || cost.Forage || len(cost.UntapPermanent) > 0
+		len(cost.TapPermanent) > 0 || pay.ManaSubCounterNeedsAsk(cost) || cost.Forage || len(cost.UntapPermanent) > 0 ||
+		len(cost.Evidence) > 0
 	if needsContinuation {
 		md := &manaDiscardActivation{Player: p, Source: source,
 			Ability: ma, Cost: cost, Cast: cast, Cumulative: payment, Gained: gained, Interactive: interactive}

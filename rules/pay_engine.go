@@ -218,6 +218,7 @@ var payAskFlows = [...]chooseFor{
 	pay.AskManaUntap:     chooseManaUntap,
 
 	pay.AskManaSubCounter: chooseManaSubCounter,
+	pay.AskManaEvidence:   chooseManaEvidence,
 
 	pay.AskCast: chooseCast,
 }
