@@ -161,6 +161,13 @@ func staticOfferItem(reg *cards.Registry, c *cards.Card, f *cards.Face, name str
 			}
 		}
 	}
+	// A MayPlay permission over the caster's OWN cards exiled with the source:
+	// the probe must be exiled by the source's own move, which the setup
+	// placement above cannot fake (static_fixture_exile.go). Last, so a row
+	// an existing candidate already serves keeps its scenario bytes.
+	if it, ok := staticExileOfferItem(reg, f, name, req, st); ok {
+		return it, true
+	}
 	return oraclegen.Item{}, false
 }
 
