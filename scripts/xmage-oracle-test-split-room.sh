@@ -14,10 +14,13 @@ javac -J-Xmx512m -nowarn -d "$out" -cp "$cp" \
   "$here/tools/xmageoracle/src/org/mage/test/oracle/ScenarioReplay.java" \
   "$here/tools/xmageoracle/test/org/mage/test/oracle/ScenarioReplaySplitRoomTest.java" \
   "$here/tools/xmageoracle/test/org/mage/test/oracle/ScenarioReplayAnswerRoutingTest.java" \
-  "$here/tools/xmageoracle/test/org/mage/test/oracle/ScenarioReplaySameNameChoiceTest.java"
+  "$here/tools/xmageoracle/test/org/mage/test/oracle/ScenarioReplaySameNameChoiceTest.java" \
+  "$here/tools/xmageoracle/test/org/mage/test/oracle/ScenarioReplayAbilityRefTest.java"
 java -Xmx512m -XX:ActiveProcessorCount=2 -Dlog4j.configuration=file:/dev/null -cp "$out:$cp" \
   org.mage.test.oracle.ScenarioReplaySplitRoomTest
 java -Xmx512m -XX:ActiveProcessorCount=2 -Dlog4j.configuration=file:/dev/null -cp "$out:$cp" \
   org.mage.test.oracle.ScenarioReplayAnswerRoutingTest
 java -Xmx512m -XX:ActiveProcessorCount=2 -Dlog4j.configuration=file:/dev/null -cp "$out:$cp" \
   org.mage.test.oracle.ScenarioReplaySameNameChoiceTest
+java -Xmx512m -XX:ActiveProcessorCount=2 -Dlog4j.configuration=file:/dev/null -cp "$out:$cp" \
+  org.mage.test.oracle.ScenarioReplayAbilityRefTest
