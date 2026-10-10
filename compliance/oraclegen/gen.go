@@ -170,6 +170,9 @@ type AttackRequired struct {
 // declare-attackers decision offers (rules/oracle_can_attack.go).
 type CanAttack struct {
 	Attacker string `json:"attacker"`
+	// Defender, when set, names the planeswalker the attack would be
+	// declared against (the option's Battle), not just its controller.
+	Defender string `json:"defender,omitempty"`
 }
 
 type Expect struct {
