@@ -638,9 +638,12 @@ func (r *oracleRun) build(sc oracleScenario) error {
 					// reads, and a dropped trigger would shift later entries down
 					// under the iteration.
 					tail := append([]pendingTrigger(nil), e.pendingTriggers[pendingBefore:]...)
+					// A back-face chapter is dropped only when the entering
+					// face is not itself a Saga (setupBackFaceDropsChapter).
+					dropChapter := setupBackFaceDropsChapter(e.G.Obj(id), backFace)
 					for _, pt := range tail {
 						t, _ := e.triggerOf(pt)
-						if setupPlacementDropsTrigger(t, pt.Chapter && backFace) {
+						if setupPlacementDropsTrigger(t, pt.Chapter && dropChapter) {
 							continue
 						}
 						kept = append(kept, pt)
