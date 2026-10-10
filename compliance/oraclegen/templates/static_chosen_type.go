@@ -32,16 +32,23 @@ func staticChosenTypeFixtures(f *cards.Face, st cards.Static) []staticFixture {
 	return []staticFixture{{chosenType: staticChosenType, reanswers: true}}
 }
 
-// answerChosenType scripts the as-enters creature-type ask of the card's
-// resolve step to want. It reports false when the scenario has no such
-// single-answer resolve step to rewrite.
-func answerChosenType(base *oraclegen.Item, want string) bool {
+// scriptSingleChoose rewrites the one "choose" answer of the first step match
+// accepts to want, so a fixture can lead an ask the unscripted run answers
+// with its first option. It reports false when no matching step carries
+// exactly one single-pick "choose" answer to rewrite.
+func scriptSingleChoose(base *oraclegen.Item, match func(oraclegen.Step) bool, want string) bool {
 	for i, st := range base.Steps {
-		if st.Op != "resolve" || len(st.Answers) != 1 || st.Answers[0].Kind != "choose" || len(st.Answers[0].Pick) != 1 {
+		if !match(st) || len(st.Answers) != 1 || st.Answers[0].Kind != "choose" || len(st.Answers[0].Pick) != 1 {
 			continue
 		}
 		base.Steps[i].Answers = []oraclegen.Answer{{Kind: "choose", Pick: []string{want}}}
 		return true
 	}
 	return false
+}
+
+// answerChosenType scripts the as-enters creature-type ask of the card's
+// resolve step to want.
+func answerChosenType(base *oraclegen.Item, want string) bool {
+	return scriptSingleChoose(base, func(st oraclegen.Step) bool { return st.Op == "resolve" }, want)
 }
