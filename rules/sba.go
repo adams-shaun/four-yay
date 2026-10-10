@@ -595,6 +595,8 @@ func (e *Engine) applyLegendBatch(kept state.ObjID) {
 	}
 	before := e.triggerBefore
 	e.triggerBefore = b.before
+	e.beginReplBatch()
+	defer e.endReplBatch()
 	for _, c := range b.dead {
 		// A non-kept duplicate's departure is serialized by the legend rule,
 		// not by its own lethal damage -- the same single-serialization
@@ -750,6 +752,8 @@ func (e *Engine) worldRule() bool {
 	own := e.snapshotTriggerBoard()
 	e.triggerBefore = own
 	defer e.closeTriggerWindow(own, before)
+	e.beginReplBatch()
+	defer e.endReplBatch()
 	changed := false
 	for _, id := range worlds {
 		if newestCount == 1 && id == newest {
@@ -1130,6 +1134,8 @@ func (e *Engine) destroyLethalDamage(tried *sbaAttempts, facts *sbaBoardFacts) b
 	own := e.snapshotTriggerBoard()
 	e.triggerBefore = own
 	defer e.closeTriggerWindow(own, before)
+	e.beginReplBatch()
+	defer e.endReplBatch()
 	for _, c := range dead {
 		markTried(&tried.objs, c.id)
 		if c.text == "lethal damage" && effects.ReplaceDestruction(e, c.id) {
@@ -1250,6 +1256,8 @@ func (e *Engine) planeswalkerZeroLoyalty(tried *sbaAttempts) bool {
 	own := e.snapshotTriggerBoard()
 	e.triggerBefore = own
 	defer e.closeTriggerWindow(own, before)
+	e.beginReplBatch()
+	defer e.endReplBatch()
 	for _, c := range dead {
 		markTried(&tried.objs, c.id)
 		e.emit(events.Event{Kind: events.MoveZone, Obj: c.id,
@@ -1314,6 +1322,8 @@ func (e *Engine) battleZeroDefense(tried *sbaAttempts) bool {
 	own := e.snapshotTriggerBoard()
 	e.triggerBefore = own
 	defer e.closeTriggerWindow(own, before)
+	e.beginReplBatch()
+	defer e.endReplBatch()
 	for _, c := range dead {
 		markTried(&tried.objs, c.id)
 		e.emit(events.Event{Kind: events.MoveZone, Obj: c.id,

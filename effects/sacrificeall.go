@@ -52,7 +52,13 @@ func effSacrificeAll(h Host, c *Ctx, sa *cards.SA) {
 		}
 		h.Emit(events.Sacrifice(id))
 	}
+	// A SacrificeAll is one simultaneous event (CR 701.21, 603.10a, 614.6):
+	// the batch window makes every member's replacements and look-back
+	// read the pre-sacrifice board, so a Kalitas sacrificed alongside an
+	// opponent's creatures still exiles them.
 	if DefinedRefOf(sa).Raw != "" || TargetsOf(sa).Targeted() {
+		h.BatchDepartures(nil)
+		defer h.EndBatchDepartures()
 		for _, t := range Defined(h, c, sa) {
 			if !t.IsPlayer {
 				// A Defined$-named object that is no longer on the battlefield
@@ -78,12 +84,22 @@ func effSacrificeAll(h Host, c *Ctx, sa *cards.SA) {
 		}
 		return
 	}
+	// Victims are chosen against the pre-sacrifice board, then moved as one
+	// batch.
+	var victims []state.ObjID
 	for _, p := range g.AliveFrom(0) {
-		ids := append([]state.ObjID(nil), g.Zone(state.ZBattlefield, p)...)
-		for _, id := range ids {
+		for _, id := range g.Zone(state.ZBattlefield, p) {
 			if MatchesSpecCtx(g, spec, id, c.SpecContext(c.Controller)) {
-				sacrifice(id)
+				victims = append(victims, id)
 			}
 		}
+	}
+	if len(victims) == 0 {
+		return
+	}
+	h.BatchDepartures(victims)
+	defer h.EndBatchDepartures()
+	for _, id := range victims {
+		sacrifice(id)
 	}
 }

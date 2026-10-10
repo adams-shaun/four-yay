@@ -157,6 +157,7 @@ func (e *Engine) BatchDepartures(ids []state.ObjID) {
 	for _, id := range ids {
 		e.batchDamageKeywords[id] = e.damageKeywordsOf(id)
 	}
+	e.beginReplBatch()
 	e.openBatchWindow()
 }
 
@@ -166,6 +167,7 @@ func (e *Engine) BatchDepartures(ids []state.ObjID) {
 func (e *Engine) EndBatchDepartures() {
 	e.batchDamageKeywords = nil
 	e.closeBatchWindow()
+	e.endReplBatch()
 }
 
 // captureSourceLifelinkLKI preserves CR 608.2h's pre-departure derived
