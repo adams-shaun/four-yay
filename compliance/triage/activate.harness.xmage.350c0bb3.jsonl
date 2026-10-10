@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"IllegalStateException: Error in unit tests: permanent ref pN:Unholy Strength is not on the battlefield"},"key":"activate | harness | xmage | IllegalStateException: Error in unit tests: permanent ref pN:Unholy Strength is not on the battlefield","cards":1}
+{"card":"Faunsbane Troll","template":"activate#0.0","status":"harness","api":"ChangesZone:Token","sets":["WOE"],"detail":"xmage: IllegalStateException: Error in unit tests: permanent ref p0:Unholy Strength is not on the battlefield"}

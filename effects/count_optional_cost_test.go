@@ -68,3 +68,36 @@ func TestOptionalGenericCostPaidCopyDoesNotInherit(t *testing.T) {
 		t.Fatalf("copy = (%d, %v), want (2, true)", n, ok)
 	}
 }
+
+// TestOptionalGenericCostPaidElectionSeed pins the offer gate's seeded
+// election (rules' costAmountCtx, via NumberInputs.OptionalCostElected): a
+// context whose election is seeded reads the PAID branch even though the
+// source object's pay-time flag is still unset — the exact offer-time shape
+// (the card sits in HAND; the flag is folded only after CR 601.2a's push).
+// An UNSEEDED context keeps the object-flag read, so the ten resolution-time
+// carriers are unchanged either way.
+func TestOptionalGenericCostPaidElectionSeed(t *testing.T) {
+	h, c := fixtureHost(t)
+	src := h.Game().Obj(c.Source)
+	// PRECONDITION: the source object really carries no pay-time provenance,
+	// and the two branches really differ — otherwise neither direction below
+	// could tell the seed read from the flag read.
+	if src.OptionalCostPaid {
+		t.Fatal("precondition: fixture source already carries paid provenance")
+	}
+	if n, ok := EvalCountOK(h, c, "Count$OptionalGenericCostPaid.3.2"); !ok || n != 2 {
+		t.Fatalf("unseeded, unpaid = (%d, %v), want (2, true)", n, ok)
+	}
+	c.Num.OptionalCostElected = true
+	if n, ok := EvalCountOK(h, c, "Count$OptionalGenericCostPaid.3.2"); !ok || n != 3 {
+		t.Fatalf("seeded = (%d, %v), want (3, true)", n, ok)
+	}
+	// The seed rides the Ctx, not the object: the SAME context seeded and a
+	// different source object still reads through the seed (the one amount
+	// context's reading), and a fresh context without it falls back to the
+	// object flag.
+	c3 := &Ctx{Source: c.Source, Controller: 0}
+	if n, ok := EvalCountOK(h, c3, "Count$OptionalGenericCostPaid.3.2"); !ok || n != 2 {
+		t.Fatalf("fresh unseeded = (%d, %v), want (2, true)", n, ok)
+	}
+}

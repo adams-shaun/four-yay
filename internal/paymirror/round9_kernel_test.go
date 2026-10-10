@@ -25,6 +25,7 @@ import (
 //     former Songs of the Damned finding, so that planned cast is no longer
 //     reached (verified against the pre-fix keyword expansion).
 func TestRoundNineFindingsMirrorKernel(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	d, err := LoadDecks(reg)
 	if err != nil {

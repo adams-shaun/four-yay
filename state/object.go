@@ -722,6 +722,20 @@ type Object struct {
 	// damage since the current turn began. events.Apply appends with dedup and
 	// clears it at TurnChange; CloneDeep keeps LKI snapshots faithful.
 	DamageTakenThisTurnBy []ObjID
+	// DealtDamageToAnyGame records whether this object has dealt damage to
+	// ANYTHING this game (Forge's dealtDamagetoAny: the "hasn't dealt damage
+	// yet" hexproof statics -- Karakyk Guardian, Oyaminartok, Palladia-Mors,
+	// Ratonhnhaké:ton). Set by events.Apply's DamageProvenance fold alongside
+	// the per-turn DamageDealtThisTurn record, but GAME-LONG: the TurnChange
+	// clear that resets the per-turn records must never touch it. A plain
+	// bool, so the object clone copies it with the struct.
+	DealtDamageToAnyGame bool
+	// DealtCombatDamageToAnyGame is the combat-only half (Forge's
+	// dealtCombatDamagetoAny -- Ruric Thar, Magecrusher): set by the same
+	// fold from the provenance record's own Combat classification, so the
+	// predicate and the provenance emitter cannot disagree. Non-combat
+	// damage leaves it false.
+	DealtCombatDamageToAnyGame bool
 	// The control-acquisition tuple (AcqTurn, AcqStep) records WHEN this
 	// object last came under its current controller's control on the
 	// battlefield: stamped by events.Apply on every battlefield ENTRY (Move,
@@ -1580,7 +1594,7 @@ type Object struct {
 	// page-aligned Objs arena every object's hot head (the fields declared
 	// first) starts on a line of its own. Purely layout: it is never read or
 	// written. A field added above must re-pad it (TestObjectCacheLinePadded).
-	_ [114]byte
+	_ [106]byte
 }
 
 // DoorUnlocked reports the designation of a printed Room face. The cast

@@ -254,6 +254,134 @@ printf 'TestAlpha\nTestBravo\nTestAlphaTwo\n' | patterns >/dev/null 2>&1
 [ "$?" != 0 ]
 check "fewer than four first characters makes the shard helper fail (caller falls back)" $?
 
+# --- the heavy $others packages: compliance/gate and compliance/adopt (plus
+# internal/paymirror, cmd/repro, effects, compliance/oraclegen/templates) are
+# extracted from the -p=6 batch and split by test_name_packs_from_list into
+# three count-balanced packs run as concurrent `go test` processes
+# (heavy_shard_pool). A heavy package is never put back in the batch whole.
+# compliance/gate and compliance/adopt run on EVERY ticket, so this block pins
+# their extraction and the complete+disjoint partition of their real test
+# lists: a future test cannot fall outside every pack, and removing either
+# package from the heavy selector (putting it back in the whole-package batch)
+# fails here.
+grep -q 'test_name_packs_from_list()' "$GATE"
+check "gate_affected.sh defines test_name_packs_from_list (precondition)" $?
+packs() ( bash -c "source '$GATE'; test_name_packs_from_list 3" )
+
+# Fallback: a list the packer cannot split returns nonzero, so the caller runs
+# the package whole instead of dropping tests.
+printf '' | packs >/dev/null 2>&1
+[ "$?" != 0 ]
+check "empty list makes the heavy packer fail (caller falls back to whole)" $?
+printf 'TestAlpha\nTestBravo\n' | packs >/dev/null 2>&1
+[ "$?" != 0 ]
+check "fewer names than packs makes the heavy packer fail (caller falls back)" $?
+
+# The partition itself on a synthetic list: exactly three anchored packs and
+# every name (including one that merely extends another's prefix) in exactly
+# one. Unlike the templates prefixes this is an explicit alternation read from
+# the live listing, so the prefix-extending name is packed like any other.
+SYNHP=$(printf 'TestAlpha\nTestBravo\nTestAlphaTwo\nTestAlphaTwoExtra\nTestCharlie\nTestDelta\nTestEcho\nTestFoxtrot\n')
+HPSEL=$(printf '%s\n' "$SYNHP" | packs)
+nlines=$(printf '%s\n' "$HPSEL" | /usr/bin/grep -c '^\^(')
+[ "$nlines" = 3 ]
+check "heavy packer emits exactly three packs" $? "nlines=$nlines out=$HPSEL"
+hpbad=$(python3 - "$HPSEL" "$SYNHP" <<'PY'
+import re, sys
+sel = [l for l in sys.argv[1].split('\n') if l]
+names = [l for l in sys.argv[2].split('\n') if l]
+if len(sel) != 3:
+    print(f'want 3 packs, got {len(sel)}')
+elif any(not (s.startswith('^(') and s.endswith(')$')) for s in sel):
+    print('unanchored pack: ' + ' '.join(sel))
+else:
+    pats = [re.compile(s) for s in sel]
+    for n in names:
+        hits = sum(1 for p in pats if p.match(n))
+        if hits != 1:
+            print(f'{n}={hits}')
+            break
+PY
+)
+[ -z "$hpbad" ]
+check "heavy partition is complete and disjoint (incl. a prefix-extending name)" $? "$hpbad"
+
+# The wiring: the heavy selector names both compliance packages (one left out
+# stays in the -p=6 batch and runs whole, the pole this mechanism removes),
+# the batch really excludes the selector, and the extraction that feeds the
+# pool really greps $others through the selector. Pinning the extraction
+# matters in both directions: emptying heavy_pkgs (r2 review's mutation 5)
+# silently dropped BOTH compliance packages from every path — the batch's
+# grep -v still excluded them and nothing re-ran them — so the direction of
+# the grep and the assignment that feeds heavy_bins are pinned as text, each
+# with its own check.
+HEAVYRE=$(sed -n "s/^heavy='\(.*\)'$/\1/p" "$GATE")
+[ -n "$HEAVYRE" ]
+check "gate defines a heavy-package selector (precondition)" $? "HEAVYRE=[$HEAVYRE]"
+nheavy=$(printf '%s\n' ./compliance/gate ./compliance/adopt | /usr/bin/grep -cE "$HEAVYRE" || true)
+[ "$nheavy" = 2 ]
+check "heavy selector names compliance/gate and compliance/adopt" $? "nheavy=$nheavy"
+grep -Eq 'batch=.*grep -v -E "\$heavy"' "$GATE"
+check "the -p=6 batch excludes the heavy packages" $?
+grep -qF "heavy_pkgs=\$(printf '%s\n' \$others | /usr/bin/grep -E \"\$heavy\" || true)" "$GATE"
+check "the heavy extraction greps \$others through the selector (not an emptied assignment)" $?
+grep -qF 'heavy_bins=$(cat "$WORK/bins")' "$GATE"
+check "the heavy bins list is derived from the extracted packages" $?
+grep -qF 'go test -p=1 -run "$pat" -skip "^($global)$" "$p"' "$GATE"
+check "each heavy pack runs the packed regex with the gate's -skip" $?
+
+# The red path: a failed pack marks the pool bad, the pool's pid joins $pids,
+# and the final wait turns it into a nonzero gate exit. Removing any link
+# would let a failing heavy pack exit 0. The launch line is pinned too: a
+# $pids reference without the `heavy_shard_pool ... & hp=$!` launch would
+# leave the pool computed-but-never-started, and the drain/refill `wait -n`
+# sites are individually pinned (mutating one away, leaving the other, is
+# caught by the second grep).
+grep -qF 'wait -n || bad=1' "$GATE" && grep -qF 'return "$bad"' "$GATE"
+check "a failed heavy pack marks the pool bad" $?
+[ "$(/usr/bin/grep -cF 'wait -n || bad=1' "$GATE")" = 2 ]
+check "both pool wait sites (drain + refill) drain a failure" $? "sites=$(/usr/bin/grep -cF 'wait -n || bad=1' "$GATE")"
+grep -qF 'heavy_shard_pool "${heavy_jobs[@]}" & hp=$!' "$GATE"
+check "the heavy pool is launched with a captured pid (not computed and abandoned)" $?
+grep -qF '${hp:+ $hp}' "$GATE" && grep -qF 'wait "$p" || rc=1' "$GATE"
+check "the heavy pool pid is waited on by the gate" $?
+
+# The real lists: every listed test of each compliance package lands in
+# exactly one of the three packs the gate builds from that same listing, and
+# none is caught by the process-global -skip (which would silently drop it
+# from every pack). These two packages always have tests, so an empty listing
+# is a failure here, not a skip.
+GLOBALRE=$(sed -n "s/^global='\(.*\)'$/\1/p" "$GATE")
+[ -n "$GLOBALRE" ]
+check "gate defines the process-global skip (precondition)" $? "GLOBALRE=[$GLOBALRE]"
+for pkg in ./compliance/gate ./compliance/adopt; do
+	list=$(go test -list '.*' "$pkg" 2>/dev/null | /usr/bin/grep '^Test' || true)
+	[ -n "$list" ]
+	check "$pkg lists its tests (precondition for the pack check)" $? "list empty"
+	if [ -n "$list" ]; then
+		printf '%s\n' "$list" | packs >"$TMP/hp-packs.txt"
+		printf '%s\n' "$list" >"$TMP/hp-names.txt"
+		hpbad=$(python3 - "$TMP/hp-packs.txt" "$TMP/hp-names.txt" "$GLOBALRE" <<'PY'
+import re, sys
+sel = [l for l in open(sys.argv[1]).read().split('\n') if l]
+names = [l for l in open(sys.argv[2]).read().split('\n') if l]
+skip = re.compile('^(' + sys.argv[3] + ')$')
+pats = [re.compile(s) for s in sel]
+bad = []
+for n in names:
+    hits = sum(1 for p in pats if p.match(n))
+    if hits != 1:
+        bad.append(f'{n}={hits}')
+    if skip.match(n):
+        bad.append(f'{n}=skipped')
+print(' '.join(bad))
+PY
+)
+		[ -z "$hpbad" ]
+		check "every real $pkg test lands in exactly one heavy pack (and none in the global skip)" $? "bad=[$hpbad]"
+	fi
+done
+
 # --- the Kr8 runs: TestKr8WorldsInFuzzGames runs six t.Parallel games, so it
 # is the same shape as the shards and must carry the same GOMAXPROCS override;
 # at the gate env's GOMAXPROCS=2 it runs two games at a time (measured 23.7 s

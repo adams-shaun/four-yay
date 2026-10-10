@@ -269,14 +269,18 @@ func classifyTrigger(f *cards.Face, t *cards.Trigger) (sub, gap string, covered 
 		if namesSelf(t.ParamStr(cards.PKValidTarget)) || strings.EqualFold(t.ParamStr(cards.PKValidSource), "SpellAbility.OppCtrl") {
 			return "trigger.becomes-target", "", false
 		}
-		// Loki, God of Mischief's "a player or permanent becomes the target of
-		// an ability you control" stays a gap: the engine's
-		// becomesTargetMatches reads ValidSource$ through the ordinary filter
-		// grammar, which has no Ability base (an ability stack object carries
-		// no card types), so Ability.YouCtrl fails closed and the trigger can
-		// never fire. A recipe cause exists (a probe's targeted {T} ability at
-		// p1); serving it first needs the engine-side grammar. Filed as a
-		// follow-up ticket.
+		// Loki, God of Mischief's "a player or permanent becomes the target
+		// of an ability you control": the engine's becomesTargetSourceMatches
+		// now answers the Ability base (an ability stack object the ordinary
+		// object-filter grammar has no base word for), and the cause is the
+		// targeted-ability one the trigger.ability-activated sub uses.
+		if becomesTargetAbilityServed(t) {
+			return "trigger.becomes-target-ability", "", false
+		}
+		// The Ability spellings the cause cannot fire (Ability.OppCtrl,
+		// Ability.Backup, Ability.Land+namedX+YouCtrl, Ability.numTargets
+		// EQ1 -- see becomesTargetAbilityServed) and every other ValidSource
+		// shape stay gaps.
 		return gapMode()
 
 	case cards.TriggerLifeGained:

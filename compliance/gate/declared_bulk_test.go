@@ -16,6 +16,7 @@ import (
 // comparison would not exercise the claim's own level, so the set is looked
 // up in declared.json and its absence is a precondition failure.
 func TestCheckDeclaredMatchesCheckPerSet(t *testing.T) {
+	t.Parallel()
 	root := "../.."
 	declared, err := compliance.LoadDeclared(root + "/compliance/declared.json")
 	if err != nil {

@@ -66,6 +66,30 @@ func TestKeywordNamedVocabulary(t *testing.T) {
 		t.Fatalf("named key = %q, want kw=firebending,first strike", got)
 	}
 
+	// Flash is a plain word in the named vocabulary: gorge "Flash" and XMage
+	// "flash" agree, flash on one side only diverges, and the key renders
+	// "kw=flash". The plain evergreen fold still ignores it.
+	gFlash := rules.OracleResult{Snapshots: []rules.OracleSnapshot{kwSnap("setup", "Flash")}}
+	xFlash := XResult{Snapshots: []rules.OracleSnapshot{kwSnap("setup", "flash")}}
+	if gorgeFlash, xmageFlash := foldKeyword("Flash"), foldKeyword("flash"); gorgeFlash != "flash" || xmageFlash != "flash" || gorgeFlash != xmageFlash {
+		t.Fatalf("precondition: Flash spellings fold to %q/%q, want the same \"flash\"", gorgeFlash, xmageFlash)
+	}
+	if v := CompareOpts(gFlash, nil, xFlash, []string{CompareKeywordsNamed}); v.Status != Agree {
+		t.Fatalf("named fold of Flash vs flash = %+v, want AGREE", v)
+	}
+	if v := CompareOpts(gFlash, nil, XResult{Snapshots: []rules.OracleSnapshot{kwSnap("setup")}}, []string{CompareKeywordsNamed}); v.Status != Diverge || v.Field != "permanents" {
+		t.Fatalf("Flash vs no flash = %+v, want DIVERGE on permanents", v)
+	}
+	if got := CanonicalOpts(gFlash.Snapshots, []string{CompareKeywordsNamed}); !strings.Contains(got, "kw=flash") {
+		t.Fatalf("named Flash did not render as kw=flash:\n%s", got)
+	}
+	if v := CompareOpts(gFlash, nil, xFlash, []string{CompareKeywords}); v.Status != Agree {
+		t.Fatalf("plain keywords treated Flash as a difference: %+v", v)
+	}
+	if got := CanonicalOpts(gFlash.Snapshots, []string{CompareKeywords}); strings.Contains(got, "flash") {
+		t.Fatalf("plain keywords carried flash into the key:\n%s", got)
+	}
+
 	// Hexproof-from never folds onto plain hexproof: gorge's
 	// quality-parameterised "Hexproof:CardColors" is dropped, while XMage's
 	// plain "hexproof" folds as the evergreen keyword, so the two diverge.

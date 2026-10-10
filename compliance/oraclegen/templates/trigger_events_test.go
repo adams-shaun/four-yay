@@ -56,7 +56,11 @@ func firedOnStack(t *testing.T, sc oraclegen.Scenario, name string) bool {
 	}
 	var cause []oraclegen.Step
 	for _, st := range steps {
-		if st.Op == "pass_to" && st.Step == "main2" && len(cause) > 0 && cause[len(cause)-1].Op == "attack" {
+		// A combat-damage trigger is put on the stack in the combat-damage
+		// step, so a pass_to main2 that ends the combat is replayed at its
+		// end-combat checkpoint (after the attack, or after the block that a
+		// blocked-attack cause adds).
+		if st.Op == "pass_to" && st.Step == "main2" && len(cause) > 0 && (cause[len(cause)-1].Op == "attack" || cause[len(cause)-1].Op == "block") {
 			st.Step = "end-combat"
 		}
 		cause = append(cause, st)

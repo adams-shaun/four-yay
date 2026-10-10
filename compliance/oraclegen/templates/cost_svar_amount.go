@@ -93,26 +93,90 @@ func fixturePower(reg *cards.Registry, name string) (int, string) {
 	return n, ""
 }
 
-// costOptionalGenericPaidGap names the Count$OptionalGenericCostPaid amount
-// shape (Bite Down on Crime's "{2} less if evidence was collected"). gorge
-// prices the optional-cost cast variant at the UNreduced price (the paid
-// flag is stamped at pay time, after the offer), so the variant is only
-// offered when the full price is payable and no probe can pay the exact
-// reduced price; a full-price probe is not sensitive (the charge shrinks
-// either way). The named skip says so instead.
-func costOptionalGenericPaidGap(f *cards.Face, amount string) string {
-	amount = strings.TrimSpace(amount)
+// optionalGenericPaidProbes serves a ReduceCost whose Amount$ reads the
+// pending cast's own CR 601.2b election of an optional additional cost
+// (Bite Down on Crime's "{2} less to cast if evidence was collected" over
+// SVar Z = Count$OptionalGenericCostPaid.2.0). gorge prices the election
+// into the OFFER (rules' costAmountCtx seeds it through the one cost-amount
+// context), so the probe casts the card through the optional-cost variant
+// (cast_mode "optionalcost") with the cost's own fixture in place, at the
+// EXACT reduced price: the paid branch's generic pips come off the printed
+// cost. handled is false for any other amount shape; a recognised election
+// whose branches or cost the fixtures cannot pay is a named gap, never the
+// generic count path (whose board prelude cannot move the election).
+func optionalGenericPaidProbes(reg *cards.Registry, f *cards.Face, st cards.Static, name string, p costProbe, base string) ([]costProbe, string, bool) {
+	amount := strings.TrimSpace(st.Params["Amount"])
 	if amount == "" {
-		return ""
+		return nil, "", false
 	}
 	body := strings.TrimSpace(f.SVars[amount])
 	if body == "" {
 		body = amount
 	}
 	if !strings.Contains(strings.ToLower(body), "optionalgenericcostpaid") {
-		return ""
+		return nil, "", false
 	}
-	return "cost static condition: SVar (" + body + "): the optional-cost cast is offered only at the unreduced price"
+	gap := "cost static condition: SVar (" + body + ")"
+	// The paid branch is the reduction the probe prices. A non-literal
+	// branch (Dragon's Fire's paid branch is SVar X = Revealed$CardPower)
+	// has no fixture-time value to price from.
+	parts := strings.Split(strings.TrimSpace(body), ".")
+	if len(parts) < 3 {
+		return nil, gap + ": branches unread", true
+	}
+	reduction, err := strconv.Atoi(strings.TrimSpace(parts[1]))
+	if err != nil {
+		return nil, gap + ": paid branch (" + parts[1] + ") is not a literal", true
+	}
+	if reduction < 1 {
+		return nil, gap + ": paid branch reduces nothing", true
+	}
+	for _, key := range []string{"Condition", "IsPresent", "CheckSVar"} {
+		if strings.TrimSpace(st.Params[key]) != "" {
+			return nil, gap + ": gate (" + st.Params[key] + ") unhandled with the election", true
+		}
+	}
+	// The election needs the card's own OptionalCost static: a cast_mode
+	// cannot say WHICH of two to pay, and the cost token names the fixture.
+	if n := optionalCostStatics(f); n != 1 {
+		return nil, gap + ": " + strconv.Itoa(n) + " OptionalCost statics", true
+	}
+	tok := ""
+	for i := range f.Statics {
+		if strings.EqualFold(f.Statics[i].Mode, "OptionalCost") {
+			toks := costTokens(f.Statics[i].ParamStr(cards.PKCost))
+			if len(toks) != 1 {
+				return nil, gap + ": compound optional cost " + f.Statics[i].ParamStr(cards.PKCost), true
+			}
+			tok = toks[0]
+		}
+	}
+	if _, why := optionalCostSetupFor(tok); why != "" {
+		return nil, gap + ": " + why, true
+	}
+	// Only the CollectEvidence part has a fixture the reduced-price probe
+	// can carry in the setup (the graveyard prelude).
+	head, _, _ := strings.Cut(tok, "<")
+	if head != "CollectEvidence" {
+		return nil, gap + ": optional cost " + tok + " has no reduced-price fixture", true
+	}
+	graveyard := evidenceCostFixtures(tok)
+	if len(graveyard) == 0 {
+		return nil, gap + ": no graveyard fixture for " + tok, true
+	}
+	if available := strings.Count(base, "C"); reduction > available {
+		return nil, gap + ": exceeds the printed generic", true
+	}
+	mana, ok := removeGenericMana(base, reduction)
+	if !ok {
+		return nil, gap + ": exceeds the printed generic", true
+	}
+	p.castMode = optionalCostCastMode
+	p.graveyard = append(p.graveyard, graveyard...)
+	p.mana = mana
+	p.mustReplay = true
+	p.skipReason = "optional-cost cast fixture unavailable (" + tok + ")"
+	return []costProbe{p}, "", true
 }
 
 // costSacrificePrelude is the turn-history prelude a SacrificedThisTurn

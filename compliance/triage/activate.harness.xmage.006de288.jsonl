@@ -1,0 +1,2 @@
+{"shape":{"template":"activate","op":"harness","field":"xmage","diff":"AssertionError: No permanents found called Goblin that match the filter criteria \"permanent you control\""},"key":"activate | harness | xmage | AssertionError: No permanents found called Goblin that match the filter criteria \"permanent you control\"","cards":1}
+{"card":"Old Hob, Alleycat Blues","template":"activate#0.0","status":"harness","api":"Phase:Token","sets":["TMT"],"detail":"xmage: AssertionError: No permanents found called Goblin that match the filter criteria \"permanent you control\""}

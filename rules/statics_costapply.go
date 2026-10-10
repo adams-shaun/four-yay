@@ -151,7 +151,7 @@ func (e *Engine) costStaticGateFull(sv staticView, mode string, p state.PlayerID
 	if !e.costConditionHolds(sv, p) {
 		return false, true
 	}
-	if !e.checkSVarHoldsFor(sv, costSubject{p: p, id: id, ab: scope.Ab}, targets) {
+	if !e.checkSVarHoldsFor(sv, newCostSubject(p, id, scope), targets) {
 		return false, false
 	}
 	if spec, ok := sv.Param(cards.PKValidTarget); ok {
@@ -218,7 +218,7 @@ func (e *Engine) costStaticGateFull(sv staticView, mode string, p state.PlayerID
 		// target costs nothing extra), the potential pass at its least, and
 		// the CR 601.2c reprice charges the chosen targets. A SetCost
 		// Relative$ has no corpus carrier and keeps the skip.
-		if mode == "SetCost" || !e.relativeAmountResolves(sv, costSubject{p: p, id: id, ab: scope.Ab}, targets) {
+		if mode == "SetCost" || !e.relativeAmountResolves(sv, newCostSubject(p, id, scope), targets) {
 			return false, false
 		}
 	}

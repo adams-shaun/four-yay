@@ -41,63 +41,25 @@ var measuredLegalActionKinds = []string{
 
 // legalActionsPricedKinds parses the legal.go walk family -- the entry body
 // in legal.go (the one (*Engine) method that constructs the legalWalk
-// walker) plus every (*legalWalk) method in legal*.go, which the entry calls
-// in order -- and returns every option Kind the walk can emit: a
-// `Kind: "<lit>"` field of a composite literal, the literal first argument of
-// the walk's add(kind, ...) closure (the entry's local one and the sections'
-// legalWalk.add binding), and any `<x>.Kind = "<lit>"` assignment. A Kind the
-// walk computes (anything but the add closure's own `kind` parameter) fails
-// the test: the ratchet only works while every emitted kind is a literal it
-// can read.
+// walker), every (*legalWalk) method in legal*.go the entry calls, and the
+// free walk sections that take the walker as their first parameter
+// (plotZoneWalk, offBattlefieldGrantedWalk) -- and returns every option Kind
+// the walk can emit: a `Kind: "<lit>"` field of a composite literal, the
+// literal first argument of the walk's add(kind, ...) closure (the entry's
+// local one and the sections' legalWalk.add binding), and any
+// `<x>.Kind = "<lit>"` assignment. A Kind the walk computes (anything but the
+// add closure's own `kind` parameter) fails the test: the ratchet only works
+// while every emitted kind is a literal it can read.
 //
-// The family is matched by receiver type, not a *Walk name suffix: the walk
-// was split into *Walk sections (legal_walk*.go) and extracted helpers the
-// entry calls (manaSection and postWalkTail -- the quiet-seat serve's shared
-// code). A future helper must not be able to hide a new Kind behind a name
-// the ratchet does not expect.
+// The family is matched by receiver type (and, for free sections, by a
+// `*legalWalk` first parameter), not a *Walk name suffix: the walk was split
+// into *Walk sections (legal_walk*.go) and extracted helpers the entry calls
+// (manaSection and postWalkTail -- the quiet-seat serve's shared code). A
+// future helper must not be able to hide a new Kind behind a name the
+// ratchet does not expect.
 func legalActionsPricedKinds(t *testing.T) []string {
 	t.Helper()
-	files := sourceFilesUnder(t, ".", func(base string) bool { return strings.HasPrefix(base, "legal") })
-	if len(files) == 0 {
-		t.Fatal("no rules/legal*.go sources found")
-	}
-	fset := token.NewFileSet()
-	var bodies []*ast.BlockStmt
-	haveEntry := false
-	for _, name := range files {
-		f, perr := parser.ParseFile(fset, name, nil, 0)
-		if perr != nil {
-			t.Fatalf("parse rules/%s: %v", name, perr)
-		}
-		for _, d := range f.Decls {
-			fn, ok := d.(*ast.FuncDecl)
-			if !ok || fn.Body == nil || fn.Recv == nil {
-				continue
-			}
-			// legalActionsPriced delegates (legalActionsPriced ->
-			// legalActionsWalk -> the entry) to the method that constructs the
-			// legalWalk walker; its sections are every (*legalWalk) method the
-			// entry calls (legal_walk*.go and the extracted helpers). The
-			// entry is found by that construction, never by name, so a rename
-			// of any walk method leaves this ratchet untouched.
-			recvName := ""
-			if star, ok := fn.Recv.List[0].Type.(*ast.StarExpr); ok {
-				if id, ok := star.X.(*ast.Ident); ok {
-					recvName = id.Name
-				}
-			}
-			if recvName == "Engine" && constructsLegalWalk(fn.Body) {
-				bodies = append(bodies, fn.Body)
-				haveEntry = true
-			}
-			if recvName == "legalWalk" {
-				bodies = append(bodies, fn.Body)
-			}
-		}
-	}
-	if !haveEntry {
-		t.Fatal("rules/legal*.go has no (*Engine) method constructing legalWalk; the shared walk entry moved or was restructured -- update legalActionsPricedKinds' entry detection")
-	}
+	fset, bodies, _ := legalActionsPricedCollect(t)
 	seen := map[string]bool{}
 	lit := func(n ast.Expr, where string) {
 		switch v := n.(type) {
@@ -153,6 +115,99 @@ func legalActionsPricedKinds(t *testing.T) []string {
 	return out
 }
 
+// legalActionsPricedCollect is the collection pass legalActionsPricedKinds
+// and legalActionsPricedScanned share: it gathers the walk-family bodies
+// from rules/legal*.go and the names of the functions whose bodies it
+// collected, so both the vocabulary ratchet and its introspection test see
+// exactly one view of the walk.
+func legalActionsPricedCollect(t *testing.T) (*token.FileSet, []*ast.BlockStmt, []string) {
+	t.Helper()
+	files := sourceFilesUnder(t, ".", func(base string) bool { return strings.HasPrefix(base, "legal") })
+	if len(files) == 0 {
+		t.Fatal("no rules/legal*.go sources found")
+	}
+	fset := token.NewFileSet()
+	var bodies []*ast.BlockStmt
+	var scanned []string
+	haveEntry := false
+	record := func(fn *ast.FuncDecl) {
+		bodies = append(bodies, fn.Body)
+		scanned = append(scanned, fn.Name.Name)
+	}
+	for _, name := range files {
+		f, perr := parser.ParseFile(fset, name, nil, 0)
+		if perr != nil {
+			t.Fatalf("parse rules/%s: %v", name, perr)
+		}
+		for _, d := range f.Decls {
+			fn, ok := d.(*ast.FuncDecl)
+			if !ok || fn.Body == nil {
+				continue
+			}
+			// legalActionsPriced delegates (legalActionsPriced ->
+			// legalActionsWalk -> the entry) to the method that constructs the
+			// legalWalk walker; its sections are every (*legalWalk) method the
+			// entry calls (legal_walk*.go and the extracted helpers). The
+			// entry is found by that construction, never by name, so a rename
+			// of any walk method leaves this ratchet untouched.
+			if fn.Recv != nil {
+				recvName := ""
+				if star, ok := fn.Recv.List[0].Type.(*ast.StarExpr); ok {
+					if id, ok := star.X.(*ast.Ident); ok {
+						recvName = id.Name
+					}
+				}
+				if recvName == "Engine" && constructsLegalWalk(fn.Body) {
+					record(fn)
+					haveEntry = true
+				}
+				if recvName == "legalWalk" {
+					record(fn)
+				}
+				continue
+			}
+			// Free walk sections take the walker as their FIRST parameter
+			// (plotZoneWalk, offBattlefieldGrantedWalk and their private
+			// helpers). That shape is the section signature the quiet guard
+			// already recognises; it is kept tight so unrelated receiver-less
+			// helpers are not pulled into the Kind inspection.
+			if legalWalkFirstParam(fn.Type) {
+				record(fn)
+			}
+		}
+	}
+	if !haveEntry {
+		t.Fatal("rules/legal*.go has no (*Engine) method constructing legalWalk; the shared walk entry moved or was restructured -- update legalActionsPricedKinds' entry detection")
+	}
+	return fset, bodies, scanned
+}
+
+// legalActionsPricedScanned names the walk-family functions the ratchet's
+// collection pass covers. TestLegalActionsPricedKindsScansFreeWalkSections
+// uses it to pin the free walk sections into the scanned set: without the
+// free-section collection they are absent, and a Kind a future section emits
+// would be invisible to the vocabulary ratchet.
+func legalActionsPricedScanned(t *testing.T) []string {
+	t.Helper()
+	_, _, scanned := legalActionsPricedCollect(t)
+	sort.Strings(scanned)
+	return scanned
+}
+
+// legalWalkFirstParam reports whether fnType's first parameter's type is
+// *legalWalk -- the free-section signature.
+func legalWalkFirstParam(fnType *ast.FuncType) bool {
+	if fnType == nil || fnType.Params == nil || len(fnType.Params.List) == 0 {
+		return false
+	}
+	star, ok := fnType.Params.List[0].Type.(*ast.StarExpr)
+	if !ok {
+		return false
+	}
+	id, ok := star.X.(*ast.Ident)
+	return ok && id.Name == "legalWalk"
+}
+
 // constructsLegalWalk reports whether body contains a CompositeLit of type
 // legalWalk -- the shape of the ONE place the engine builds the shared walk
 // walker (rules/legal.go, the body legalActionsPriced delegates to). Matching
@@ -184,6 +239,26 @@ func TestPotentialActionsProjectsEveryPlayKind(t *testing.T) {
 	for _, k := range got {
 		if potentialPlayKind(k) == notAPlayKinds[k] {
 			t.Errorf("kind %q: projected=%v, never-a-play=%v -- every real play is projected, and only the tap, pass and concede are not", k, potentialPlayKind(k), notAPlayKinds[k])
+		}
+	}
+}
+
+// TestLegalActionsPricedKindsScansFreeWalkSections pins the ratchet's
+// coverage: the collection pass must see the free walk sections -- the
+// receiver-less functions in legal*.go whose first parameter is the
+// *legalWalk walker -- not only the (*legalWalk) methods and the entry.
+// Without that collection a Kind emitted only by a free section
+// (plotZoneWalk emits "cast" in mode "plot"; offBattlefieldGrantedWalk emits
+// "granted") would be invisible to the vocabulary ratchet.
+func TestLegalActionsPricedKindsScansFreeWalkSections(t *testing.T) {
+	t.Parallel()
+	names := legalActionsPricedScanned(t)
+	if len(names) == 0 {
+		t.Fatal("legalActionsPricedCollect scanned no walk-family function; the parser's file or decl loop is broken")
+	}
+	for _, want := range []string{"plotZoneWalk", "offBattlefieldGrantedWalk"} {
+		if !slices.Contains(names, want) {
+			t.Errorf("free walk section %s is not in the scanned set %v; a Kind it emits is invisible to legalActionsPricedKinds", want, names)
 		}
 	}
 }
