@@ -10,7 +10,7 @@ import (
 
 func castFamilySub(sub string) bool {
 	switch sub {
-	case "trigger.spell-cast-opponent", "trigger.spell-cast-opponent-turn", "trigger.spell-cast-self-cast", "trigger.commit-crime", "trigger.ability-activated":
+	case "trigger.spell-cast-opponent", "trigger.spell-cast-opponent-turn", "trigger.spell-cast-opponent-active", "trigger.spell-cast-self-cast", "trigger.commit-crime", "trigger.ability-activated":
 		return true
 	}
 	return false
@@ -64,6 +64,31 @@ func castFamilyRecipe(reg *cards.Registry, f *cards.Face, name string, t *cards.
 				// p1 holds priority first in its own main phase; one pass
 				// hands it to p0, where the cast step needs it.
 				steps: []oraclegen.Step{{Op: "pass_to", Step: "main1", Active: "p1"}, {Op: "pass", Seat: 1}, st},
+			}, true)
+		}
+	case "trigger.spell-cast-opponent-active":
+		// ValidActivatingPlayer$ Player.Opponent+Active ("whenever an
+		// opponent casts a spell during their turn", Unstable Glyphbridge's
+		// back face): the opponent casts during its OWN turn, so the cause
+		// passes to p1's main phase and p1 casts there. Unlike the
+		// opponent-turn cause above, no extra pass is needed: p1 holds
+		// priority first in its own main phase, and the cast step is p1's.
+		probes := []string{shockProbe, "Opt", "Swords to Plowshares", "Path to Exile"}
+		fp := newFilterProbe(t.ParamStr(cards.PKValidCard), state.ZStack)
+		probes = filterAcceptedFirst(reg, probes, fp)
+		for _, probe := range probes {
+			card, exists := reg.Lookup(probe)
+			if !exists || len(card.Faces) == 0 || !hasType(card.Faces[0], "Instant") {
+				continue
+			}
+			step, yes := castProbe(reg, probe)
+			if !yes {
+				continue
+			}
+			step.Seat, step.Card = 1, "p1:"+probe
+			add(triggerCause{
+				opponentHand: []string{probe},
+				steps:        []oraclegen.Step{{Op: "pass_to", Step: "main1", Active: "p1"}, step},
 			}, true)
 		}
 	case "trigger.spell-cast-self-cast":
