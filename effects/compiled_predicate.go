@@ -408,7 +408,15 @@ func matchesCompiledBase(base predicateBase, o *state.Object, sc *SpecContext) b
 		// spell on the stack (CR 109.2). The compiled sidecar and the text
 		// must not disagree.
 		matched = o.Face() != nil && o.Face().IsPermanent()
-	case predicateBaseSpell, predicateBaseSpellAbility:
+	case predicateBaseSpell:
+		// The textual oracle's twin (matchesCompiledBase's cbSpell arm in
+		// filter_compiled.go): the derived AsStack override makes the card a
+		// cast is announcing (or a may-play permission is offering) read as the
+		// spell it is while it is still in its origin zone, so a printed
+		// ValidAfterStack$ Spell.<...> grant is not refused by the compiled
+		// sidecar with a definite No.
+		matched = o.Zone == state.ZStack || sc.AsStack
+	case predicateBaseSpellAbility:
 		matched = o.Zone == state.ZStack
 	case predicateBaseType:
 		// hasTypeCtx, not hasType: the layer walk binds its types-so-far
