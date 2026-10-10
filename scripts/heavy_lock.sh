@@ -75,8 +75,11 @@
 # The child runs in its own process group (so it can be STOPped without
 # stopping the wrapper); the wrapper therefore FORWARDS INT/TERM/HUP to that
 # group (gorge_heavy_forward), or a Ctrl-C / `timeout` would orphan the job
-# with no lane. A SIGKILLed wrapper cannot: its child and supervisor keep
-# running, and the supervisor resumes a parked child when the bracket clears.
+# with no lane, and then RE-RAISES the signal on the caller once the job is
+# reaped and the lane released, so a sourcing caller dies (or runs its own trap)
+# exactly as it did before the wrapper existed. A SIGKILLed wrapper cannot: its
+# child and supervisor keep running, and the supervisor resumes a parked child
+# when the bracket clears.
 GORGE_HEAVY_LANES=${GORGE_HEAVY_LANES:-3}
 # The grace a gate bracket gets before a runner's child is STOPped, so a child
 # with its own checkpoint loop can park first. Its OWN knob, NOT heavy.sh's
@@ -207,14 +210,18 @@ gorge_heavy_forward() {
 # gorge_heavy_run and the `run` exec branch go through here. It closes fd 9
 # (the lane is this shell's until then) before returning.
 gorge_heavy_exec() {
-	local had_m=0 job="" supervisor="" rc pending="" old_traps
+	local had_m=0 job="" supervisor="" rc pending="" caught="" old_traps
 	case $- in *m*) had_m=1 ;; esac
 	old_traps=$(trap -p INT TERM HUP)
 	# Installed BEFORE the fork, so a signal in the gap is not lost: until the
-	# child exists the handler only records it.
-	trap 'if [ -n "$job" ]; then gorge_heavy_forward INT "$job" "$supervisor"; else pending=INT; fi' INT
-	trap 'if [ -n "$job" ]; then gorge_heavy_forward TERM "$job" "$supervisor"; else pending=TERM; fi' TERM
-	trap 'if [ -n "$job" ]; then gorge_heavy_forward HUP "$job" "$supervisor"; else pending=HUP; fi' HUP
+	# child exists the handler only records it. `caught` remembers the signal so
+	# it can be RE-RAISED on the caller below: these traps replace the caller's
+	# disposition, and a caller with no trap of its own (postmerge_batch.sh,
+	# sb-gauntlet.sh, m1b-distill.sh) must still die on `kill -TERM`, not carry
+	# on and misread the TERM-killed job as a failed suite.
+	trap 'caught=INT; if [ -n "$job" ]; then gorge_heavy_forward INT "$job" "$supervisor"; else pending=INT; fi' INT
+	trap 'caught=TERM; if [ -n "$job" ]; then gorge_heavy_forward TERM "$job" "$supervisor"; else pending=TERM; fi' TERM
+	trap 'caught=HUP; if [ -n "$job" ]; then gorge_heavy_forward HUP "$job" "$supervisor"; else pending=HUP; fi' HUP
 	# Background the child so a supervisor can STOP/continue its process group;
 	# job control gives it its own group (heavy.sh:176-182). The child never
 	# gets fd 9; the supervisor subshell keeps it (shared) so flock -u/-w move
@@ -239,6 +246,13 @@ gorge_heavy_exec() {
 	trap - INT TERM HUP
 	[ -z "$old_traps" ] || eval "$old_traps"
 	exec 9>&-
+	# Re-raise a signal this wrapper swallowed, now that the child is reaped, the
+	# lane is released and the caller's own traps are back: the default
+	# disposition (or the caller's trap) then runs exactly as it would have
+	# without the wrapper. BASHPID, not $$, so a `( ... gorge_heavy_run ... )`
+	# subshell dies rather than its parent. If the caller's trap returns (or it
+	# ignores the signal), carry on and return the child's status.
+	[ -z "$caught" ] || kill -s "$caught" "$BASHPID" 2>/dev/null || true
 	return $rc
 }
 

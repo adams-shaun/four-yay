@@ -42,6 +42,7 @@ cleanup() {
 	[ -z "${GYJOBPID:-}" ] || kill -KILL -- "-$GYJOBPID" 2>/dev/null
 	[ -z "${GQPID:-}" ] || kill -KILL "$GQPID" 2>/dev/null
 	[ -z "${GSJOBPID:-}" ] || kill -KILL -- "-$GSJOBPID" 2>/dev/null
+	[ -z "${CLJOBPID:-}" ] || kill -KILL -- "-$CLJOBPID" 2>/dev/null
 	for v in LPIDA LPIDB LPIDC LPIDD LPIDE; do
 		[ -z "${!v:-}" ] || kill -KILL "${!v}" 2>/dev/null
 	done
@@ -525,6 +526,72 @@ for case in "SIGINT 0 running" "SIGTERM 1 parked"; do
 	GSJOBPID=""
 done
 rm -f "$GORGE_REWARD_DIR/gate-active"
+
+# 7. a SOURCING caller (postmerge_batch.sh, sb-gauntlet.sh, m1b-distill.sh have
+# no INT/TERM/HUP trap) that is signalled mid-gorge_heavy_run must still DIE: the
+# wrapper's forwarding traps replace its default disposition, so the wrapper
+# re-raises the signal once the job is reaped. Pre-fix the caller swallowed the
+# TERM, returned the child's 143 and carried on (a false RED in postmerge).
+# Case 2 re-raises into a caller trap of its own, which must run and let the
+# caller continue. Python spawns the caller in a fresh session with default
+# signal dispositions (a bash `&` would start it with SIGINT ignored).
+cat >"$TMP/caller.sh" <<'CALLER'
+set -uo pipefail
+. "$HL/heavy_lock.sh"
+[ "${CALLER_TRAP:-0}" = 0 ] || trap 'echo CALLER-TRAP-RAN >>"$OUT"' TERM
+gorge_heavy_run "$JOBSH"
+echo "rc=$? CONTINUED" >>"$OUT"
+CALLER
+cat >"$TMP/callertest.py" <<'PY'
+import os, signal, subprocess, sys, time
+pf = os.environ["JOBPIDFILE"]
+p = subprocess.Popen(["bash", sys.argv[1]], start_new_session=True,
+                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+for _ in range(100):
+    if os.path.exists(pf) and os.path.getsize(pf) > 0:
+        break
+    time.sleep(0.1)
+time.sleep(0.5)
+os.kill(p.pid, signal.SIGTERM)  # the caller only, NOT its group
+try:
+    print(p.wait(timeout=15))
+except subprocess.TimeoutExpired:
+    os.killpg(p.pid, signal.SIGKILL)
+    print("timeout")
+PY
+for case in "0 dies" "1 trap"; do
+	set -- $case
+	rm -f "$TMP/clpid" "$TMP/clfd" "$TMP/cl.out"
+	: >"$TMP/clticks"
+	crc=$(HL=$S JOBSH=$TMP/job.sh OUT=$TMP/cl.out CALLER_TRAP=$1 \
+		TICKS=$TMP/clticks JOBPIDFILE=$TMP/clpid JOBFD=$TMP/clfd \
+		python3 -I "$TMP/callertest.py" "$TMP/caller.sh")
+	CLJOBPID=$(cat "$TMP/clpid" 2>/dev/null || true)
+	[ -n "$CLJOBPID" ] && [ "$(wc -l <"$TMP/clticks")" -gt 0 ]
+	check "precondition: the job ran under the sourcing caller ($2 case)" $? "caller rc=$crc"
+	if [ "$1" = 0 ]; then
+		# default disposition: the caller is killed by TERM, so it never runs
+		# the statement after gorge_heavy_run.
+		[ "$crc" = -15 ] && [ ! -e "$TMP/cl.out" ]
+		check "a TERMed sourcing caller dies instead of carrying on" $? \
+			"caller rc=$crc out=$(cat "$TMP/cl.out" 2>/dev/null)"
+	else
+		# the caller's own trap runs, then it continues with the child's status.
+		grep -qF CALLER-TRAP-RAN "$TMP/cl.out" && grep -qF CONTINUED "$TMP/cl.out"
+		check "a TERMed sourcing caller's own trap runs and it continues" $? \
+			"caller rc=$crc out=$(cat "$TMP/cl.out" 2>/dev/null)"
+	fi
+	dead=0
+	for _ in $(seq 30); do
+		kill -0 "$CLJOBPID" 2>/dev/null || { dead=1; break; }
+		sleep 0.1
+	done
+	[ "$dead" = 1 ]
+	check "TERM to a sourcing caller ($2 case) leaves no job behind" $? "job=$CLJOBPID"
+	[ "$dead" = 1 ] || kill -KILL -- "-$CLJOBPID" 2>/dev/null
+	flock -n "$GORGE_HEAVY_LOCK" -c true 2>/dev/null
+	check "the lane is free after the TERMed sourcing caller ($2 case)" $?
+done
 
 printf '\n%s failure(s)\n' "$fails"
 [ "$fails" = 0 ]
